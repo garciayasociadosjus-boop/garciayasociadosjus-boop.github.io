@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="es" class="notranslate" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Language" content="es">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" content="notranslate">
+  <title>Planilla Jurídica</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="notranslate" translate="no" data-page="juridica">
+  <header class="site-header">
+    <div class="brand">
+      <div class="logo">G&A</div>
+      <div class="titles">
+        <h1 class="notranslate" translate="no">Planilla Jurídica</h1>
+        <p class="muted">Gestión de casos legales</p>
+      </div>
+    </div>
+    <nav class="top-actions">
+      <a class="btn ghost" href="index.html">← Volver al portal</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Agregar nuevo caso (solo se guarda en este navegador)</h2>
+      <form id="form-nuevo" class="grid-form">
+        <div>
+          <label for="f_nombre">Nombre</label>
+          <input id="f_nombre" required>
+        </div>
+        <div>
+          <label for="f_dni">DNI</label>
+          <input id="f_dni">
+        </div>
+        <div>
+          <label for="f_caratula">Carátula</label>
+          <input id="f_caratula">
+        </div>
+        <div>
+          <label for="f_expediente">Expediente</label>
+          <input id="f_expediente">
+        </div>
+        <div>
+          <label for="f_juzgado">Juzgado</label>
+          <input id="f_juzgado">
+        </div>
+        <div>
+          <label for="f_estado">Estado</label>
+          <input id="f_estado" placeholder="p.ej. EN TRÁMITE">
+        </div>
+        <div class="full">
+          <label for="f_observacion">Observación</label>
+          <input id="f_observacion">
+        </div>
+        <div>
+          <label for="f_prox">Próxima revisión</label>
+          <input id="f_prox" type="date">
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Agregar caso</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Filtros</h2>
+      <div class="filters">
+        <input id="q" placeholder="Buscar (nombre, carátula, expediente, juzgado, estado)">
+        <select id="f_estado_sel">
+          <option value="">Todos los estados</option>
+        </select>
+        <div class="range">
+          <label for="f_desde">Fecha desde</label>
+          <input id="f_desde" type="date">
+        </div>
+        <div class="range">
+          <label for="f_hasta">Fecha hasta</label>
+          <input id="f_hasta" type="date">
+        </div>
+        <select id="f_prox_sel" title="Próximas revisiones">
+          <option value="">Todas las revisiones</option>
+          <option value="hoy">Hoy</option>
+          <option value="7">Próximos 7 días</option>
+          <option value="30">Próximos 30 días</option>
+          <option value="vencidas">Vencidas</option>
+        </select>
+        <div class="spacer"></div>
+        <button id="btn_export_json" class="btn ghost">Exportar JSON</button>
+        <button id="btn_export_csv" class="btn ghost">Exportar CSV</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table class="table notranslate" translate="no" aria-label="Tabla de casos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Nombre</th>
+              <th>DNI</th>
+              <th>Carátula</th>
+              <th>Expediente</th>
+              <th>Juzgado</th>
+              <th>Estado</th>
+              <th>Observación</th>
+              <th>Próxima revisión</th>
+              <th>Audiencias</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p id="msg" class="muted"></p>
+    </section>
+  </main>
+
+  <!-- Modal Observaciones -->
+  <dialog id="modal">
+    <form method="dialog" class="modal">
+      <header class="modal-header">
+        <h3>Observaciones</h3>
+        <button class="icon-btn" value="close" aria-label="Cerrar">✖</button>
+      </header>
+      <div class="modal-body">
+        <ul id="obs_list" class="obs-list"></ul>
+        <fieldset>
+          <legend>Agregar observación</legend>
+          <div class="grid-form">
+            <div>
+              <label for="obs_fecha">Fecha</label>
+              <input id="obs_fecha" type="date" required>
+            </div>
+            <div class="full">
+              <label for="obs_texto">Texto</label>
+              <textarea id="obs_texto" rows="3" required></textarea>
+            </div>
+            <div>
+              <label for="obs_prox">Próxima revisión</label>
+              <input id="obs_prox" type="date">
+            </div>
+            <div>
+              <label for="obs_done">Completada</label>
+              <input id="obs_done" type="checkbox">
+            </div>
+          </div>
+          <div class="actions right">
+            <button class="btn" id="obs_guardar" type="button">Guardar</button>
+          </div>
+        </fieldset>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="assets/app.js"></script>
+  <script>
+    enforceNotranslate();
+
+    const DATA_URL = 'datos_planilla_juridica.json';
+    const LS_ADDED_KEY = 'juridica:added:v1';
+    const LS_OBS_KEY = 'juridica:obs:v1';
+
+    let baseData = [];
+    let viewData = [];
+    let currentObsId = null;
+
+    const tbody = document.getElementById('tbody');
+    const msg = document.getElementById('msg');
+    const estadoSel = document.getElementById('f_estado_sel');
+    const q = document.getElementById('q');
+    const fDesde = document.getElementById('f_desde');
+    const fHasta = document.getElementById('f_hasta');
+    const fProxSel = document.getElementById('f_prox_sel');
+
+    // Carga de datos
+    fetch(DATA_URL)
+      .then(r => {
+        if (!r.ok) throw new Error('No se pudo cargar el archivo de datos.');
+        return r.json();
+      })
+      .then(data => {
+        baseData = Array.isArray(data) ? data : [];
+        renderEstados(baseData);
+        applyAndRender();
+      })
+      .catch(e => {
+        msg.textContent = 'Error cargando datos iniciales. Si el problema persiste, verifique GitHub Pages.';
+        console.error(e);
+        baseData = [];
+        applyAndRender();
+      });
+
+    function renderEstados(data) {
+      const set = new Set(
+        data.map(x => (x.estado || '').trim()).filter(Boolean)
+      );
+      getLocalAdded().forEach(x => set.add((x.estado || '').trim()));
+      estadoSel.innerHTML = '<option value="">Todos los estados</option>' +
+        Array.from(set).sort().map(s => `<option>${escapeHtml(s)}</option>`).join('');
+    }
+
+    function getLocalAdded() { return loadLSArray(LS_ADDED_KEY); }
+    function getLocalObsMap() { return loadLSMap(LS_OBS_KEY); }
+
+    function applyAndRender() {
+      const merged = mergeBaseWithLocal(baseData, getLocalAdded(), 'id');
+      // fusionar observaciones locales
+      const obsMap = getLocalObsMap();
+      merged.forEach(it => {
+        const baseObs = Array.isArray(it.observaciones) ? it.observaciones : [];
+        const localObs = obsMap[it.id] || [];
+        it._obsMerged = [...baseObs, ...localObs];
+      });
+
+      // filtros
+      const term = (q.value || '').toLowerCase();
+      const est = (estadoSel.value || '').toLowerCase();
+      const d1 = fDesde.value ? new Date(fDesde.value) : null;
+      const d2 = fHasta.value ? new Date(fHasta.value) : null;
+      const proxMode = fProxSel.value;
+
+      viewData = merged.filter(it => {
+        const hay = (s) => (s || '').toLowerCase().includes(term);
+        const passTerm = !term || [it.nombre, it.caratula, it.expediente, it.juzgado, it.estado].some(hay);
+        const passEst = !est || (it.estado || '').toLowerCase() === est;
+
+        // fecha (it.fecha)
+        const f = parseYmd(it.fecha);
+        const passFecha = (!d1 || (f && f >= d1)) && (!d2 || (f && f <= d2));
+
+        // próxima revisión
+        let passProx = true;
+        if (proxMode) {
+          const pr = parseYmd(it.proximaRevision || it.fechaRevision);
+          const today = truncDate(new Date());
+          if (!pr) {
+            passProx = false;
+          } else if (proxMode === 'hoy') {
+            passProx = sameDay(pr, today);
+          } else if (proxMode === '7' || proxMode === '30') {
+            const days = Number(proxMode);
+            const limit = addDays(today, days);
+            passProx = pr >= today && pr <= limit;
+          } else if (proxMode === 'vencidas') {
+            passProx = pr < today;
+          }
+        }
+
+        return passTerm && passEst && passFecha && passProx;
+      });
+
+      renderTable(viewData);
+      msg.textContent = `${viewData.length} resultado(s)`;
+    }
+
+    function renderTable(rows) {
+      tbody.innerHTML = rows.map(r => {
+        const prox = r.proximaRevision || r.fechaRevision || '';
+        const badge = statusBadge(prox);
+        return `
+          <tr>
+            <td>${escapeHtml(r.fecha || '')}</td>
+            <td>${escapeHtml(r.nombre || '')}</td>
+            <td>${escapeHtml(r.dni || '')}</td>
+            <td>${escapeHtml(r.caratula || '')}</td>
+            <td>${escapeHtml(r.expediente || '')}</td>
+            <td>${escapeHtml(r.juzgado || '')}</td>
+            <td>${escapeHtml(r.estado || '')}</td>
+            <td>${escapeHtml(r.observacion || '')}</td>
+            <td>${escapeHtml(prox)} ${badge}</td>
+            <td>${escapeHtml(r.audiencias || '')}</td>
+            <td><button class="btn small" data-obs="${r.id}">Ver/Agregar</button></td>
+          </tr>
+        `;
+      }).join('');
+      tbody.querySelectorAll('button[data-obs]').forEach(b => {
+        b.addEventListener('click', () => openObs(b.dataset.obs));
+      });
+    }
+
+    // Eventos filtros
+    [q, estadoSel, fDesde, fHasta, fProxSel].forEach(el => el.addEventListener('input', applyAndRender));
+
+    // Agregar caso
+    document.getElementById('form-nuevo').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const item = {
+        id: genId('JUR_'),
+        fecha: todayYmd(),
+        nombre: document.getElementById('f_nombre').value.trim(),
+        dni: document.getElementById('f_dni').value.trim(),
+        caratula: document.getElementById('f_caratula').value.trim(),
+        expediente: document.getElementById('f_expediente').value.trim(),
+        juzgado: document.getElementById('f_juzgado').value.trim(),
+        estado: document.getElementById('f_estado').value.trim(),
+        observacion: document.getElementById('f_observacion').value.trim(),
+        proximaRevision: document.getElementById('f_prox').value || ''
+      };
+      const added = getLocalAdded();
+      added.unshift(item);
+      saveLSArray(LS_ADDED_KEY, added);
+      renderEstados(baseData);
+      applyAndRender();
+      e.target.reset();
+    });
+
+    // Exportaciones
+    document.getElementById('btn_export_json').addEventListener('click', () => {
+      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
+      exportJSON('planilla_juridica.json', data);
+    });
+    document.getElementById('btn_export_csv').addEventListener('click', () => {
+      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
+      exportCSV('planilla_juridica.csv', data, {
+        fecha: 'Fecha',
+        nombre: 'Nombre',
+        dni: 'DNI',
+        caratula: 'Carátula',
+        expediente: 'Expediente',
+        juzgado: 'Juzgado',
+        estado: 'Estado',
+        observacion: 'Observación',
+        proximaRevision: 'Próxima revisión',
+        audiencias: 'Audiencias'
+      });
+    });
+
+    // Modal observaciones
+    const dlg = document.getElementById('modal');
+    const obsList = document.getElementById('obs_list');
+
+    function openObs(id) {
+      currentObsId = id;
+      const item = (viewData.find(x => x.id === id)) || {};
+      const list = item._obsMerged || [];
+      obsList.innerHTML = list.map(o => `
+        <li>
+          <div class="obs-head">
+            <strong>${escapeHtml(o.fecha || '')}</strong>
+            ${o.completed ? '<span class="chip done">Completado</span>' : '<span class="chip">Pendiente</span>'}
+            ${o.proximaRevision ? `<span class="chip">${escapeHtml(o.proximaRevision)}</span>` : ''}
+          </div>
+          <div class="obs-body">${escapeHtml(o.texto || '')}</div>
+        </li>
+      `).join('') || '<li class="muted">Sin observaciones</li>';
+
+      dlg.showModal();
+    }
+
+    document.getElementById('obs_guardar').addEventListener('click', () => {
+      if (!currentObsId) return;
+      const rec = {
+        id: genId('OBS_'),
+        fecha: document.getElementById('obs_fecha').value || todayYmd(),
+        texto: document.getElementById('obs_texto').value.trim(),
+        proximaRevision: document.getElementById('obs_prox').value || '',
+        completed: document.getElementById('obs_done').checked
+      };
+      if (!rec.texto) return;
+
+      const map = getLocalObsMap();
+      map[currentObsId] = map[currentObsId] || [];
+      map[currentObsId].unshift(rec);
+      saveLSMap(LS_OBS_KEY, map);
+      // refrescar
+      applyAndRender();
+      openObs(currentObsId);
+      // limpiar formulario
+      document.getElementById('obs_texto').value = '';
+      document.getElementById('obs_prox').value = '';
+      document.getElementById('obs_done').checked = false;
+    });
+  </script>
+</body>
+</html>
