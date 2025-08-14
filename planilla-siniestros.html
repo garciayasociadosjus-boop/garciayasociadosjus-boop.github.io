@@ -696,34 +696,78 @@ function triggerDocumentUpload(){
   up.click();
 }
 
-async function handleDocumentUpload(ev){
-  const file=ev.target.files[0];if(!file)return;
-  const list=document.getElementById('documentList');
-  list.innerHTML='<li>Subiendo...</li>';
-  try{
-    const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
-    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
-    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
-    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
-    const reader=new FileReader();
-    reader.onload=async e=>{
-      await uploadContent(e.target.result,file.name,file.type||'application/octet-stream',clientFolder,null);
-      showDocumentModal(currentSiniestroIdForDocs);
-    };
-    reader.readAsArrayBuffer(file);
-  }catch(e){
-    list.innerHTML='<li>Error en subida.</li>';
-    dlog('Upload error: '+e.message);
-  }
+async function handleDocumentUpload(ev) {
+    const file = ev.target.files[0];
+    if (!file) return;
+
+    const list = document.getElementById('documentList');
+    list.innerHTML = `<li>Subiendo ${file.name}...</li>`;
+    dlog(`Iniciando subida reanudable para ${file.name}`);
+
+    try {
+        const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
+        if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
+        const folderName = `${s.cliente.replace(/[\/\?%*:|"<>]/g, '-')} - Reclamo ${s.numeroReclamo || s.id.slice(-4)}`;
+        const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
+
+        const metadata = {
+            name: file.name,
+            parents: [clientFolder]
+        };
+
+        // Paso 1: Obtener la URL de subida reanudable
+        const initialResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+            method: 'POST',
+            headers: new Headers({
+                'Authorization': `Bearer ${gapi.client.getToken().access_token}`,
+                'Content-Type': 'application/json; charset=UTF-8'
+            }),
+            body: JSON.stringify(metadata)
+        });
+
+        if (!initialResponse.ok) {
+            throw new Error(`Error al iniciar la subida: ${initialResponse.statusText}`);
+        }
+
+        const locationUrl = initialResponse.headers.get('Location');
+        dlog(`URL de sesión obtenida: ${locationUrl}`);
+
+        // Paso 2: Subir el contenido del archivo a la URL
+        const uploadResponse = await fetch(locationUrl, {
+            method: 'PUT',
+            headers: new Headers({
+                'Content-Type': file.type || 'application/octet-stream'
+            }),
+            body: file
+        });
+        
+        if (!uploadResponse.ok) {
+            throw new Error(`Error al subir el archivo: ${uploadResponse.statusText}`);
+        }
+        
+        dlog(`Subida de ${file.name} completada.`);
+        await uploadResponse.json(); // Consumir el body de la respuesta
+
+        // Refrescar la lista de documentos
+        showDocumentModal(currentSiniestroIdForDocs);
+
+    } catch (e) {
+        list.innerHTML = '<li>❌ Error en subida. Revisa el log.</li>';
+        dlog('Error en subida reanudable: ' + e.message);
+        console.error(e);
+    }
 }
+
 
 async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
   const boundary='-------314159265358979323846';
   const meta={name:fileName,mimeType, ...(parentId&&{parents:[parentId]})};
-  const base64=content instanceof ArrayBuffer
-    ? btoa(String.fromCharCode(...new Uint8Array(content)))
-    : btoa(unescape(encodeURIComponent(content)));
+  
+  // Para el archivo de datos JSON, la codificación a base64 es segura
+  const base64 = btoa(unescape(encodeURIComponent(content)));
+
   const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
+  
   const req=gapi.client.request({
     path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',
     method:fileIdToUpdate?'PATCH':'POST',
