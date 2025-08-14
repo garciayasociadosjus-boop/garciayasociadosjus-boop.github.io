@@ -1,389 +1,741 @@
-<!doctype html>
-<html lang="es" class="notranslate" translate="no">
+<!DOCTYPE html>
+<html lang="es-AR">
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Language" content="es">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="google" content="notranslate">
-  <title>Planilla Siniestros</title>
-  <link rel="icon" href="activos/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="activos/style.css">
+<meta charset="UTF-8">
+<title>Planilla de Siniestros - García & Asociados</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto;background:#fff;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,.1);overflow:hidden}
+.header{background:linear-gradient(135deg,#2c3e50,#3498db);color:#fff;padding:30px;text-align:center}
+.header h1{font-size:2.4em;margin-bottom:8px}
+.main-content{padding:30px}
+.dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;margin-bottom:40px}
+.card{background:#fff;border-radius:12px;padding:25px;box-shadow:0 8px 25px rgba(0,0,0,.1);border:1px solid #e0e0e0;transition:.3s}
+.card:hover{transform:translateY(-5px);box-shadow:0 15px 35px rgba(0,0,0,.15)}
+.card h3{color:#2c3e50;margin-bottom:18px;font-size:1.2em;display:flex;gap:8px;align-items:center}
+.today-reviews{background:linear-gradient(135deg,#ff6b6b,#ee5a52);color:#fff}
+.overdue-reviews{background:linear-gradient(135deg,#f39c12,#e67e22);color:#fff}
+.pending-reviews{background:linear-gradient(135deg,#feca57,#ff9ff3);color:#fff}
+.btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:11px 22px;border-radius:8px;cursor:pointer;font-size:.95em;margin:5px;transition:.25s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(102,126,234,.4)}
+.btn-success{background:linear-gradient(135deg,#2ecc71,#27ae60)}
+.btn-info{background:linear-gradient(135deg,#3498db,#2980b9)}
+.btn-danger{background:linear-gradient(135deg,#e74c3c,#c0392b)}
+.btn-warning{background:linear-gradient(135deg,#f39c12,#e67e22)}
+.btn-sm{padding:6px 14px;font-size:.8em}
+.data-status{background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px;border-radius:8px;margin-bottom:15px;text-align:center;font-size:.9em}
+.filter-bar{background:#f8f9fa;padding:18px;border-radius:8px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.form-group label{display:block;font-weight:600;margin-bottom:6px;color:#2c3e50;font-size:.85em}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15)}
+.reviews-list{max-height:400px;overflow:auto}
+.review-item{background:#f8f9fa;border-left:4px solid #667eea;padding:14px;margin-bottom:9px;border-radius:0 8px 8px 0;display:flex;gap:10px;align-items:center;cursor:pointer;font-size:.82em}
+.review-item.completed{background:#f2fdf5;border-left-color:#2ecc71;opacity:.85}
+.review-item.today{border-left-color:#e74c3c}
+.review-item.overdue{border-left-color:#f39c12}
+.review-item:hover{background:#eef4ff}
+.review-date{font-weight:600;color:#2c3e50}
+.review-client{color:#667eea;font-weight:500;margin:4px 0}
+.review-obs{font-style:italic;color:#555}
+.complete-btn{background:#e0e0e0;border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
+.complete-btn:hover{background:#c7c7c7}
+.review-item.completed .complete-btn{background:#2ecc71;color:#fff}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000}
+.modal.active{display:flex;align-items:center;justify-content:center}
+.modal-content{background:#fff;border-radius:14px;padding:28px;max-width:900px;width:95%;max-height:90vh;overflow:auto}
+.close{float:right;font-size:26px;font-weight:700;color:#999;cursor:pointer;margin-top:-8px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.info-item{background:#fff;padding:10px;border-left:3px solid #667eea;border-radius:6px}
+.info-label{font-size:.65em;text-transform:uppercase;color:#666;font-weight:600;letter-spacing:.5px}
+.info-value{font-size:.85em;font-weight:500;color:#2c3e50;margin-top:2px;word-break:break-word}
+.editable-field{cursor:pointer}
+.editable-field:hover{background:#eef5ff;border-radius:4px}
+.obs-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:.78em}
+.obs-item.completed{opacity:.6}
+.obs-date{font-size:.7em;font-weight:600;color:#667eea;margin-bottom:4px}
+.obs-revision-date{color:#c0392b;font-size:.65em;margin-top:4px}
+.form-section{background:#f8f9fa;padding:16px;border:1px solid #e0e0e0;border-radius:10px;margin-top:16px}
+.action-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+.document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.8em}
+.document-list li{background:#f1f3f5;padding:8px 10px;border-radius:6px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.document-list a{color:#3498db;text-decoration:none;font-weight:500;flex:1;word-break:break-word}
+.document-list a:hover{text-decoration:underline}
+.inline-note{font-size:.65em;opacity:.7;margin-top:4px}
+#driveDebugLog{width:100%;height:140px;font:11px monospace;background:#111;color:#0f0;border:1px solid #444;border-radius:6px;padding:6px;resize:vertical;outline:none}
+@media (max-width:780px){
+  .reviews-list{max-height:300px}
+  .action-buttons .btn{flex:1 1 100%}
+}
+@media print{
+  body *{visibility:hidden}
+  .print-area,.print-area *{visibility:visible}
+  .print-area{position:absolute;left:0;top:0;width:100%;padding:20px}
+  .btn,.no-print{display:none!important}
+}
+</style>
 </head>
-<body class="notranslate" translate="no" data-page="siniestros">
-  <header class="site-header">
-    <div class="brand">
-      <div class="logo">G&A</div>
-      <div class="titles">
-        <h1 class="notranslate" translate="no">Planilla Siniestros</h1>
-        <p class="muted">Gestión de reclamos de seguros</p>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏥 Planilla de Siniestros</h1>
+    <p>García & Asociados</p>
+  </div>
+
+  <div class="main-content">
+    <div id="dataStatus" class="data-status">Cargando datos...</div>
+    <div id="driveStatus" class="data-status" style="display:none;"></div>
+
+    <div class="dashboard">
+      <div class="card today-reviews">
+        <h3>Revisiones de Hoy</h3>
+        <div class="reviews-list" id="todayReviews"></div>
+      </div>
+      <div class="card overdue-reviews">
+        <h3>Revisiones Vencidas</h3>
+        <div class="reviews-list" id="overdueReviews"></div>
+      </div>
+      <div class="card pending-reviews">
+        <h3>Próximas Revisiones</h3>
+        <div class="reviews-list" id="upcomingReviews"></div>
       </div>
     </div>
-    <nav class="top-actions">
-      <a class="btn ghost" href="index.html">← Volver al portal</a>
-    </nav>
-  </header>
 
-  <main class="container">
-    <section class="card">
-      <h2>Agregar nuevo reclamo (solo se guarda en este navegador)</h2>
-      <form id="form-nuevo" class="grid-form">
-        <div>
-          <label for="f_cliente">Cliente</label>
-          <input id="f_cliente" required>
-        </div>
-        <div>
-          <label for="f_dni">DNI</label>
-          <input id="f_dni">
-        </div>
-        <div>
-          <label for="f_estado">Estado</label>
-          <input id="f_estado" placeholder="p.ej. EN GESTIÓN">
-        </div>
-        <div>
-          <label for="f_asegurado">Asegurado en</label>
-          <input id="f_asegurado">
-        </div>
-        <div>
-          <label for="f_contra">Contra</label>
-          <input id="f_contra">
-        </div>
-        <div>
-          <label for="f_num">N° Reclamo</label>
-          <input id="f_num">
-        </div>
-        <div>
-          <label for="f_presupuesto">Presupuesto</label>
-          <input id="f_presupuesto" inputmode="numeric">
-        </div>
-        <div>
-          <label for="f_indemnizacion">Indemnización</label>
-          <input id="f_indemnizacion" inputmode="numeric">
-        </div>
-        <div>
-          <label for="f_honorarios">Honorarios</label>
-          <input id="f_honorarios" inputmode="numeric">
-        </div>
-        <div class="full">
-          <label for="f_observacion">Observación</label>
-          <input id="f_observacion">
-        </div>
-        <div>
-          <label for="f_prox">Próxima revisión</label>
-          <input id="f_prox" type="date">
-        </div>
-        <div class="actions">
-          <button class="btn" type="submit">Agregar reclamo</button>
-        </div>
-      </form>
-    </section>
+    <div style="text-align:center;margin-bottom:26px;">
+      <button class="btn btn-success" onclick="showNewSiniestroModal()">➕ Agregar Siniestro</button>
+      <button class="btn" onclick="showSiniestroSelectorModal()">👁️ Ver/Editar Siniestro</button>
+      <button class="btn" onclick="exportToExcel()">📊 Excel</button>
+      <button class="btn" onclick="exportData()">💾 Exportar JSON</button>
+      <button class="btn btn-warning" onclick="importData()">📥 Importar JSON</button>
+    </div>
 
-    <section class="card">
-      <h2>Filtros</h2>
-      <div class="filters">
-        <input id="q" placeholder="Buscar (cliente, estado, aseguradora, contra, número)">
-        <select id="f_estado_sel">
-          <option value="">Todos los estados</option>
+    <div style="text-align:center;border-top:1px solid #ddd;padding-top:18px;margin-bottom:25px;">
+      <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
+      <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
+      <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+      <div class="inline-note">Abrir este archivo como http://localhost/... (no file://)</div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="form-group">
+        <label>Búsqueda General</label>
+        <input type="text" id="searchInput" placeholder="Cliente, DNI, reclamo..." onkeyup="renderAllSiniestrosList()">
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="estadoFilter" onchange="renderAllSiniestrosList()">
+          <option value="">Todos</option>
+          <option value="RECHAZADO">Rechazado</option>
+          <option value="FINALIZADA">Finalizada</option>
+            <option value="FINALIZADA P">Finalizada P</option>
+          <option value="EJECUCION">Ejecución</option>
+          <option value="DEMORADA">Demorada</option>
         </select>
-        <input id="f_aseg_sel" placeholder="Filtrar por aseguradora">
-        <div class="range">
-          <label for="f_desde">Fecha desde</label>
-          <input id="f_desde" type="date">
-        </div>
-        <div class="range">
-          <label for="f_hasta">Fecha hasta</label>
-          <input id="f_hasta" type="date">
-        </div>
-        <select id="f_prox_sel" title="Próximas revisiones">
-          <option value="">Todas las revisiones</option>
-          <option value="hoy">Hoy</option>
-          <option value="7">Próximos 7 días</option>
-          <option value="30">Próximos 30 días</option>
-          <option value="vencidas">Vencidas</option>
-        </select>
-        <div class="spacer"></div>
-        <button id="btn_export_json" class="btn ghost">Exportar JSON</button>
-        <button id="btn_export_csv" class="btn ghost">Exportar CSV</button>
       </div>
-    </section>
+    </div>
 
-    <section class="card">
-      <div class="table-wrap">
-        <table class="table notranslate" translate="no" aria-label="Tabla de siniestros">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>DNI</th>
-              <th>Estado</th>
-              <th>Asegurado en</th>
-              <th>Contra</th>
-              <th>N° Reclamo</th>
-              <th>Presupuesto</th>
-              <th>Indemnización</th>
-              <th>Honorarios</th>
-              <th>Observación</th>
-              <th>Próxima revisión</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-      <p id="msg" class="muted"></p>
-    </section>
-  </main>
+    <div class="card">
+      <h3>📋 Todos los Siniestros</h3>
+      <div id="allSiniestros" class="reviews-list" style="max-height:580px;"></div>
+    </div>
 
-  <!-- Modal Observaciones -->
-  <dialog id="modal">
-    <form method="dialog" class="modal">
-      <header class="modal-header">
-        <h3>Observaciones</h3>
-        <button class="icon-btn" value="close" aria-label="Cerrar">✖</button>
-      </header>
-      <div class="modal-body">
-        <ul id="obs_list" class="obs-list"></ul>
-        <fieldset>
-          <legend>Agregar observación</legend>
-          <div class="grid-form">
-            <div>
-              <label for="obs_fecha">Fecha</label>
-              <input id="obs_fecha" type="date" required>
-            </div>
-            <div class="full">
-              <label for="obs_texto">Texto</label>
-              <textarea id="obs_texto" rows="3" required></textarea>
-            </div>
-            <div>
-              <label for="obs_prox">Próxima revisión</label>
-              <input id="obs_prox" type="date">
-            </div>
-            <div>
-              <label for="obs_done">Completada</label>
-              <input id="obs_done" type="checkbox">
-            </div>
-          </div>
-          <div class="actions right">
-            <button class="btn" id="obs_guardar" type="button">Guardar</button>
-          </div>
-        </fieldset>
+    <!-- LOG DEBUG DRIVE (puedes ocultarlo si no lo querés) -->
+    <div style="margin-top:25px;">
+      <label style="font:11px monospace;color:#333;">LOG DRIVE</label>
+      <textarea id="driveDebugLog" readonly></textarea>
+    </div>
+
+  </div>
+</div>
+
+<input type="file" id="importInput" accept=".json" style="display:none" onchange="handleImport(event)">
+<input type="file" id="documentUploadInput" style="display:none">
+
+<!-- Modales -->
+<div id="newSiniestroModal" class="modal"><div class="modal-content"></div></div>
+<div id="siniestroSelectorModal" class="modal"><div class="modal-content"></div></div>
+<div id="siniestroInfoModal" class="modal"><div class="modal-content"></div></div>
+<div id="documentModal" class="modal"><div class="modal-content"></div></div>
+
+<script>
+/* ================== DATOS LOCALES Y UI ================== */
+const initialData=[{"id":"SINIESTRO_1_1735933845000","fecha":"","cliente":"GONCALVES BEATRIZ","dni":"22108382","celular":"1164233680","aseguradoEn":"RIVADAVIA","contra":"ORBIS","numeroReclamo":"232644","observacion":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1140000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_1","fecha":"2025-04-30","texto":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_2_1735933845001","fecha":"2025-05-06","cliente":"GRANADO MIGUEL ANGEL","dni":"21543471","celular":"1173653571","aseguradoEn":"COPAN","contra":"ZURICH","numeroReclamo":"0","observacion":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":285999.99,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_2","fecha":"2025-05-20","texto":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_3_1735933845002","fecha":"","cliente":"SILGUEIRO VICTOR","dni":"34566518","celular":"","aseguradoEn":"FEDERACION","contra":"LA CAJA","numeroReclamo":"54000113645","observacion":"SE FUE CON NEMESIS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1074000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_3","fecha":"2025-05-26","texto":"SE FUE CON NEMESIS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_4_1735933845003","fecha":"","cliente":"GALEPPI SUSANA","dni":"11130200","celular":"1151388650","aseguradoEn":"GALENO","contra":"SAN CRISTÓBAL","numeroReclamo":"UC368744","observacion":"NO HIZO LA DENUECIA LE 3RO","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":530000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_4","fecha":"2025-05-26","texto":"NO HIZO LA DENUECIA LE 3RO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_5_1735933845004","fecha":"2025-04-01","cliente":"ALVAREZ CLAUDIA","dni":"28456789","celular":"1145678901","aseguradoEn":"COPAN","contra":"FEDERACION","numeroReclamo":"CP2025001","observacion":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","fechaRevision":"2025-05-01","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":890000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_5","fecha":"2025-04-15","texto":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","proximaRevision":"2025-05-01","completed":false}]},{"id":"SINIESTRO_6_1735933845005","fecha":"2024-12-15","cliente":"RODRIGUEZ MARIA","dni":"32567890","celular":"1156789012","aseguradoEn":"FEDERACION","contra":"SANCOR","numeroReclamo":"FED2024089","observacion":"CASO FINALIZADO CON ACUERDO TOTAL","fechaRevision":"","estado":"FINALIZADA","acuerdo":"SI","fechaPago":"2025-01-15","presupuesto":1250000,"indemnizacion":1250000,"honorarios":187500,"factura":"SI","observaciones":[{"id":"obs_6","fecha":"2025-01-10","texto":"CASO FINALIZADO CON ACUERDO TOTAL","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_7_1735933845006","fecha":"2024-11-20","cliente":"MARTINEZ CARLOS","dni":"29345678","celular":"1167890123","aseguradoEn":"RIVADAVIA","contra":"ZURICH","numeroReclamo":"RIV2024045","observacion":"FINALIZADO CON PAGO PARCIAL ACORDADO","fechaRevision":"","estado":"FINALIZADA P","acuerdo":"SI","fechaPago":"2024-12-25","presupuesto":2100000,"indemnizacion":1575000,"honorarios":236250,"factura":"SI","observaciones":[{"id":"obs_7","fecha":"2024-12-20","texto":"FINALIZADO CON PAGO PARCIAL ACORDADO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_8_1735933845007","fecha":"2025-01-10","cliente":"LOPEZ PATRICIA","dni":"30456789","celular":"1178901234","aseguradoEn":"COPAN","contra":"LA CAJA","numeroReclamo":"CP2025002","observacion":"DOCUMENTACION ADICIONAL SOLICITADA","fechaRevision":"2025-03-01","estado":"DEMORADA","acuerdo":"","fechaPago":"","presupuesto":675000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_8","fecha":"2025-02-01","texto":"DOCUMENTACION ADICIONAL SOLICITADA","proximaRevision":"2025-03-01","completed":false}]},{"id":"SINIESTRO_9_1735933845008","fecha":"2024-10-15","cliente":"GARCIA FERNANDO","dni":"31567890","celular":"1189012345","aseguradoEn":"FEDERACION","contra":"ORBIS","numeroReclamo":"FED2024067","observacion":"PERITAJE FAVORABLE, EN LIQUIDACION","fechaRevision":"2025-01-15","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":1450000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_9","fecha":"2024-11-30","texto":"PERITAJE FAVORABLE, EN LIQUIDACION","proximaRevision":"2025-01-15","completed":false}]},{"id":"SINIESTRO_10_1735933845009","fecha":"2024-09-05","cliente":"FERNANDEZ ANA","dni":"27890123","celular":"1190123456","aseguradoEn":"RIVADAVIA","contra":"SANCOR","numeroReclamo":"RIV2024034","observacion":"RECHAZADO POR FALTA DE COBERTURA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":820000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_10","fecha":"2024-10-15","texto":"RECHAZADO POR FALTA DE COBERTURA","proximaRevision":"","completed":true}]}];
+
+let siniestrosData=[];
+let editingSiniestroId=null,editingField=null;
+
+function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados');}
+function loadData(){
+  const saved=localStorage.getItem('planilla_siniestros_data');
+  let data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(initialData));
+  siniestrosData=sanitizeData(data);
+  if(!saved) saveData();
+  updateDataStatus(saved?'✅ Datos cargados':'📋 Datos iniciales listos');
+}
+function sanitizeData(data){
+  (data||[]).forEach(s=>{
+    if(!s.id) s.id=generateId(s);
+    if(!Array.isArray(s.observaciones)) s.observaciones=[];
+    s.observaciones.forEach(o=>{
+      if(!o.id) o.id=generateId({});
+      if(typeof o.completed==='undefined') o.completed=false;
+    });
+    updateSiniestroNextRevision(s);
+  });
+  return data;
+}
+function updateDataStatus(msg,err=false){
+  const el=document.getElementById('dataStatus');
+  el.textContent=msg;
+  el.style.background=err?'#f8d7da':'#d4edda';
+  el.style.color=err?'#721c24':'#155724';
+}
+function getTodayYMD(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+const todayYMD=getTodayYMD();
+function formatDate(d){if(!d) return 'No definida';const [y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+function isToday(d){return d&&d===todayYMD}
+function isPastDue(d){return d&&d<todayYMD}
+function getDaysDifference(d){if(!d) return 999;return Math.ceil((new Date(d)-new Date(todayYMD))/86400000)}
+function generateId(it){return `SIN_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1000)}`}
+function getDisplayName(s){return `${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado})`}
+function formatCurrency(v){if(v===null||v===undefined||v==='') return 'S/D';return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v)}
+
+function updateSiniestroNextRevision(s){
+  const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+  if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;}
+  else {s.fechaRevision='';s.observacion='No hay tareas pendientes';}
+}
+
+function toggleCompleted(e,sid,oid){
+  e.stopPropagation();
+  const s=siniestrosData.find(x=>x.id===sid);
+  const o=s.observaciones.find(y=>y.id===oid);
+  o.completed=!o.completed;
+  updateSiniestroNextRevision(s);
+  saveData();renderAll();
+}
+
+function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderDashboardLists();renderAllSiniestrosList();}
+
+function renderDashboardLists(){
+  const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).map(o=>({...o,siniestro:s})));
+  const today=tasks.filter(t=>!t.completed&&isToday(t.proximaRevision));
+  const overdue=tasks.filter(t=>!t.completed&&isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+  const upcoming=tasks.filter(t=>!t.completed&&getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+  renderReviewList('todayReviews',today,'No hay revisiones hoy','today');
+  renderReviewList('overdueReviews',overdue,'No hay vencidas','overdue');
+  renderReviewList('upcomingReviews',upcoming,'No hay próximas','upcoming');
+}
+
+function renderReviewList(id,tasks,empty,type){
+  const c=document.getElementById(id);
+  if(!tasks.length){c.innerHTML=`<p style="opacity:.85;">${empty}</p>`;return;}
+  c.innerHTML=tasks.map(t=>{
+    let info='';
+    if(type==='today') info='HOY';
+    else if(type==='overdue') info=`VENCIDA - ${formatDate(t.proximaRevision)}`;
+    else info=`En ${getDaysDifference(t.proximaRevision)} días - ${formatDate(t.proximaRevision)}`;
+    return `<div class="review-item">
+      <button class="complete-btn" onclick="toggleCompleted(event,'${t.siniestro.id}','${t.id}')">✔</button>
+      <div class="review-item-content" onclick="showSiniestroModal('${t.siniestro.id}')">
+        <div class="review-date">${info}</div>
+        <div class="review-client">${t.siniestro.cliente}</div>
+        <div class="review-obs">${t.texto}</div>
       </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAllSiniestrosList(){
+  const sterm=document.getElementById('searchInput').value.toLowerCase();
+  const estado=document.getElementById('estadoFilter').value;
+  const filtrados=siniestrosData.filter(s=>{
+    const matchS=!sterm||Object.values(s).some(v=>String(v).toLowerCase().includes(sterm));
+    const matchE=!estado||s.estado===estado;
+    return matchS&&matchE;
+  }).sort((a,b)=>(a.fechaRevision||'9999').localeCompare(b.fechaRevision||'9999'));
+  document.getElementById('allSiniestros').innerHTML=filtrados.length?filtrados.map(s=>{
+    const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision);
+    const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
+    return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
+      <div class="review-item-content">
+        <div class="review-date">Próx: ${formatDate(s.fechaRevision)}</div>
+        <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div>
+        <div class="review-obs">${s.observacion}</div>
+      </div>
+    </div>`;
+  }).join(''):'<p>No se encontraron siniestros.</p>';
+}
+
+function showNewSiniestroModal(){document.getElementById('newSiniestroModal').classList.add('active')}
+function showSiniestroSelectorModal(){
+  const sel=document.getElementById('siniestroSelector');
+  sel.innerHTML='<option value="">-- Seleccionar --</option>' + [...siniestrosData].sort((a,b)=>a.cliente.localeCompare(b.cliente))
+    .map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('');
+  document.getElementById('siniestroSelectorModal').classList.add('active');
+}
+function loadSiniestroInfo(){const id=document.getElementById('siniestroSelector').value;if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);}}
+function closeModal(id){document.getElementById(id).classList.remove('active');editingSiniestroId=null;editingField=null;}
+
+function showSiniestroModal(id){
+  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
+  updateSiniestroNextRevision(s);
+  const html=`
+    <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span>
+    <h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
+    <div class="info-grid">
+      ${Object.entries({
+        cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',
+        aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',
+        presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',
+        acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'
+      }).map(([k,l])=>`
+        <div class="info-item">
+          <div class="info-label">${l}</div>
+          <div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}','${String(s[k]||'').replace(/'/g,'&#39;')}')">
+            ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}
+          </div>
+        </div>`).join('')}
+      <div class="info-item">
+        <div class="info-label">Próxima Tarea</div>
+        <div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div>
+      </div>
+    </div>
+    <div style="margin-top:18px;">
+      <h4 style="margin-bottom:8px;font-size:.9em;">Historial de Tareas</h4>
+      <div id="obs-list-${s.id}" style="max-height:230px;overflow:auto;">
+        ${renderObsList(s)}
+      </div>
+    </div>
+    <form class="form-section" onsubmit="addObservation(event,'${s.id}')">
+      <h4 style="margin:0 0 10px;font-size:.9em;">➕ Agregar Tarea</h4>
+      <div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div>
+      <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+      <button class="btn btn-success" type="submit">Guardar</button>
     </form>
-  </dialog>
+    <div class="action-buttons">
+      <button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button>
+      <button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button>
+      <button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button>
+      <button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button>
+    </div>`;
+  const m=document.getElementById('siniestroInfoModal');
+  m.querySelector('.modal-content').innerHTML=html;
+  m.classList.add('active');
+}
 
-  <script src="activos/app.js"></script>
-  <script>
-    enforceNotranslate();
+function renderObsList(s){
+  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>{
+    const highlight=o.proximaRevision===s.fechaRevision && !o.completed;
+    return `<div class="obs-item ${o.completed?'completed':''}" style="${highlight?'border-left-color:#e74c3c;':''}" id="obs-item-${o.id}">
+      <div class="obs-date">Creación: ${formatDate(o.fecha)}</div>
+      <div class="obs-text">${o.texto}</div>
+      <div class="obs-revision-date">Revisión: ${formatDate(o.proximaRevision)}</div>
+      <div style="margin-top:6px;display:flex;gap:6px;">
+        <button class="btn btn-sm" onclick="editObs('${s.id}','${o.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteObs('${s.id}','${o.id}')">Eliminar</button>
+      </div>
+    </div>`;
+  }).join(''):'<p style="font-size:.75em;">Sin tareas.</p>';
+}
 
-    const DATA_URL = 'datos_planilla_siniestros.json';
-    const LS_ADDED_KEY = 'siniestros:added:v1';
-    const LS_OBS_KEY = 'siniestros:obs:v1';
+function renderObsListForPrint(s){
+  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>`
+    <div class="obs-item">
+      <div class="obs-date"><b>Creación:</b> ${formatDate(o.fecha)}</div>
+      <div class="obs-text"><b>Obs:</b> ${o.texto}</div>
+      <div class="obs-revision-date"><b>Revisión:</b> ${formatDate(o.proximaRevision)}</div>
+      <div><b>Estado:</b> ${o.completed?'Completada':'Pendiente'}</div>
+    </div>`).join(''):'<p>No hay tareas.</p>';
+}
 
-    let baseData = [];
-    let viewData = [];
-    let currentObsId = null;
+function editObs(sid,oid){
+  const s=siniestrosData.find(x=>x.id===sid);
+  const o=s.observaciones.find(k=>k.id===oid);
+  const el=document.getElementById(`obs-item-${oid}`);
+  el.innerHTML=`
+    <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${oid}" rows="2">${o.texto}</textarea></div>
+    <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${oid}" value="${o.proximaRevision}"></div>
+    <button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${oid}')">Guardar</button>
+    <button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
+}
 
-    const tbody = document.getElementById('tbody');
-    const msg = document.getElementById('msg');
-    const estadoSel = document.getElementById('f_estado_sel');
-    const asegSel = document.getElementById('f_aseg_sel');
-    const q = document.getElementById('q');
-    const fDesde = document.getElementById('f_desde');
-    const fHasta = document.getElementById('f_hasta');
-    const fProxSel = document.getElementById('f_prox_sel');
+function saveObs(sid,oid){
+  const s=siniestrosData.find(x=>x.id===sid);
+  const o=s.observaciones.find(k=>k.id===oid);
+  o.texto=document.getElementById(`edit-obs-text-${oid}`).value;
+  o.proximaRevision=document.getElementById(`edit-obs-revision-${oid}`).value;
+  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
+}
+function deleteObs(sid,oid){
+  if(!confirm('¿Eliminar tarea?'))return;
+  const s=siniestrosData.find(x=>x.id===sid);
+  s.observaciones=s.observaciones.filter(o=>o.id!==oid);
+  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
+}
 
-    fetch(DATA_URL)
-      .then(r => {
-        if (!r.ok) throw new Error('No se pudo cargar el archivo de datos.');
-        return r.json();
-      })
-      .then(data => {
-        baseData = Array.isArray(data) ? data : [];
-        renderEstados(baseData);
-        applyAndRender();
-      })
-      .catch(e => {
-        msg.textContent = 'Error cargando datos iniciales. Si el problema persiste, verifique GitHub Pages.';
-        console.error(e);
-        baseData = [];
-        applyAndRender();
-      });
+function editField(sid,field,val){
+  editingSiniestroId=sid;editingField=field;
+  const wrapper=document.getElementById(`field-${field}`);
+  const input=document.createElement('input');
+  input.type=/presupuesto|indemnizacion|honorarios|dni/.test(field)?'number':'text';
+  input.value=val;
+  wrapper.innerHTML='';wrapper.appendChild(input);input.focus();
+  input.addEventListener('blur',saveField);
+  input.addEventListener('keypress',e=>{if(e.key==='Enter')saveField();});
+}
+function saveField(){
+  if(!editingSiniestroId||!editingField)return;
+  const s=siniestrosData.find(x=>x.id===editingSiniestroId);
+  const input=document.getElementById(`field-${editingField}`).querySelector('input');
+  s[editingField]=input.value;
+  saveData();renderAll();showSiniestroModal(editingSiniestroId);
+  editingSiniestroId=null;editingField=null;
+}
+function deleteSiniestro(id){
+  if(!confirm('¿Eliminar siniestro?'))return;
+  siniestrosData=siniestrosData.filter(s=>s.id!==id);
+  saveData();renderAll();closeModal('siniestroInfoModal');
+}
 
-    function renderEstados(data) {
-      const set = new Set(
-        data.map(x => (x.estado || '').trim()).filter(Boolean)
-      );
-      getLocalAdded().forEach(x => set.add((x.estado || '').trim()));
-      estadoSel.innerHTML = '<option value="">Todos los estados</option>' +
-        Array.from(set).sort().map(s => `<option>${escapeHtml(s)}</option>`).join('');
+function addObservation(e,sid){
+  e.preventDefault();
+  const s=siniestrosData.find(x=>x.id===sid);
+  s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false});
+  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
+}
+
+function exportToExcel(){
+  const rows=siniestrosData.map(s=>{
+    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}): ${o.texto}`).join(' | ');
+    return {'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular,'Estado':s.estado,'Asegurado En':s.aseguradoEn,'Contra':s.contra,'N° Reclamo':s.numeroReclamo,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Historial':hist};
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
+}
+function exportData(){
+  const data=JSON.stringify(siniestrosData,null,2);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download=`siniestros_${todayYMD}.json`;
+  a.click();
+}
+function importData(){document.getElementById('importInput').click();}
+function handleImport(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const imp=JSON.parse(e.target.result);
+      if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros?`)){
+        siniestrosData=sanitizeData(imp);saveData();renderAll();
+      }
+    }catch(err){alert('Error al importar');}
+  };
+  r.readAsText(f);ev.target.value='';
+}
+
+function printFicha(id){
+  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
+  const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3>
+  <div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;
+  const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
+}
+function printHistorial(id){
+  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
+  const hist=renderObsListForPrint(s);
+  const html=`<div class="print-area"><h2>Historial de Observaciones</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;
+  const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  // Modal nuevo siniestro
+  document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
+    <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span>
+    <h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
+    <form id="newSiniestroForm">
+      <div class="info-grid">
+        <div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div>
+        <div class="form-group"><label>DNI</label><input id="newDni" type="number"></div>
+        <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
+        <div class="form-group"><label>Estado *</label><select id="newEstado" required>
+           <option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option>
+           <option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option>
+        </select></div>
+        <div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div>
+        <div class="form-group"><label>Contra</label><input id="newContra"></div>
+        <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div>
+        <div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
+      <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
+      <div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div>
+    </form>`;
+  document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`
+    <span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span>
+    <h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2>
+    <div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
+  document.getElementById('documentModal').querySelector('.modal-content').innerHTML=`
+    <span class="close" onclick="closeModal('documentModal')">&times;</span>
+    <h2 id="documentModalTitle" style="margin-bottom:12px;"></h2>
+    <ul id="documentList" class="document-list"></ul>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn btn-info" onclick="triggerDocumentUpload()">➕ Subir Documento</button>
+    </div>`;
+
+  document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const n={
+      id:generateId({}),
+      cliente:document.getElementById('newCliente').value.toUpperCase(),
+      dni:document.getElementById('newDni').value,
+      celular:document.getElementById('newCelular').value,
+      estado:document.getElementById('newEstado').value,
+      aseguradoEn:document.getElementById('newAseguradoEn').value.toUpperCase(),
+      contra:document.getElementById('newContra').value.toUpperCase(),
+      numeroReclamo:document.getElementById('newNumeroReclamo').value,
+      presupuesto:document.getElementById('newPresupuesto').value,
+      observaciones:[]
+    };
+    const txt=document.getElementById('newObservacion').value;
+    const rev=document.getElementById('newFechaRevision').value;
+    if(txt&&rev){
+      n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false});
     }
+    updateSiniestroNextRevision(n);
+    siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
+  });
 
-    function getLocalAdded() { return loadLSArray(LS_ADDED_KEY); }
-    function getLocalObsMap() { return loadLSMap(LS_OBS_KEY); }
+  loadData();
+  renderAll();
+});
+window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
+</script>
 
-    function applyAndRender() {
-      const merged = mergeBaseWithLocal(baseData, getLocalAdded(), 'id');
-      const obsMap = getLocalObsMap();
-      merged.forEach(it => {
-        const baseObs = Array.isArray(it.observaciones) ? it.observaciones : [];
-        const localObs = obsMap[it.id] || [];
-        it._obsMerged = [...baseObs, ...localObs];
-      });
+<!-- ================== GOOGLE DRIVE SCRIPTS ================== -->
+<script>
+/* ============= CONFIG ============= */
+const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+const GD_DISCOVERY='https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const GD_SCOPES='https://www.googleapis.com/auth/drive.file';
+const GD_DATA_FILE='datos_planilla_siniestros.json';
+const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
 
-      const term = (q.value || '').toLowerCase();
-      const est = (estadoSel.value || '').toLowerCase();
-      const aseg = (asegSel.value || '').toLowerCase();
-      const d1 = fDesde.value ? new Date(fDesde.value) : null;
-      const d2 = fHasta.value ? new Date(fHasta.value) : null;
-      const proxMode = fProxSel.value;
+let gdTokenClient, gdGapiReady=false, gdGisReady=false;
+let gdDataFileId=null, gdDocsFolderId=null, currentSiniestroIdForDocs=null;
 
-      viewData = merged.filter(it => {
-        const hay = (s) => (s || '').toLowerCase().includes(term);
-        const passTerm = !term || [it.cliente, it.estado, it.aseguradoEn, it.contra, it.numeroReclamo].some(hay);
-        const passEst = !est || (it.estado || '').toLowerCase() === est;
-        const passAseg = !aseg || (it.aseguradoEn || '').toLowerCase().includes(aseg);
+/* ============= LOG SIMPLE ============= */
+function dlog(msg){
+  const ta=document.getElementById('driveDebugLog');
+  if(ta){
+    ta.value+=`[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    ta.scrollTop=ta.scrollHeight;
+  }
+  console.log('[DRIVE]',msg);
+}
+function updateDriveStatus(text,connected){
+  const el=document.getElementById('driveStatus');
+  el.style.display='block';
+  el.textContent=text;
+  el.style.background=connected?'#d1e7dd':'#fff3cd';
+  el.style.color=connected?'#0f5132':'#664d03';
+}
 
-        const f = parseYmd(it.fechaRevision || '');
-        const passFecha = (!d1 || (f && f >= d1)) && (!d2 || (f && f <= d2));
-
-        let passProx = true;
-        if (proxMode) {
-          const pr = parseYmd(it.fechaRevision || '');
-          const today = truncDate(new Date());
-          if (!pr) {
-            passProx = false;
-          } else if (proxMode === 'hoy') {
-            passProx = sameDay(pr, today);
-          } else if (proxMode === '7' || proxMode === '30') {
-            const days = Number(proxMode);
-            const limit = addDays(today, days);
-            passProx = pr >= today && pr <= limit;
-          } else if (proxMode === 'vencidas') {
-            passProx = pr < today;
-          }
-        }
-
-        return passTerm && passEst && passAseg && passFecha && passProx;
-      });
-
-      renderTable(viewData);
-      msg.textContent = `${viewData.length} resultado(s)`;
+/* ============= INICIALIZACIÓN ============= */
+function gapiLoaded(){
+  dlog('gapiLoaded');
+  gapi.load('client',async()=>{
+    try{
+      await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});
+      gdGapiReady=true;
+      dlog('gapi client listo');
+      maybeEnableDriveButton();
+    }catch(e){
+      dlog('Error init gapi: '+e.message);
+      updateDriveStatus('❌ Error inicializando Drive',false);
     }
-
-    function renderTable(rows) {
-      tbody.innerHTML = rows.map(r => {
-        const prox = r.fechaRevision || '';
-        const badge = statusBadge(prox);
-        return `
-          <tr>
-            <td>${escapeHtml(r.cliente || '')}</td>
-            <td>${escapeHtml(r.dni || '')}</td>
-            <td>${escapeHtml(r.estado || '')}</td>
-            <td>${escapeHtml(r.aseguradoEn || '')}</td>
-            <td>${escapeHtml(r.contra || '')}</td>
-            <td>${escapeHtml(r.numeroReclamo || '')}</td>
-            <td>${escapeHtml(r.presupuesto || '')}</td>
-            <td>${escapeHtml(r.indemnizacion || '')}</td>
-            <td>${escapeHtml(r.honorarios || '')}</td>
-            <td>${escapeHtml(r.observacion || '')}</td>
-            <td>${escapeHtml(prox)} ${badge}</td>
-            <td><button class="btn small" data-obs="${r.id}">Ver/Agregar</button></td>
-          </tr>
-        `;
-      }).join('');
-      tbody.querySelectorAll('button[data-obs]').forEach(b => {
-        b.addEventListener('click', () => openObs(b.dataset.obs));
-      });
+  });
+}
+function gisLoaded(){
+  dlog('gisLoaded');
+  gdTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GD_CLIENT_ID,
+    scope:GD_SCOPES,
+    callback:(resp)=>{
+      dlog('callback token');
+      if(resp.error){dlog('Auth error');updateDriveStatus('❌ Error autenticación',false);return;}
+      updateDriveStatus('✅ Conectado a Drive',true);
+      document.getElementById('connectDriveBtn').style.display='none';
+      document.getElementById('saveToDriveBtn').style.display='inline-block';
+      document.getElementById('loadFromDriveBtn').style.display='inline-block';
+      document.getElementById('saveToDriveBtn').onclick=saveDataToDrive;
+      document.getElementById('loadFromDriveBtn').onclick=loadDataFromDrive;
+      findDataFile();
     }
+  });
+  gdGisReady=true;
+  dlog('GIS listo');
+  maybeEnableDriveButton();
+}
 
-    [q, estadoSel, asegSel, fDesde, fHasta, fProxSel].forEach(el => el.addEventListener('input', applyAndRender));
+function maybeEnableDriveButton(){
+  if(gdGapiReady && gdGisReady){
+    dlog('Habilitando botón Conectar');
+    document.getElementById('connectDriveBtn').onclick=handleDriveAuth;
+  }
+}
 
-    document.getElementById('form-nuevo').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const item = {
-        id: genId('SIN_'),
-        cliente: document.getElementById('f_cliente').value.trim(),
-        dni: document.getElementById('f_dni').value.trim(),
-        estado: document.getElementById('f_estado').value.trim(),
-        aseguradoEn: document.getElementById('f_asegurado').value.trim(),
-        contra: document.getElementById('f_contra').value.trim(),
-        numeroReclamo: document.getElementById('f_num').value.trim(),
-        presupuesto: document.getElementById('f_presupuesto').value.trim(),
-        indemnizacion: document.getElementById('f_indemnizacion').value.trim(),
-        honorarios: document.getElementById('f_honorarios').value.trim(),
-        observacion: document.getElementById('f_observacion').value.trim(),
-        fechaRevision: document.getElementById('f_prox').value || ''
-      };
-      const added = getLocalAdded();
-      added.unshift(item);
-      saveLSArray(LS_ADDED_KEY, added);
-      renderEstados(baseData);
-      applyAndRender();
-      e.target.reset();
+/* ============= AUTH ============= */
+function handleDriveAuth(){
+  dlog('Click conectar. Token? '+(gapi.client.getToken()?'SI':'NO'));
+  if(gapi.client.getToken()==null){
+    gdTokenClient.requestAccessToken({prompt:'consent'});
+  }else{
+    gdTokenClient.requestAccessToken({prompt:''});
+  }
+}
+
+/* ============= OPERACIONES PRINCIPALES ============= */
+async function findDataFile(){
+  updateDriveStatus('🔎 Buscando archivo...',false);
+  dlog('Buscando archivo datos');
+  try{
+    const r=await gapi.client.drive.files.list({
+      q:`name='${GD_DATA_FILE}' and trashed=false`,
+      fields:'files(id,name)',spaces:'drive'
     });
-
-    document.getElementById('btn_export_json').addEventListener('click', () => {
-      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
-      exportJSON('planilla_siniestros.json', data);
-    });
-    document.getElementById('btn_export_csv').addEventListener('click', () => {
-      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
-      exportCSV('planilla_siniestros.csv', data, {
-        cliente: 'Cliente',
-        dni: 'DNI',
-        estado: 'Estado',
-        aseguradoEn: 'Asegurado en',
-        contra: 'Contra',
-        numeroReclamo: 'N° Reclamo',
-        presupuesto: 'Presupuesto',
-        indemnizacion: 'Indemnización',
-        honorarios: 'Honorarios',
-        observacion: 'Observación',
-        fechaRevision: 'Próxima revisión'
-      });
-    });
-
-    const dlg = document.getElementById('modal');
-    const obsList = document.getElementById('obs_list');
-    let currentObsId = null;
-
-    function openObs(id) {
-      currentObsId = id;
-      const item = (viewData.find(x => x.id === id)) || {};
-      const list = item._obsMerged || [];
-      obsList.innerHTML = list.map(o => `
-        <li>
-          <div class="obs-head">
-            <strong>${escapeHtml(o.fecha || '')}</strong>
-            ${o.completed ? '<span class="chip done">Completado</span>' : '<span class="chip">Pendiente</span>'}
-            ${o.proximaRevision ? `<span class="chip">${escapeHtml(o.proximaRevision)}</span>` : ''}
-          </div>
-          <div class="obs-body">${escapeHtml(o.texto || '')}</div>
-        </li>
-      `).join('') || '<li class="muted">Sin observaciones</li>';
-
-      dlg.showModal();
+    if(r.result.files.length){
+      gdDataFileId=r.result.files[0].id;
+      updateDriveStatus('✅ Archivo encontrado',true);
+      dlog('Archivo existente id='+gdDataFileId);
+    }else{
+      updateDriveStatus('⚠️ No existe archivo (se creará al guardar)',false);
+      dlog('No se encontró archivo');
     }
+  }catch(e){
+    dlog('Error buscando archivo: '+e.message);
+    updateDriveStatus('❌ Error buscando archivo',false);
+  }
+}
 
-    document.getElementById('obs_guardar').addEventListener('click', () => {
-      if (!currentObsId) return;
-      const rec = {
-        id: genId('OBS_'),
-        fecha: document.getElementById('obs_fecha').value || todayYmd(),
-        texto: document.getElementById('obs_texto').value.trim(),
-        proximaRevision: document.getElementById('obs_prox').value || '',
-        completed: document.getElementById('obs_done').checked
-      };
-      if (!rec.texto) return;
+async function saveDataToDrive(){
+  if(!confirm('¿Guardar datos en Drive?'))return;
+  updateDriveStatus('💾 Guardando...',false);
+  dlog('Subiendo JSON');
+  try{
+    const content=JSON.stringify(siniestrosData,null,2);
+    gdDataFileId=await uploadContent(content,GD_DATA_FILE,'application/json',null,gdDataFileId);
+    updateDriveStatus('✅ Guardado en Drive',true);
+    dlog('Guardado id='+gdDataFileId);
+  }catch(e){
+    dlog('Error guardando: '+e.message);
+    updateDriveStatus('❌ Error guardando',false);
+  }
+}
 
-      const map = getLocalObsMap();
-      map[currentObsId] = map[currentObsId] || [];
-      map[currentObsId].unshift(rec);
-      saveLSMap(LS_OBS_KEY, map);
-      applyAndRender();
-      openObs(currentObsId);
-      document.getElementById('obs_texto').value = '';
-      document.getElementById('obs_prox').value = '';
-      document.getElementById('obs_done').checked = false;
-    });
-  </script>
+async function loadDataFromDrive(){
+  if(!gdDataFileId){alert('No existe archivo remoto. Guardá primero.');return;}
+  if(!confirm('¿Reemplazar datos locales con los de Drive?'))return;
+  updateDriveStatus('📥 Cargando...',false);
+  dlog('Descargando archivo id='+gdDataFileId);
+  try{
+    const r=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});
+    const imported=JSON.parse(r.body);
+    if(!Array.isArray(imported)) throw new Error('Formato inválido');
+    siniestrosData=sanitizeData(imported);
+    saveData();renderAll();
+    updateDriveStatus('✅ Datos cargados',true);
+    dlog('Cargados '+imported.length+' registros');
+  }catch(e){
+    dlog('Error cargando: '+e.message);
+    updateDriveStatus('❌ Error al cargar',false);
+  }
+}
+
+/* ============= DOCUMENTOS POR SINIESTRO ============= */
+async function getOrCreateFolder(name,parentId=null){
+  let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
+  if(parentId) q+=` and '${parentId}' in parents`;
+  const r=await gapi.client.drive.files.list({q,fields:'files(id)',pageSize:5});
+  if(r.result.files.length) return r.result.files[0].id;
+  const newF=await gapi.client.drive.files.create({resource:{name,mimeType:'application/vnd.google-apps.folder',...(parentId&&{parents:[parentId]})},fields:'id'});
+  return newF.result.id;
+}
+
+async function showDocumentModal(sid){
+  if(gapi.client.getToken()==null){alert('Conectá Drive primero');return;}
+  currentSiniestroIdForDocs=sid;
+  const s=siniestrosData.find(x=>x.id===sid);
+  document.getElementById('documentModalTitle').innerText=`Documentos: ${getDisplayName(s)}`;
+  document.getElementById('documentModal').classList.add('active');
+  const list=document.getElementById('documentList');
+  list.innerHTML='<li>Cargando...</li>';
+  try{
+    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
+    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
+    const r=await gapi.client.drive.files.list({q:`'${clientFolder}' in parents and trashed=false`,fields:'files(id,name,webViewLink)',orderBy:'name'});
+    list.innerHTML=r.result.files.length? r.result.files.map(f=>`<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join(''):'<li>Sin documentos.</li>';
+  }catch(e){
+    list.innerHTML='<li>Error al listar.</li>';
+    dlog('Error docs: '+e.message);
+  }
+}
+
+async function deleteDocument(fid){
+  if(!confirm('¿Eliminar documento?'))return;
+  try{await gapi.client.drive.files.delete({fileId:fid});showDocumentModal(currentSiniestroIdForDocs);}catch(e){alert('Error al eliminar');}
+}
+
+function triggerDocumentUpload(){
+  const up=document.getElementById('documentUploadInput');
+  up.onchange=handleDocumentUpload;
+  up.value='';
+  up.click();
+}
+
+async function handleDocumentUpload(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const list=document.getElementById('documentList');
+  list.innerHTML='<li>Subiendo...</li>';
+  try{
+    const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
+    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
+    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      await uploadContent(e.target.result,file.name,file.type||'application/octet-stream',clientFolder,null);
+      showDocumentModal(currentSiniestroIdForDocs);
+    };
+    reader.readAsArrayBuffer(file);
+  }catch(e){
+    list.innerHTML='<li>Error en subida.</li>';
+    dlog('Upload error: '+e.message);
+  }
+}
+
+async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
+  const boundary='-------314159265358979323846';
+  const meta={name:fileName,mimeType, ...(parentId&&{parents:[parentId]})};
+  const base64=content instanceof ArrayBuffer
+    ? btoa(String.fromCharCode(...new Uint8Array(content)))
+    : btoa(unescape(encodeURIComponent(content)));
+  const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
+  const req=gapi.client.request({
+    path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',
+    method:fileIdToUpdate?'PATCH':'POST',
+    params:{uploadType:'multipart'},
+    headers:{'Content-Type':`multipart/related; boundary=${boundary}`},
+    body
+  });
+  const resp=await req;
+  return resp.result.id;
+}
+</script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
