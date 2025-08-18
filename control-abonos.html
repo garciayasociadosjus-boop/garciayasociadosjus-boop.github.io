@@ -75,7 +75,7 @@
     .status-span.falta-de-pago{background:var(--danger-color)}
     .status-span.terminado{background:var(--finished-color)}
     .status-span.pago-parcial{background:var(--info-color)}
-    .status-span.en-ejecucion{background:#8e44ad}
+    .status-span.en-ejecucion-de-honorarios{background:#8e44ad}
     .editable{cursor:pointer;position:relative}
     .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
     .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
@@ -195,7 +195,7 @@
           <button class="filter-btn filter-falta" data-status="falta-de-pago">❌ Falta de Pago (<span id="countFalta">0</span>)</button>
           <button class="filter-btn filter-pagado" data-status="pagado">✅ Pagado (<span id="countPagado">0</span>)</button>
           <button class="filter-btn" data-status="pago-parcial">💰 Pago Parcial (<span id="countPagoParcial">0</span>)</button>
-          <button class="filter-btn" data-status="en-ejecucion">⚖️ En Ejecución (<span id="countEjecucion">0</span>)</button>
+          <button class="filter-btn" data-status="en-ejecucion-de-honorarios">⚖️ En Ejecución (<span id="countEjecucion">0</span>)</button>
           <button class="filter-btn" data-status="terminado">🏁 Terminado (<span id="countTerminado">0</span>)</button>
           <button class="filter-btn" data-status="pendientes">🚨 Todos los Pendientes (<span id="countAllPendientes">0</span>)</button>
         </div>
@@ -475,7 +475,7 @@
           'falta-de-pago':'Mostrando solo registros con falta de pago',
           'pagado':'Mostrando solo registros pagados',
           'pago-parcial':'Mostrando solo registros con pago parcial',
-          'en-ejecucion':'Mostrando solo registros en ejecución de honorarios',
+          'en-ejecucion-de-honorarios':'Mostrando solo registros en ejecución de honorarios',
           'terminado':'Mostrando solo registros terminados',
           'pendientes':'Mostrando todos los registros pendientes, con falta de pago y en ejecución'
         };
@@ -648,7 +648,7 @@
         'falta-de-pago': abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).length,
         pagado: abonos.filter(function(a){ return a.estado==='Pagado'; }).length,
         'pago-parcial': abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).length,
-        'en-ejecucion': abonos.filter(function(a){ return a.estado==='En Ejecución de Honorarios'; }).length,
+        'en-ejecucion-de-honorarios': abonos.filter(function(a){ return a.estado==='En Ejecución de Honorarios'; }).length,
         terminado: abonos.filter(function(a){ return a.estado==='Terminado'; }).length,
         pendientes: abonos.filter(function(a){ 
           return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='En Ejecución de Honorarios'; 
@@ -659,7 +659,7 @@
       document.getElementById('countFalta').textContent = counts['falta-de-pago'];
       document.getElementById('countPagado').textContent = counts.pagado;
       document.getElementById('countPagoParcial').textContent = counts['pago-parcial'];
-      document.getElementById('countEjecucion').textContent = counts['en-ejecucion'];
+      document.getElementById('countEjecucion').textContent = counts['en-ejecucion-de-honorarios'];
       document.getElementById('countTerminado').textContent = counts.terminado;
       document.getElementById('countAllPendientes').textContent = counts.pendientes;
     }
@@ -896,5 +896,4 @@
 
     function exportToExcel(){
       var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      var data = (currentFilter==='todos') ? abonosMes : getFilteredAbonos(abonosMes);
-      if(data.length===0){ alert('
+      var data = (currentFilter==='todos') ? abonosMes :
