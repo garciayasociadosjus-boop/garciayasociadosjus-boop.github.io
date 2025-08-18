@@ -22,18 +22,19 @@
     .card{background:var(--light-bg);border-radius:12px;padding:25px;box-shadow:0 5px 15px rgba(0,0,0,.07);border-left:5px solid var(--primary-color);transition:.2s;position:relative}
     .card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
     .card h3{color:var(--secondary-color);margin-bottom:15px;font-size:1.1em;text-transform:uppercase;letter-spacing:.5px}
-    .card .value{font-size:2.4em;font-weight:700;color:var(--primary-color)}
+    .card .value{font-size:1.8em;font-weight:700;color:var(--primary-color);word-break:break-word;overflow-wrap:break-word}
     .card .value.positive{color:var(--success-color)}
     .card.warning-card{border-left-color:var(--warning-color)}
     .card.danger-card{border-left-color:var(--danger-color)}
     .value-container{display:flex;align-items:center;justify-content:space-between}
     .toggle-visibility{background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--secondary-color);transition:.3s;padding:5px;opacity:.6}
     .toggle-visibility:hover{opacity:1;transform:scale(1.1)}
-    .hidden-value{font-size:2.4em;font-weight:700;color:var(--success-color);letter-spacing:5px}
+    .hidden-value{font-size:1.8em;font-weight:700;color:var(--success-color);letter-spacing:5px}
     .controls{background:var(--light-bg);padding:20px;border-radius:10px;margin-bottom:30px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px}
     .form-group{display:flex;flex-direction:column;gap:5px}
     .form-group label{font-weight:600;font-size:.85em;color:var(--text-dark)}
-    .form-group select,.form-group input{padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em;background:#fff}
+    .form-group select,.form-group input,.form-group textarea{padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em;background:#fff}
+    .form-group textarea{resize:vertical;min-height:80px}
     .btn{background:var(--primary-color);color:var(--text-light);border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:.9em;transition:.25s;font-weight:600;margin:0 5px}
     .btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(30,58,138,.3)}
     .btn:disabled{background:var(--disabled-color);cursor:not-allowed;transform:none;box-shadow:none}
@@ -42,6 +43,7 @@
     .btn-info{background:var(--info-color)}
     .btn-danger{background:var(--danger-color)}
     .btn-drive{background:#4285f4}
+    .btn-small{padding:5px 10px;font-size:0.8em;margin:0 2px}
     .data-status{background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px;border-radius:8px;margin-bottom:20px;text-align:center}
     .filters-container{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
     .filter-buttons{display:flex;gap:10px;flex-wrap:wrap}
@@ -65,22 +67,30 @@
     tbody tr:hover{background:#e0e7ff}
     tbody tr.highlight-pending{background:#fef3c7!important;border-left:4px solid var(--warning-color)}
     tbody tr.highlight-falta{background:#fee2e2!important;border-left:4px solid var(--danger-color)}
+    tbody tr.has-debt{border-left:4px solid var(--danger-color)!important}
     .action-buttons{display:flex;gap:5px;align-items:center}
     .status-span{display:inline-block;width:100%;font-weight:bold;color:#fff;padding:8px;border-radius:5px;text-align:center}
     .status-span.pagado{background:var(--success-color)}
     .status-span.pendiente{background:var(--warning-color)}
     .status-span.falta-de-pago{background:var(--danger-color)}
     .status-span.terminado{background:var(--finished-color)}
+    .status-span.pago-parcial{background:var(--info-color)}
+    .status-span.en-ejecucion{background:#8e44ad}
     .editable{cursor:pointer;position:relative}
     .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
+    .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
+    .obs-btn:hover{opacity:0.8}
+    .debt-indicator{color:var(--danger-color);font-size:0.8em;display:block;margin-top:5px}
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px}
     .modal.active{display:flex}
     .modal-content{background:#fff;border-radius:14px;padding:30px;width:90%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto}
     .modal-content h2{margin-bottom:20px;color:var(--secondary-color)}
     .modal-form .form-group{margin-bottom:15px}
-    .modal-form input,.modal-form select{width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em}
+    .modal-form input,.modal-form select,.modal-form textarea{width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em}
     .modal-form .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
     .close-btn{position:absolute;top:15px;right:15px;background:none;border:none;font-size:24px;cursor:pointer;color:#64748b}
+    .obs-modal-content{max-width:400px}
+    .obs-modal-content .obs-text{background:var(--light-bg);padding:15px;border-radius:8px;margin:15px 0;white-space:pre-wrap}
     .receipt-preview{background:#fff;padding:0;border:1px solid #e2e8f0;border-radius:10px;margin:20px 0;box-shadow:0 5px 15px rgba(0,0,0,.1);overflow:hidden}
     .receipt-header{background:linear-gradient(135deg,var(--secondary-color),var(--primary-color));color:#fff;text-align:center;padding:30px}
     .receipt-header h1{font-size:1.8em;margin-bottom:10px;font-weight:300;letter-spacing:2px}
@@ -184,6 +194,8 @@
           <button class="filter-btn filter-pendiente" data-status="pendiente">⏳ Pendiente (<span id="countPendiente">0</span>)</button>
           <button class="filter-btn filter-falta" data-status="falta-de-pago">❌ Falta de Pago (<span id="countFalta">0</span>)</button>
           <button class="filter-btn filter-pagado" data-status="pagado">✅ Pagado (<span id="countPagado">0</span>)</button>
+          <button class="filter-btn" data-status="pago-parcial">💰 Pago Parcial (<span id="countPagoParcial">0</span>)</button>
+          <button class="filter-btn" data-status="en-ejecucion">⚖️ En Ejecución (<span id="countEjecucion">0</span>)</button>
           <button class="filter-btn" data-status="terminado">🏁 Terminado (<span id="countTerminado">0</span>)</button>
           <button class="filter-btn" data-status="pendientes">🚨 Todos los Pendientes (<span id="countAllPendientes">0</span>)</button>
         </div>
@@ -220,11 +232,32 @@
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><input type="text" id="formaPago"></div>
         <div class="form-group"><label>Estado</label><select id="estado"></select></div>
+        <div class="form-group"><label>Observaciones</label><textarea id="observaciones" placeholder="Notas adicionales sobre este registro..."></textarea></div>
         <div class="form-actions">
           <button type="button" class="btn" id="abonoModalCancel" style="background-color:#94a3b8;">Cancelar</button>
           <button type="submit" class="btn btn-success">Guardar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal para Observaciones -->
+  <div id="obsModal" class="modal">
+    <div class="modal-content obs-modal-content">
+      <button class="close-btn" id="obsModalClose">✖</button>
+      <h2>📝 Observaciones</h2>
+      <h4 id="obsClientName" style="color:var(--primary-color);margin-bottom:10px;"></h4>
+      <div id="obsContent" class="obs-text"></div>
+      <form id="obsForm" style="display:none;">
+        <div class="form-group">
+          <textarea id="obsTextarea" placeholder="Escriba las observaciones aquí..." style="min-height:120px;"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" id="obsSaveBtn" style="background:var(--success-color);">Guardar</button>
+          <button type="button" class="btn" id="obsCancelBtn" style="background:#94a3b8;">Cancelar</button>
+        </div>
+      </form>
+      <button id="obsEditBtn" class="btn btn-info" style="margin-top:10px;">✏️ Editar</button>
     </div>
   </div>
 
@@ -267,8 +300,9 @@
     let currentFilter = 'todos';
     let isAmountHidden = false;
     let realAmount = 0;
+    let currentObsId = null;
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios'];
-    const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Terminado'];
+    const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','En Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
     // ====== INIT ======
@@ -304,6 +338,8 @@
           deleteAbono(target.getAttribute('data-id'));
         } else if(target.classList.contains('receipt-btn')) {
           generateReceipt(target.getAttribute('data-id'));
+        } else if(target.classList.contains('obs-btn')) {
+          showObservations(target.getAttribute('data-id'));
         } else {
           var cell = target.closest('.editable');
           if(cell){ handleCellEdit(cell); }
@@ -315,6 +351,12 @@
       document.getElementById('abonoModalCancel').addEventListener('click', closeModal);
       document.getElementById('abonoModal').addEventListener('click', function(e){ if(e.target.id === 'abonoModal'){ closeModal(); } });
       document.getElementById('abonoForm').addEventListener('submit', handleFormSubmit);
+
+      // Modal Observaciones
+      document.getElementById('obsModalClose').addEventListener('click', closeObsModal);
+      document.getElementById('obsEditBtn').addEventListener('click', editObservations);
+      document.getElementById('obsSaveBtn').addEventListener('click', saveObservations);
+      document.getElementById('obsCancelBtn').addEventListener('click', cancelObsEdit);
 
       // Modal Recibo
       document.getElementById('receiptClose').addEventListener('click', function(){ document.getElementById('receiptModal').classList.remove('active'); });
@@ -354,16 +396,71 @@
       });
     }
 
-    function addAbono(newAbono){ newAbono.id='abono_'+Date.now(); abonosData.push(newAbono); saveData(); render(); }
+    function addAbono(newAbono){ 
+      newAbono.id='abono_'+Date.now(); 
+      // Inicializar deuda acumulada si no existe
+      if(!newAbono.deudaAcumulada) newAbono.deudaAcumulada = 0;
+      abonosData.push(newAbono); 
+      saveData(); 
+      render(); 
+    }
+    
     function updateAbono(id, updatedData){
       var idx = abonosData.findIndex(function(a){ return a.id===id; });
-      if(idx !== -1){ abonosData[idx] = Object.assign({}, abonosData[idx], updatedData); saveData(); render(); }
+      if(idx !== -1){ 
+        abonosData[idx] = Object.assign({}, abonosData[idx], updatedData); 
+        saveData(); 
+        render(); 
+      }
     }
+    
     function deleteAbono(id){
       if(confirm('¿Eliminar este registro?')){
         abonosData = abonosData.filter(function(a){ return a.id !== id; });
         saveData(); render();
       }
+    }
+
+    // ====== OBSERVACIONES ======
+    function showObservations(id){
+      currentObsId = id;
+      var abono = abonosData.find(function(a){ return a.id === id; });
+      if(!abono) return;
+      
+      document.getElementById('obsClientName').textContent = abono.cliente || 'Sin nombre';
+      document.getElementById('obsContent').textContent = abono.observaciones || 'Sin observaciones';
+      document.getElementById('obsContent').style.display = 'block';
+      document.getElementById('obsForm').style.display = 'none';
+      document.getElementById('obsEditBtn').style.display = 'block';
+      document.getElementById('obsModal').classList.add('active');
+    }
+
+    function editObservations(){
+      var abono = abonosData.find(function(a){ return a.id === currentObsId; });
+      if(!abono) return;
+      
+      document.getElementById('obsTextarea').value = abono.observaciones || '';
+      document.getElementById('obsContent').style.display = 'none';
+      document.getElementById('obsForm').style.display = 'block';
+      document.getElementById('obsEditBtn').style.display = 'none';
+      document.getElementById('obsTextarea').focus();
+    }
+
+    function saveObservations(){
+      var newObs = document.getElementById('obsTextarea').value;
+      updateAbono(currentObsId, {observaciones: newObs});
+      closeObsModal();
+    }
+
+    function cancelObsEdit(){
+      document.getElementById('obsContent').style.display = 'block';
+      document.getElementById('obsForm').style.display = 'none';
+      document.getElementById('obsEditBtn').style.display = 'block';
+    }
+
+    function closeObsModal(){
+      document.getElementById('obsModal').classList.remove('active');
+      currentObsId = null;
     }
 
     // ====== FILTROS ======
@@ -377,23 +474,28 @@
           'pendiente':'Mostrando solo registros pendientes',
           'falta-de-pago':'Mostrando solo registros con falta de pago',
           'pagado':'Mostrando solo registros pagados',
+          'pago-parcial':'Mostrando solo registros con pago parcial',
+          'en-ejecucion':'Mostrando solo registros en ejecución de honorarios',
           'terminado':'Mostrando solo registros terminados',
-          'pendientes':'Mostrando todos los registros pendientes y con falta de pago'
+          'pendientes':'Mostrando todos los registros pendientes, con falta de pago y en ejecución'
         };
         info.textContent = m[status] || '';
       }
       render();
     }
+    
     function getFilteredAbonos(abonos){
       if(currentFilter==='todos') return abonos;
-      if(currentFilter==='pendientes') return abonos.filter(function(a){ return a.estado==='Pendiente'||a.estado==='Falta de Pago'; });
+      if(currentFilter==='pendientes') return abonos.filter(function(a){ 
+        return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='En Ejecución de Honorarios'; 
+      });
       return abonos.filter(function(a){
         var estado = (a.estado||'').toLowerCase().replace(/ /g,'-');
         return estado === currentFilter;
       });
     }
 
-    // ====== ARRASTRE CLIENTES ======
+    // ====== ARRASTRE CLIENTES CON ACUMULACIÓN DE DEUDA ======
     function carryOverClients(){
       var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
       if(curr.length===0){ alert('No hay clientes en el mes actual para arrastrar.'); return; }
@@ -406,9 +508,57 @@
 
       unique.forEach(function(cliente){
         if(!existing.has(cliente)){
-          var last = curr.filter(function(a){ return a.cliente===cliente; }).sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+          // Obtener todos los registros del cliente en el mes actual
+          var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
+          var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+          
+          // Calcular deuda acumulada
+          var deudaTotal = 0;
+          clienteRecords.forEach(function(record){
+            if(record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || 
+               record.estado === 'En Ejecución de Honorarios' || record.estado === 'Pago Parcial'){
+              deudaTotal += parseFloat(record.monto) || 0;
+              
+              // Si hay deuda acumulada previa, sumarla
+              if(record.deudaAcumulada) {
+                deudaTotal += parseFloat(record.deudaAcumulada);
+              }
+              
+              // Si es pago parcial, restar lo pagado
+              if(record.estado === 'Pago Parcial' && record.montoPagado) {
+                deudaTotal -= parseFloat(record.montoPagado);
+              }
+            }
+          });
+          
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
-          addAbono({ cliente:cliente, tipo:(last.tipo||'Abono Mensual'), monto:(last.monto||0), fechaPago:dateStr, formaPago:(last.formaPago||''), estado:'Pendiente' });
+          var nuevoMonto = parseFloat(lastRecord.monto) || 0;
+          
+          // Si hay deuda, el nuevo monto incluye la deuda más el abono mensual
+          if(deudaTotal > 0) {
+            addAbono({ 
+              cliente: cliente, 
+              tipo: (lastRecord.tipo||'Abono Mensual'), 
+              monto: nuevoMonto + deudaTotal,
+              montoBase: nuevoMonto, // Guardar el monto base para referencia
+              deudaAcumulada: deudaTotal,
+              fechaPago: dateStr, 
+              formaPago: (lastRecord.formaPago||''), 
+              estado: 'Pendiente',
+              observaciones: 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(nuevoMonto)
+            });
+          } else {
+            addAbono({ 
+              cliente: cliente, 
+              tipo: (lastRecord.tipo||'Abono Mensual'), 
+              monto: nuevoMonto,
+              deudaAcumulada: 0,
+              fechaPago: dateStr, 
+              formaPago: (lastRecord.formaPago||''), 
+              estado: 'Pendiente',
+              observaciones: lastRecord.observaciones || ''
+            });
+          }
           added++;
         }
       });
@@ -447,7 +597,15 @@
     }
 
     // ====== RENDER ======
-    function formatCurrency(v){ return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v||0); }
+    function formatCurrency(v){ 
+      return new Intl.NumberFormat('es-AR',{
+        style:'currency',
+        currency:'ARS',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(v||0).replace(/,/g, '.'); 
+    }
+    
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var totalCobradoEl = document.getElementById('totalCobrado');
@@ -467,6 +625,9 @@
 
     function renderDashboard(abonos){
       var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
+      // Sumar pagos parciales
+      totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+      
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).length;
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).length;
 
@@ -486,13 +647,19 @@
         pendiente: abonos.filter(function(a){ return a.estado==='Pendiente'; }).length,
         'falta-de-pago': abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).length,
         pagado: abonos.filter(function(a){ return a.estado==='Pagado'; }).length,
+        'pago-parcial': abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).length,
+        'en-ejecucion': abonos.filter(function(a){ return a.estado==='En Ejecución de Honorarios'; }).length,
         terminado: abonos.filter(function(a){ return a.estado==='Terminado'; }).length,
-        pendientes: abonos.filter(function(a){ return a.estado==='Pendiente'||a.estado==='Falta de Pago'; }).length
+        pendientes: abonos.filter(function(a){ 
+          return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='En Ejecución de Honorarios'; 
+        }).length
       };
       document.getElementById('countTodos').textContent = counts.todos;
       document.getElementById('countPendiente').textContent = counts.pendiente;
       document.getElementById('countFalta').textContent = counts['falta-de-pago'];
       document.getElementById('countPagado').textContent = counts.pagado;
+      document.getElementById('countPagoParcial').textContent = counts['pago-parcial'];
+      document.getElementById('countEjecucion').textContent = counts['en-ejecucion'];
       document.getElementById('countTerminado').textContent = counts.terminado;
       document.getElementById('countAllPendientes').textContent = counts.pendientes;
     }
@@ -518,17 +685,24 @@
         var estadoClass = (abono.estado||'').toLowerCase().replace(/ /g,'-') || 'pendiente';
         if(abono.estado==='Pendiente'){ tr.classList.add('highlight-pending'); }
         else if(abono.estado==='Falta de Pago'){ tr.classList.add('highlight-falta'); }
+        if(abono.deudaAcumulada && abono.deudaAcumulada > 0){ tr.classList.add('has-debt'); }
+
+        var montoDisplay = formatCurrency(abono.monto);
+        if(abono.deudaAcumulada && abono.deudaAcumulada > 0){
+          montoDisplay += '<span class="debt-indicator">(Incluye deuda: '+formatCurrency(abono.deudaAcumulada)+')</span>';
+        }
 
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+formatCurrency(abono.monto)+'</td>'+
+          '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="text">'+(abono.formaPago||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td class="no-print"><div class="action-buttons">'+
-            '<button class="btn btn-success receipt-btn" data-id="'+abono.id+'" '+(isPagado?'':'disabled')+'>🧾</button>'+
-            '<button class="btn delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'">🗑️</button>'+
+            '<button class="btn btn-small btn-info obs-btn" data-id="'+abono.id+'" title="Ver observaciones">📝</button>'+
+            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" '+(isPagado?'':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
       });
@@ -567,7 +741,16 @@
 
       var saveChange = function(){
         var newValue = (type==='number') ? (parseFloat(editor.value)||0) : editor.value;
-        updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
+        
+        // Si cambiamos el estado y es Pago Parcial, necesitamos pedir el monto pagado
+        if(field === 'estado' && newValue === 'Pago Parcial'){
+          var montoPagado = prompt('Ingrese el monto pagado parcialmente:');
+          if(montoPagado){
+            updateAbono(id, {estado: newValue, montoPagado: parseFloat(montoPagado)});
+          }
+        } else {
+          updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
+        }
       };
 
       editor.addEventListener('blur', saveChange);
@@ -603,7 +786,8 @@
         monto: parseFloat(document.getElementById('monto').value),
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
-        estado: document.getElementById('estado').value
+        estado: document.getElementById('estado').value,
+        observaciones: document.getElementById('observaciones').value
       };
       addAbono(data);
       closeModal();
@@ -713,137 +897,4 @@
     function exportToExcel(){
       var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
       var data = (currentFilter==='todos') ? abonosMes : getFilteredAbonos(abonosMes);
-      if(data.length===0){ alert('No hay datos para exportar.'); return; }
-
-      var rows = data.map(function(a){
-        return { Cliente:a.cliente, Tipo:a.tipo, Monto:a.monto, 'Fecha de Pago':a.fechaPago, 'Forma de Pago':a.formaPago, Estado:a.estado };
-      });
-      var ws = XLSX.utils.json_to_sheet(rows);
-      var wb = XLSX.utils.book_new();
-      var sheetName = (currentFilter==='todos') ? 'Todos los Abonos' : ('Abonos '+currentFilter.replace('-',' '));
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      XLSX.writeFile(wb, 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx');
-    }
-  </script>
-  
-  <!-- IMPORTANTE: Primero definir las funciones globales ANTES de cargar los scripts -->
-  <script>
-    // GOOGLE DRIVE - VARIABLES Y FUNCIONES GLOBALES
-    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-    const DATA_FILE_NAME = 'datos_control_abonos_mensuales.json';
-
-    let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
-
-    function gapiLoaded() { 
-      gapi.load('client', initializeGapiClient); 
-    }
-    
-    async function initializeGapiClient() { 
-      await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); 
-      gapiInited = true; 
-      maybeEnableButtons(); 
-    }
-    
-    function gisLoaded() { 
-      tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); 
-      gisInited = true; 
-      maybeEnableButtons(); 
-    }
-    
-    function maybeEnableButtons() { 
-      if (gapiInited && gisInited) {
-        // Nada que hacer aquí, los botones tienen onclick directo en el HTML
-      }
-    }
-    
-    function updateDriveStatus(message, isConnected = false) { 
-      const driveStatusEl = document.getElementById('driveStatus');
-      driveStatusEl.style.display = 'block'; 
-      driveStatusEl.textContent = message; 
-      driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; 
-      driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; 
-    }
-
-    function handleAuthClick() {
-      tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) throw (resp);
-        updateDriveStatus('✅ Conectado a Google Drive', true);
-        document.getElementById('connectDriveBtn').style.display = 'none'; 
-        document.getElementById('saveToDriveBtn').style.display = 'inline-block'; 
-        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-        await findDataFile();
-      };
-      if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); 
-      else tokenClient.requestAccessToken({prompt: ''});
-    }
-    
-    async function findDataFile() {
-      updateDriveStatus('Buscando archivo de datos en Drive...', false);
-      try {
-        const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
-        if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
-        else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
-      } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
-    }
-    
-    async function saveDataToDrive() {
-      if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
-      updateDriveStatus('Guardando datos en Drive...', false);
-      try {
-        const content = JSON.stringify(abonosData, null, 2);
-        dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
-        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
-      } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
-    }
-    
-    async function loadDataFromDrive() {
-      if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
-      if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
-      updateDriveStatus('Cargando datos desde Drive...', false);
-      try {
-        const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-        const importedData = JSON.parse(response.body);
-        if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
-        abonosData = importedData;
-        saveData();
-        loadData();
-        render();
-        updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
-      } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
-    }
-    
-    async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-      const boundary = '-------314159265358979323846';
-      const metadata = { name: fileName, mimeType: mimeType, ...(parentId && {parents: [parentId]}) };
-      const base64Data = content instanceof ArrayBuffer ? btoa(String.fromCharCode.apply(null, new Uint8Array(content))) : btoa(unescape(encodeURIComponent(content)));
-      const requestBody =
-        `--${boundary}\r\n` +
-        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-        JSON.stringify(metadata) +
-        `\r\n--${boundary}\r\n` +
-        `Content-Type: ${mimeType}\r\n` +
-        `Content-Transfer-Encoding: base64\r\n\r\n` +
-        base64Data +
-        `\r\n--${boundary}--`;
-        
-      const request = gapi.client.request({
-        path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
-        method: fileIdToUpdate ? 'PATCH' : 'POST',
-        params: { uploadType: 'multipart' },
-        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-        body: requestBody
-      });
-      const response = await request;
-      return response.result.id;
-    }
-  </script>
-  
-  <!-- AHORA SÍ cargamos los scripts de Google con las funciones ya definidas -->
-  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-  
-</body>
-</html>
+      if(data.length===0){ alert('
