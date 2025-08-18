@@ -894,6 +894,107 @@
       event.target.value = '';
     }
 
-    function exportToExcel(){
+        function exportToExcel(){
       var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      var data = (currentFilter==='todos') ? abonosMes :
+      var data = (currentFilter==='todos') ? abonosMes : getFilteredAbonos(abonosMes);
+      if(data.length===0){ alert('No hay datos para exportar.'); return; }
+
+      var rows = data.map(function(a){
+        return { 
+          Cliente:a.cliente, 
+          Tipo:a.tipo, 
+          Monto:a.monto, 
+          'Fecha de Pago':a.fechaPago, 
+          'Forma de Pago':a.formaPago, 
+          Estado:a.estado,
+          Observaciones:a.observaciones || ''
+        };
+      });
+      var ws = XLSX.utils.json_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      var sheetName = (currentFilter==='todos') ? 'Todos los Abonos' : ('Abonos '+currentFilter.replace('-',' '));
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx');
+    }
+  </script>
+  
+  <!-- IMPORTANTE: Primero definir las funciones globales ANTES de cargar los scripts -->
+  <script>
+    // GOOGLE DRIVE - VARIABLES Y FUNCIONES GLOBALES
+    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    const DATA_FILE_NAME = 'datos_control_abonos_mensuales.json';
+
+    let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
+
+    function gapiLoaded() { 
+      gapi.load('client', initializeGapiClient); 
+    }
+    
+    async function initializeGapiClient() { 
+      await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); 
+      gapiInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function gisLoaded() { 
+      tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); 
+      gisInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function maybeEnableButtons() { 
+      if (gapiInited && gisInited) {
+        // Nada que hacer aquí, los botones tienen onclick directo en el HTML
+      }
+    }
+    
+    function updateDriveStatus(message, isConnected = false) { 
+      const driveStatusEl = document.getElementById('driveStatus');
+      driveStatusEl.style.display = 'block'; 
+      driveStatusEl.textContent = message; 
+      driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; 
+      driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; 
+    }
+
+    function handleAuthClick() {
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) throw (resp);
+        updateDriveStatus('✅ Conectado a Google Drive', true);
+        document.getElementById('connectDriveBtn').style.display = 'none'; 
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block'; 
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        await findDataFile();
+      };
+      if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); 
+      else tokenClient.requestAccessToken({prompt: ''});
+    }
+    
+    async function findDataFile() {
+      updateDriveStatus('Buscando archivo de datos en Drive...', false);
+      try {
+        const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+        if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
+        else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
+      } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+    }
+    
+    async function saveDataToDrive() {
+      if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+      updateDriveStatus('Guardando datos en Drive...', false);
+      try {
+        const content = JSON.stringify(abonosData, null, 2);
+        dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+      } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
+    }
+    
+    async function loadDataFromDrive() {
+      if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
+      if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+      updateDriveStatus('Cargando datos desde Drive...', false);
+      try {
+        const response = await g
+
