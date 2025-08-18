@@ -307,8 +307,6 @@
 
     // ====== INIT ======
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('Iniciando aplicación...');
-      
       // Botones principales
       document.getElementById('toggleAmountBtn').addEventListener('click', toggleAmountVisibility);
       document.getElementById('btnPrevMonth').addEventListener('click', function(){ changeMonth(-1); });
@@ -376,8 +374,6 @@
       initializeMonth();
       setupModal();
       render();
-      
-      console.log('Aplicación iniciada correctamente');
     });
 
     // ====== UTIL DATOS ======
@@ -402,7 +398,6 @@
 
     function addAbono(newAbono){ 
       newAbono.id='abono_'+Date.now(); 
-      // Inicializar deuda acumulada si no existe
       if(!newAbono.deudaAcumulada) newAbono.deudaAcumulada = 0;
       abonosData.push(newAbono); 
       saveData(); 
@@ -512,23 +507,19 @@
 
       unique.forEach(function(cliente){
         if(!existing.has(cliente)){
-          // Obtener todos los registros del cliente en el mes actual
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
-          // Calcular deuda acumulada
           var deudaTotal = 0;
           clienteRecords.forEach(function(record){
             if(record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || 
                record.estado === 'En Ejecución de Honorarios' || record.estado === 'Pago Parcial'){
               deudaTotal += parseFloat(record.monto) || 0;
               
-              // Si hay deuda acumulada previa, sumarla
               if(record.deudaAcumulada) {
                 deudaTotal += parseFloat(record.deudaAcumulada);
               }
               
-              // Si es pago parcial, restar lo pagado
               if(record.estado === 'Pago Parcial' && record.montoPagado) {
                 deudaTotal -= parseFloat(record.montoPagado);
               }
@@ -538,13 +529,12 @@
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
           var nuevoMonto = parseFloat(lastRecord.monto) || 0;
           
-          // Si hay deuda, el nuevo monto incluye la deuda más el abono mensual
           if(deudaTotal > 0) {
             addAbono({ 
               cliente: cliente, 
               tipo: (lastRecord.tipo||'Abono Mensual'), 
               monto: nuevoMonto + deudaTotal,
-              montoBase: nuevoMonto, // Guardar el monto base para referencia
+              montoBase: nuevoMonto,
               deudaAcumulada: deudaTotal,
               fechaPago: dateStr, 
               formaPago: (lastRecord.formaPago||''), 
@@ -629,7 +619,6 @@
 
     function renderDashboard(abonos){
       var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
-      // Sumar pagos parciales
       totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
       
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).length;
@@ -746,7 +735,6 @@
       var saveChange = function(){
         var newValue = (type==='number') ? (parseFloat(editor.value)||0) : editor.value;
         
-        // Si cambiamos el estado y es Pago Parcial, necesitamos pedir el monto pagado
         if(field === 'estado' && newValue === 'Pago Parcial'){
           var montoPagado = prompt('Ingrese el monto pagado parcialmente:');
           if(montoPagado){
@@ -922,7 +910,124 @@
     }
   </script>
   
-  <!-- Google Drive API -->
+  <!-- IMPORTANTE: Primero definir las funciones globales ANTES de cargar los scripts -->
   <script>
-    const CLIENT_ID = '976943805178-lr5pviv
-
+    // GOOGLE DRIVE - VARIABLES Y FUNCIONES GLOBALES
+    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    const DATA_FILE_NAME = 'datos_control_abonos_mensuales.json';
+
+    let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
+
+    function gapiLoaded() { 
+      gapi.load('client', initializeGapiClient); 
+    }
+    
+    async function initializeGapiClient() { 
+      await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); 
+      gapiInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function gisLoaded() { 
+      tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); 
+      gisInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function maybeEnableButtons() { 
+      if (gapiInited && gisInited) {
+        // Nada que hacer aquí, los botones tienen onclick directo en el HTML
+      }
+    }
+    
+    function updateDriveStatus(message, isConnected = false) { 
+      const driveStatusEl = document.getElementById('driveStatus');
+      driveStatusEl.style.display = 'block'; 
+      driveStatusEl.textContent = message; 
+      driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; 
+      driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; 
+    }
+
+    function handleAuthClick() {
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) throw (resp);
+        updateDriveStatus('✅ Conectado a Google Drive', true);
+        document.getElementById('connectDriveBtn').style.display = 'none'; 
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block'; 
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        await findDataFile();
+      };
+      if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); 
+      else tokenClient.requestAccessToken({prompt: ''});
+    }
+    
+    async function findDataFile() {
+      updateDriveStatus('Buscando archivo de datos en Drive...', false);
+      try {
+        const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+        if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
+        else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
+      } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+    }
+    
+    async function saveDataToDrive() {
+      if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+      updateDriveStatus('Guardando datos en Drive...', false);
+      try {
+        const content = JSON.stringify(abonosData, null, 2);
+        dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+      } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
+    }
+    
+    async function loadDataFromDrive() {
+      if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
+      if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+      updateDriveStatus('Cargando datos desde Drive...', false);
+      try {
+        const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+        const importedData = JSON.parse(response.body);
+        if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
+        abonosData = importedData;
+        saveData();
+        loadData();
+        render();
+        updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+      } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
+    }
+    
+    async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+      const boundary = '-------314159265358979323846';
+      const metadata = { name: fileName, mimeType: mimeType, ...(parentId && {parents: [parentId]}) };
+      const base64Data = content instanceof ArrayBuffer ? btoa(String.fromCharCode.apply(null, new Uint8Array(content))) : btoa(unescape(encodeURIComponent(content)));
+      const requestBody =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify(metadata) +
+        `\r\n--${boundary}\r\n` +
+        `Content-Type: ${mimeType}\r\n` +
+        `Content-Transfer-Encoding: base64\r\n\r\n` +
+        base64Data +
+        `\r\n--${boundary}--`;
+        
+      const request = gapi.client.request({
+        path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+        method: fileIdToUpdate ? 'PATCH' : 'POST',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: requestBody
+      });
+      const response = await request;
+      return response.result.id;
+    }
+  </script>
+  
+  <!-- AHORA SÍ cargamos los scripts de Google con las funciones ya definidas -->
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+  
+</body>
+</html>
