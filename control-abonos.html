@@ -537,12 +537,17 @@
               deudaTotal += montoBase + deudaPrevia;
             }
           } else if (record.estado === 'Pago Parcial') {
-            // Para Pago Parcial: (monto total - monto pagado)
-            var montoTotalRecord = montoBase + deudaPrevia;
-            var montoPagado = parseFloat(record.montoPagado) || 0;
-            var deudaRestante = montoTotalRecord - montoPagado;
-            if (deudaRestante > 0) {
-              deudaTotal += deudaRestante;
+            // Para Regulación de Honorarios con Pago Parcial: NO arrastrar
+            if (record.tipo === 'Regulación Honorarios') {
+              // No agregar nada a deudaTotal - se queda en el registro actual
+            } else {
+              // Para otros tipos: calcular deuda restante
+              var montoTotalRecord = montoBase + deudaPrevia;
+              var montoPagado = parseFloat(record.montoPagado) || 0;
+              var deudaRestante = montoTotalRecord - montoPagado;
+              if (deudaRestante > 0) {
+                deudaTotal += deudaRestante;
+              }
             }
           }
         }
@@ -903,10 +908,36 @@
     // ====== RECIBOS ======
     function generateReceipt(abonoId){
       var abono = abonosData.find(function(a){ return a.id===abonoId; });
-      if(!abono || abono.estado!=='Pagado'){ return; }
+      if(!abono){ 
+        alert('No se encontró el registro del abono.');
+        return; 
+      }
+      
+      // Permitir recibos para Pagado y Pago Parcial
+      if(abono.estado!=='Pagado' && abono.estado!=='Pago Parcial'){ 
+        alert('Solo se pueden generar recibos para pagos completos o parciales.');
+        return; 
+      }
 
       var receiptDate = new Date().toLocaleDateString('es-AR');
       var receiptNumber = String(Date.now()).slice(-8);
+      
+      // Determinar el monto del recibo según el estado
+      var montoRecibo, conceptoRecibo;
+      
+      if (abono.estado === 'Pago Parcial') {
+        montoRecibo = parseFloat(abono.montoPagado) || 0;
+        conceptoRecibo = (abono.tipo || 'Abono Mensual') + ' (Pago Parcial)';
+        
+        if (montoRecibo <= 0) {
+          alert('El monto pagado parcialmente debe ser mayor a cero.');
+          return;
+        }
+      } else {
+        // Para estado "Pagado"
+        montoRecibo = parseFloat(abono.monto) || 0;
+        conceptoRecibo = abono.tipo || 'Abono Mensual';
+      }
 
       var parts = [];
       parts.push(
@@ -920,12 +951,25 @@
         '</div>',
         '<div class="receipt-body">',
           '<div class="receipt-detail">',
-            '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||''), '</span></div>',
-            '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', (abono.tipo||''), '</span></div>',
-            '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : ''), '</span></div>',
-            '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||'Sin nombre'), '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : 'Sin fecha'), '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>'
+      );
+      
+      // Agregar información adicional para pago parcial
+      if (abono.estado === 'Pago Parcial') {
+        var montoTotal = parseFloat(abono.monto) || 0;
+        var montoRestante = montoTotal - montoRecibo;
+        parts.push(
+          '<div class="receipt-detail-row"><span class="receipt-detail-label">Monto Total Adeudado:</span><span>', formatCurrency(montoTotal), '</span></div>',
+          '<div class="receipt-detail-row"><span class="receipt-detail-label">Saldo Pendiente:</span><span>', formatCurrency(montoRestante), '</span></div>'
+        );
+      }
+      
+      parts.push(
           '</div>',
-          '<div class="receipt-total"><div>TOTAL ABONADO</div><div class="amount">', formatCurrency(abono.monto), '</div></div>',
+          '<div class="receipt-total"><div>TOTAL ABONADO</div><div class="amount">', formatCurrency(montoRecibo), '</div></div>',
         '</div>',
         '<div class="receipt-footer">',
           '<div class="signature-container"><div class="signature-line"></div><p>Firma del Cliente</p></div>',
