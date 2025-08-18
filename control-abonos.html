@@ -117,6 +117,7 @@
     .month-display{font-weight:600;color:var(--secondary-color);font-size:1.1em;min-width:150px;text-align:center}
     .back-to-portal{position:fixed;top:20px;left:20px;background:var(--secondary-color);color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:flex;align-items:center;gap:8px;z-index:100;transition:.3s}
     .back-to-portal:hover{background:var(--primary-color);transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.2)}
+    .month-indicator{background:#e3f2fd;color:#1976d2;padding:4px 8px;border-radius:4px;font-size:0.8em;margin-left:5px;font-weight:500}
     @media print{
       body,.container,.main-content{visibility:hidden;padding:0;margin:0}
       .print-area,.print-area *{visibility:visible}
@@ -209,7 +210,7 @@
           <table>
             <thead>
               <tr>
-                <th>Cliente</th><th>Tipo</th><th>Monto Abono</th><th>Fecha de Pago</th><th>Forma de Pago</th><th>Estado</th><th class="no-print">Acciones</th>
+                <th>Cliente</th><th>Tipo</th><th>Monto Abono</th><th>Mes Correspondiente</th><th>Fecha de Pago</th><th>Forma de Pago</th><th>Estado</th><th class="no-print">Acciones</th>
               </tr>
             </thead>
             <tbody id="abonosTableBody"></tbody>
@@ -230,6 +231,7 @@
         <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
         <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
+        <div class="form-group"><label>Mes Correspondiente</label><select id="mesCorrespondiente"></select></div>
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><input type="text" id="formaPago"></div>
         <div class="form-group"><label>Estado</label><select id="estado"></select></div>
@@ -405,9 +407,11 @@
 
     function getAbonosForMonth(month, year){
       return abonosData.filter(function(a){
-        if(!a.fechaPago) return false;
-        var d = new Date(a.fechaPago + 'T00:00:00');
-        return d.getMonth() === month && d.getFullYear() === year;
+        if(!a.mesCorrespondiente) return false;
+        var parts = a.mesCorrespondiente.split('-');
+        var mesCorr = parseInt(parts[0]) - 1; // Convertir a índice (0-11)
+        var yearCorr = parseInt(parts[1]);
+        return mesCorr === month && yearCorr === year;
       });
     }
 
@@ -575,9 +579,10 @@
       unique.forEach(function(cliente){
         if(!existing.has(cliente)){
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
-          var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+          var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago||'1900-01-01')-new Date(a.fechaPago||'1900-01-01'); })[0];
           
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
+          var mesCorrespondienteStr = String(nm+1).padStart(2,'0')+'-'+ny;
           var observaciones = lastRecord.observaciones || '';
           var registrosAgregados = 0;
           
@@ -592,6 +597,7 @@
               monto: montoAbono,
               montoBase: montoAbono,
               deudaAcumulada: 0,
+              mesCorrespondiente: mesCorrespondienteStr,
               fechaPago: dateStr, 
               formaPago: (lastRecord.formaPago||''), 
               estado: 'Terminado',
@@ -617,6 +623,7 @@
                   monto: montoTotal,
                   montoBase: abonoMensual,
                   deudaAcumulada: deudaTotal,
+                  mesCorrespondiente: mesCorrespondienteStr,
                   fechaPago: dateStr, 
                   formaPago: (lastRecord.formaPago||''), 
                   estado: 'Pendiente',
@@ -629,6 +636,7 @@
                   monto: abonoMensual,
                   montoBase: abonoMensual,
                   deudaAcumulada: 0,
+                  mesCorrespondiente: mesCorrespondienteStr,
                   fechaPago: dateStr, 
                   formaPago: (lastRecord.formaPago||''), 
                   estado: 'Pendiente',
@@ -666,6 +674,7 @@
                   monto: montoRestante,
                   montoBase: montoRestante,
                   deudaAcumulada: 0,
+                  mesCorrespondiente: mesCorrespondienteStr,
                   fechaPago: dateStr, 
                   formaPago: (record.formaPago||''), 
                   estado: 'Pendiente', // Cambiar a Pendiente al arrastrar
@@ -686,6 +695,7 @@
                   monto: parseFloat(otroTipo.monto) || 0,
                   montoBase: parseFloat(otroTipo.monto) || 0,
                   deudaAcumulada: 0,
+                  mesCorrespondiente: mesCorrespondienteStr,
                   fechaPago: dateStr, 
                   formaPago: (otroTipo.formaPago||''), 
                   estado: 'Pendiente',
@@ -814,7 +824,7 @@
       body.innerHTML = '';
       if(abonos.length===0){
         var msg = currentFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con el filtro seleccionado.';
-        body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
       }
       abonos.forEach(function(abono){
@@ -839,10 +849,29 @@
         
         montoDisplay += additionalInfo;
 
+        // Formatear mes correspondiente
+        var mesCorrespondienteDisplay = 'N/A';
+        if(abono.mesCorrespondiente) {
+          var parts = abono.mesCorrespondiente.split('-');
+          if(parts.length === 2) {
+            var mesNum = parseInt(parts[0]) - 1;
+            var año = parts[1];
+            mesCorrespondienteDisplay = MONTHS[mesNum] + ' ' + año;
+            
+            // Agregar indicador si no corresponde al mes actual
+            var mesActual = currentMonth.month;
+            var añoActual = currentMonth.year;
+            if(mesNum !== mesActual || parseInt(año) !== añoActual) {
+              mesCorrespondienteDisplay += ' <span class="month-indicator">Otro mes</span>';
+            }
+          }
+        }
+
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
+          '<td>'+mesCorrespondienteDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="text">'+(abono.formaPago||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
@@ -908,9 +937,44 @@
     function setupModal(){
       var tipo = document.getElementById('tipo');
       var estado = document.getElementById('estado');
-      tipo.innerHTML=''; estado.innerHTML='';
+      var mesCorrespondiente = document.getElementById('mesCorrespondiente');
+      
+      tipo.innerHTML=''; estado.innerHTML=''; mesCorrespondiente.innerHTML='';
+      
       TIPO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; tipo.appendChild(o); });
       ESTADO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; estado.appendChild(o); });
+      
+      // Generar opciones de mes correspondiente (6 meses hacia atrás y 6 hacia adelante)
+      var today = new Date();
+      var currentYear = today.getFullYear();
+      var currentMonthIdx = today.getMonth();
+      
+      for(var i = -6; i <= 6; i++) {
+        var targetMonth = currentMonthIdx + i;
+        var targetYear = currentYear;
+        
+        if(targetMonth < 0) {
+          targetMonth += 12;
+          targetYear--;
+        } else if(targetMonth > 11) {
+          targetMonth -= 12;
+          targetYear++;
+        }
+        
+        var monthValue = String(targetMonth + 1).padStart(2, '0') + '-' + targetYear;
+        var monthText = MONTHS[targetMonth] + ' ' + targetYear;
+        
+        var option = document.createElement('option');
+        option.value = monthValue;
+        option.textContent = monthText;
+        
+        // Seleccionar el mes actual por defecto
+        if(targetMonth === currentMonth.month && targetYear === currentMonth.year) {
+          option.selected = true;
+        }
+        
+        mesCorrespondiente.appendChild(option);
+      }
     }
 
     function openModal(){
@@ -918,6 +982,11 @@
       form.reset();
       var ds = currentMonth.year+'-'+String(currentMonth.month+1).padStart(2,'0')+'-'+String(new Date().getDate()).padStart(2,'0');
       document.getElementById('fechaPago').value = ds;
+      
+      // Establecer el mes correspondiente al mes actual por defecto
+      var mesCorrespondienteDefault = String(currentMonth.month + 1).padStart(2, '0') + '-' + currentMonth.year;
+      document.getElementById('mesCorrespondiente').value = mesCorrespondienteDefault;
+      
       document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
       document.getElementById('abonoModal').classList.add('active');
@@ -933,6 +1002,7 @@
         cliente: document.getElementById('cliente').value,
         tipo: document.getElementById('tipo').value,
         monto: parseFloat(document.getElementById('monto').value),
+        mesCorrespondiente: document.getElementById('mesCorrespondiente').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
         estado: document.getElementById('estado').value,
@@ -997,6 +1067,17 @@
         conceptoRecibo = abono.tipo || 'Abono Mensual';
       }
 
+      // Determinar el mes correspondiente
+      var mesCorrespondienteTexto = 'N/A';
+      if(abono.mesCorrespondiente) {
+        var parts = abono.mesCorrespondiente.split('-');
+        if(parts.length === 2) {
+          var mesNum = parseInt(parts[0]) - 1;
+          var año = parts[1];
+          mesCorrespondienteTexto = MONTHS[mesNum] + ' ' + año;
+        }
+      }
+
       var parts = [];
       parts.push(
         '<div class="receipt-header">',
@@ -1011,6 +1092,7 @@
           '<div class="receipt-detail">',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||'Sin nombre'), '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Mes Correspondiente:</span><span>', mesCorrespondienteTexto, '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : 'Sin fecha'), '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>'
       );
@@ -1100,10 +1182,21 @@
       if(data.length===0){ alert('No hay datos para exportar.'); return; }
 
       var rows = data.map(function(a){
+        var mesCorrespondienteTexto = 'N/A';
+        if(a.mesCorrespondiente) {
+          var parts = a.mesCorrespondiente.split('-');
+          if(parts.length === 2) {
+            var mesNum = parseInt(parts[0]) - 1;
+            var año = parts[1];
+            mesCorrespondienteTexto = MONTHS[mesNum] + ' ' + año;
+          }
+        }
+        
         return { 
           Cliente:a.cliente, 
           Tipo:a.tipo, 
           Monto:a.monto, 
+          'Mes Correspondiente':mesCorrespondienteTexto,
           'Fecha de Pago':a.fechaPago, 
           'Forma de Pago':a.formaPago, 
           Estado:a.estado,
@@ -1239,3 +1332,4 @@
   
 </body>
 </html>
+      
