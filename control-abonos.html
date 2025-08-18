@@ -495,75 +495,93 @@
     }
 
     // ====== ARRASTRE CLIENTES CON ACUMULACIÓN DE DEUDA ======
-    function carryOverClients(){
-      var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      if(curr.length===0){ alert('No hay clientes en el mes actual para arrastrar.'); return; }
-      var nm = currentMonth.month + 1, ny=currentMonth.year;
-      if(nm>11){ nm=0; ny++; }
-      var unique = Array.from(new Set(curr.map(function(a){ return a.cliente; })));
-      var next = getAbonosForMonth(nm, ny);
-      var existing = new Set(next.map(function(a){ return a.cliente; }));
-      var added=0;
+   // ====== ARRASTRE CLIENTES CON ACUMULACIÓN DE DEUDA ======
+function carryOverClients(){
+  var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
+  if(curr.length===0){ alert('No hay clientes en el mes actual para arrastrar.'); return; }
+  var nm = currentMonth.month + 1, ny=currentMonth.year;
+  if(nm>11){ nm=0; ny++; }
+  var unique = Array.from(new Set(curr.map(function(a){ return a.cliente; })));
+  var next = getAbonosForMonth(nm, ny);
+  var existing = new Set(next.map(function(a){ return a.cliente; }));
+  var added=0;
 
-      unique.forEach(function(cliente){
-        if(!existing.has(cliente)){
-          var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
-          var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+  unique.forEach(function(cliente){
+    if(!existing.has(cliente)){
+      var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
+      var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+      
+      var deudaTotal = 0;
+      clienteRecords.forEach(function(record){
+        if(record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || 
+           record.estado === 'En Ejecución de Honorarios' || record.estado === 'Pago Parcial'){
           
-          var deudaTotal = 0;
-          clienteRecords.forEach(function(record){
-            if(record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || 
-               record.estado === 'En Ejecución de Honorarios' || record.estado === 'Pago Parcial'){
-              deudaTotal += parseFloat(record.monto) || 0;
-              
-              if(record.deudaAcumulada) {
-                deudaTotal += parseFloat(record.deudaAcumulada);
-              }
-              
-              if(record.estado === 'Pago Parcial' && record.montoPagado) {
-                deudaTotal -= parseFloat(record.montoPagado);
-              }
-            }
-          });
+          // Si el registro tiene un monto base, usar ese para calcular la deuda
+          // (el monto base es el abono sin deuda acumulada)
+          var montoDeuda = record.montoBase || record.monto;
           
-          var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
-          var nuevoMonto = parseFloat(lastRecord.monto) || 0;
-          
-          if(deudaTotal > 0) {
-            addAbono({ 
-              cliente: cliente, 
-              tipo: (lastRecord.tipo||'Abono Mensual'), 
-              monto: nuevoMonto + deudaTotal,
-              montoBase: nuevoMonto,
-              deudaAcumulada: deudaTotal,
-              fechaPago: dateStr, 
-              formaPago: (lastRecord.formaPago||''), 
-              estado: 'Pendiente',
-              observaciones: 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(nuevoMonto)
-            });
+          // Solo sumar el monto del abono, no la deuda acumulada anterior
+          if(record.montoBase && record.deudaAcumulada){
+            // Si tiene monto base, significa que ya tiene deuda acumulada
+            // Solo sumamos el monto base
+            deudaTotal += parseFloat(record.montoBase);
           } else {
-            addAbono({ 
-              cliente: cliente, 
-              tipo: (lastRecord.tipo||'Abono Mensual'), 
-              monto: nuevoMonto,
-              deudaAcumulada: 0,
-              fechaPago: dateStr, 
-              formaPago: (lastRecord.formaPago||''), 
-              estado: 'Pendiente',
-              observaciones: lastRecord.observaciones || ''
-            });
+            // Si no tiene monto base, es un registro original sin deuda
+            deudaTotal += parseFloat(montoDeuda);
           }
-          added++;
+          
+          // Si hay deuda acumulada previa, también la sumamos
+          if(record.deudaAcumulada && !record.montoBase) {
+            deudaTotal += parseFloat(record.deudaAcumulada);
+          }
+          
+          // Si es pago parcial, restar lo pagado
+          if(record.estado === 'Pago Parcial' && record.montoPagado) {
+            deudaTotal -= parseFloat(record.montoPagado);
+          }
         }
       });
-
-      if(added>0){
-        alert('Se arrastraron '+added+' clientes al mes de '+MONTHS[nm]+' '+ny+'.');
-        currentMonth = { month:nm, year:ny }; updateMonthDisplay(); render();
+      
+      var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
+      // El monto base es el abono mensual sin deuda
+      var montoBase = parseFloat(lastRecord.montoBase || lastRecord.monto) || 0;
+      
+      if(deudaTotal > 0) {
+        addAbono({ 
+          cliente: cliente, 
+          tipo: (lastRecord.tipo||'Abono Mensual'), 
+          monto: montoBase + deudaTotal,
+          montoBase: montoBase, // Guardar el monto base para referencia
+          deudaAcumulada: deudaTotal,
+          fechaPago: dateStr, 
+          formaPago: (lastRecord.formaPago||''), 
+          estado: 'Pendiente',
+          observaciones: 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(montoBase)
+        });
       } else {
-        alert('Todos los clientes ya existen en el próximo mes.');
+        addAbono({ 
+          cliente: cliente, 
+          tipo: (lastRecord.tipo||'Abono Mensual'), 
+          monto: montoBase,
+          montoBase: montoBase,
+          deudaAcumulada: 0,
+          fechaPago: dateStr, 
+          formaPago: (lastRecord.formaPago||''), 
+          estado: 'Pendiente',
+          observaciones: lastRecord.observaciones || ''
+        });
       }
+      added++;
     }
+  });
+
+  if(added>0){
+    alert('Se arrastraron '+added+' clientes al mes de '+MONTHS[nm]+' '+ny+'.');
+    currentMonth = { month:nm, year:ny }; updateMonthDisplay(); render();
+  } else {
+    alert('Todos los clientes ya existen en el próximo mes.');
+  }
+}
 
     // ====== MES ======
     function initializeMonth(){ var t=new Date(); currentMonth = { month:t.getMonth(), year:t.getFullYear() }; updateMonthDisplay(); }
