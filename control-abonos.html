@@ -516,28 +516,33 @@
       
       abonos.forEach(function(record) {
         if (record.cliente === cliente) {
-          // Obtener el monto base (abono mensual sin deuda)
+          // Obtener el monto base (abono mensual sin deuda previa)
           var montoBase = parseFloat(record.montoBase || record.monto) || 0;
+          
+          // Si ya tiene deuda acumulada de meses anteriores, también sumarla
+          var deudaPrevia = parseFloat(record.deudaAcumulada) || 0;
           
           // Solo actualizar abono mensual si es "Abono Mensual"
           if (record.tipo === 'Abono Mensual') {
             abonoMensual = montoBase;
           }
           
-          // Para "Regulación Honorarios" solo acumular deuda si es Pago Parcial
-          if (record.tipo === 'Regulación Honorarios') {
-            if (record.estado === 'Pago Parcial') {
-              var montoPagado = parseFloat(record.montoPagado) || 0;
-              deudaTotal += (montoBase - montoPagado);
+          // Calcular deuda según el estado y tipo
+          if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
+            if (record.tipo === 'Regulación Honorarios' && record.estado === 'Falta de Pago') {
+              // Para Regulación + Falta de Pago: NO sumar (importa único)
+              // No agregar nada a deudaTotal
+            } else {
+              // Para otros casos: sumar el monto base + deuda previa
+              deudaTotal += montoBase + deudaPrevia;
             }
-            // No acumular deuda para Falta de Pago en Regulación Honorarios
-          } else {
-            // Para otros tipos (Abono Mensual, Honorarios Siniestro)
-            if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
-              deudaTotal += montoBase;
-            } else if (record.estado === 'Pago Parcial') {
-              var montoPagado = parseFloat(record.montoPagado) || 0;
-              deudaTotal += (montoBase - montoPagado);
+          } else if (record.estado === 'Pago Parcial') {
+            // Para Pago Parcial: (monto total - monto pagado)
+            var montoTotalRecord = montoBase + deudaPrevia;
+            var montoPagado = parseFloat(record.montoPagado) || 0;
+            var deudaRestante = montoTotalRecord - montoPagado;
+            if (deudaRestante > 0) {
+              deudaTotal += deudaRestante;
             }
           }
         }
@@ -606,8 +611,8 @@
               addAbono({ 
                 cliente: cliente, 
                 tipo: (lastRecord.tipo||'Abono Mensual'), 
-                monto: montoTotal,
-                montoBase: abonoMensual,
+                monto: lastRecord.tipo === 'Abono Mensual' ? montoTotal : deudaTotal,
+                montoBase: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
                 deudaAcumulada: deudaTotal,
                 fechaPago: dateStr, 
                 formaPago: (lastRecord.formaPago||''), 
@@ -619,8 +624,8 @@
               addAbono({ 
                 cliente: cliente, 
                 tipo: (lastRecord.tipo||'Abono Mensual'), 
-                monto: abonoMensual,
-                montoBase: abonoMensual,
+                monto: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
+                montoBase: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
                 deudaAcumulada: 0,
                 fechaPago: dateStr, 
                 formaPago: (lastRecord.formaPago||''), 
