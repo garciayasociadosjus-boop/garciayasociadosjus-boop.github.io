@@ -410,10 +410,29 @@
         return d.getMonth() === month && d.getFullYear() === year;
       });
     }
+    
+    // Nueva función para obtener registros por mes de registro (no fecha de pago)
+    function getAbonosByRegistrationMonth(month, year){
+      return abonosData.filter(function(a){
+        // Si tiene mesRegistro, usar ese; sino, usar la fecha de pago
+        if(a.mesRegistro !== undefined && a.anoRegistro !== undefined) {
+          return a.mesRegistro === month && a.anoRegistro === year;
+        }
+        // Fallback a fecha de pago para registros existentes
+        if(!a.fechaPago) return false;
+        var d = new Date(a.fechaPago + 'T00:00:00');
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+    }
 
     function addAbono(newAbono){ 
       newAbono.id='abono_'+Date.now(); 
       if(!newAbono.deudaAcumulada) newAbono.deudaAcumulada = 0;
+      
+      // Agregar mes y año de registro (donde está navegando el usuario)
+      newAbono.mesRegistro = currentMonth.month;
+      newAbono.anoRegistro = currentMonth.year;
+      
       abonosData.push(newAbono); 
       saveData(); 
       render(); 
@@ -754,7 +773,7 @@
     }
 
     function render(){
-      var mes = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      var mes = getAbonosByRegistrationMonth(currentMonth.month, currentMonth.year);
       var filtered = getFilteredAbonos(mes);
       renderTable(filtered);
       renderDashboard(mes);
