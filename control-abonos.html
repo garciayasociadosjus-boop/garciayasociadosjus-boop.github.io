@@ -614,7 +614,10 @@
               fechaPago: dateStr, 
               formaPago: (lastRecord.formaPago||''), 
               estado: 'Terminado',
-              observaciones: observaciones
+              observaciones: observaciones,
+              esArrastre: true,
+              mesDestinoRegistro: nm,
+              anoDestinoRegistro: ny
             });
             registrosAgregados++;
           } else {
@@ -1002,6 +1005,15 @@
       // Determinar el monto del recibo según el estado
       var montoRecibo, conceptoRecibo;
       
+      // Determinar qué mes está pagando
+      var mesPago = '';
+      if (abono.mesRegistro !== undefined && abono.anoRegistro !== undefined) {
+        mesPago = MONTHS[abono.mesRegistro] + ' ' + abono.anoRegistro;
+      } else if (abono.fechaPago) {
+        var fechaPagoDate = new Date(abono.fechaPago + 'T00:00:00');
+        mesPago = MONTHS[fechaPagoDate.getMonth()] + ' ' + fechaPagoDate.getFullYear();
+      }
+      
       if (abono.estado === 'Pago Parcial') {
         montoRecibo = parseFloat(abono.montoPagado) || 0;
         conceptoRecibo = (abono.tipo || 'Abono Mensual') + ' (Pago Parcial)';
@@ -1029,7 +1041,15 @@
         '<div class="receipt-body">',
           '<div class="receipt-detail">',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||'Sin nombre'), '</span></div>',
-            '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>',
+            '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>'
+      );
+      
+      // Agregar mes que está pagando si existe
+      if (mesPago) {
+        parts.push('<div class="receipt-detail-row"><span class="receipt-detail-label">Período:</span><span>', mesPago, '</span></div>');
+      }
+      
+      parts.push(
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : 'Sin fecha'), '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>'
       );
