@@ -577,19 +577,16 @@
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
-          // Calcular deuda acumulada correctamente
+          // Calcular deuda acumulada para abonos mensuales
           var calculoDeuda = calcularDeudaCliente(cliente, clienteRecords);
           var deudaTotal = calculoDeuda.deudaTotal;
           var abonoMensual = calculoDeuda.abonoMensual || parseFloat(lastRecord.monto) || 0;
           
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
-          var nuevoEstado = 'Pendiente';
-          var observaciones = lastRecord.observaciones || ''; // Arrastrar observaciones siempre
+          var observaciones = lastRecord.observaciones || '';
           
           // Si el último estado es "Terminado", mantener como terminado
           if (lastRecord.estado === 'Terminado') {
-            nuevoEstado = 'Terminado';
-            
             addAbono({ 
               cliente: cliente, 
               tipo: (lastRecord.tipo||'Abono Mensual'), 
@@ -598,46 +595,75 @@
               deudaAcumulada: 0,
               fechaPago: dateStr, 
               formaPago: (lastRecord.formaPago||''), 
-              estado: nuevoEstado,
+              estado: 'Terminado',
               observaciones: observaciones
             });
           } else {
-            // Para otros estados
-            if (deudaTotal > 0) {
-              var montoTotal = abonoMensual + deudaTotal;
-              // Solo agregar observación automática si no es Regulación Honorarios con Falta de Pago
-              var isRegulacionFalta = lastRecord.tipo === 'Regulación Honorarios' && lastRecord.estado === 'Falta de Pago';
-              
-              if (!isRegulacionFalta && lastRecord.tipo === 'Abono Mensual') {
+            // Procesar cada tipo de registro por separado
+            
+            // 1. Arrastrar Abono Mensual si hay deuda o cliente activo
+            var tieneAbonoMensual = clienteRecords.some(function(r){ return r.tipo === 'Abono Mensual'; });
+            if (tieneAbonoMensual) {
+              if (deudaTotal > 0) {
+                var montoTotal = abonoMensual + deudaTotal;
                 observaciones = observaciones ? (observaciones + ' | ') : '';
                 observaciones += 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(abonoMensual);
+                
+                addAbono({ 
+                  cliente: cliente, 
+                  tipo: 'Abono Mensual', 
+                  monto: montoTotal,
+                  montoBase: abonoMensual,
+                  deudaAcumulada: deudaTotal,
+                  fechaPago: dateStr, 
+                  formaPago: (lastRecord.formaPago||''), 
+                  estado: 'Pendiente',
+                  observaciones: observaciones
+                });
+              } else {
+                addAbono({ 
+                  cliente: cliente, 
+                  tipo: 'Abono Mensual', 
+                  monto: abonoMensual,
+                  montoBase: abonoMensual,
+                  deudaAcumulada: 0,
+                  fechaPago: dateStr, 
+                  formaPago: (lastRecord.formaPago||''), 
+                  estado: 'Pendiente',
+                  observaciones: observaciones
+                });
               }
-              
-              addAbono({ 
-                cliente: cliente, 
-                tipo: (lastRecord.tipo||'Abono Mensual'), 
-                monto: lastRecord.tipo === 'Abono Mensual' ? montoTotal : deudaTotal,
-                montoBase: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
-                deudaAcumulada: deudaTotal,
-                fechaPago: dateStr, 
-                formaPago: (lastRecord.formaPago||''), 
-                estado: nuevoEstado,
-                observaciones: observaciones
-              });
-            } else {
-              // Sin deuda
-              addAbono({ 
-                cliente: cliente, 
-                tipo: (lastRecord.tipo||'Abono Mensual'), 
-                monto: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
-                montoBase: lastRecord.tipo === 'Abono Mensual' ? abonoMensual : 0,
-                deudaAcumulada: 0,
-                fechaPago: dateStr, 
-                formaPago: (lastRecord.formaPago||''), 
-                estado: nuevoEstado,
-                observaciones: observaciones
-              });
             }
+            
+            // 2. Arrastrar Regulaciones de Honorarios con saldo pendiente
+            clienteRecords.forEach(function(record) {
+              if (record.tipo === 'Regulación Honorarios') {
+                var montoRestante = 0;
+                
+                if (record.estado === 'Pago Parcial') {
+                  var montoOriginal = parseFloat(record.monto) || 0;
+                  var montoPagado = parseFloat(record.montoPagado) || 0;
+                  montoRestante = montoOriginal - montoPagado;
+                } else if (record.estado === 'Pendiente' || record.estado === 'Ejecución de Honorarios') {
+                  montoRestante = parseFloat(record.monto) || 0;
+                }
+                
+                // Solo arrastrar si queda saldo pendiente
+                if (montoRestante > 0) {
+                  addAbono({ 
+                    cliente: cliente, 
+                    tipo: 'Regulación Honorarios', 
+                    monto: montoRestante,
+                    montoBase: montoRestante,
+                    deudaAcumulada: 0,
+                    fechaPago: dateStr, 
+                    formaPago: (record.formaPago||''), 
+                    estado: 'Pendiente',
+                    observaciones: 'Saldo pendiente de regulación anterior: ' + formatCurrency(montoRestante)
+                  });
+                }
+              }
+            });
           }
           
           added++;
