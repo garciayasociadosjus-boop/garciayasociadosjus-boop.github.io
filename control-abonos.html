@@ -75,7 +75,7 @@
     .status-span.falta-de-pago{background:var(--danger-color)}
     .status-span.terminado{background:var(--finished-color)}
     .status-span.pago-parcial{background:var(--info-color)}
-    .status-span.ejecucion-de-honorarios{background:#8e44ad;color:#000}
+    .status-span.ejecucion-de-honorarios{background:#8e44ad;color:#000!important}
     .editable{cursor:pointer;position:relative}
     .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
     .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
@@ -518,15 +518,27 @@
         if (record.cliente === cliente) {
           // Obtener el monto base (abono mensual sin deuda)
           var montoBase = parseFloat(record.montoBase || record.monto) || 0;
-          abonoMensual = montoBase; // Actualizar el abono mensual
           
-          if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
-            // Sumar el monto completo como deuda
-            deudaTotal += montoBase;
-          } else if (record.estado === 'Pago Parcial') {
-            // Restar lo pagado del monto base
-            var montoPagado = parseFloat(record.montoPagado) || 0;
-            deudaTotal += (montoBase - montoPagado);
+          // Solo actualizar abono mensual si es "Abono Mensual"
+          if (record.tipo === 'Abono Mensual') {
+            abonoMensual = montoBase;
+          }
+          
+          // Para "Regulación Honorarios" solo acumular deuda si es Pago Parcial
+          if (record.tipo === 'Regulación Honorarios') {
+            if (record.estado === 'Pago Parcial') {
+              var montoPagado = parseFloat(record.montoPagado) || 0;
+              deudaTotal += (montoBase - montoPagado);
+            }
+            // No acumular deuda para Falta de Pago en Regulación Honorarios
+          } else {
+            // Para otros tipos (Abono Mensual, Honorarios Siniestro)
+            if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
+              deudaTotal += montoBase;
+            } else if (record.estado === 'Pago Parcial') {
+              var montoPagado = parseFloat(record.montoPagado) || 0;
+              deudaTotal += (montoBase - montoPagado);
+            }
           }
         }
       });
@@ -558,16 +570,15 @@
           // Calcular deuda acumulada correctamente
           var calculoDeuda = calcularDeudaCliente(cliente, clienteRecords);
           var deudaTotal = calculoDeuda.deudaTotal;
-          var abonoMensual = calculoDeuda.abonoMensual;
+          var abonoMensual = calculoDeuda.abonoMensual || parseFloat(lastRecord.monto) || 0;
           
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
           var nuevoEstado = 'Pendiente';
-          var observaciones = '';
+          var observaciones = lastRecord.observaciones || ''; // Arrastrar observaciones siempre
           
           // Si el último estado es "Terminado", mantener como terminado
           if (lastRecord.estado === 'Terminado') {
             nuevoEstado = 'Terminado';
-            observaciones = 'Cliente terminado - Arrastrado automáticamente';
             
             addAbono({ 
               cliente: cliente, 
@@ -581,10 +592,16 @@
               observaciones: observaciones
             });
           } else {
-            // Para otros estados, calcular deuda
+            // Para otros estados
             if (deudaTotal > 0) {
               var montoTotal = abonoMensual + deudaTotal;
-              observaciones = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(abonoMensual);
+              // Solo agregar observación automática si no es Regulación Honorarios con Falta de Pago
+              var isRegulacionFalta = lastRecord.tipo === 'Regulación Honorarios' && lastRecord.estado === 'Falta de Pago';
+              
+              if (!isRegulacionFalta && lastRecord.tipo === 'Abono Mensual') {
+                observaciones = observaciones ? (observaciones + ' | ') : '';
+                observaciones += 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono mensual: ' + formatCurrency(abonoMensual);
+              }
               
               addAbono({ 
                 cliente: cliente, 
@@ -608,7 +625,7 @@
                 fechaPago: dateStr, 
                 formaPago: (lastRecord.formaPago||''), 
                 estado: nuevoEstado,
-                observaciones: lastRecord.observaciones || ''
+                observaciones: observaciones
               });
             }
           }
@@ -735,7 +752,7 @@
       abonos.forEach(function(abono){
         var tr = document.createElement('tr');
         var isPagado = (abono.estado==='Pagado');
-        var estadoClass = (abono.estado||'').toLowerCase().replace(/ /g,'-') || 'pendiente';
+        var estadoClass = (abono.estado||'').toLowerCase().replace(/ /g,'-').replace(/ó/g,'o') || 'pendiente';
         if(abono.estado==='Pendiente'){ tr.classList.add('highlight-pending'); }
         else if(abono.estado==='Falta de Pago'){ tr.classList.add('highlight-falta'); }
         if(abono.deudaAcumulada && abono.deudaAcumulada > 0){ tr.classList.add('has-debt'); }
