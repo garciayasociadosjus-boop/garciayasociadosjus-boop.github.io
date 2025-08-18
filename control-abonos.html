@@ -898,5 +898,31 @@
       event.target.value = '';
     }
 
-    function exportToExcel(){
-      var abonosMes = getAbonosForMonth(current
+        function exportToExcel(){
+      var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      var data = (currentFilter==='todos') ? abonosMes : getFilteredAbonos(abonosMes);
+      if(data.length===0){ alert('No hay datos para exportar.'); return; }
+
+      var rows = data.map(function(a){
+        return { 
+          Cliente:a.cliente, 
+          Tipo:a.tipo, 
+          Monto:a.monto, 
+          'Fecha de Pago':a.fechaPago, 
+          'Forma de Pago':a.formaPago, 
+          Estado:a.estado,
+          Observaciones:a.observaciones || ''
+        };
+      });
+      var ws = XLSX.utils.json_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      var sheetName = (currentFilter==='todos') ? 'Todos los Abonos' : ('Abonos '+currentFilter.replace('-',' '));
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx');
+    }
+  </script>
+  
+  <!-- Google Drive API -->
+  <script>
+    const CLIENT_ID = '976943805178-lr5pviv
+
