@@ -1,4 +1,298 @@
-<script>
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Abonos Mensuales - Estudio García y Asociados</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
+  <style>
+    :root{
+      --primary-color:#1e3a8a;--secondary-color:#1e293b;--success-color:#059669;--danger-color:#dc2626;--warning-color:#f59e0b;--info-color:#6366f1;--light-bg:#f8fafc;--text-dark:#1e293b;--text-light:#f1f5f9;--disabled-color:#94a3b8;--finished-color:#64748b;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;min-height:100vh;padding:20px;color:var(--text-dark)}
+    .container{max-width:1600px;margin:0 auto;background:#fff;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,.1);overflow:hidden}
+    .header{background:linear-gradient(135deg,var(--secondary-color),var(--primary-color));color:var(--text-light);padding:30px;text-align:center;border-bottom:5px solid var(--primary-color)}
+    .header h1{font-size:2.2em;margin-bottom:8px}
+    .header p{font-size:1.1em;opacity:.9}
+    .main-content{padding:30px}
+    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:25px;margin-bottom:30px}
+    .card{background:var(--light-bg);border-radius:12px;padding:25px;box-shadow:0 5px 15px rgba(0,0,0,.07);border-left:5px solid var(--primary-color);transition:.2s;position:relative}
+    .card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
+    .card h3{color:var(--secondary-color);margin-bottom:15px;font-size:1.1em;text-transform:uppercase;letter-spacing:.5px}
+    .card .value{font-size:1.5em;font-weight:700;color:var(--primary-color);word-break:break-word;overflow-wrap:break-word}
+    .card .value.positive{color:var(--success-color)}
+    .card.warning-card{border-left-color:var(--warning-color)}
+    .card.danger-card{border-left-color:var(--danger-color)}
+    .value-container{display:flex;align-items:center;justify-content:space-between}
+    .toggle-visibility{background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--secondary-color);transition:.3s;padding:5px;opacity:.6}
+    .toggle-visibility:hover{opacity:1;transform:scale(1.1)}
+    .hidden-value{font-size:1.5em;font-weight:700;color:var(--success-color);letter-spacing:5px}
+    .controls{background:var(--light-bg);padding:20px;border-radius:10px;margin-bottom:30px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px}
+    .form-group{display:flex;flex-direction:column;gap:5px}
+    .form-group label{font-weight:600;font-size:.85em;color:var(--text-dark)}
+    .form-group select,.form-group input,.form-group textarea{padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em;background:#fff}
+    .form-group textarea{resize:vertical;min-height:80px}
+    .btn{background:var(--primary-color);color:var(--text-light);border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:.9em;transition:.25s;font-weight:600;margin:0 5px}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(30,58,138,.3)}
+    .btn:disabled{background:var(--disabled-color);cursor:not-allowed;transform:none;box-shadow:none}
+    .btn-success{background:var(--success-color)}
+    .btn-warning{background:var(--warning-color)}
+    .btn-info{background:var(--info-color)}
+    .btn-danger{background:var(--danger-color)}
+    .btn-drive{background:#4285f4}
+    .btn-small{padding:5px 10px;font-size:0.8em;margin:0 2px}
+    .data-status{background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px;border-radius:8px;margin-bottom:20px;text-align:center}
+    .filters-container{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
+    .filter-buttons{display:flex;gap:10px;flex-wrap:wrap}
+    .filter-btn{padding:8px 16px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;transition:.3s;font-size:.9em;font-weight:500}
+    .filter-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+    .filter-btn.active{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
+    .filter-btn.filter-pendiente.active{background:var(--warning-color);border-color:var(--warning-color)}
+    .filter-btn.filter-falta.active{background:var(--danger-color);border-color:var(--danger-color)}
+    .filter-btn.filter-pagado.active{background:var(--success-color);border-color:var(--success-color)}
+    .filter-info{margin-top:15px;padding:10px;background:#f0f9ff;border-radius:8px;font-size:.9em;color:#0369a1;display:none}
+    .alert-banner{background:linear-gradient(135deg,var(--warning-color),var(--danger-color));color:#fff;padding:15px 20px;border-radius:10px;margin-bottom:20px;display:none;align-items:center;gap:15px;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.9}}
+    .alert-banner.show{display:flex}
+    .alert-icon{font-size:1.5em}
+    .alert-text{flex:1}
+    .alert-text strong{font-size:1.1em}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.95em}
+    thead{background:var(--secondary-color);color:var(--text-light)}
+    th,td{padding:12px 15px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+    tbody tr:nth-child(even){background:var(--light-bg)}
+    tbody tr:hover{background:#e0e7ff}
+    tbody tr.highlight-pending{background:#fef3c7!important;border-left:4px solid var(--warning-color)}
+    tbody tr.highlight-falta{background:#fee2e2!important;border-left:4px solid var(--danger-color)}
+    tbody tr.has-debt{border-left:4px solid var(--danger-color)!important}
+    .action-buttons{display:flex;gap:5px;align-items:center}
+    .status-span{display:inline-block;width:100%;font-weight:bold;color:#fff;padding:8px;border-radius:5px;text-align:center}
+    .status-span.pagado{background:var(--success-color)}
+    .status-span.pendiente{background:var(--warning-color)}
+    .status-span.falta-de-pago{background:var(--danger-color)}
+    .status-span.terminado{background:var(--finished-color)}
+    .status-span.pago-parcial{background:var(--info-color)}
+    .status-span.ejecucion-de-honorarios{background:#8e44ad;color:#000!important}
+    .editable{cursor:pointer;position:relative}
+    .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
+    .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
+    .obs-btn:hover{opacity:0.8}
+    .debt-indicator{color:var(--danger-color);font-size:0.8em;display:block;margin-top:5px}
+    .partial-payment-info{color:var(--info-color);font-size:0.8em;display:block;margin-top:5px}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+    .modal.active{display:flex}
+    .modal-content{background:#fff;border-radius:14px;padding:30px;width:90%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto}
+    .modal-content h2{margin-bottom:20px;color:var(--secondary-color)}
+    .modal-form .form-group{margin-bottom:15px}
+    .modal-form input,.modal-form select,.modal-form textarea{width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em}
+    .modal-form .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+    .close-btn{position:absolute;top:15px;right:15px;background:none;border:none;font-size:24px;cursor:pointer;color:#64748b}
+    .obs-modal-content{max-width:400px}
+    .obs-modal-content .obs-text{background:var(--light-bg);padding:15px;border-radius:8px;margin:15px 0;white-space:pre-wrap}
+    .receipt-preview{background:#fff;padding:0;border:1px solid #e2e8f0;border-radius:10px;margin:20px 0;box-shadow:0 5px 15px rgba(0,0,0,.1);overflow:hidden}
+    .receipt-header{background:linear-gradient(135deg,var(--secondary-color),var(--primary-color));color:#fff;text-align:center;padding:30px}
+    .receipt-header h1{font-size:1.8em;margin-bottom:10px;font-weight:300;letter-spacing:2px}
+    .receipt-header .company-name{font-size:1.3em;font-weight:600;margin-bottom:15px}
+    .receipt-header .receipt-info{display:flex;justify-content:space-between;margin-top:20px;font-size:.9em}
+    .receipt-body{padding:30px;background:#fafbfc}
+    .receipt-detail{background:#fff;padding:20px;border-radius:8px;margin-bottom:20px;border:1px solid #e2e8f0}
+    .receipt-detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9}
+    .receipt-detail-row:last-child{border-bottom:none}
+    .receipt-detail-label{font-weight:600;color:var(--secondary-color)}
+    .receipt-total{background:var(--primary-color);color:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0}
+    .receipt-total .amount{font-size:2em;font-weight:700}
+    .receipt-footer{padding:30px;display:flex;justify-content:space-between;background:#fff;border-top:2px solid #e2e8f0}
+    .signature-container{text-align:center;flex:1}
+    .signature-container img{max-width:150px;height:60px;object-fit:contain;margin-bottom:10px}
+    .signature-line{border-top:2px solid #1e293b;width:200px;margin:10px auto}
+    .signature-config{margin-top:20px;padding:20px;background:var(--light-bg);border-radius:10px}
+    .signature-preview{margin-top:10px;padding:20px;background:#fff;border:2px dashed #e2e8f0;border-radius:8px;text-align:center}
+    .signature-preview img{max-width:200px;height:80px;object-fit:contain}
+    .month-navigation{display:flex;align-items:center;gap:10px}
+    .month-nav-btn{background:var(--primary-color);color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:1.2em;transition:.2s}
+    .month-nav-btn:hover{background:var(--secondary-color)}
+    .month-display{font-weight:600;color:var(--secondary-color);font-size:1.1em;min-width:150px;text-align:center}
+    .back-to-portal{position:fixed;top:20px;left:20px;background:var(--secondary-color);color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:flex;align-items:center;gap:8px;z-index:100;transition:.3s}
+    .back-to-portal:hover{background:var(--primary-color);transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.2)}
+    @media print{
+      body,.container,.main-content{visibility:hidden;padding:0;margin:0}
+      .print-area,.print-area *{visibility:visible}
+      .print-area{position:absolute;left:0;top:0;width:100%}
+      .no-print{display:none!important}
+      .receipt-preview{visibility:visible!important;position:absolute;left:0;top:0;width:100%;border:none;box-shadow:none;margin:0}
+      .back-to-portal{display:none!important}
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-to-portal no-print">← Volver al Portal</a>
+  
+  <div class="container">
+    <div class="header">
+      <h1>💼 Control de Abonos Mensuales</h1>
+      <p>Estudio García y Asociados - Sistema de Gestión</p>
+    </div>
+
+    <div class="main-content">
+      <div id="driveStatus" class="data-status" style="display:none;"></div>
+
+      <div id="alertBanner" class="alert-banner">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-text">
+          <strong>Atención:</strong> Hay <span id="alertCount">0</span> clientes con pagos pendientes o en falta de pago este mes.
+        </div>
+        <button id="btnVerPendientes" class="btn btn-danger">Ver Pendientes</button>
+      </div>
+
+      <div class="dashboard">
+        <div class="card">
+          <h3>Total Cobrado</h3>
+          <div class="value-container">
+            <div class="value positive" id="totalCobrado">$0.00</div>
+            <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar monto">
+              <span id="toggleIcon">👁️</span>
+            </button>
+          </div>
+        </div>
+        <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
+        <div class="card warning-card"><h3>Pendientes</h3><div class="value" id="totalPendientes" style="color:var(--warning-color);">0</div></div>
+        <div class="card danger-card"><h3>Falta de Pago</h3><div class="value" id="totalFaltaPago" style="color:var(--danger-color);">0</div></div>
+      </div>
+
+      <div class="controls no-print">
+        <div class="form-group">
+          <label>Mes Seleccionado:</label>
+          <div class="month-navigation">
+            <button id="btnPrevMonth" class="month-nav-btn">◀</button>
+            <div class="month-display" id="monthDisplay"></div>
+            <button id="btnNextMonth" class="month-nav-btn">▶</button>
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-success" id="add-record-btn">➕ Agregar Registro</button>
+          <button class="btn btn-info" id="carry-btn">📋 Arrastrar Clientes</button>
+          <button class="btn" style="background:#8e44ad;" id="print-btn">🖨️ Imprimir</button>
+          <button class="btn" id="export-btn">📊 Exportar Excel</button>
+          <button class="btn" id="export-json-btn">💾 Exportar JSON</button>
+          <button class="btn btn-warning" id="import-json-btn">📥 Importar JSON</button>
+          <button class="btn btn-warning" id="config-btn">⚙️ Config</button>
+        </div>
+      </div>
+
+      <section style="text-align:center;margin-bottom:30px;border-top:1px solid #ddd;padding-top:20px;">
+        <button id="connectDriveBtn" class="btn btn-drive" onclick="handleAuthClick()">🔗 Conectar a Drive</button>
+        <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveDataToDrive()">📤 Guardar en Drive</button>
+        <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadDataFromDrive()">📥 Cargar de Drive</button>
+      </section>
+
+      <div class="filters-container no-print">
+        <h4 style="margin-bottom:15px;color:var(--secondary-color);">🔍 Filtrar por Estado:</h4>
+        <div class="filter-buttons" id="filtersBar">
+          <button class="filter-btn active" data-status="todos">Todos (<span id="countTodos">0</span>)</button>
+          <button class="filter-btn filter-pendiente" data-status="pendiente">⏳ Pendiente (<span id="countPendiente">0</span>)</button>
+          <button class="filter-btn filter-falta" data-status="falta-de-pago">❌ Falta de Pago (<span id="countFalta">0</span>)</button>
+          <button class="filter-btn filter-pagado" data-status="pagado">✅ Pagado (<span id="countPagado">0</span>)</button>
+          <button class="filter-btn" data-status="pago-parcial">💰 Pago Parcial (<span id="countPagoParcial">0</span>)</button>
+          <button class="filter-btn" data-status="ejecucion-de-honorarios">⚖️ Ejecución de Honorarios (<span id="countEjecucion">0</span>)</button>
+          <button class="filter-btn" data-status="terminado">🏁 Terminado (<span id="countTerminado">0</span>)</button>
+          <button class="filter-btn" data-status="pendientes">🚨 Todos los Pendientes (<span id="countAllPendientes">0</span>)</button>
+        </div>
+        <div id="filterInfo" class="filter-info"></div>
+      </div>
+
+      <div id="print-area" class="print-area">
+        <h2 id="table-title" style="display:none;text-align:center;margin-bottom:20px;"></h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th><th>Tipo</th><th>Monto Abono</th><th>Fecha de Pago</th><th>Forma de Pago</th><th>Estado</th><th class="no-print">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="abonosTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="importInput" accept=".json" style="display:none">
+
+  <div id="abonoModal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn" id="abonoModalClose">✖</button>
+      <h2 id="modalTitle">Agregar Nuevo Registro</h2>
+      <form id="abonoForm" class="modal-form">
+        <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
+        <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
+        <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
+        <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
+        <div class="form-group"><label>Forma de Pago</label><input type="text" id="formaPago"></div>
+        <div class="form-group"><label>Estado</label><select id="estado"></select></div>
+        <div id="pagoMontoParcialDiv" class="form-group" style="display:none;">
+          <label>Monto Pagado Parcialmente</label>
+          <input type="number" id="montoPagadoParcial" step="0.01" placeholder="Ingrese el monto pagado">
+        </div>
+        <div class="form-group"><label>Observaciones</label><textarea id="observaciones" placeholder="Notas adicionales sobre este registro..."></textarea></div>
+        <div class="form-actions">
+          <button type="button" class="btn" id="abonoModalCancel" style="background-color:#94a3b8;">Cancelar</button>
+          <button type="submit" class="btn btn-success">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="obsModal" class="modal">
+    <div class="modal-content obs-modal-content">
+      <button class="close-btn" id="obsModalClose">✖</button>
+      <h2>📝 Observaciones</h2>
+      <h4 id="obsClientName" style="color:var(--primary-color);margin-bottom:10px;"></h4>
+      <div id="obsContent" class="obs-text"></div>
+      <form id="obsForm" style="display:none;">
+        <div class="form-group">
+          <textarea id="obsTextarea" placeholder="Escriba las observaciones aquí..." style="min-height:120px;"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" id="obsSaveBtn" style="background:var(--success-color);">Guardar</button>
+          <button type="button" class="btn" id="obsCancelBtn" style="background:#94a3b8;">Cancelar</button>
+        </div>
+      </form>
+      <button id="obsEditBtn" class="btn btn-info" style="margin-top:10px;">✏️ Editar</button>
+    </div>
+  </div>
+
+  <div id="receiptModal" class="modal">
+    <div class="modal-content" style="max-width:700px;">
+      <button class="close-btn" id="receiptClose">✖</button>
+      <div id="receiptContent" class="receipt-preview"></div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="printReceiptBtn">🖨️ Imprimir Recibo</button>
+        <button type="button" class="btn" id="receiptCancel" style="background-color:#94a3b8;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="configModal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn" id="configClose">✖</button>
+      <h2>⚙️ Configuración</h2>
+      <div class="signature-config">
+        <h3>Firma para Recibos</h3>
+        <div class="form-group">
+          <label>Cargar imagen de firma (PNG, JPG)</label>
+          <input type="file" id="signatureFile" accept="image/*">
+        </div>
+        <div class="signature-preview">
+          <div id="signaturePreview"><p style="color:#94a3b8;">No hay firma cargada</p></div>
+        </div>
+        <button class="btn" id="removeSignatureBtn" style="background-color:var(--danger-color);margin-top:10px;">🗑️ Eliminar Firma</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
     // ====== ESTADO APP ======
     let abonosData = [];
     let currentMonth;
@@ -744,3 +1038,123 @@
       XLSX.writeFile(wb, 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx');
     }
   </script>
+  
+  <script>
+    // GOOGLE DRIVE - VARIABLES Y FUNCIONES GLOBALES
+    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    const DATA_FILE_NAME = 'datos_control_abonos_mensuales.json';
+
+    let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
+
+    function gapiLoaded() { 
+      gapi.load('client', initializeGapiClient); 
+    }
+    
+    async function initializeGapiClient() { 
+      await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); 
+      gapiInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function gisLoaded() { 
+      tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); 
+      gisInited = true; 
+      maybeEnableButtons(); 
+    }
+    
+    function maybeEnableButtons() { 
+      if (gapiInited && gisInited) {
+        // Nada que hacer aquí, los botones tienen onclick directo en el HTML
+      }
+    }
+    
+    function updateDriveStatus(message, isConnected = false) { 
+      const driveStatusEl = document.getElementById('driveStatus');
+      driveStatusEl.style.display = 'block'; 
+      driveStatusEl.textContent = message; 
+      driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; 
+      driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; 
+    }
+
+    function handleAuthClick() {
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) throw (resp);
+        updateDriveStatus('✅ Conectado a Google Drive', true);
+        document.getElementById('connectDriveBtn').style.display = 'none'; 
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block'; 
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        await findDataFile();
+      };
+      if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); 
+      else tokenClient.requestAccessToken({prompt: ''});
+    }
+    
+    async function findDataFile() {
+      updateDriveStatus('Buscando archivo de datos en Drive...', false);
+      try {
+        const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+        if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
+        else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
+      } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+    }
+    
+    async function saveDataToDrive() {
+      if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+      updateDriveStatus('Guardando datos en Drive...', false);
+      try {
+        const content = JSON.stringify(abonosData, null, 2);
+        dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+      } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
+    }
+    
+    async function loadDataFromDrive() {
+      if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
+      if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+      updateDriveStatus('Cargando datos desde Drive...', false);
+      try {
+        const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+        const importedData = JSON.parse(response.body);
+        if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
+        abonosData = importedData;
+        saveData();
+        loadData();
+        render();
+        updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+      } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
+    }
+    
+    async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+      const boundary = '-------314159265358979323846';
+      const metadata = { name: fileName, mimeType: mimeType, ...(parentId && {parents: [parentId]}) };
+      const base64Data = content instanceof ArrayBuffer ? btoa(String.fromCharCode.apply(null, new Uint8Array(content))) : btoa(unescape(encodeURIComponent(content)));
+      const requestBody =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify(metadata) +
+        `\r\n--${boundary}\r\n` +
+        `Content-Type: ${mimeType}\r\n` +
+        `Content-Transfer-Encoding: base64\r\n\r\n` +
+        base64Data +
+        `\r\n--${boundary}--`;
+        
+      const request = gapi.client.request({
+        path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+        method: fileIdToUpdate ? 'PATCH' : 'POST',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: requestBody
+      });
+      const response = await request;
+      return response.result.id;
+    }
+  </script>
+  
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+  
+</body>
+</html>
