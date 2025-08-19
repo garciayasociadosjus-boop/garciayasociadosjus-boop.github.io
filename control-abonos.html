@@ -28,7 +28,7 @@
     .value-container{display:flex;align-items:center;justify-content:space-between}
     .toggle-visibility{background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--secondary-color);transition:.3s;padding:5px;opacity:.6}
     .toggle-visibility:hover{opacity:1;transform:scale(1.1)}
-    .hidden-value{font-size:1.5em;font-weight:700;color:var(--success-color);letter-spacing:5px}
+    .hidden-value{letter-spacing:5px}
     .controls{background:var(--light-bg);padding:20px;border-radius:10px;margin-bottom:30px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px}
     .form-group{display:flex;flex-direction:column;gap:5px}
     .form-group label{font-weight:600;font-size:.85em;color:var(--text-dark)}
@@ -77,7 +77,7 @@
     .status-span.falta-de-pago{background:var(--danger-color)}
     .status-span.terminado{background:var(--finished-color)}
     .status-span.pago-parcial{background:var(--info-color)}
-    .status-span.ejecucion-de-honorarios{background:#8e44ad;color:#000!important}
+    .status-span.ejecución-de-honorarios{background:#8e44ad;color:#fff!important}
     .editable{cursor:pointer;position:relative}
     .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
     .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
@@ -154,14 +154,20 @@
           <h3>Total Cobrado</h3>
           <div class="value-container">
             <div class="value positive" id="totalCobrado">$0.00</div>
-            <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar monto">
+            <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar montos">
               <span id="toggleIcon">👁️</span>
             </button>
           </div>
         </div>
         <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
-        <div class="card warning-card"><h3>$ Pendientes</h3><div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div></div>
-        <div class="card danger-card"><h3>$ Falta de Pago</h3><div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div></div>
+        <div class="card warning-card">
+          <h3>$ Pendientes</h3>
+          <div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div>
+        </div>
+        <div class="card danger-card">
+          <h3>$ Falta de Pago</h3>
+          <div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div>
+        </div>
       </div>
 
       <div class="controls no-print">
@@ -201,7 +207,7 @@
           <button class="filter-btn filter-falta" data-status="falta-de-pago">❌ Falta de Pago (<span id="countFalta">0</span>)</button>
           <button class="filter-btn filter-pagado" data-status="pagado">✅ Pagado (<span id="countPagado">0</span>)</button>
           <button class="filter-btn" data-status="pago-parcial">💰 Pago Parcial (<span id="countPagoParcial">0</span>)</button>
-          <button class="filter-btn" data-status="ejecucion-de-honorarios">⚖️ Ejecución (<span id="countEjecucion">0</span>)</button>
+          <button class="filter-btn" data-status="ejecución-de-honorarios">⚖️ Ejecución de Honorarios (<span id="countEjecucion">0</span>)</button>
           <button class="filter-btn" data-status="terminado">🏁 Terminado (<span id="countTerminado">0</span>)</button>
           <button class="filter-btn" data-status="pendientes">🚨 Todos los Pendientes (<span id="countAllPendientes">0</span>)</button>
           <button class="filter-btn filter-terminado-global" data-status="todos-terminados">🌐 Todos los Terminados (<span id="countTodosTerminados">0</span>)</button>
@@ -307,7 +313,7 @@
     let currentFilter = 'todos';
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmount = 0;
+    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0 };
     let currentObsId = null;
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
@@ -510,7 +516,7 @@
           'falta-de-pago':'Mostrando solo registros con falta de pago',
           'pagado':'Mostrando solo registros pagados',
           'pago-parcial':'Mostrando solo registros con pago parcial',
-          'ejecucion-de-honorarios':'Mostrando solo registros en ejecución de honorarios',
+          'ejecución-de-honorarios':'Mostrando solo registros en ejecución de honorarios',
           'terminado':'Mostrando solo registros terminados de este mes',
           'pendientes':'Mostrando todos los registros con deuda (Pendiente, Falta de Pago, Ejecución)',
           'todos-terminados': 'Mostrando todos los registros terminados de todos los meses.'
@@ -521,7 +527,7 @@
     }
     
     function getFilteredAbonos(abonos){
-      if(currentFilter === 'todos-terminados') { // Este caso especial se maneja en render()
+      if(currentFilter === 'todos-terminados') {
           return abonos.filter(function(a) { return a.estado === 'Terminado'; });
       }
       if(currentFilter === 'todos') return abonos;
@@ -581,9 +587,8 @@
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
-          // MODIFICACIÓN 3: No arrastrar clientes con estado "Terminado"
           if (lastRecord.estado === 'Terminado') {
-            return; // Salta a la siguiente iteración del forEach
+            return;
           }
           
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
@@ -669,24 +674,37 @@
       }).format(v||0).replace(/,/g, '.'); 
     }
     
+    // MODIFICACIÓN 1: El ojo oculta todos los montos del dashboard
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
-      var totalCobradoEl = document.getElementById('totalCobrado');
       var toggleIcon = document.getElementById('toggleIcon');
-      if(isAmountHidden){ totalCobradoEl.textContent='••••••'; totalCobradoEl.classList.add('hidden-value'); toggleIcon.textContent='👁️‍🗨️'; }
-      else { totalCobradoEl.textContent=formatCurrency(realAmount); totalCobradoEl.classList.remove('hidden-value'); toggleIcon.textContent='👁️'; }
+      var cards = [
+        { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
+        { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
+        { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta }
+      ];
+
+      toggleIcon.textContent = isAmountHidden ? '👁️‍🗨️' : '👁️';
+
+      cards.forEach(card => {
+        if (isAmountHidden) {
+          card.el.textContent = '••••••';
+          card.el.classList.add('hidden-value');
+        } else {
+          card.el.textContent = formatCurrency(card.value);
+          card.el.classList.remove('hidden-value');
+        }
+      });
     }
 
     function render(){
       let sourceData;
-      // MODIFICACIÓN 4: Lógica para el filtro global de terminados
       if (currentFilter === 'todos-terminados') {
         sourceData = abonosData.filter(a => a.estado === 'Terminado');
       } else {
         sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
       }
       
-      // MODIFICACIÓN 5: Aplicar filtro de búsqueda
       let searchedData = sourceData;
       if (currentSearchTerm) {
           searchedData = sourceData.filter(function(a) {
@@ -697,7 +715,6 @@
       var filtered = getFilteredAbonos(searchedData);
       renderTable(filtered);
       
-      // El dashboard y los contadores se basan en los datos del mes, no en los filtros
       var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
       renderDashboard(abonosMes);
       updateFilterCounts(abonosMes);
@@ -706,22 +723,22 @@
     
 
     function renderDashboard(abonos){
-      // MODIFICACIÓN 1: Sumar "Terminado" al total cobrado.
       var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado' || a.estado === 'Terminado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
       totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
-      
-      // MODIFICACIÓN 2: Mostrar suma de dinero en lugar de cantidad.
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
-      realAmount = totalCobrado;
-      var el = document.getElementById('totalCobrado');
-      if(isAmountHidden){ el.textContent='••••••'; el.classList.add('hidden-value'); }
-      else { el.textContent=formatCurrency(totalCobrado); el.classList.remove('hidden-value'); }
+      realAmounts = {
+        cobrado: totalCobrado,
+        pendientes: totalPendientes,
+        falta: totalFaltaPago
+      };
 
       document.getElementById('totalRegistros').textContent = abonos.length;
-      document.getElementById('totalPendientes').textContent = formatCurrency(totalPendientes);
-      document.getElementById('totalFaltaPago').textContent = formatCurrency(totalFaltaPago);
+
+      // Actualizar vista según el estado de visibilidad
+      toggleAmountVisibility(); // Llama a la función para refrescar
+      toggleAmountVisibility(); // y la revierte para mantener el estado actual
     }
 
     function updateFilterCounts(abonos){
@@ -731,19 +748,19 @@
         'falta-de-pago': abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).length,
         pagado: abonos.filter(function(a){ return a.estado==='Pagado'; }).length,
         'pago-parcial': abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).length,
-        'ejecucion-de-honorarios': abonos.filter(function(a){ return a.estado==='Ejecución de Honorarios'; }).length,
+        'ejecución-de-honorarios': abonos.filter(function(a){ return a.estado==='Ejecución de Honorarios'; }).length,
         terminado: abonos.filter(function(a){ return a.estado==='Terminado'; }).length,
         pendientes: abonos.filter(function(a){ 
           return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='Ejecución de Honorarios'; 
         }).length,
-        'todos-terminados': abonosData.filter(function(a){ return a.estado==='Terminado'; }).length // MODIFICACIÓN 4: Conteo global
+        'todos-terminados': abonosData.filter(function(a){ return a.estado==='Terminado'; }).length
       };
       document.getElementById('countTodos').textContent = counts.todos;
       document.getElementById('countPendiente').textContent = counts.pendiente;
       document.getElementById('countFalta').textContent = counts['falta-de-pago'];
       document.getElementById('countPagado').textContent = counts.pagado;
       document.getElementById('countPagoParcial').textContent = counts['pago-parcial'];
-      document.getElementById('countEjecucion').textContent = counts['ejecucion-de-honorarios'];
+      document.getElementById('countEjecucion').textContent = counts['ejecución-de-honorarios'];
       document.getElementById('countTerminado').textContent = counts.terminado;
       document.getElementById('countAllPendientes').textContent = counts.pendientes;
       document.getElementById('countTodosTerminados').textContent = counts['todos-terminados'];
@@ -767,8 +784,8 @@
       }
       abonos.forEach(function(abono){
         var tr = document.createElement('tr');
-        var isPagado = (abono.estado==='Pagado');
-        var estadoClass = (abono.estado||'').toLowerCase().replace(/ /g,'-').replace(/ó/g,'o') || 'pendiente';
+        var isPayable = abono.estado==='Pagado' || abono.estado === 'Pago Parcial' || abono.estado === 'Terminado';
+        var estadoClass = (abono.estado||'').toLowerCase().replace(/ /g,'-') || 'pendiente';
         if(abono.estado==='Pendiente'){ tr.classList.add('highlight-pending'); }
         else if(abono.estado==='Falta de Pago'){ tr.classList.add('highlight-falta'); }
         if(abono.deudaAcumulada && abono.deudaAcumulada > 0){ tr.classList.add('has-debt'); }
@@ -796,7 +813,7 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td class="no-print"><div class="action-buttons">'+
             '<button class="btn btn-small btn-info obs-btn" data-id="'+abono.id+'" title="Ver observaciones">📝</button>'+
-            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" '+(isPagado || abono.estado==='Pago Parcial' ? '':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" '+(isPayable ? '':'disabled')+'>🧾</button>'+
             '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
@@ -905,7 +922,7 @@
     }
 
     function printTable(){
-      var ft = (currentFilter==='todos') ? '' : ' ('+currentFilter.replace('-',' ')+')';
+      var ft = (currentFilter==='todos') ? '' : ' ('+currentFilter.replace(/-/g,' ')+')';
       var title = 'Resumen de Abonos - '+ (currentFilter === 'todos-terminados' ? 'Todos los Terminados' : MONTHS[currentMonth.month]+' '+currentMonth.year+ft);
       var h = document.getElementById('table-title');
       h.textContent = title; h.style.display='block';
@@ -921,8 +938,8 @@
         return; 
       }
       
-      if(abono.estado!=='Pagado' && abono.estado!=='Pago Parcial'){ 
-        alert('Solo se pueden generar recibos para pagos completos o parciales.');
+      if(!['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)){ 
+        alert('Solo se pueden generar recibos para pagos completos, parciales o terminados.');
         return; 
       }
 
@@ -1048,7 +1065,6 @@
 
     function exportToExcel(){
       let data;
-      // MODIFICACIÓN 4: Asegurar que se exporten los datos correctos
       if (currentFilter === 'todos-terminados') {
         data = abonosData.filter(a => a.estado === 'Terminado');
       } else {
@@ -1075,7 +1091,7 @@
       });
       var ws = XLSX.utils.json_to_sheet(rows);
       var wb = XLSX.utils.book_new();
-      var sheetName = (currentFilter==='todos') ? 'Todos' : (currentFilter.replace('-',' '));
+      var sheetName = (currentFilter==='todos') ? 'Todos' : (currentFilter.replace(/-/g,' '));
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       
       var fileName;
