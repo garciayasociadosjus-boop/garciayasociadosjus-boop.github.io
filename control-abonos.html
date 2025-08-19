@@ -45,6 +45,8 @@
     .btn-small{padding:5px 10px;font-size:0.8em;margin:0 2px}
     .data-status{background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px;border-radius:8px;margin-bottom:20px;text-align:center}
     .filters-container{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
+    .search-container{margin-bottom:20px}
+    #searchInput{width:100%;padding:12px;border-radius:8px;border:2px solid #e2e8f0;font-size:1em}
     .filter-buttons{display:flex;gap:10px;flex-wrap:wrap}
     .filter-btn{padding:8px 16px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;transition:.3s;font-size:.9em;font-weight:500}
     .filter-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
@@ -52,6 +54,7 @@
     .filter-btn.filter-pendiente.active{background:var(--warning-color);border-color:var(--warning-color)}
     .filter-btn.filter-falta.active{background:var(--danger-color);border-color:var(--danger-color)}
     .filter-btn.filter-pagado.active{background:var(--success-color);border-color:var(--success-color)}
+    .filter-btn.filter-terminado-global.active{background:var(--finished-color);border-color:var(--finished-color)}
     .filter-info{margin-top:15px;padding:10px;background:#f0f9ff;border-radius:8px;font-size:.9em;color:#0369a1;display:none}
     .alert-banner{background:linear-gradient(135deg,var(--warning-color),var(--danger-color));color:#fff;padding:15px 20px;border-radius:10px;margin-bottom:20px;display:none;align-items:center;gap:15px;animation:pulse 2s infinite}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.9}}
@@ -157,8 +160,8 @@
           </div>
         </div>
         <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
-        <div class="card warning-card"><h3>Pendientes</h3><div class="value" id="totalPendientes" style="color:var(--warning-color);">0</div></div>
-        <div class="card danger-card"><h3>Falta de Pago</h3><div class="value" id="totalFaltaPago" style="color:var(--danger-color);">0</div></div>
+        <div class="card warning-card"><h3>$ Pendientes</h3><div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div></div>
+        <div class="card danger-card"><h3>$ Falta de Pago</h3><div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div></div>
       </div>
 
       <div class="controls no-print">
@@ -188,16 +191,20 @@
       </section>
 
       <div class="filters-container no-print">
-        <h4 style="margin-bottom:15px;color:var(--secondary-color);">🔍 Filtrar por Estado:</h4>
+        <div class="search-container">
+          <input type="text" id="searchInput" placeholder="🔍 Buscar cliente por nombre...">
+        </div>
+        <h4 style="margin-bottom:15px;color:var(--secondary-color);">Filtrar por Estado:</h4>
         <div class="filter-buttons" id="filtersBar">
           <button class="filter-btn active" data-status="todos">Todos (<span id="countTodos">0</span>)</button>
           <button class="filter-btn filter-pendiente" data-status="pendiente">⏳ Pendiente (<span id="countPendiente">0</span>)</button>
           <button class="filter-btn filter-falta" data-status="falta-de-pago">❌ Falta de Pago (<span id="countFalta">0</span>)</button>
           <button class="filter-btn filter-pagado" data-status="pagado">✅ Pagado (<span id="countPagado">0</span>)</button>
           <button class="filter-btn" data-status="pago-parcial">💰 Pago Parcial (<span id="countPagoParcial">0</span>)</button>
-          <button class="filter-btn" data-status="ejecucion-de-honorarios">⚖️ Ejecución de Honorarios (<span id="countEjecucion">0</span>)</button>
+          <button class="filter-btn" data-status="ejecucion-de-honorarios">⚖️ Ejecución (<span id="countEjecucion">0</span>)</button>
           <button class="filter-btn" data-status="terminado">🏁 Terminado (<span id="countTerminado">0</span>)</button>
           <button class="filter-btn" data-status="pendientes">🚨 Todos los Pendientes (<span id="countAllPendientes">0</span>)</button>
+          <button class="filter-btn filter-terminado-global" data-status="todos-terminados">🌐 Todos los Terminados (<span id="countTodosTerminados">0</span>)</button>
         </div>
         <div id="filterInfo" class="filter-info"></div>
       </div>
@@ -298,6 +305,7 @@
     let currentMonth;
     let signatureImage = null;
     let currentFilter = 'todos';
+    let currentSearchTerm = '';
     let isAmountHidden = false;
     let realAmount = 0;
     let currentObsId = null;
@@ -321,6 +329,12 @@
       document.getElementById('btnVerPendientes').addEventListener('click', function(){ filterByStatus('pendientes'); });
 
       document.getElementById('importInput').addEventListener('change', handleImport);
+      
+      // Buscador
+      document.getElementById('searchInput').addEventListener('input', function(e) {
+          currentSearchTerm = e.target.value;
+          render();
+      });
 
       // Filtros delegación
       document.getElementById('filtersBar').addEventListener('click', function(e){
@@ -352,14 +366,9 @@
       document.getElementById('abonoModal').addEventListener('click', function(e){ if(e.target.id === 'abonoModal'){ closeModal(); } });
       document.getElementById('abonoForm').addEventListener('submit', handleFormSubmit);
       
-      // Event listener para mostrar/ocultar campo de pago parcial
       document.getElementById('estado').addEventListener('change', function() {
         var div = document.getElementById('pagoMontoParcialDiv');
-        if (this.value === 'Pago Parcial') {
-          div.style.display = 'block';
-        } else {
-          div.style.display = 'none';
-        }
+        div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
       });
 
       // Modal Observaciones
@@ -398,18 +407,11 @@
       else { el.innerHTML = '<p style="color:#94a3b8;">No hay firma cargada</p>'; }
     }
 
-    /**
-     * MODIFICACIÓN 1: Cambiamos la lógica para que filtre por el mes de servicio
-     * en lugar de la fecha de pago. Esto asegura que un registro de Julio,
-     * pagado en Agosto, siga apareciendo en la lista de Julio.
-     */
     function getAbonosForMonth(month, year){
       return abonosData.filter(function(a){
-        // Si el registro tiene el nuevo campo 'mesServicio', lo usamos
         if (a.mesServicio) {
           return a.mesServicio.month === month && a.mesServicio.year === year;
         }
-        // Si no (para datos antiguos), usamos la fecha de pago como antes para no romper nada
         else if (a.fechaPago) {
           var d = new Date(a.fechaPago + 'T00:00:00');
           return d.getMonth() === month && d.getFullYear() === year;
@@ -488,6 +490,18 @@
     function filterByStatus(status){
       currentFilter = status;
       var info = document.getElementById('filterInfo');
+      var monthControls = document.querySelector('.month-navigation');
+      
+      if(status === 'todos-terminados'){
+          monthControls.style.opacity = '0.5';
+          monthControls.style.pointerEvents = 'none';
+          document.getElementById('monthDisplay').textContent = "Todos los Meses";
+      } else {
+          monthControls.style.opacity = '1';
+          monthControls.style.pointerEvents = 'auto';
+          updateMonthDisplay();
+      }
+
       if(status === 'todos'){ info.style.display='none'; }
       else {
         info.style.display='block';
@@ -497,8 +511,9 @@
           'pagado':'Mostrando solo registros pagados',
           'pago-parcial':'Mostrando solo registros con pago parcial',
           'ejecucion-de-honorarios':'Mostrando solo registros en ejecución de honorarios',
-          'terminado':'Mostrando solo registros terminados',
-          'pendientes':'Mostrando todos los registros pendientes, con falta de pago y en ejecución'
+          'terminado':'Mostrando solo registros terminados de este mes',
+          'pendientes':'Mostrando todos los registros con deuda (Pendiente, Falta de Pago, Ejecución)',
+          'todos-terminados': 'Mostrando todos los registros terminados de todos los meses.'
         };
         info.textContent = m[status] || '';
       }
@@ -506,8 +521,11 @@
     }
     
     function getFilteredAbonos(abonos){
-      if(currentFilter==='todos') return abonos;
-      if(currentFilter==='pendientes') return abonos.filter(function(a){ 
+      if(currentFilter === 'todos-terminados') { // Este caso especial se maneja en render()
+          return abonos.filter(function(a) { return a.estado === 'Terminado'; });
+      }
+      if(currentFilter === 'todos') return abonos;
+      if(currentFilter === 'pendientes') return abonos.filter(function(a){ 
         return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='Ejecución de Honorarios'; 
       });
       return abonos.filter(function(a){
@@ -545,7 +563,7 @@
       return { deudaTotal: deudaTotal, abonoMensual: abonoMensual };
     }
 
-    // ====== ARRASTRE CLIENTES CON ACUMULACIÓN DE DEUDA MEJORADO ======
+    // ====== ARRASTRE CLIENTES ======
     function carryOverClients(){
       var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
       if(curr.length===0){ alert('No hay clientes en el mes actual para arrastrar.'); return; }
@@ -563,51 +581,47 @@
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
+          // MODIFICACIÓN 3: No arrastrar clientes con estado "Terminado"
+          if (lastRecord.estado === 'Terminado') {
+            return; // Salta a la siguiente iteración del forEach
+          }
+          
           var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
           var observaciones = lastRecord.observaciones || '';
           var registrosAgregados = 0;
-
-          // MODIFICACIÓN 1: Al arrastrar, guardamos el mes de servicio del nuevo registro.
           var mesServicioNuevo = { month: nm, year: ny };
           
-          if (lastRecord.estado === 'Terminado') {
-            var abonoMensual = clienteRecords.find(function(r){ return r.tipo === 'Abono Mensual'; });
-            var montoAbono = abonoMensual ? parseFloat(abonoMensual.montoBase || abonoMensual.monto) || 0 : 0;
-            addAbono({ cliente: cliente, tipo: (lastRecord.tipo||'Abono Mensual'), monto: montoAbono, montoBase: montoAbono, deudaAcumulada: 0, fechaPago: '', estado: 'Terminado', observaciones: observaciones, mesServicio: mesServicioNuevo });
+          var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
+          if (abonosmensuales.length > 0) {
+            var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
+            var deudaTotal = calculoDeuda.deudaTotal;
+            var abonoMensual = calculoDeuda.abonoMensual;
+            
+            if (deudaTotal > 0) {
+              var montoTotal = abonoMensual + deudaTotal;
+              var obsAbono = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
+              addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: montoTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsAbono, mesServicio: mesServicioNuevo });
+            } else {
+              addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observaciones, mesServicio: mesServicioNuevo });
+            }
             registrosAgregados++;
-          } else {
-            var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
-            if (abonosmensuales.length > 0) {
-              var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
-              var deudaTotal = calculoDeuda.deudaTotal;
-              var abonoMensual = calculoDeuda.abonoMensual;
-              
-              if (deudaTotal > 0) {
-                var montoTotal = abonoMensual + deudaTotal;
-                var obsAbono = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
-                addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: montoTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsAbono, mesServicio: mesServicioNuevo });
-              } else {
-                addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observaciones, mesServicio: mesServicioNuevo });
-              }
+          }
+          
+          var regulaciones = clienteRecords.filter(function(r){ return r.tipo === 'Regulación Honorarios'; });
+          regulaciones.forEach(function(record) {
+            var montoRestante = 0, observacionRegulacion = '';
+            if (record.estado === 'Pago Parcial') {
+              montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
+              observacionRegulacion = 'Saldo pendiente de regulación anterior: ' + formatCurrency(montoRestante);
+            } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
+              montoRestante = parseFloat(record.monto) || 0;
+              observacionRegulacion = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestante);
+            }
+            if (montoRestante > 0) {
+              addAbono({ cliente: cliente, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
               registrosAgregados++;
             }
-            
-            var regulaciones = clienteRecords.filter(function(r){ return r.tipo === 'Regulación Honorarios'; });
-            regulaciones.forEach(function(record) {
-              var montoRestante = 0, observacionRegulacion = '';
-              if (record.estado === 'Pago Parcial') {
-                montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
-                observacionRegulacion = 'Saldo pendiente de regulación anterior: ' + formatCurrency(montoRestante);
-              } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
-                montoRestante = parseFloat(record.monto) || 0;
-                observacionRegulacion = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestante);
-              }
-              if (montoRestante > 0) {
-                addAbono({ cliente: cliente, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
-                registrosAgregados++;
-              }
-            });
-          }
+          });
           if (registrosAgregados > 0) { added++; }
         }
       });
@@ -616,7 +630,7 @@
         alert('Se arrastraron '+added+' clientes a '+MONTHS[nm]+' '+ny+'. Cambiando al mes siguiente...');
         currentMonth = { month:nm, year:ny }; updateMonthDisplay(); render();
       } else {
-        alert('Todos los clientes ya existen en el próximo mes.');
+        alert('Todos los clientes ya existen en el próximo mes o estaban terminados.');
       }
     }
 
@@ -664,20 +678,41 @@
     }
 
     function render(){
-      var mes = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      var filtered = getFilteredAbonos(mes);
+      let sourceData;
+      // MODIFICACIÓN 4: Lógica para el filtro global de terminados
+      if (currentFilter === 'todos-terminados') {
+        sourceData = abonosData.filter(a => a.estado === 'Terminado');
+      } else {
+        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      }
+      
+      // MODIFICACIÓN 5: Aplicar filtro de búsqueda
+      let searchedData = sourceData;
+      if (currentSearchTerm) {
+          searchedData = sourceData.filter(function(a) {
+              return (a.cliente || '').toLowerCase().includes(currentSearchTerm.toLowerCase());
+          });
+      }
+
+      var filtered = getFilteredAbonos(searchedData);
       renderTable(filtered);
-      renderDashboard(mes);
-      updateFilterCounts(mes);
-      updateAlertBanner(mes);
+      
+      // El dashboard y los contadores se basan en los datos del mes, no en los filtros
+      var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      renderDashboard(abonosMes);
+      updateFilterCounts(abonosMes);
+      updateAlertBanner(abonosMes);
     }
+    
 
     function renderDashboard(abonos){
-      var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
+      // MODIFICACIÓN 1: Sumar "Terminado" al total cobrado.
+      var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado' || a.estado === 'Terminado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
       totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
       
-      var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).length;
-      var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).length;
+      // MODIFICACIÓN 2: Mostrar suma de dinero en lugar de cantidad.
+      var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
+      var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
       realAmount = totalCobrado;
       var el = document.getElementById('totalCobrado');
@@ -685,8 +720,8 @@
       else { el.textContent=formatCurrency(totalCobrado); el.classList.remove('hidden-value'); }
 
       document.getElementById('totalRegistros').textContent = abonos.length;
-      document.getElementById('totalPendientes').textContent = totalPendientes;
-      document.getElementById('totalFaltaPago').textContent = totalFaltaPago;
+      document.getElementById('totalPendientes').textContent = formatCurrency(totalPendientes);
+      document.getElementById('totalFaltaPago').textContent = formatCurrency(totalFaltaPago);
     }
 
     function updateFilterCounts(abonos){
@@ -700,7 +735,8 @@
         terminado: abonos.filter(function(a){ return a.estado==='Terminado'; }).length,
         pendientes: abonos.filter(function(a){ 
           return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='Ejecución de Honorarios'; 
-        }).length
+        }).length,
+        'todos-terminados': abonosData.filter(function(a){ return a.estado==='Terminado'; }).length // MODIFICACIÓN 4: Conteo global
       };
       document.getElementById('countTodos').textContent = counts.todos;
       document.getElementById('countPendiente').textContent = counts.pendiente;
@@ -710,6 +746,7 @@
       document.getElementById('countEjecucion').textContent = counts['ejecucion-de-honorarios'];
       document.getElementById('countTerminado').textContent = counts.terminado;
       document.getElementById('countAllPendientes').textContent = counts.pendientes;
+      document.getElementById('countTodosTerminados').textContent = counts['todos-terminados'];
     }
 
     function updateAlertBanner(abonos){
@@ -723,7 +760,8 @@
       var body = document.getElementById('abonosTableBody');
       body.innerHTML = '';
       if(abonos.length===0){
-        var msg = currentFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con el filtro seleccionado.';
+        var msg = currentFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
+        if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.'
         body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
       }
@@ -758,7 +796,7 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td class="no-print"><div class="action-buttons">'+
             '<button class="btn btn-small btn-info obs-btn" data-id="'+abono.id+'" title="Ver observaciones">📝</button>'+
-            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" '+(isPagado || abono.estado==='Pago Parcial'?'':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" '+(isPagado || abono.estado==='Pago Parcial' ? '':'disabled')+'>🧾</button>'+
             '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
@@ -826,7 +864,7 @@
     function openModal(){
       var form = document.getElementById('abonoForm');
       form.reset();
-      document.getElementById('fechaPago').value = ''; // La fecha de pago se deja vacía hasta que se pague
+      document.getElementById('fechaPago').value = '';
       document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
       document.getElementById('abonoModal').classList.add('active');
@@ -846,7 +884,6 @@
         formaPago: document.getElementById('formaPago').value,
         estado: document.getElementById('estado').value,
         observaciones: document.getElementById('observaciones').value,
-        // MODIFICACIÓN 1: Al crear un registro, le asignamos el mes de servicio actual
         mesServicio: {
           month: currentMonth.month,
           year: currentMonth.year
@@ -869,7 +906,7 @@
 
     function printTable(){
       var ft = (currentFilter==='todos') ? '' : ' ('+currentFilter.replace('-',' ')+')';
-      var title = 'Resumen de Abonos - '+MONTHS[currentMonth.month]+' '+currentMonth.year+ft;
+      var title = 'Resumen de Abonos - '+ (currentFilter === 'todos-terminados' ? 'Todos los Terminados' : MONTHS[currentMonth.month]+' '+currentMonth.year+ft);
       var h = document.getElementById('table-title');
       h.textContent = title; h.style.display='block';
       window.print();
@@ -877,10 +914,6 @@
     }
 
     // ====== RECIBOS ======
-    /**
-     * MODIFICACIÓN 2: Cambiamos la lógica para que el concepto del recibo
-     * incluya el mes y año de servicio al que corresponde el pago.
-     */
     function generateReceipt(abonoId){
       var abono = abonosData.find(function(a){ return a.id===abonoId; });
       if(!abono){ 
@@ -896,11 +929,10 @@
       var receiptDate = new Date().toLocaleDateString('es-AR');
       var receiptNumber = String(Date.now()).slice(-8);
       
-      // Obtenemos el mes de servicio para mostrarlo en el recibo
       var mesServicioTexto = '';
       if (abono.mesServicio) {
         mesServicioTexto = MONTHS[abono.mesServicio.month] + ' ' + abono.mesServicio.year;
-      } else if (abono.fechaPago) { // Fallback para datos antiguos
+      } else if (abono.fechaPago) {
         var d = new Date(abono.fechaPago + 'T00:00:00');
         mesServicioTexto = MONTHS[d.getMonth()] + ' ' + d.getFullYear();
       }
@@ -916,7 +948,6 @@
         conceptoBase = abono.tipo || 'Abono Mensual';
       }
 
-      // Unimos el concepto base con el mes de servicio
       var conceptoRecibo = conceptoBase + (mesServicioTexto ? ' - ' + mesServicioTexto : '');
 
       var parts = [];
@@ -1016,8 +1047,19 @@
     }
 
     function exportToExcel(){
-      var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      var data = (currentFilter==='todos') ? abonosMes : getFilteredAbonos(abonosMes);
+      let data;
+      // MODIFICACIÓN 4: Asegurar que se exporten los datos correctos
+      if (currentFilter === 'todos-terminados') {
+        data = abonosData.filter(a => a.estado === 'Terminado');
+      } else {
+        const abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
+        let searchedData = abonosMes;
+        if (currentSearchTerm) {
+            searchedData = abonosMes.filter(a => (a.cliente || '').toLowerCase().includes(currentSearchTerm.toLowerCase()));
+        }
+        data = getFilteredAbonos(searchedData);
+      }
+
       if(data.length===0){ alert('No hay datos para exportar.'); return; }
 
       var rows = data.map(function(a){
@@ -1033,9 +1075,16 @@
       });
       var ws = XLSX.utils.json_to_sheet(rows);
       var wb = XLSX.utils.book_new();
-      var sheetName = (currentFilter==='todos') ? 'Todos los Abonos' : ('Abonos '+currentFilter.replace('-',' '));
+      var sheetName = (currentFilter==='todos') ? 'Todos' : (currentFilter.replace('-',' '));
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      XLSX.writeFile(wb, 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx');
+      
+      var fileName;
+      if (currentFilter === 'todos-terminados') {
+        fileName = 'Todos_los_Terminados.xlsx';
+      } else {
+        fileName = 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx';
+      }
+      XLSX.writeFile(wb, fileName);
     }
   </script>
   
