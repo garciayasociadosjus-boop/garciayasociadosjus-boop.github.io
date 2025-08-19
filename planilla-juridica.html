@@ -1,378 +1,825 @@
-<!doctype html>
-<html lang="es" class="notranslate" translate="no">
+<!DOCTYPE html>
+<html lang="es-AR">
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Language" content="es">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="google" content="notranslate">
-  <title>Planilla Jurídica</title>
-  <link rel="icon" href="activos/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="activos/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilla Jurídica - Familia</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2980b9;
+            --secondary-color: #3498db;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --success-color: #2ecc71;
+            --light-bg: #ecf0f1;
+            --dark-text: #2c3e50;
+            --light-text: #ffffff;
+            --border-radius: 12px;
+            --shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto; background: var(--light-text); border-radius: var(--border-radius);
+            box-shadow: var(--shadow); overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--light-text); padding: 30px; text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .main-content { padding: 30px; }
+        .dashboard {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px; margin-bottom: 40px;
+        }
+        .card {
+            background: var(--light-text); border-radius: var(--border-radius); padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08); border: 1px solid #e0e0e0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
+        .card h3 {
+            color: var(--dark-text); margin-bottom: 20px; font-size: 1.3em;
+            display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--light-bg); padding-bottom: 10px;
+        }
+        .icon { width: 24px; height: 24px; fill: currentColor; }
+        .today-reviews { background: linear-gradient(135deg, #ff7e5f, #feb47b); color: var(--light-text); }
+        .overdue-reviews { background: linear-gradient(135deg, #e74c3c, #c0392b); color: var(--light-text); }
+        .pending-reviews { background: linear-gradient(135deg, #feca57, #ff9f43); color: var(--light-text); }
+        .btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--light-text); border: none; padding: 12px 24px; border-radius: 8px;
+            cursor: pointer; font-size: 1em; transition: all 0.3s ease; margin: 5px;
+            text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(41, 128, 185, 0.4); }
+        .btn-success { background: linear-gradient(135deg, var(--success-color), #27ae60); }
+        .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .btn-danger { background: linear-gradient(135deg, var(--danger-color), #c0392b); }
+        .btn-warning { background: linear-gradient(135deg, var(--warning-color), #e67e22); }
+        .btn-sm { padding: 8px 16px; font-size: 0.9em; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--dark-text); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 12px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 1em; transition: border-color 0.3s ease;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(41, 128, 185, 0.1);
+        }
+        .reviews-list { max-height: 400px; overflow-y: auto; padding-right: 10px; }
+        .review-item {
+            background: #f8f9fa; border-left: 4px solid var(--secondary-color); padding: 15px;
+            margin-bottom: 10px; border-radius: 0 8px 8px 0; transition: all 0.3s ease;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .review-item-content { flex-grow: 1; cursor: pointer; }
+        .review-item.completed .review-item-content { text-decoration: line-through; opacity: 0.6; }
+        .review-item.completed { border-left-color: var(--success-color); background-color: #f2fdf5; }
+        .review-item:hover { background: #e8f2ff; transform: translateX(5px); }
+        .review-item.today { border-left-color: #ff7e5f; background: #fff5f5; }
+        .review-item.overdue { border-left-color: var(--danger-color); background: #fef9e7; }
+        .review-date { font-weight: 600; color: var(--dark-text); font-size: 1.1em; }
+        .review-client { font-size: 1em; color: var(--primary-color); margin: 5px 0; font-weight: 500; }
+        .review-obs { font-size: 0.9em; color: #666; font-style: italic; }
+        .complete-btn {
+            background: #e0e0e0; border: none; width: 30px; height: 30px;
+            border-radius: 50%; cursor: pointer; transition: all 0.3s ease;
+            font-size: 16px; flex-shrink: 0; line-height: 30px;
+        }
+        .complete-btn:hover { background: #c0c0c0; }
+        .history-item.completed .complete-btn,
+        .review-item.completed .complete-btn { background: var(--success-color); color: var(--light-text); }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1000;
+        }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content {
+            background: var(--light-text); border-radius: var(--border-radius); padding: 30px; width: 95%;
+            max-width: 900px; max-height: 90vh; overflow-y: auto; animation: modalSlide 0.3s ease;
+        }
+        @keyframes modalSlide { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .client-info { background: var(--light-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .client-info h4 { color: var(--dark-text); margin-bottom: 15px; font-size: 1.2em; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .info-grid.full-width > .info-item { grid-column: 1 / -1; }
+        .info-item { background: var(--light-text); padding: 12px; border-radius: 5px; border-left: 3px solid var(--primary-color); }
+        .info-label { font-size: 0.8em; color: #666; text-transform: uppercase; font-weight: 600; }
+        .info-value { font-size: 1em; color: var(--dark-text); margin-top: 2px; font-weight: 500; }
+        .editable-field { cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s ease; min-height: 20px; }
+        .editable-field:hover { background-color: #e8f4fd; color: #2980b9; }
+        .history-section { margin-top: 20px; }
+        .history-item { display: flex; align-items: center; gap: 10px; background: var(--light-text); border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; position: relative; }
+        .history-item-content { flex-grow: 1; }
+        .history-item.completed { text-decoration: line-through; opacity: 0.6; }
+        .history-item-audience { border-left: 5px solid #8e44ad; }
+        .history-item-task { border-left: 5px solid var(--secondary-color); }
+        .history-date { font-size: 0.9em; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; }
+        .history-text { color: var(--dark-text); }
+        .history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-top: 5px; font-weight: 500; display: inline-block; }
+        .tag-audience { background-color: #8e44ad; }
+        .tag-task { background-color: var(--secondary-color); }
+        .close { float: right; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+        .data-status {
+            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
+            padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center;
+        }
+        .filter-bar {
+            background: var(--light-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;
+        }
+        .document-list { list-style: none; padding: 0; max-height: 250px; overflow-y: auto; }
+        .document-list li { background: #f1f3f5; padding: 10px; border-radius: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .document-list a { color: #3498db; text-decoration: none; font-weight: 500; word-break: break-all; }
+        .document-list a:hover { text-decoration: underline; }
+        .document-list .btn-sm { flex-shrink: 0; margin-left: 10px; }
+        .document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        @media print {
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+            .print-area h2, .print-area h3, .print-area h4 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;}
+            .print-area .info-grid { display: block; }
+            .print-area .info-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; }
+            .print-area .history-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; }
+            .print-area .btn, .print-area .no-print { display: none; }
+        }
+    </style>
 </head>
-<body class="notranslate" translate="no" data-page="juridica">
-  <header class="site-header">
-    <div class="brand">
-      <div class="logo">G&A</div>
-      <div class="titles">
-        <h1 class="notranslate" translate="no">Planilla Jurídica</h1>
-        <p class="muted">Gestión de casos legales</p>
-      </div>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>⚖️ Planilla Jurídica - Familia</h1>
+            <p>Gestión de Casos y Expedientes</p>
+        </header>
+
+        <main class="main-content">
+            <div id="dataStatus" class="data-status">Cargando datos...</div>
+            <div id="driveStatus" class="data-status" style="display: none;"></div>
+
+            <section class="dashboard">
+                <div class="card today-reviews">
+                    <h3><i class="icon"></i>Revisiones de Hoy</h3>
+                    <div class="reviews-list" id="todayReviews"></div>
+                </div>
+                <div class="card overdue-reviews">
+                    <h3><i class="icon"></i>Revisiones Vencidas</h3>
+                    <div class="reviews-list" id="overdueReviews"></div>
+                </div>
+                <div class="card pending-reviews">
+                    <h3><i class="icon"></i>Próximas Revisiones</h3>
+                    <div class="reviews-list" id="upcomingReviews"></div>
+                </div>
+            </section>
+
+            <section style="text-align: center; margin-bottom: 30px;">
+                <button class="btn btn-success" onclick="showNewClientModal()">➕ Agregar Caso</button>
+                <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
+                <button class="btn" onclick="exportToExcel()">📊 Exportar a Excel</button>
+                <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
+                <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
+            </section>
+            
+            <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
+                <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
+                <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+            </section>
+
+            <section class="filter-bar">
+                <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
+                <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
+            </section>
+
+            <section class="card">
+                <h3>📋 Todos los Casos (Ordenados por fecha de revisión)</h3>
+                <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
+            </section>
+        </main>
     </div>
-    <nav class="top-actions">
-      <a class="btn ghost" href="index.html">← Volver al portal</a>
-    </nav>
-  </header>
 
-  <main class="container">
-    <section class="card">
-      <h2>Agregar nuevo caso (solo se guarda en este navegador)</h2>
-      <form id="form-nuevo" class="grid-form">
-        <div>
-          <label for="f_nombre">Nombre</label>
-          <input id="f_nombre" required>
-        </div>
-        <div>
-          <label for="f_dni">DNI</label>
-          <input id="f_dni">
-        </div>
-        <div>
-          <label for="f_caratula">Carátula</label>
-          <input id="f_caratula">
-        </div>
-        <div>
-          <label for="f_expediente">Expediente</label>
-          <input id="f_expediente">
-        </div>
-        <div>
-          <label for="f_juzgado">Juzgado</label>
-          <input id="f_juzgado">
-        </div>
-        <div>
-          <label for="f_estado">Estado</label>
-          <input id="f_estado" placeholder="p.ej. EN TRÁMITE">
-        </div>
-        <div class="full">
-          <label for="f_observacion">Observación</label>
-          <input id="f_observacion">
-        </div>
-        <div>
-          <label for="f_prox">Próxima revisión</label>
-          <input id="f_prox" type="date">
-        </div>
-        <div class="actions">
-          <button class="btn" type="submit">Agregar caso</button>
-        </div>
-      </form>
-    </section>
+    <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
+    <input type="file" id="documentUploadInput" style="display: none;">
 
-    <section class="card">
-      <h2>Filtros</h2>
-      <div class="filters">
-        <input id="q" placeholder="Buscar (nombre, carátula, expediente, juzgado, estado)">
-        <select id="f_estado_sel">
-          <option value="">Todos los estados</option>
-        </select>
-        <div class="range">
-          <label for="f_desde">Fecha desde</label>
-          <input id="f_desde" type="date">
-        </div>
-        <div class="range">
-          <label for="f_hasta">Fecha hasta</label>
-          <input id="f_hasta" type="date">
-        </div>
-        <select id="f_prox_sel" title="Próximas revisiones">
-          <option value="">Todas las revisiones</option>
-          <option value="hoy">Hoy</option>
-          <option value="7">Próximos 7 días</option>
-          <option value="30">Próximos 30 días</option>
-          <option value="vencidas">Vencidas</option>
-        </select>
-        <div class="spacer"></div>
-        <button id="btn_export_json" class="btn ghost">Exportar JSON</button>
-        <button id="btn_export_csv" class="btn ghost">Exportar CSV</button>
-      </div>
-    </section>
+    <div id="newClientModal" class="modal"><div class="modal-content"></div></div>
+    <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
+    <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
+    <div id="documentModal" class="modal"><div class="modal-content"></div></div>
+    
+    <script>
+        let clientsData = [];
+        let editingClientId = null, editingField = null, currentClientIdForDocs = null;
 
-    <section class="card">
-      <div class="table-wrap">
-        <table class="table notranslate" translate="no" aria-label="Tabla de casos">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Nombre</th>
-              <th>DNI</th>
-              <th>Carátula</th>
-              <th>Expediente</th>
-              <th>Juzgado</th>
-              <th>Estado</th>
-              <th>Observación</th>
-              <th>Próxima revisión</th>
-              <th>Audiencias</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-      <p id="msg" class="muted"></p>
-    </section>
-  </main>
-
-  <!-- Modal Observaciones -->
-  <dialog id="modal">
-    <form method="dialog" class="modal">
-      <header class="modal-header">
-        <h3>Observaciones</h3>
-        <button class="icon-btn" value="close" aria-label="Cerrar">✖</button>
-      </header>
-      <div class="modal-body">
-        <ul id="obs_list" class="obs-list"></ul>
-        <fieldset>
-          <legend>Agregar observación</legend>
-          <div class="grid-form">
-            <div>
-              <label for="obs_fecha">Fecha</label>
-              <input id="obs_fecha" type="date" required>
-            </div>
-            <div class="full">
-              <label for="obs_texto">Texto</label>
-              <textarea id="obs_texto" rows="3" required></textarea>
-            </div>
-            <div>
-              <label for="obs_prox">Próxima revisión</label>
-              <input id="obs_prox" type="date">
-            </div>
-            <div>
-              <label for="obs_done">Completada</label>
-              <input id="obs_done" type="checkbox">
-            </div>
-          </div>
-          <div class="actions right">
-            <button class="btn" id="obs_guardar" type="button">Guardar</button>
-          </div>
-        </fieldset>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="activos/app.js"></script>
-  <script>
-    enforceNotranslate();
-
-    const DATA_URL = 'datos_planilla_juridica.json';
-    const LS_ADDED_KEY = 'juridica:added:v1';
-    const LS_OBS_KEY = 'juridica:obs:v1';
-
-    let baseData = [];
-    let viewData = [];
-    let currentObsId = null;
-
-    const tbody = document.getElementById('tbody');
-    const msg = document.getElementById('msg');
-    const estadoSel = document.getElementById('f_estado_sel');
-    const q = document.getElementById('q');
-    const fDesde = document.getElementById('f_desde');
-    const fHasta = document.getElementById('f_hasta');
-    const fProxSel = document.getElementById('f_prox_sel');
-
-    // Carga de datos
-    fetch(DATA_URL)
-      .then(r => {
-        if (!r.ok) throw new Error('No se pudo cargar el archivo de datos.');
-        return r.json();
-      })
-      .then(data => {
-        baseData = Array.isArray(data) ? data : [];
-        renderEstados(baseData);
-        applyAndRender();
-      })
-      .catch(e => {
-        msg.textContent = 'Error cargando datos iniciales. Si el problema persiste, verifique GitHub Pages.';
-        console.error(e);
-        baseData = [];
-        applyAndRender();
-      });
-
-    function renderEstados(data) {
-      const set = new Set(
-        data.map(x => (x.estado || '').trim()).filter(Boolean)
-      );
-      getLocalAdded().forEach(x => set.add((x.estado || '').trim()));
-      estadoSel.innerHTML = '<option value="">Todos los estados</option>' +
-        Array.from(set).sort().map(s => `<option>${escapeHtml(s)}</option>`).join('');
-    }
-
-    function getLocalAdded() { return loadLSArray(LS_ADDED_KEY); }
-    function getLocalObsMap() { return loadLSMap(LS_OBS_KEY); }
-
-    function applyAndRender() {
-      const merged = mergeBaseWithLocal(baseData, getLocalAdded(), 'id');
-      // fusionar observaciones locales
-      const obsMap = getLocalObsMap();
-      merged.forEach(it => {
-        const baseObs = Array.isArray(it.observaciones) ? it.observaciones : [];
-        const localObs = obsMap[it.id] || [];
-        it._obsMerged = [...baseObs, ...localObs];
-      });
-
-      // filtros
-      const term = (q.value || '').toLowerCase();
-      const est = (estadoSel.value || '').toLowerCase();
-      const d1 = fDesde.value ? new Date(fDesde.value) : null;
-      const d2 = fHasta.value ? new Date(fHasta.value) : null;
-      const proxMode = fProxSel.value;
-
-      viewData = merged.filter(it => {
-        const hay = (s) => (s || '').toLowerCase().includes(term);
-        const passTerm = !term || [it.nombre, it.caratula, it.expediente, it.juzgado, it.estado].some(hay);
-        const passEst = !est || (it.estado || '').toLowerCase() === est;
-
-        // fecha (it.fecha)
-        const f = parseYmd(it.fecha);
-        const passFecha = (!d1 || (f && f >= d1)) && (!d2 || (f && f <= d2));
-
-        // próxima revisión
-        let passProx = true;
-        if (proxMode) {
-          const pr = parseYmd(it.proximaRevision || it.fechaRevision);
-          const today = truncDate(new Date());
-          if (!pr) {
-            passProx = false;
-          } else if (proxMode === 'hoy') {
-            passProx = sameDay(pr, today);
-          } else if (proxMode === '7' || proxMode === '30') {
-            const days = Number(proxMode);
-            const limit = addDays(today, days);
-            passProx = pr >= today && pr <= limit;
-          } else if (proxMode === 'vencidas') {
-            passProx = pr < today;
-          }
+        function saveData() {
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            updateDataStatus('✅ Datos guardados localmente');
         }
 
-        return passTerm && passEst && passFecha && passProx;
-      });
+        function loadData() {
+            const savedData = localStorage.getItem('planilla_juridica_data');
+            let data = savedData ? JSON.parse(savedData) : [];
 
-      renderTable(viewData);
-      msg.textContent = `${viewData.length} resultado(s)`;
-    }
+            const uniqueClients = new Map();
+            data.forEach(client => {
+                const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
+                if (!uniqueClients.has(key)) {
+                    uniqueClients.set(key, client);
+                }
+            });
+            const deduplicatedData = Array.from(uniqueClients.values());
 
-    function renderTable(rows) {
-      tbody.innerHTML = rows.map(r => {
-        const prox = r.proximaRevision || r.fechaRevision || '';
-        const badge = statusBadge(prox);
-        return `
-          <tr>
-            <td>${escapeHtml(r.fecha || '')}</td>
-            <td>${escapeHtml(r.nombre || '')}</td>
-            <td>${escapeHtml(r.dni || '')}</td>
-            <td>${escapeHtml(r.caratula || '')}</td>
-            <td>${escapeHtml(r.expediente || '')}</td>
-            <td>${escapeHtml(r.juzgado || '')}</td>
-            <td>${escapeHtml(r.estado || '')}</td>
-            <td>${escapeHtml(r.observacion || '')}</td>
-            <td>${escapeHtml(prox)} ${badge}</td>
-            <td>${escapeHtml(r.audiencias || '')}</td>
-            <td><button class="btn small" data-obs="${r.id}">Ver/Agregar</button></td>
-          </tr>
-        `;
-      }).join('');
-      tbody.querySelectorAll('button[data-obs]').forEach(b => {
-        b.addEventListener('click', () => openObs(b.dataset.obs));
-      });
-    }
+            let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista';
+            let needsSave = false;
+            
+            if (deduplicatedData.length < data.length) {
+                statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
+                needsSave = true;
+            }
 
-    // Eventos filtros
-    [q, estadoSel, fDesde, fHasta, fProxSel].forEach(el => el.addEventListener('input', applyAndRender));
+            clientsData = sanitizeData(deduplicatedData);
+            
+            if (needsSave) {
+                saveData();
+            }
+            
+            updateDataStatus(statusMessage, needsSave);
+        }
 
-    // Agregar caso
-    document.getElementById('form-nuevo').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const item = {
-        id: genId('JUR_'),
-        fecha: todayYmd(),
-        nombre: document.getElementById('f_nombre').value.trim(),
-        dni: document.getElementById('f_dni').value.trim(),
-        caratula: document.getElementById('f_caratula').value.trim(),
-        expediente: document.getElementById('f_expediente').value.trim(),
-        juzgado: document.getElementById('f_juzgado').value.trim(),
-        estado: document.getElementById('f_estado').value.trim(),
-        observacion: document.getElementById('f_observacion').value.trim(),
-        proximaRevision: document.getElementById('f_prox').value || ''
-      };
-      const added = getLocalAdded();
-      added.unshift(item);
-      saveLSArray(LS_ADDED_KEY, added);
-      renderEstados(baseData);
-      applyAndRender();
-      e.target.reset();
-    });
+        function sanitizeData(data) {
+            (data || []).forEach(c => {
+                c.id = c.id || generateId(c);
+                c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
+                c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
+                c.observaciones.forEach(obs => {
+                    obs.id = obs.id || generateId({});
+                    obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
+                });
+                // MODIFICACIÓN 1: Asegurar que las audiencias existentes tengan la propiedad 'completed'
+                c.audiencias_list.forEach(aud => {
+                    aud.id = aud.id || generateId({});
+                    aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
+                });
+                updateClientNextRevision(c);
+            });
+            return data;
+        }
 
-    // Exportaciones
-    document.getElementById('btn_export_json').addEventListener('click', () => {
-      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
-      exportJSON('planilla_juridica.json', data);
-    });
-    document.getElementById('btn_export_csv').addEventListener('click', () => {
-      const data = exportMergedForDownload(viewData, getLocalObsMap(), 'observaciones', '_obsMerged');
-      exportCSV('planilla_juridica.csv', data, {
-        fecha: 'Fecha',
-        nombre: 'Nombre',
-        dni: 'DNI',
-        caratula: 'Carátula',
-        expediente: 'Expediente',
-        juzgado: 'Juzgado',
-        estado: 'Estado',
-        observacion: 'Observación',
-        proximaRevision: 'Próxima revisión',
-        audiencias: 'Audiencias'
-      });
-    });
+        function updateDataStatus(message, isWarning = false) {
+            const el = document.getElementById('dataStatus');
+            el.textContent = message;
+            el.style.background = isWarning ? '#fff3cd' : '#d4edda';
+            el.style.color = isWarning ? '#664d03' : '#155724';
+        }
+        
+        function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+        const todayYMD = getTodayYMD();
+        function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        function isToday(dateString) { return dateString && dateString === todayYMD; }
+        function isPastDue(dateString) { return dateString && dateString < todayYMD; }
+        function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
+        
+        function generateId(item) { return `ITEM_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
+        function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
 
-    // Modal observaciones
-    const dlg = document.getElementById('modal');
-    const obsList = document.getElementById('obs_list');
+        function updateClientNextRevision(client) {
+            const futureObs = (client.observaciones || [])
+                .filter(obs => !obs.completed && obs.proximaRevision)
+                .sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision));
+            
+            if (futureObs.length > 0) {
+                client.proximaRevision = futureObs[0].proximaRevision;
+                client.observacion = futureObs[0].texto;
+            } else {
+                client.proximaRevision = '';
+                client.observacion = 'No hay tareas pendientes';
+            }
+        }
 
-    function openObs(id) {
-      currentObsId = id;
-      const item = (viewData.find(x => x.id === id)) || {};
-      const list = item._obsMerged || [];
-      obsList.innerHTML = list.map(o => `
-        <li>
-          <div class="obs-head">
-            <strong>${escapeHtml(o.fecha || '')}</strong>
-            ${o.completed ? '<span class="chip done">Completado</span>' : '<span class="chip">Pendiente</span>'}
-            ${o.proximaRevision ? `<span class="chip">${escapeHtml(o.proximaRevision)}</span>` : ''}
-          </div>
-          <div class="obs-body">${escapeHtml(o.texto || '')}</div>
-        </li>
-      `).join('') || '<li class="muted">Sin observaciones</li>';
+        function toggleCompleted(event, clientId, obsId) {
+            event.stopPropagation();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const obs = client.observaciones.find(o => o.id === obsId);
+            if (!obs) return;
+            obs.completed = !obs.completed;
+            updateClientNextRevision(client);
+            saveData();
+            renderAll();
+        }
 
-      dlg.showModal();
-    }
+        // MODIFICACIÓN 2: Nueva función para marcar audiencias como completadas
+        function toggleAudienceCompleted(event, clientId, audId) {
+            event.stopPropagation();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const aud = client.audiencias_list.find(a => a.id === audId);
+            if (!aud) return;
+            aud.completed = !aud.completed;
+            saveData();
+            renderAll();
+            // Refrescar el modal si está abierto para que se vea el cambio
+            if (document.getElementById('clientInfoModal').classList.contains('active')) {
+                showClientModal(clientId);
+            }
+        }
 
-    document.getElementById('obs_guardar').addEventListener('click', () => {
-      if (!currentObsId) return;
-      const rec = {
-        id: genId('OBS_'),
-        fecha: document.getElementById('obs_fecha').value || todayYmd(),
-        texto: document.getElementById('obs_texto').value.trim(),
-        proximaRevision: document.getElementById('obs_prox').value || '',
-        completed: document.getElementById('obs_done').checked
-      };
-      if (!rec.texto) return;
+        function renderAll() {
+            clientsData.forEach(updateClientNextRevision);
+            renderDashboardLists();
+            renderAllClientsList();
+        }
 
-      const map = getLocalObsMap();
-      map[currentObsId] = map[currentObsId] || [];
-      map[currentObsId].unshift(rec);
-      saveLSMap(LS_OBS_KEY, map);
-      // refrescar
-      applyAndRender();
-      openObs(currentObsId);
-      // limpiar formulario
-      document.getElementById('obs_texto').value = '';
-      document.getElementById('obs_prox').value = '';
-      document.getElementById('obs_done').checked = false;
-    });
-  </script>
+        function renderDashboardLists() {
+            const allSchedulableItems = clientsData.flatMap(client => {
+                const tasks = (client.observaciones || [])
+                    .filter(obs => !obs.completed && obs.proximaRevision)
+                    .map(obs => ({
+                        id: obs.id, client: client, reviewDate: obs.proximaRevision,
+                        reviewText: obs.texto, isCompletable: true, type: 'task'
+                    }));
+                // MODIFICACIÓN 3: Filtrar también audiencias que NO estén completadas
+                const audiences = (client.audiencias_list || [])
+                    .filter(aud => !aud.completed && aud.fecha)
+                    .map(aud => ({
+                        id: aud.id, client: client, reviewDate: aud.fecha,
+                        reviewText: `AUDIENCIA: ${aud.texto}`, isCompletable: true, type: 'audience'
+                    }));
+                return [...tasks, ...audiences];
+            });
+
+            const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
+            const overdueItems = allSchedulableItems.filter(item => isPastDue(item.reviewDate)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
+            const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
+
+            renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today');
+            renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
+            renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
+        }
+
+        function renderReviewList(containerId, items, emptyMsg, type) {
+            const container = document.getElementById(containerId);
+            const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
+            container.innerHTML = items.length === 0 ? `<p style="color: ${listColor}; text-align: center;">${emptyMsg}</p>` : items.map(item => {
+                let dateInfo = '';
+                if (type === 'today') dateInfo = 'HOY';
+                else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
+                else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
+                
+                // MODIFICACIÓN 4: Usar la función correcta (tarea o audiencia) para el botón de completar
+                const completeFunc = item.type === 'task' ? `toggleCompleted(event, '${item.client.id}', '${item.id}')` : `toggleAudienceCompleted(event, '${item.client.id}', '${item.id}')`;
+                const completeButton = `<button class="complete-btn" onclick="${completeFunc}">✔</button>`;
+                
+                return `<div class="review-item">${completeButton}<div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-date">${dateInfo}</div><div class="review-client">${item.client.nombre} | ${item.client.caratula || 'Sin Carátula'}</div><div class="review-obs">${item.reviewText}</div></div></div>`;
+            }).join('');
+        }
+        
+        function renderAllClientsList() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const estadoFilter = document.getElementById('estadoFilter').value;
+            const filteredData = clientsData.filter(c => {
+                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado}`.toLowerCase();
+                const matchesSearch = !searchTerm || searchString.includes(searchTerm);
+                const matchesEstado = !estadoFilter || c.estado === estadoFilter;
+                return matchesSearch && matchesEstado;
+            }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
+
+            document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
+                const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
+                const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
+                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content"><div class="review-date">Próx. Revisión: ${formatDate(c.proximaRevision)}</div><div class="review-client">${getDisplayName(c)}</div><div class="review-obs">Últ. Tarea: ${c.observacion}</div></div></div>`;
+            }).join('');
+        }
+
+        function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
+        function showClientSelectorModal() {
+            const selector = document.getElementById('clientSelector');
+            selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...clientsData].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join('');
+            document.getElementById('clientSelectorModal').classList.add('active');
+        }
+        function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
+        function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
+
+        function showClientModal(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            updateClientNextRevision(client);
+            const content = `
+                <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
+                <div class="client-info">
+                    <h4>📋 Información del Caso</h4>
+                    <div class="info-grid">
+                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `
+                        <div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}', '${String(client[key] || '').replace(/'/g, '&#39;')}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
+                        <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
+                    </div>
+                </div>
+                <div class="history-section">
+                    <h4>📝 Historial Cronológico</h4>
+                    <div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">
+                        ${renderHistoryList(client)}
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <form class="form-group" onsubmit="addObservation(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agregar Tarea</h4><div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form>
+                    <form class="form-group" onsubmit="addAudience(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agendar Audiencia</h4><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Audiencia</label><input type="date" id="newAudienceDate" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Gestionar Documentos</button>
+                    <button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Imprimir Ficha</button>
+                    <button class="btn" onclick="printClientHistory('${client.id}')">📜 Imprimir Historial</button>
+                    <button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar Caso</button>
+                </div>`;
+            document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
+            document.getElementById('clientInfoModal').classList.add('active');
+        }
+
+        function renderHistoryList(client) {
+            const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
+            const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
+            
+            const combinedHistory = [...tasks, ...audiences].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+            return combinedHistory.length === 0 ? '<p>No hay tareas ni audiencias registradas.</p>' : combinedHistory.map(item => {
+                if (item.type === 'task') {
+                    return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}">
+                        <button class="complete-btn" onclick="toggleCompleted(event, '${client.id}', '${item.id}')">✔</button>
+                        <div class="history-item-content">
+                            <div class="history-date">Revisar el: ${formatDate(item.proximaRevision)} <span class="history-tag tag-task">TAREA</span></div>
+                            <div class="history-text">${item.texto}</div>
+                        </div>
+                        <button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button>
+                    </div>`;
+                } else { // type === 'audience'
+                    // MODIFICACIÓN 5: Añadir botón de completar y clase 'completed' a las audiencias
+                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}">
+                        <button class="complete-btn" onclick="toggleAudienceCompleted(event, '${client.id}', '${item.id}')">✔</button>
+                        <div class="history-item-content">
+                            <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div>
+                            <div class="history-text">${item.texto}</div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button>
+                    </div>`;
+                }
+            }).join('');
+        }
+        
+        function editObs(clientId, obsId) {
+            const obs = clientsData.find(c => c.id === clientId).observaciones.find(o => o.id === obsId);
+            const itemElement = document.getElementById(`task-item-${obsId}`);
+            itemElement.innerHTML = `
+                <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div>
+                <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div>
+                <button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button>
+                <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
+            `;
+        }
+
+        function saveObsEdit(clientId, obsId) {
+            const client = clientsData.find(c => c.id === clientId);
+            const obs = client.observaciones.find(o => o.id === obsId);
+            obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value;
+            obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value;
+            updateClientNextRevision(client);
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+        
+        function deleteObs(clientId, obsId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta tarea?')) return;
+            const client = clientsData.find(c => c.id === clientId);
+            client.observaciones = client.observaciones.filter(o => o.id !== obsId);
+            updateClientNextRevision(client);
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+        
+        function deleteAudience(clientId, audId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta audiencia?')) return;
+            const client = clientsData.find(c => c.id === clientId);
+            client.audiencias_list = client.audiencias_list.filter(a => a.id !== audId);
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+
+        function editField(clientId, fieldName, currentValue) {
+            editingClientId = clientId; editingField = fieldName;
+            const fieldElement = document.getElementById(`field-${fieldName}`);
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentValue;
+            fieldElement.innerHTML = ''; fieldElement.appendChild(input); input.focus();
+            input.addEventListener('blur', saveField);
+            input.addEventListener('keypress', e => { if (e.key === 'Enter') saveField(); });
+        }
+        function saveField() {
+            if (!editingClientId || !editingField) return;
+            const client = clientsData.find(c => c.id === editingClientId);
+            const input = document.getElementById(`field-${editingField}`).querySelector('input');
+            if (client && input) { client[editingField] = input.value; saveData(); renderAll(); showClientModal(editingClientId); }
+            editingClientId = null; editingField = null;
+        }
+        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial? Esta acción no se puede deshacer.')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
+        function addObservation(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false });
+            updateClientNextRevision(client);
+            saveData(); renderAll(); showClientModal(clientId);
+        }
+
+        function addAudience(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.audiencias_list) client.audiencias_list = [];
+            // MODIFICACIÓN 6: Agregar la propiedad 'completed: false' al crear una audiencia
+            client.audiencias_list.push({ id: generateId({}), fecha: document.getElementById('newAudienceDate').value, texto: document.getElementById('newAudienceText').value, completed: false });
+            saveData(); renderAll(); showClientModal(clientId);
+        }
+
+        function exportToExcel() {
+            const excelData = clientsData.map(c => {
+                const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)} - ${obs.completed ? 'OK' : 'PEND'}] ${obs.texto}`).join(' \n ');
+                const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - Fecha: ${formatDate(aud.fecha)} - ${aud.completed ? 'OK' : 'PEND'}] ${aud.texto}`).join(' \n ');
+                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Audiencias (Campo Antiguo)': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds };
+            });
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Casos Familia');
+            XLSX.writeFile(workbook, `Casos_Familia_${getTodayYMD()}.xlsx`);
+        }
+        function exportData() { const dataStr = JSON.stringify(clientsData, null, 2); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([dataStr], {type: 'application/json'})); link.download = `casos_familia_${getTodayYMD()}.json`; link.click(); }
+        function importData() { document.getElementById('importInput').click(); }
+        function handleImport(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => { try { const imported = JSON.parse(e.target.result); if (Array.isArray(imported) && confirm(`¿Importar ${imported.length} casos? Esto sobreescribirá los datos actuales.`)) { clientsData = imported; saveData(); loadData(); renderAll(); } } catch (err) { alert('Error al importar el archivo. Verifique que sea un JSON válido.'); } };
+            reader.readAsText(file); event.target.value = '';
+        }
+
+        function printClientSheet(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const printContent = `
+                <div class="print-area">
+                    <h2>Ficha del Caso</h2>
+                    <h3>${getDisplayName(client)}</h3>
+                    <div class="info-grid">
+                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `
+                        <div class="info-item">
+                            <div class="info-label">${label}</div>
+                            <div class="info-value">${client[key] || 'S/D'}</div>
+                        </div>`).join('')}
+                    </div>
+                </div>
+            `;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
+            printWindow.document.close();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
+
+        function printClientHistory(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const historyHTML = renderHistoryListForPrint(client);
+            const printContent = `
+                <div class="print-area">
+                    <h2>Historial de Actuaciones</h2>
+                    <h3>${getDisplayName(client)}</h3>
+                    ${historyHTML}
+                </div>
+            `;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
+            printWindow.document.close();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
+
+        function renderHistoryListForPrint(client) {
+            const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
+            const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
+            const combinedHistory = [...tasks, ...audiences].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+            return combinedHistory.length === 0 ? '<p>No hay tareas ni audiencias registradas.</p>' : combinedHistory.map(item => {
+                if (item.type === 'task') {
+                    return `<div class="history-item history-item-task ${item.completed ? 'completed' : ''}">
+                        <div class="history-date">Revisar el: ${formatDate(item.proximaRevision)} <span class="history-tag tag-task">TAREA</span></div>
+                        <div class="history-text">${item.texto}</div>
+                    </div>`;
+                } else {
+                    return `<div class="history-item history-item-audience">
+                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div>
+                        <div class="history-text">${item.texto}</div>
+                    </div>`;
+                }
+            }).join('');
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div><div class="form-group"><label>Audiencias (Texto simple)</label><input type="text" id="newAudiencias"></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
+            document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
+            document.getElementById('documentModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('documentModal')">&times;</span><h2 id="documentModalTitle"></h2><ul id="documentList" class="document-list"></ul><div style="text-align: center; margin-top: 20px;"><button class="btn btn-info" onclick="triggerDocumentUpload()">➕ Subir Documento</button></div>`;
+            
+            document.getElementById('newClientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const caratulaInput = document.getElementById('newCaratula');
+                const caratulaValue = caratulaInput.value.trim();
+
+                if (caratulaValue && clientsData.some(client => client.caratula && client.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) {
+                    alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".\nPor favor, verifique los datos.`);
+                    return;
+                }
+
+                const newClient = {
+                    id: generateId({}),
+                    nombre: document.getElementById('newNombre').value.toUpperCase(),
+                    dni: document.getElementById('newDni').value,
+                    telefono: document.getElementById('newTelefono').value,
+                    caratula: caratulaValue,
+                    expediente: document.getElementById('newExpediente').value.trim(),
+                    juzgado: document.getElementById('newJuzgado').value,
+                    direccionJuzgado: document.getElementById('newDireccionJuzgado').value,
+                    telJuzgado: document.getElementById('newTelJuzgado').value,
+                    estado: document.getElementById('newEstado').value,
+                    audiencias: document.getElementById('newAudiencias').value,
+                    observaciones: [],
+                    audiencias_list: []
+                };
+                const obsText = document.getElementById('newObservacion').value;
+                const revDate = document.getElementById('newFechaRevision').value;
+                if (obsText && revDate) {
+                    newClient.observaciones.push({
+                        id: generateId({}),
+                        fecha: getTodayYMD(),
+                        texto: obsText,
+                        proximaRevision: revDate,
+                        completed: false
+                    });
+                }
+                updateClientNextRevision(newClient);
+                clientsData.push(newClient);
+                saveData();
+                renderAll();
+                closeModal('newClientModal');
+                e.target.reset();
+            });
+
+            loadData();
+            renderAll();
+        });
+        window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const DATA_FILE_NAME = 'datos_planilla_juridica.json';
+        const DOCS_FOLDER_NAME = 'Planilla_Juridica_Documentos';
+
+        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null, docsFolderId = null;
+        const driveStatusEl = document.getElementById('driveStatus'), connectDriveBtn = document.getElementById('connectDriveBtn'), saveToDriveBtn = document.getElementById('saveToDriveBtn'), loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
+
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+        function maybeEnableButtons() { if (gapiInited && gisInited) connectDriveBtn.onclick = handleAuthClick; }
+        function updateDriveStatus(message, isConnected = false) { driveStatusEl.style.display = 'block'; driveStatusEl.textContent = message; driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) throw (resp);
+                updateDriveStatus('✅ Conectado a Google Drive', true);
+                connectDriveBtn.style.display = 'none'; saveToDriveBtn.style.display = 'inline-block'; loadFromDriveBtn.style.display = 'inline-block';
+                saveToDriveBtn.onclick = saveDataToDrive; loadFromDriveBtn.onclick = loadDataFromDrive;
+                await findDataFile();
+            };
+            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
+        }
+        async function findDataFile() {
+            updateDriveStatus('Buscando archivo de datos en Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+                if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
+                else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
+            } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+        }
+        async function saveDataToDrive() {
+            if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+            updateDriveStatus('Guardando datos en Drive...', false);
+            try {
+                const content = JSON.stringify(clientsData, null, 2);
+                dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+            } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
+        }
+        async function loadDataFromDrive() {
+            if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
+            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+            updateDriveStatus('Cargando datos desde Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+                const importedData = JSON.parse(response.body);
+                if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
+                clientsData = importedData;
+                saveData();
+                loadData();
+                renderAll();
+                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+            } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
+        }
+        async function getOrCreateFolder(name, parentId = null) {
+            let query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
+            if (parentId) query += ` and '${parentId}' in parents`;
+            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+            if (response.result.files.length > 0) return response.result.files[0].id;
+            const fileMetadata = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && {parents: [parentId]}) };
+            const newFolder = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
+            return newFolder.result.id;
+        }
+        async function showDocumentModal(clientId) {
+            if (gapi.client.getToken() === null) return alert('Conecta con Google Drive primero.');
+            currentClientIdForDocs = clientId;
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            document.getElementById('documentModalTitle').innerText = `Documentos de: ${getDisplayName(client)}`;
+            document.getElementById('documentModal').classList.add('active');
+            const listEl = document.getElementById('documentList');
+            listEl.innerHTML = '<div class="spinner"></div>';
+            try {
+                if (!docsFolderId) docsFolderId = await getOrCreateFolder(DOCS_FOLDER_NAME);
+                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
+                const clientFolderId = await getOrCreateFolder(clientFolderName, docsFolderId);
+                const response = await gapi.client.drive.files.list({ q: `'${clientFolderId}' in parents and trashed=false`, fields: 'files(id, name, webViewLink)' });
+                listEl.innerHTML = response.result.files.length === 0 ? '<li>No hay documentos.</li>' : response.result.files.map(file => `<li><a href="${file.webViewLink}" target="_blank">${file.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${file.id}')">X</button></li>`).join('');
+            } catch (err) { console.error(err); listEl.innerHTML = '<li>Error al cargar documentos.</li>'; }
+        }
+        async function deleteDocument(fileId) { if (confirm('¿Eliminar este documento permanentemente de Google Drive?')) try { await gapi.client.drive.files.delete({ fileId }); showDocumentModal(currentClientIdForDocs); } catch (err) { alert('Error al eliminar.'); } }
+        function triggerDocumentUpload() { const uploader = document.getElementById('documentUploadInput'); uploader.onchange = handleDocumentUpload; uploader.value = ''; uploader.click(); }
+        async function handleDocumentUpload(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const listEl = document.getElementById('documentList');
+            listEl.innerHTML = '<div class="spinner"></div><p style="text-align:center;">Subiendo...</p>';
+            try {
+                const client = clientsData.find(c => c.id === currentClientIdForDocs);
+                if (!docsFolderId) docsFolderId = await getOrCreateFolder(DOCS_FOLDER_NAME);
+                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
+                const clientFolderId = await getOrCreateFolder(clientFolderName, docsFolderId);
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    await uploadContent(e.target.result, file.name, file.type, clientFolderId, null);
+                    showDocumentModal(currentClientIdForDocs);
+                };
+                reader.readAsArrayBuffer(file);
+            } catch (err) { console.error(err); alert("Error al subir."); showDocumentModal(currentClientIdForDocs); }
+        }
+        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+            const boundary = '-------314159265358979323846';
+            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
+            const base64Data = content instanceof ArrayBuffer ? btoa(String.fromCharCode.apply(null, new Uint8Array(content))) : btoa(unescape(encodeURIComponent(content)));
+            const requestBody =
+                `--${boundary}\r\n` +
+                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+                JSON.stringify(metadata) +
+                `\r\n--${boundary}\r\n` +
+                `Content-Type: ${mimeType}\r\n` +
+                `Content-Transfer-Encoding: base64\r\n\r\n` +
+                base64Data +
+                `\r\n--${boundary}--`;
+            
+            const request = gapi.client.request({
+                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+                method: fileIdToUpdate ? 'PATCH' : 'POST',
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: requestBody
+            });
+            const response = await request;
+            return response.result.id;
+        }
+    </script>
+    
 </body>
 </html>
