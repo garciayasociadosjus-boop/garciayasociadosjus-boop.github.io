@@ -7,25 +7,26 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            margin: 10px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             min-height: 100vh;
         }
         
         .container {
-            max-width: 900px;
+            max-width: 100%;
             margin: 0 auto;
             background-color: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow-x: auto;
         }
         
         h1 {
             text-align: center;
             color: #1a237e;
-            margin-bottom: 30px;
-            font-size: 2.2em;
+            margin-bottom: 20px;
+            font-size: 1.8em;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
@@ -36,6 +37,7 @@
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            min-width: 700px;
         }
         
         th {
@@ -46,10 +48,11 @@
             border: 1px solid #0d47a1;
             font-weight: bold;
             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            font-size: 0.9em;
         }
         
         td {
-            padding: 10px 8px;
+            padding: 8px 6px;
             border: 1px solid #ddd;
             text-align: center;
             vertical-align: middle;
@@ -70,11 +73,13 @@
         
         .input-field {
             width: 100%;
-            padding: 5px;
+            padding: 6px 4px;
             border: 1px solid #ccc;
             border-radius: 4px;
             text-align: right;
-            font-size: 14px;
+            font-size: 13px;
+            box-sizing: border-box;
+            min-width: 80px;
         }
         
         .calculated-field {
@@ -84,6 +89,7 @@
             min-height: 20px;
             padding: 8px;
             border-radius: 4px;
+            font-size: 13px;
         }
         
         .liberable {
@@ -94,19 +100,19 @@
         }
         
         .year-section {
-            margin: 30px 0;
+            margin: 20px 0;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            padding: 15px;
+            padding: 10px;
         }
         
         .year-title {
             background-color: #1a237e;
             color: white;
             padding: 10px;
-            margin: -15px -15px 15px -15px;
+            margin: -10px -10px 15px -10px;
             border-radius: 6px 6px 0 0;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
@@ -115,44 +121,79 @@
 
         .controls {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
         }
+        
         .controls button, .delete-year-btn {
             background-color: #1a237e;
             color: white;
-            padding: 10px 20px;
+            padding: 10px 15px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin: 0 5px;
-            font-size: 14px;
+            font-size: 13px;
             transition: background-color 0.3s;
+            min-width: 120px;
         }
+        
         .controls button:hover, .delete-year-btn:hover {
             background-color: #0d47a1;
         }
+        
         .delete-year-btn {
             padding: 6px 12px;
-            font-size: 12px;
+            font-size: 11px;
             background-color: #c62828;
+            min-width: auto;
         }
-         .delete-year-btn:hover {
+        
+        .delete-year-btn:hover {
             background-color: #b71c1c;
         }
 
         .data-status {
-            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
-            padding: 10px; border-radius: 8px; margin: 20px 0; text-align: center;
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            color: #155724;
+            padding: 10px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            text-align: center;
+            font-size: 14px;
         }
+        
         .btn {
             background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-            color: #ffffff; border: none; padding: 12px 24px; border-radius: 8px;
-            cursor: pointer; font-size: 1em; transition: all 0.3s ease; margin: 5px;
-            text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;
+            color: #ffffff; 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 8px;
+            cursor: pointer; 
+            font-size: 14px; 
+            transition: all 0.3s ease; 
+            margin: 5px;
+            text-transform: uppercase; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+            min-width: 150px;
         }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(41, 128, 185, 0.4); }
-        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        
+        .btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(41, 128, 185, 0.4); 
+        }
+        
+        .btn-success { 
+            background: linear-gradient(135deg, #2ecc71, #27ae60); 
+        }
+        
+        .btn-warning { 
+            background: linear-gradient(135deg, #f39c12, #e67e22); 
+        }
         
         .percentage-cell {
             display: flex;
@@ -160,15 +201,17 @@
             justify-content: center;
             gap: 4px;
         }
+        
         .percentage-cell .input-field {
-            width: 60px;
+            width: 50px;
+            min-width: 50px;
         }
 
         /* Indicador de guardado automático */
         .save-indicator {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 10px;
+            right: 10px;
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 12px;
@@ -177,15 +220,128 @@
             transition: opacity 0.3s ease;
             z-index: 1000;
         }
+        
         .save-indicator.saving {
             background: #ffeaa7;
             color: #2d3436;
             opacity: 1;
         }
+        
         .save-indicator.saved {
             background: #00b894;
             color: white;
             opacity: 1;
+        }
+
+        /* Estilos para móviles */
+        @media (max-width: 768px) {
+            body {
+                margin: 5px;
+            }
+            
+            .container {
+                padding: 10px;
+                border-radius: 8px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 15px;
+            }
+            
+            table {
+                font-size: 12px;
+                min-width: 650px;
+            }
+            
+            th {
+                padding: 8px 4px;
+                font-size: 11px;
+            }
+            
+            td {
+                padding: 6px 3px;
+            }
+            
+            .input-field {
+                padding: 4px 2px;
+                font-size: 12px;
+                min-width: 70px;
+            }
+            
+            .calculated-field {
+                padding: 6px 4px;
+                font-size: 11px;
+            }
+            
+            .year-title {
+                font-size: 14px;
+                padding: 8px;
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .controls button {
+                width: 100%;
+                max-width: 250px;
+                padding: 12px 10px;
+                font-size: 14px;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 250px;
+                margin: 3px 0;
+                font-size: 13px;
+                padding: 10px;
+            }
+            
+            .save-indicator {
+                top: 5px;
+                right: 5px;
+                font-size: 11px;
+                padding: 6px 12px;
+            }
+            
+            .percentage-cell .input-field {
+                width: 45px;
+                min-width: 45px;
+            }
+            
+            .year-section {
+                margin: 15px 0;
+                padding: 8px;
+            }
+        }
+
+        /* Para pantallas muy pequeñas */
+        @media (max-width: 480px) {
+            table {
+                min-width: 600px;
+            }
+            
+            .container {
+                overflow-x: scroll;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            th, td {
+                white-space: nowrap;
+            }
+            
+            .input-field {
+                min-width: 60px;
+            }
         }
     </style>
 </head>
@@ -196,7 +352,7 @@
         <h1>FONDO DE REPARO</h1>
         
         <div id="years-container">
-            </div>
+        </div>
 
         <div class="controls">
             <button onclick="addMonth()">Agregar Mes</button>
@@ -243,6 +399,23 @@
 
         let yearsData = [];
         let allData = [];
+
+        // Función para formatear números con separador de miles
+        function formatNumberWithThousands(num) {
+            return new Intl.NumberFormat('es-AR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+                useGrouping: true
+            }).format(num);
+        }
+
+        // Función para parsear números que pueden tener separadores de miles
+        function parseFormattedNumber(str) {
+            if (typeof str === 'number') return str;
+            if (!str) return 0;
+            // Remover puntos que son separadores de miles y reemplazar coma por punto decimal si existe
+            return parseFloat(str.toString().replace(/\./g, '').replace(/,/g, '.')) || 0;
+        }
 
         // Funciones de almacenamiento local
         function saveToLocalStorage() {
@@ -328,7 +501,7 @@
                 yearsData.splice(yearIndex, 1);
                 recalculateAll();
                 renderTables();
-                saveToLocalStorage(); // Guardar después de eliminar
+                saveToLocalStorage();
             }
         }
 
@@ -367,37 +540,39 @@
             return `
                 <tr>
                     <td class="mes-column">${item.mes}</td>
-                    <td><input type="number" class="input-field" value="${item.ingreso}" onchange="updateIngreso(${yearIndex}, ${monthIndex}, this.value)" step="0.01"></td>
+                    <td><input type="text" class="input-field" value="${formatNumberWithThousands(item.ingreso)}" onblur="updateIngreso(${yearIndex}, ${monthIndex}, this.value)" onfocus="this.value = this.value.replace(/\\./g, '')" step="0.01"></td>
                     <td class="percentage-cell">
                         <input type="number" class="input-field" value="${item.porcentaje}" onchange="updatePorcentaje(${yearIndex}, ${monthIndex}, this.value)" step="0.1" min="0" max="100">
                         <span>%</span>
                     </td>
                     <td><div class="calculated-field">${formatNumber(item.retenido)}</div></td>
-                    <td><input type="number" class="input-field" value="${item.gasto}" onchange="updateGasto(${yearIndex}, ${monthIndex}, this.value)" step="0.01"></td>
+                    <td><input type="text" class="input-field" value="${formatNumberWithThousands(item.gasto)}" onblur="updateGasto(${yearIndex}, ${monthIndex}, this.value)" onfocus="this.value = this.value.replace(/\\./g, '')" step="0.01"></td>
                     <td><div class="calculated-field ${fondoClass}">${formatNumber(item.fondoAcumulado)}</div></td>
                 </tr>
             `;
         }
 
         function updateIngreso(yearIndex, monthIndex, value) {
-            yearsData[yearIndex].months[monthIndex].ingreso = parseFloat(value) || 0;
+            const numericValue = parseFormattedNumber(value);
+            yearsData[yearIndex].months[monthIndex].ingreso = numericValue;
             recalculateAll(); 
             renderTables();
-            saveToLocalStorage(); // Guardar después de actualizar
+            saveToLocalStorage();
         }
 
         function updateGasto(yearIndex, monthIndex, value) {
-            yearsData[yearIndex].months[monthIndex].gasto = parseFloat(value) || 0;
+            const numericValue = parseFormattedNumber(value);
+            yearsData[yearIndex].months[monthIndex].gasto = numericValue;
             recalculateAll(); 
             renderTables();
-            saveToLocalStorage(); // Guardar después de actualizar
+            saveToLocalStorage();
         }
 
         function updatePorcentaje(yearIndex, monthIndex, value) {
             yearsData[yearIndex].months[monthIndex].porcentaje = parseFloat(value) || 7;
             recalculateAll(); 
             renderTables();
-            saveToLocalStorage(); // Guardar después de actualizar
+            saveToLocalStorage();
         }
 
         function renderTables() {
@@ -438,7 +613,7 @@
                 lastYear.months.push({ mes: meses[lastYear.months.length], ingreso: 0, gasto: 0, porcentaje: 7 });
                 recalculateAll(); 
                 renderTables();
-                saveToLocalStorage(); // Guardar después de agregar
+                saveToLocalStorage();
             } else {
                 alert('Este año ya tiene 12 meses. Usa "Agregar Año" para continuar.');
             }
@@ -449,7 +624,7 @@
             yearsData.push({ year: newYear, months: [{ mes: 'Enero', ingreso: 0, gasto: 0, porcentaje: 7 }] });
             recalculateAll(); 
             renderTables();
-            saveToLocalStorage(); // Guardar después de agregar
+            saveToLocalStorage();
         }
 
         function exportData() {
@@ -475,7 +650,7 @@
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Cargando aplicación...');
-            loadFromLocalStorage(); // Cargar datos guardados o usar por defecto
+            loadFromLocalStorage();
             recalculateAll();
             renderTables();
             console.log('Aplicación cargada con', yearsData.length, 'años de datos');
@@ -542,35 +717,10 @@
                 yearsData = importedData;
                 recalculateAll();
                 renderTables();
-                saveToLocalStorage(); // También guardar localmente
+                saveToLocalStorage();
                 
                 updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
         }
         async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-            const boundary = '-------314159265358979323846';
-            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
-            const base64Data = btoa(unescape(encodeURIComponent(content)));
-            const requestBody =
-                `--${boundary}\r\n` +
-                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-                JSON.stringify(metadata) +
-                `\r\n--${boundary}\r\n` +
-                `Content-Type: ${mimeType}\r\n` +
-                `Content-Transfer-Encoding: base64\r\n\r\n` +
-                base64Data +
-                `\r\n--${boundary}--`;
-            
-            const request = gapi.client.request({
-                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
-                method: fileIdToUpdate ? 'PATCH' : 'POST',
-                params: { uploadType: 'multipart' },
-                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                body: requestBody
-            });
-            const response = await request;
-            return response.result.id;
-        }
-    </script>
-</body>
-</html>
+            const boundary = '
