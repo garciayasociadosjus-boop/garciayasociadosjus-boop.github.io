@@ -22,11 +22,232 @@
   </header>
 
   <main class="container">
-    <section class="intro card">
-      <h2 class="notranslate" translate="no">Portal principal</h2>
-      <p class="muted">
-        Accedé a los sistemas internos del estudio. El contenido está en español y bloqueado contra traducciones automáticas.
-      </p>
+    <section class="intro card">
+      <div class="intro-content">
+        <div class="title-section">
+          <h2 class="notranslate portal-title" translate="no">Portal Principal</h2>
+          <div class="title-underline"></div>
+        </div>
+        <p class="intro-description">
+          Accedé a los sistemas internos del estudio. El contenido está en español y bloqueado contra traducciones automáticas.
+        </p>
+      </div>
+      
+      <!-- Elemento decorativo con marca de agua -->
+      <div class="watermark-bg">
+        <div class="justice-scales">⚖️</div>
+        <div class="law-book">📚</div>
+        <div class="gavel">⚖️</div>
+      </div>
+    </section>
+</main>
+
+<style>
+.intro.card {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 25%, #3949ab 50%, #5c6bc0 100%);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    padding: 40px 35px;
+    border-radius: 16px;
+    box-shadow: 
+        0 20px 40px rgba(26, 35, 126, 0.3),
+        0 8px 16px rgba(26, 35, 126, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    margin-bottom: 30px;
+}
+
+.intro-content {
+    position: relative;
+    z-index: 2;
+}
+
+.title-section {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.portal-title {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+    text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(255, 255, 255, 0.1);
+    background: linear-gradient(45deg, #ffffff, #bca05b, #ffffff);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.title-underline {
+    width: 120px;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #bca05b, transparent);
+    margin: 15px auto;
+    border-radius: 2px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scaleX(1); }
+    50% { opacity: 1; transform: scaleX(1.1); }
+}
+
+.intro-description {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.7;
+    text-align: center;
+    margin: 0;
+    font-weight: 400;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    opacity: 0.95;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Marca de agua decorativa */
+.watermark-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    opacity: 0.08;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.justice-scales,
+.law-book,
+.gavel {
+    position: absolute;
+    font-size: 4rem;
+    animation: float 6s ease-in-out infinite;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.justice-scales {
+    top: 10%;
+    right: 10%;
+    animation-delay: 0s;
+    transform: rotate(15deg);
+}
+
+.law-book {
+    bottom: 15%;
+    left: 8%;
+    animation-delay: 2s;
+    transform: rotate(-10deg);
+    font-size: 3.5rem;
+}
+
+.gavel {
+    top: 60%;
+    right: 15%;
+    animation-delay: 4s;
+    transform: rotate(25deg);
+    font-size: 3rem;
+}
+
+@keyframes float {
+    0%, 100% { 
+        transform: translateY(0px) rotate(var(--rotation, 0deg)); 
+        opacity: 0.05; 
+    }
+    50% { 
+        transform: translateY(-20px) rotate(var(--rotation, 0deg)); 
+        opacity: 0.12; 
+    }
+}
+
+.justice-scales { --rotation: 15deg; }
+.law-book { --rotation: -10deg; }
+.gavel { --rotation: 25deg; }
+
+/* Efecto de brillo en hover */
+.intro.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent
+    );
+    transition: left 0.8s ease;
+    z-index: 3;
+}
+
+.intro.card:hover::before {
+    left: 100%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .intro.card {
+        padding: 30px 25px;
+        margin-bottom: 25px;
+    }
+    
+    .portal-title {
+        font-size: 2.2rem;
+        letter-spacing: 1px;
+    }
+    
+    .intro-description {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+    
+    .justice-scales,
+    .law-book,
+    .gavel {
+        font-size: 3rem;
+    }
+    
+    .law-book {
+        font-size: 2.5rem;
+    }
+    
+    .gavel {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .portal-title {
+        font-size: 1.8rem;
+    }
+    
+    .intro-description {
+        font-size: 1rem;
+    }
+    
+    .title-underline {
+        width: 80px;
+        height: 3px;
+    }
+}
+</style>
     </section>
 
     <section class="grid">
