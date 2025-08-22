@@ -51,12 +51,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .info-item{background:#fff;padding:10px;border-left:3px solid #667eea;border-radius:6px}
 .info-label{font-size:.65em;text-transform:uppercase;color:#666;font-weight:600;letter-spacing:.5px}
 .info-value{font-size:.85em;font-weight:500;color:#2c3e50;margin-top:2px;word-break:break-word}
-.editable-field{cursor:pointer}
+.editable-field{cursor:pointer;padding:2px 4px;margin:-2px -4px;}
 .editable-field:hover{background:#eef5ff;border-radius:4px}
-.obs-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:.78em}
+
+.obs-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:0.9rem}
+.obs-item .btn { font-size: 0.85rem; padding: 5px 10px; }
+
 .obs-item.completed{opacity:.6}
-.obs-date{font-size:.7em;font-weight:600;color:#667eea;margin-bottom:4px}
-.obs-revision-date{color:#c0392b;font-size:.65em;margin-top:4px}
+.obs-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
+.obs-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
 .form-section{background:#f8f9fa;padding:16px;border:1px solid #e0e0e0;border-radius:10px;margin-top:16px}
 .action-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
 .document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.8em}
@@ -80,7 +83,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <body>
 <div class="container">
   <div class="header">
-    <h1>🏥 Planilla de Siniestros</h1>
+    <h1>🚦 Planilla de Siniestros</h1>
     <p>García & Asociados</p>
   </div>
 
@@ -106,7 +109,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
     <div style="text-align:center;margin-bottom:26px;">
       <button class="btn btn-success" onclick="showNewSiniestroModal()">➕ Agregar Siniestro</button>
       <button class="btn" onclick="showSiniestroSelectorModal()">👁️ Ver/Editar Siniestro</button>
-      <button class="btn" onclick="exportToExcel()">📊 Excel</button>
+      <button class="btn" onclick="exportToExcel()">📊 Exportar Excel</button>
       <button class="btn" onclick="exportData()">💾 Exportar JSON</button>
       <button class="btn btn-warning" onclick="importData()">📥 Importar JSON</button>
     </div>
@@ -141,8 +144,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
       <div id="allSiniestros" class="reviews-list" style="max-height:580px;"></div>
     </div>
 
-    <!-- LOG DEBUG DRIVE (puedes ocultarlo si no lo querés) -->
-    <div style="margin-top:25px;">
+    <div style="margin-top:25px; display: none;">
       <label style="font:11px monospace;color:#333;">LOG DRIVE</label>
       <textarea id="driveDebugLog" readonly></textarea>
     </div>
@@ -151,9 +153,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 </div>
 
 <input type="file" id="importInput" accept=".json" style="display:none" onchange="handleImport(event)">
-<input type="file" id="documentUploadInput" style="display:none" multiple="false">
+<input type="file" id="documentUploadInput" style="display:none">
 
-<!-- Modales -->
 <div id="newSiniestroModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroSelectorModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroInfoModal" class="modal"><div class="modal-content"></div></div>
@@ -161,7 +162,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 
 <script>
 /* ================== DATOS LOCALES Y UI ================== */
-const initialData=[{"id":"SINIESTRO_1_1735933845000","fecha":"","cliente":"GONCALVES BEATRIZ","dni":"22108382","celular":"1164233680","aseguradoEn":"RIVADAVIA","contra":"ORBIS","numeroReclamo":"232644","observacion":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1140000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_1","fecha":"2025-04-30","texto":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_2_1735933845001","fecha":"2025-05-06","cliente":"GRANADO MIGUEL ANGEL","dni":"21543471","celular":"1173653571","aseguradoEn":"COPAN","contra":"ZURICH","numeroReclamo":"0","observacion":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":285999.99,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_2","fecha":"2025-05-20","texto":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_3_1735933845002","fecha":"","cliente":"SILGUEIRO VICTOR","dni":"34566518","celular":"","aseguradoEn":"FEDERACION","contra":"LA CAJA","numeroReclamo":"54000113645","observacion":"SE FUE CON NEMESIS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1074000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_3","fecha":"2025-05-26","texto":"SE FUE CON NEMESIS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_4_1735933845003","fecha":"","cliente":"GALEPPI SUSANA","dni":"11130200","celular":"1151388650","aseguradoEn":"GALENO","contra":"SAN CRISTÓBAL","numeroReclamo":"UC368744","observacion":"NO HIZO LA DENUECIA LE 3RO","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":530000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_4","fecha":"2025-05-26","texto":"NO HIZO LA DENUECIA LE 3RO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_5_1735933845004","fecha":"2025-04-01","cliente":"ALVAREZ CLAUDIA","dni":"28456789","celular":"1145678901","aseguradoEn":"COPAN","contra":"FEDERACION","numeroReclamo":"CP2025001","observacion":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","fechaRevision":"2025-05-01","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":890000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_5","fecha":"2025-04-15","texto":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","proximaRevision":"2025-05-01","completed":false}]},{"id":"SINIESTRO_6_1735933845005","fecha":"2024-12-15","cliente":"RODRIGUEZ MARIA","dni":"32567890","celular":"1156789012","aseguradoEn":"FEDERACION","contra":"SANCOR","numeroReclamo":"FED2024089","observacion":"CASO FINALIZADO CON ACUERDO TOTAL","fechaRevision":"","estado":"FINALIZADA","acuerdo":"SI","fechaPago":"2025-01-15","presupuesto":1250000,"indemnizacion":1250000,"honorarios":187500,"factura":"SI","observaciones":[{"id":"obs_6","fecha":"2025-01-10","texto":"CASO FINALIZADO CON ACUERDO TOTAL","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_7_1735933845006","fecha":"2024-11-20","cliente":"MARTINEZ CARLOS","dni":"29345678","celular":"1167890123","aseguradoEn":"RIVADAVIA","contra":"ZURICH","numeroReclamo":"RIV2024045","observacion":"FINALIZADO CON PAGO PARCIAL ACORDADO","fechaRevision":"","estado":"FINALIZADA P","acuerdo":"SI","fechaPago":"2024-12-25","presupuesto":2100000,"indemnizacion":1575000,"honorarios":236250,"factura":"SI","observaciones":[{"id":"obs_7","fecha":"2024-12-20","texto":"FINALIZADO CON PAGO PARCIAL ACORDADO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_8_1735933845007","fecha":"2025-01-10","cliente":"LOPEZ PATRICIA","dni":"30456789","celular":"1178901234","aseguradoEn":"COPAN","contra":"LA CAJA","numeroReclamo":"CP2025002","observacion":"DOCUMENTACION ADICIONAL SOLICITADA","fechaRevision":"2025-03-01","estado":"DEMORADA","acuerdo":"","fechaPago":"","presupuesto":675000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_8","fecha":"2025-02-01","texto":"DOCUMENTACION ADICIONAL SOLICITADA","proximaRevision":"2025-03-01","completed":false}]},{"id":"SINIESTRO_9_1735933845008","fecha":"2024-10-15","cliente":"GARCIA FERNANDO","dni":"31567890","celular":"1189012345","aseguradoEn":"FEDERACION","contra":"ORBIS","numeroReclamo":"FED2024067","observacion":"PERITAJE FAVORABLE, EN LIQUIDACION","fechaRevision":"2025-01-15","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":1450000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_9","fecha":"2024-11-30","texto":"PERITAJE FAVORABLE, EN LIQUIDACION","proximaRevision":"2025-01-15","completed":false}]},{"id":"SINIESTRO_10_1735933845009","fecha":"2024-09-05","cliente":"FERNANDEZ ANA","dni":"27890123","celular":"1190123456","aseguradoEn":"RIVADAVIA","contra":"SANCOR","numeroReclamo":"RIV2024034","observacion":"RECHAZADO POR FALTA DE COBERTURA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":820000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_10","fecha":"2024-10-15","texto":"RECHAZADO POR FALTA DE COBERTURA","proximaRevision":"","completed":true}]}];
+const initialData=[{"id":"SINIESTRO_1_1735933845000","fecha":"","cliente":"GONCALVES BEATRIZ","dni":"22108382","celular":"1164233680","aseguradoEn":"RIVADAVIA","contra":"ORBIS","numeroReclamo":"232644","observacion":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1140000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_1","fecha":"2025-04-30","texto":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_2_1735933845001","fecha":"2025-05-06","cliente":"GRANADO MIGUEL ANGEL","dni":"21543471","celular":"1173653571","aseguradoEn":"COPAN","contra":"ZURICH","numeroReclamo":"0","observacion":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":285999.99,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_2","fecha":"2025-05-20","texto":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_3_1735933845002","fecha":"","cliente":"SILGUEIRO VICTOR","dni":"34566518","celular":"","aseguradoEn":"FEDERACION","contra":"LA CAJA","numeroReclamo":"54000113645","observacion":"SE FUE CON NEMESIS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1074000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_3","fecha":"2025-05-26","texto":"SE FUE CON NEMESIS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_4_1735933845003","fecha":"","cliente":"GALEPPI SUSANA","dni":"11130200","celular":"1151388650","aseguradoEn":"GALENO","contra":"SAN CRISTÓBAL","numeroReclamo":"UC368744","observacion":"NO HIZO LA DENUECIA LE 3RO","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":530000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_4","fecha":"2025-05-26","texto":"NO HIZO LA DENUEcia LE 3RO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_5_1735933845004","fecha":"2025-04-01","cliente":"ALVAREZ CLAUDIA","dni":"28456789","celular":"1145678901","aseguradoEn":"COPAN","contra":"FEDERACION","numeroReclamo":"CP2025001","observacion":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","fechaRevision":"2025-05-01","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":890000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_5","fecha":"2025-04-15","texto":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","proximaRevision":"2025-05-01","completed":false}]},{"id":"SINIESTRO_6_1735933845005","fecha":"2024-12-15","cliente":"RODRIGUEZ MARIA","dni":"32567890","celular":"1156789012","aseguradoEn":"FEDERACION","contra":"SANCOR","numeroReclamo":"FED2024089","observacion":"CASO FINALIZADO CON ACUERDO TOTAL","fechaRevision":"","estado":"FINALIZADA","acuerdo":"SI","fechaPago":"2025-01-15","presupuesto":1250000,"indemnizacion":1250000,"honorarios":187500,"factura":"SI","observaciones":[{"id":"obs_6","fecha":"2025-01-10","texto":"CASO FINALIZADO CON ACUERDO TOTAL","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_7_1735933845006","fecha":"2024-11-20","cliente":"MARTINEZ CARLOS","dni":"29345678","celular":"1167890123","aseguradoEn":"RIVADAVIA","contra":"ZURICH","numeroReclamo":"RIV2024045","observacion":"FINALIZADO CON PAGO PARCIAL ACORDADO","fechaRevision":"","estado":"FINALIZADA P","acuerdo":"SI","fechaPago":"2024-12-25","presupuesto":2100000,"indemnizacion":1575000,"honorarios":236250,"factura":"SI","observaciones":[{"id":"obs_7","fecha":"2024-12-20","texto":"FINALIZADO CON PAGO PARCIAL ACORDADO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_8_1735933845007","fecha":"2025-01-10","cliente":"LOPEZ PATRICIA","dni":"30456789","celular":"1178901234","aseguradoEn":"COPAN","contra":"LA CAJA","numeroReclamo":"CP2025002","observacion":"DOCUMENTACION ADICIONAL SOLICITADA","fechaRevision":"2025-03-01","estado":"DEMORADA","acuerdo":"","fechaPago":"","presupuesto":675000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_8","fecha":"2025-02-01","texto":"DOCUMENTACION ADICIONAL SOLICITADA","proximaRevision":"2025-03-01","completed":false}]},{"id":"SINIESTRO_9_1735933845008","fecha":"2024-10-15","cliente":"GARCIA FERNANDO","dni":"31567890","celular":"1189012345","aseguradoEn":"FEDERACION","contra":"ORBIS","numeroReclamo":"FED2024067","observacion":"PERITAJE FAVORABLE, EN LIQUIDACION","fechaRevision":"2025-01-15","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":1450000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_9","fecha":"2024-11-30","texto":"PERITAJE FAVORABLE, EN LIQUIDACION","proximaRevision":"2025-01-15","completed":false}]},{"id":"SINIESTRO_10_1735933845009","fecha":"2024-09-05","cliente":"FERNANDEZ ANA","dni":"27890123","celular":"1190123456","aseguradoEn":"RIVADAVIA","contra":"SANCOR","numeroReclamo":"RIV2024034","observacion":"RECHAZADO POR FALTA DE COBERTURA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":820000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_10","fecha":"2024-10-15","texto":"RECHAZADO POR FALTA DE COBERTURA","proximaRevision":"","completed":true}]}];
 
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null;
@@ -237,10 +238,12 @@ function renderReviewList(id,tasks,empty,type){
     if(type==='today') info='HOY';
     else if(type==='overdue') info=`VENCIDA - ${formatDate(t.proximaRevision)}`;
     else info=`En ${getDaysDifference(t.proximaRevision)} días - ${formatDate(t.proximaRevision)}`;
+    // CAMBIO 1: Corregido color de texto para "Trabajado en"
     return `<div class="review-item">
       <button class="complete-btn" onclick="toggleCompleted(event,'${t.siniestro.id}','${t.id}')">✔</button>
       <div class="review-item-content" onclick="showSiniestroModal('${t.siniestro.id}')">
         <div class="review-date">${info}</div>
+        ${t.fechaTrabajado ? `<div class="review-date" style="font-size: 0.9em; color: #34495e; font-weight: 500;">Trabajado: ${formatDate(t.fechaTrabajado)}</div>` : ''}
         <div class="review-client">${t.siniestro.cliente}</div>
         <div class="review-obs">${t.texto}</div>
       </div>
@@ -259,9 +262,18 @@ function renderAllSiniestrosList(){
   document.getElementById('allSiniestros').innerHTML=filtrados.length?filtrados.map(s=>{
     const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision);
     const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
+    
+    const lastWorkedObs = (s.observaciones || [])
+        .filter(o => o.fechaTrabajado)
+        .sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
+    const lastWorkedDate = lastWorkedObs ? lastWorkedObs.fechaTrabajado : null;
+
     return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
       <div class="review-item-content">
-        <div class="review-date">Próx: ${formatDate(s.fechaRevision)}</div>
+        <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div class="review-date">Próx: ${formatDate(s.fechaRevision)}</div>
+            ${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}
+        </div>
         <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div>
         <div class="review-obs">${s.observacion}</div>
       </div>
@@ -282,6 +294,19 @@ function closeModal(id){document.getElementById(id).classList.remove('active');e
 function showSiniestroModal(id){
   const s=siniestrosData.find(x=>x.id===id);if(!s)return;
   updateSiniestroNextRevision(s);
+
+  // CAMBIO 3: Generar listas para autocompletado
+  const aseguradoras = [...new Set(siniestrosData.map(s => s.aseguradoEn).filter(Boolean))];
+  const contras = [...new Set(siniestrosData.map(s => s.contra).filter(Boolean))];
+  const datalistsHTML = `
+    <datalist id="aseguradorasList">
+      ${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}
+    </datalist>
+    <datalist id="contrasList">
+      ${contras.map(c => `<option value="${c}"></option>`).join('')}
+    </datalist>
+  `;
+
   const html=`
     <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span>
     <h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
@@ -294,7 +319,7 @@ function showSiniestroModal(id){
       }).map(([k,l])=>`
         <div class="info-item">
           <div class="info-label">${l}</div>
-          <div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}','${String(s[k]||'').replace(/'/g,'&#39;')}')">
+          <div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">
             ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}
           </div>
         </div>`).join('')}
@@ -320,7 +345,8 @@ function showSiniestroModal(id){
       <button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button>
       <button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button>
       <button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button>
-    </div>`;
+    </div>
+    ${datalistsHTML}`; // <-- Se inyectan los datalists aquí
   const m=document.getElementById('siniestroInfoModal');
   m.querySelector('.modal-content').innerHTML=html;
   m.classList.add('active');
@@ -331,6 +357,7 @@ function renderObsList(s){
     const highlight=o.proximaRevision===s.fechaRevision && !o.completed;
     return `<div class="obs-item ${o.completed?'completed':''}" style="${highlight?'border-left-color:#e74c3c;':''}" id="obs-item-${o.id}">
       <div class="obs-date">Creación: ${formatDate(o.fecha)}</div>
+      ${o.fechaTrabajado ? `<div class="obs-date" style="color: #27ae60;">Trabajado: ${formatDate(o.fechaTrabajado)}</div>` : ''}
       <div class="obs-text">${o.texto}</div>
       <div class="obs-revision-date">Revisión: ${formatDate(o.proximaRevision)}</div>
       <div style="margin-top:6px;display:flex;gap:6px;">
@@ -345,6 +372,7 @@ function renderObsListForPrint(s){
   return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>`
     <div class="obs-item">
       <div class="obs-date"><b>Creación:</b> ${formatDate(o.fecha)}</div>
+      ${o.fechaTrabajado ? `<div><b>Trabajado:</b> ${formatDate(o.fechaTrabajado)}</div>` : ''}
       <div class="obs-text"><b>Obs:</b> ${o.texto}</div>
       <div class="obs-revision-date"><b>Revisión:</b> ${formatDate(o.proximaRevision)}</div>
       <div><b>Estado:</b> ${o.completed?'Completada':'Pendiente'}</div>
@@ -354,19 +382,20 @@ function renderObsListForPrint(s){
 function editObs(sid,oid){
   const s=siniestrosData.find(x=>x.id===sid);
   const o=s.observaciones.find(k=>k.id===oid);
-  const el=document.getElementById(`obs-item-${oid}`);
+  const el=document.getElementById(`obs-item-${o.id}`);
   el.innerHTML=`
-    <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${oid}" rows="2">${o.texto}</textarea></div>
-    <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${oid}" value="${o.proximaRevision}"></div>
-    <button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${oid}')">Guardar</button>
+    <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div>
+    <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div>
+    <button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button>
     <button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
 }
 
 function saveObs(sid,oid){
   const s=siniestrosData.find(x=>x.id===sid);
   const o=s.observaciones.find(k=>k.id===oid);
-  o.texto=document.getElementById(`edit-obs-text-${oid}`).value;
-  o.proximaRevision=document.getElementById(`edit-obs-revision-${oid}`).value;
+  o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;
+  o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value;
+  o.fechaTrabajado = getTodayYMD();
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 function deleteObs(sid,oid){
@@ -376,24 +405,59 @@ function deleteObs(sid,oid){
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 
-function editField(sid,field,val){
-  editingSiniestroId=sid;editingField=field;
-  const wrapper=document.getElementById(`field-${field}`);
-  const input=document.createElement('input');
-  input.type=/presupuesto|indemnizacion|honorarios|dni/.test(field)?'number':'text';
-  input.value=val;
-  wrapper.innerHTML='';wrapper.appendChild(input);input.focus();
-  input.addEventListener('blur',saveField);
-  input.addEventListener('keypress',e=>{if(e.key==='Enter')saveField();});
+
+// CAMBIO 2: Lógica de edición de campos mejorada (estilo input)
+function editField(sid, field, element) {
+    if (editingField) return; // Evita editar dos campos a la vez
+
+    editingSiniestroId = sid;
+    editingField = field;
+    
+    const s = siniestrosData.find(x => x.id === sid);
+    const currentValue = s[field] || '';
+
+    const input = document.createElement('input');
+    input.type = /presupuesto|indemnizacion|honorarios|dni|celular/.test(field) ? 'number' : 'text';
+    input.value = currentValue;
+    input.style.width = '100%';
+    input.style.fontSize = '0.85em';
+    input.style.border = '1px solid #667eea';
+    input.style.padding = '2px';
+
+    // CAMBIO 3: Asignar lista de autocompletado
+    if (field === 'aseguradoEn') {
+        input.setAttribute('list', 'aseguradorasList');
+    } else if (field === 'contra') {
+        input.setAttribute('list', 'contrasList');
+    }
+
+    const save = () => {
+        const s = siniestrosData.find(x => x.id === editingSiniestroId);
+        s[editingField] = input.value;
+        saveData();
+        editingSiniestroId = null;
+        editingField = null;
+        showSiniestroModal(sid); // Refresca el modal para mostrar el valor guardado
+    };
+    
+    input.addEventListener('blur', save);
+    input.addEventListener('keypress', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur(); // Dispara el evento blur que guarda
+        }
+    });
+
+    element.innerHTML = '';
+    element.appendChild(input);
+    input.focus();
+    
+    // Posicionar el cursor al final para evitar la selección automática
+    const valLength = input.value.length;
+    input.setSelectionRange(valLength, valLength);
 }
-function saveField(){
-  if(!editingSiniestroId||!editingField)return;
-  const s=siniestrosData.find(x=>x.id===editingSiniestroId);
-  const input=document.getElementById(`field-${editingField}`).querySelector('input');
-  s[editingField]=input.value;
-  saveData();renderAll();showSiniestroModal(editingSiniestroId);
-  editingSiniestroId=null;editingField=null;
-}
+
+
 function deleteSiniestro(id){
   if(!confirm('¿Eliminar siniestro?'))return;
   siniestrosData=siniestrosData.filter(s=>s.id!==id);
@@ -403,7 +467,7 @@ function deleteSiniestro(id){
 function addObservation(e,sid){
   e.preventDefault();
   const s=siniestrosData.find(x=>x.id===sid);
-  s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false});
+  s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false, fechaTrabajado: todayYMD});
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 
@@ -501,7 +565,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const txt=document.getElementById('newObservacion').value;
     const rev=document.getElementById('newFechaRevision').value;
     if(txt&&rev){
-      n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false});
+      n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false, fechaTrabajado: todayYMD});
     }
     updateSiniestroNextRevision(n);
     siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
@@ -513,7 +577,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
-<!-- ================== GOOGLE DRIVE SCRIPTS ================== -->
 <script>
 /* ============= CONFIG ============= */
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
@@ -696,86 +759,34 @@ function triggerDocumentUpload(){
   up.click();
 }
 
-async function handleDocumentUpload(ev) {
-    const file = ev.target.files[0];
-    if (!file) return;
-
-    const list = document.getElementById('documentList');
-    list.innerHTML = `<li>Subiendo ${file.name}...</li>`;
-    dlog(`Iniciando subida para ${file.name} (${file.size} bytes)`);
-
-    try {
-        const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
-        if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
-        const folderName = `${s.cliente.replace(/[\/\\?%*:|"<>]/g, '-')} - Reclamo ${s.numeroReclamo || s.id.slice(-4)}`;
-        const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
-
-        const metadata = {
-            name: file.name,
-            parents: [clientFolder],
-            mimeType: file.type || 'application/octet-stream',
-        };
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const fileContent = e.target.result;
-            const boundary = '-------314159265358979323846';
-            const delimiter = `\r\n--${boundary}\r\n`;
-            const close_delim = `\r\n--${boundary}--`;
-
-            const body =
-                delimiter +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                JSON.stringify(metadata) +
-                delimiter +
-                `Content-Type: ${metadata.mimeType}\r\n` +
-                'Content-Transfer-Encoding: base64\r\n' +
-                '\r\n' +
-                fileContent.substring(fileContent.indexOf(',') + 1) + // Extrae solo la data base64
-                close_delim;
-
-            dlog("Creando petición de subida multipart con gapi.client.request");
-            const request = gapi.client.request({
-                path: '/upload/drive/v3/files',
-                method: 'POST',
-                params: { uploadType: 'multipart' },
-                headers: {
-                    'Content-Type': `multipart/related; boundary=${boundary}`
-                },
-                body: body
-            });
-
-            try {
-                const response = await request;
-                dlog(`Subida de ${file.name} completada. ID: ${response.result.id}`);
-                showDocumentModal(currentSiniestroIdForDocs); // Refrescar lista
-            } catch (err) {
-                const errorBody = err.body ? JSON.parse(err.body) : { error: { message: err.message } };
-                list.innerHTML = `<li>❌ Error en subida: ${errorBody.error.message}</li>`;
-                dlog(`Error durante la ejecución de la subida: ${errorBody.error.message}`);
-                console.error(err);
-            }
-        };
-        
-        // Leer el archivo como Data URL para obtener el contenido en base64
-        reader.readAsDataURL(file);
-
-    } catch (e) {
-        list.innerHTML = '<li>❌ Error preparando la subida. Revisa el log.</li>';
-        dlog('Error en handleDocumentUpload: ' + e.message);
-        console.error(e);
-    }
+async function handleDocumentUpload(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const list=document.getElementById('documentList');
+  list.innerHTML='<li>Subiendo...</li>';
+  try{
+    const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
+    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
+    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      await uploadContent(e.target.result,file.name,file.type||'application/octet-stream',clientFolder,null);
+      showDocumentModal(currentSiniestroIdForDocs);
+    };
+    reader.readAsArrayBuffer(file);
+  }catch(e){
+    list.innerHTML='<li>Error en subida.</li>';
+    dlog('Upload error: '+e.message);
+  }
 }
-
 
 async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
   const boundary='-------314159265358979323846';
   const meta={name:fileName,mimeType, ...(parentId&&{parents:[parentId]})};
-  
-  const base64 = btoa(unescape(encodeURIComponent(content)));
-
+  const base64=content instanceof ArrayBuffer
+    ? btoa(String.fromCharCode(...new Uint8Array(content)))
+    : btoa(unescape(encodeURIComponent(content)));
   const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
-  
   const req=gapi.client.request({
     path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',
     method:fileIdToUpdate?'PATCH':'POST',
