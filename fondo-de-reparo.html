@@ -87,10 +87,10 @@
         }
         
         .liberable {
-            color: #388e3c; /* Verde */
+            color: #388e3c;
         }
         .no-liberable {
-            color: #d32f2f; /* Rojo */
+            color: #d32f2f;
         }
         
         .year-section {
@@ -140,7 +140,6 @@
             background-color: #b71c1c;
         }
 
-        /* --- ESTILOS AGREGADOS PARA GOOGLE DRIVE --- */
         .data-status {
             background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
             padding: 10px; border-radius: 8px; margin: 20px 0; text-align: center;
@@ -155,20 +154,44 @@
         .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
         .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
         
-        /* --- CORRECCIÓN VISUAL PARA CELDA DE PORCENTAJE --- */
         .percentage-cell {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px; /* Espacio entre el número y el símbolo % */
+            gap: 4px;
         }
         .percentage-cell .input-field {
-            width: 60px; /* Ancho fijo para el campo de número */
+            width: 60px;
         }
 
+        /* Indicador de guardado automático */
+        .save-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+        .save-indicator.saving {
+            background: #ffeaa7;
+            color: #2d3436;
+            opacity: 1;
+        }
+        .save-indicator.saved {
+            background: #00b894;
+            color: white;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
+    <div class="save-indicator" id="saveIndicator"></div>
+    
     <div class="container">
         <h1>FONDO DE REPARO</h1>
         
@@ -179,6 +202,7 @@
             <button onclick="addMonth()">Agregar Mes</button>
             <button onclick="addYear()">Agregar Año</button>
             <button onclick="exportData()">Exportar a CSV</button>
+            <button onclick="clearLocalData()" style="background-color: #e74c3c;">Limpiar Datos Locales</button>
         </div>
 
         <div id="driveStatus" class="data-status" style="display: none;"></div>
@@ -196,7 +220,8 @@
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
         ];
         
-        let yearsData = [
+        // Datos por defecto
+        const defaultData = [
             {
                 year: 2025,
                 months: [
@@ -213,17 +238,67 @@
                     { mes: 'Noviembre', ingreso: 44077, gasto: 68000, porcentaje: 7 },
                     { mes: 'Diciembre', ingreso: 345291, gasto: 68000, porcentaje: 7 }
                 ]
-            },
-            {
-                year: 2026,
-                months: [
-                    { mes: 'Enero', ingreso: 237193, gasto: 68000, porcentaje: 7 },
-                    { mes: 'Febrero', ingreso: 750765, gasto: 68000, porcentaje: 7 }
-                ]
             }
         ];
 
+        let yearsData = [];
         let allData = [];
+
+        // Funciones de almacenamiento local
+        function saveToLocalStorage() {
+            try {
+                showSaveIndicator('saving');
+                localStorage.setItem('fondoReparoData', JSON.stringify(yearsData));
+                setTimeout(() => showSaveIndicator('saved'), 200);
+                console.log('Datos guardados localmente');
+            } catch (error) {
+                console.error('Error al guardar en localStorage:', error);
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('fondoReparoData');
+                if (saved) {
+                    const parsedData = JSON.parse(saved);
+                    if (Array.isArray(parsedData) && parsedData.length > 0) {
+                        yearsData = parsedData;
+                        console.log('Datos cargados desde localStorage');
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error al cargar desde localStorage:', error);
+            }
+            // Si no hay datos guardados o hay error, usar datos por defecto
+            yearsData = JSON.parse(JSON.stringify(defaultData));
+            console.log('Usando datos por defecto');
+            return false;
+        }
+
+        function clearLocalData() {
+            if (confirm('¿Está seguro de que desea eliminar todos los datos locales? Esta acción no se puede deshacer.')) {
+                localStorage.removeItem('fondoReparoData');
+                yearsData = JSON.parse(JSON.stringify(defaultData));
+                recalculateAll();
+                renderTables();
+                alert('Datos locales eliminados. Se han restaurado los datos por defecto.');
+            }
+        }
+
+        function showSaveIndicator(status) {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.className = `save-indicator ${status}`;
+            
+            if (status === 'saving') {
+                indicator.textContent = 'Guardando...';
+            } else if (status === 'saved') {
+                indicator.textContent = 'Guardado ✓';
+                setTimeout(() => {
+                    indicator.className = 'save-indicator';
+                }, 2000);
+            }
+        }
 
         function formatNumber(num) {
             return new Intl.NumberFormat('es-AR', {
@@ -253,6 +328,7 @@
                 yearsData.splice(yearIndex, 1);
                 recalculateAll();
                 renderTables();
+                saveToLocalStorage(); // Guardar después de eliminar
             }
         }
 
@@ -288,7 +364,6 @@
 
             const fondoClass = getFondoClass(item.fondoAcumulado);
 
-            // --- CÓDIGO HTML MODIFICADO PARA LA CELDA DE PORCENTAJE ---
             return `
                 <tr>
                     <td class="mes-column">${item.mes}</td>
@@ -306,17 +381,23 @@
 
         function updateIngreso(yearIndex, monthIndex, value) {
             yearsData[yearIndex].months[monthIndex].ingreso = parseFloat(value) || 0;
-            recalculateAll(); renderTables();
+            recalculateAll(); 
+            renderTables();
+            saveToLocalStorage(); // Guardar después de actualizar
         }
 
         function updateGasto(yearIndex, monthIndex, value) {
             yearsData[yearIndex].months[monthIndex].gasto = parseFloat(value) || 0;
-            recalculateAll(); renderTables();
+            recalculateAll(); 
+            renderTables();
+            saveToLocalStorage(); // Guardar después de actualizar
         }
 
         function updatePorcentaje(yearIndex, monthIndex, value) {
             yearsData[yearIndex].months[monthIndex].porcentaje = parseFloat(value) || 7;
-            recalculateAll(); renderTables();
+            recalculateAll(); 
+            renderTables();
+            saveToLocalStorage(); // Guardar después de actualizar
         }
 
         function renderTables() {
@@ -355,7 +436,9 @@
             const lastYear = yearsData[yearsData.length - 1];
             if (lastYear.months.length < 12) {
                 lastYear.months.push({ mes: meses[lastYear.months.length], ingreso: 0, gasto: 0, porcentaje: 7 });
-                recalculateAll(); renderTables();
+                recalculateAll(); 
+                renderTables();
+                saveToLocalStorage(); // Guardar después de agregar
             } else {
                 alert('Este año ya tiene 12 meses. Usa "Agregar Año" para continuar.');
             }
@@ -364,11 +447,13 @@
         function addYear() {
             const newYear = yearsData[yearsData.length - 1].year + 1;
             yearsData.push({ year: newYear, months: [{ mes: 'Enero', ingreso: 0, gasto: 0, porcentaje: 7 }] });
-            recalculateAll(); renderTables();
+            recalculateAll(); 
+            renderTables();
+            saveToLocalStorage(); // Guardar después de agregar
         }
 
         function exportData() {
-            recalculateAll(); // Asegurarse de que los datos estén actualizados
+            recalculateAll();
             const csvContent = [
                 ['Año', 'Mes', 'Ingreso', '% Retención', 'Retenido', 'Gasto', 'Fondo Acumulado'],
                 ...allData.map(item => [
@@ -387,9 +472,13 @@
             window.URL.revokeObjectURL(url);
         }
 
+        // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Cargando aplicación...');
+            loadFromLocalStorage(); // Cargar datos guardados o usar por defecto
             recalculateAll();
             renderTables();
+            console.log('Aplicación cargada con', yearsData.length, 'años de datos');
         });
     </script>
     
@@ -453,6 +542,7 @@
                 yearsData = importedData;
                 recalculateAll();
                 renderTables();
+                saveToLocalStorage(); // También guardar localmente
                 
                 updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
