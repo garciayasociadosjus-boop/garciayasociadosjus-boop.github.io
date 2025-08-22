@@ -13,7 +13,7 @@
         }
         
         .container {
-            max-width: 900px; /* Ancho ajustado para menos columnas */
+            max-width: 900px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
@@ -52,6 +52,7 @@
             padding: 10px 8px;
             border: 1px solid #ddd;
             text-align: center;
+            vertical-align: middle;
         }
         
         tr:nth-child(even) {
@@ -139,6 +140,32 @@
             background-color: #b71c1c;
         }
 
+        /* --- ESTILOS AGREGADOS PARA GOOGLE DRIVE --- */
+        .data-status {
+            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
+            padding: 10px; border-radius: 8px; margin: 20px 0; text-align: center;
+        }
+        .btn {
+            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            color: #ffffff; border: none; padding: 12px 24px; border-radius: 8px;
+            cursor: pointer; font-size: 1em; transition: all 0.3s ease; margin: 5px;
+            text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(41, 128, 185, 0.4); }
+        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        
+        /* --- CORRECCIÓN VISUAL PARA CELDA DE PORCENTAJE --- */
+        .percentage-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px; /* Espacio entre el número y el símbolo % */
+        }
+        .percentage-cell .input-field {
+            width: 60px; /* Ancho fijo para el campo de número */
+        }
+
     </style>
 </head>
 <body>
@@ -153,6 +180,14 @@
             <button onclick="addYear()">Agregar Año</button>
             <button onclick="exportData()">Exportar a CSV</button>
         </div>
+
+        <div id="driveStatus" class="data-status" style="display: none;"></div>
+        <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
+            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+        </section>
+
     </div>
 
     <script>
@@ -253,13 +288,14 @@
 
             const fondoClass = getFondoClass(item.fondoAcumulado);
 
+            // --- CÓDIGO HTML MODIFICADO PARA LA CELDA DE PORCENTAJE ---
             return `
                 <tr>
                     <td class="mes-column">${item.mes}</td>
                     <td><input type="number" class="input-field" value="${item.ingreso}" onchange="updateIngreso(${yearIndex}, ${monthIndex}, this.value)" step="0.01"></td>
-                    <td>
-                        <input type="number" class="input-field" value="${item.porcentaje}" onchange="updatePorcentaje(${yearIndex}, ${monthIndex}, this.value)" step="0.1" min="0" max="100" style="width: 60px;">
-                        <span style="font-size: 12px;">%</span>
+                    <td class="percentage-cell">
+                        <input type="number" class="input-field" value="${item.porcentaje}" onchange="updatePorcentaje(${yearIndex}, ${monthIndex}, this.value)" step="0.1" min="0" max="100">
+                        <span>%</span>
                     </td>
                     <td><div class="calculated-field">${formatNumber(item.retenido)}</div></td>
                     <td><input type="number" class="input-field" value="${item.gasto}" onchange="updateGasto(${yearIndex}, ${monthIndex}, this.value)" step="0.01"></td>
@@ -299,7 +335,7 @@
                             <tr>
                                 <th style="width: 15%;">Mes</th>
                                 <th style="width: 20%;">Ingreso</th>
-                                <th style="width: 10%;">% Ret.</th>
+                                <th style="width: 15%;">% Ret.</th>
                                 <th style="width: 20%;">Retenido</th>
                                 <th style="width: 20%;">Gasto</th>
                                 <th style="width: 25%;">Fondo Acumulado</th>
@@ -332,11 +368,12 @@
         }
 
         function exportData() {
+            recalculateAll(); // Asegurarse de que los datos estén actualizados
             const csvContent = [
                 ['Año', 'Mes', 'Ingreso', '% Retención', 'Retenido', 'Gasto', 'Fondo Acumulado'],
                 ...allData.map(item => [
-                    item.year, item.mes, item.ingreso, item.porcentaje,
-                    item.retenido.toFixed(2), item.gasto, item.fondoAcumulado.toFixed(2)
+                    item.year, item.mes, item.ingreso.toFixed(2), item.porcentaje,
+                    item.retenido.toFixed(2), item.gasto.toFixed(2), item.fondoAcumulado.toFixed(2)
                 ])
             ].map(row => row.join(',')).join('\n');
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -344,7 +381,7 @@
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = `fondo_reparo_${new Date().getFullYear()}.csv`;
+            a.download = `fondo_reparo_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -354,6 +391,96 @@
             recalculateAll();
             renderTables();
         });
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const DATA_FILE_NAME = 'datos_fondo_reparo.json';
+
+        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
+        const driveStatusEl = document.getElementById('driveStatus'), 
+              connectDriveBtn = document.getElementById('connectDriveBtn'), 
+              saveToDriveBtn = document.getElementById('saveToDriveBtn'), 
+              loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
+
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+        function maybeEnableButtons() { if (gapiInited && gisInited) connectDriveBtn.onclick = handleAuthClick; }
+        function updateDriveStatus(message, isConnected = false) { driveStatusEl.style.display = 'block'; driveStatusEl.textContent = message; driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03'; }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) throw (resp);
+                updateDriveStatus('✅ Conectado a Google Drive', true);
+                connectDriveBtn.style.display = 'none'; saveToDriveBtn.style.display = 'inline-block'; loadFromDriveBtn.style.display = 'inline-block';
+                saveToDriveBtn.onclick = saveDataToDrive; loadFromDriveBtn.onclick = loadDataFromDrive;
+                await findDataFile();
+            };
+            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
+        }
+        async function findDataFile() {
+            updateDriveStatus('Buscando archivo de datos en Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+                if (response.result.files.length > 0) { dataFileId = response.result.files[0].id; updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); }
+                else { updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); dataFileId = null; }
+            } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+        }
+        async function saveDataToDrive() {
+            if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+            updateDriveStatus('Guardando datos en Drive...', false);
+            try {
+                const content = JSON.stringify(yearsData, null, 2);
+                dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+            } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
+        }
+        async function loadDataFromDrive() {
+            if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
+            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+            updateDriveStatus('Cargando datos desde Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+                const importedData = JSON.parse(response.body);
+                if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
+                
+                yearsData = importedData;
+                recalculateAll();
+                renderTables();
+                
+                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+            } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
+        }
+        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+            const boundary = '-------314159265358979323846';
+            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
+            const base64Data = btoa(unescape(encodeURIComponent(content)));
+            const requestBody =
+                `--${boundary}\r\n` +
+                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+                JSON.stringify(metadata) +
+                `\r\n--${boundary}\r\n` +
+                `Content-Type: ${mimeType}\r\n` +
+                `Content-Transfer-Encoding: base64\r\n\r\n` +
+                base64Data +
+                `\r\n--${boundary}--`;
+            
+            const request = gapi.client.request({
+                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+                method: fileIdToUpdate ? 'PATCH' : 'POST',
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: requestBody
+            });
+            const response = await request;
+            return response.result.id;
+        }
     </script>
 </body>
 </html>
