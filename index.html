@@ -1,301 +1,407 @@
 <!doctype html>
 <html lang="es" class="notranslate" translate="no">
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Language" content="es">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="google" content="notranslate">
-  <title>García y Asociados – Portal</title>
-  <link rel="icon" href="activos/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="activos/style.css">
-  <meta name="description" content="Portal del Estudio Jurídico García y Asociados. Acceso a Planillas de Gestion.">
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Language" content="es">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" content="notranslate">
+  <title>García y Asociados – Portal</title>
+  <link rel="icon" href="activos/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="activos/style.css">
+  <meta name="description" content="Portal del Estudio Jurídico García y Asociados. Acceso a Planillas de Gestion.">
+  
+  <style>
+    .site-header {
+        background: linear-gradient(135deg, #1a237e 0%, #283593 25%, #3949ab 50%, #5c6bc0 100%);
+        color: white;
+        padding: 40px 20px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 
+            0 8px 32px rgba(26, 35, 126, 0.4),
+            0 4px 16px rgba(26, 35, 126, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .site-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1.5" fill="rgba(255,255,255,0.08)"/><circle cx="40" cy="80" r="1" fill="rgba(255,255,255,0.05)"/></svg>');
+        opacity: 0.3;
+        pointer-events: none;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        position: relative;
+        z-index: 2;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .logo {
+        background: linear-gradient(45deg, #bca05b, #d4b76a, #bca05b);
+        color: #1a237e;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 2rem;
+        letter-spacing: 1px;
+        box-shadow: 
+            0 8px 20px rgba(188, 160, 91, 0.3),
+            inset 0 2px 4px rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+    }
+
+    .titles {
+        flex: 1;
+    }
+
+    .site-title {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-size: 3rem;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        text-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 0 20px rgba(255, 255, 255, 0.1);
+        background: linear-gradient(45deg, #ffffff, #bca05b, #ffffff);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shimmer 4s ease-in-out infinite;
+        line-height: 1.1;
+    }
+
+    .site-subtitle {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-size: 1.4rem;
+        margin: 0 0 12px 0;
+        color: #bca05b;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .site-description {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 1.1rem;
+        line-height: 1.5;
+        margin: 0;
+        opacity: 0.9;
+        font-weight: 300;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        max-width: 600px;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    /* Watermark en header */
+    .site-header .watermark-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        opacity: 0.04;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .site-header .justice-scales {
+        position: absolute;
+        top: 20%;
+        right: 10%;
+        font-size: 4rem;
+        animation: float 10s ease-in-out infinite;
+        color: rgba(255, 255, 255, 0.3);
+        transform: rotate(15deg);
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(15deg); opacity: 0.03; }
+        50% { transform: translateY(-20px) rotate(15deg); opacity: 0.06; }
+    }
+
+    /* Eliminar las clases de intro que ya no se usan */
+
+    /* Grid de navegación más compacto y funcional */
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        max-width: 1200px;
+        margin: 40px auto 0;
+        padding: 0 20px;
+    }
+
+    .nav-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 25px 20px;
+        text-decoration: none;
+        color: #2c3e50;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 
+            0 4px 6px rgba(0, 0, 0, 0.05),
+            0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #1a237e, #3949ab, #5c6bc0);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .nav-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 
+            0 12px 25px rgba(26, 35, 126, 0.15),
+            0 6px 12px rgba(0, 0, 0, 0.1);
+        border-color: #bca05b;
+    }
+
+    .nav-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .nav-icon {
+        font-size: 2.2rem;
+        margin-bottom: 15px;
+        display: block;
+        text-align: center;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .nav-card h3 {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        color: #1a237e;
+        text-align: center;
+        letter-spacing: 0.5px;
+    }
+
+    .nav-card p {
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0;
+        color: #5a6c7d;
+        text-align: center;
+    }
+
+    .nav-card .restricted-access {
+        color: #c0392b;
+        font-weight: bold;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    /* Footer */
+    .site-footer {
+        margin-top: 60px;
+        padding: 30px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        text-align: center;
+    }
+
+    .footer-nav {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin-bottom: 15px;
+    }
+
+    .footer-nav a {
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.3s ease;
+    }
+
+    .footer-nav a:hover {
+        color: #1a237e;
+    }
+
+    .muted {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .site-header {
+            padding: 30px 15px;
+        }
+
+        .brand {
+            gap: 15px;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .logo {
+            width: 70px;
+            height: 70px;
+            font-size: 1.7rem;
+            margin-bottom: 10px;
+        }
+
+        .site-title {
+            font-size: 2.2rem;
+        }
+
+        .site-subtitle {
+            font-size: 1.2rem;
+        }
+
+        .site-description {
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .grid {
+            grid-template-columns: 1fr;
+            gap: 15px;
+            padding: 0 15px;
+            margin-top: 30px;
+        }
+
+        .nav-card {
+            padding: 20px 15px;
+        }
+
+        .nav-icon {
+            font-size: 2rem;
+        }
+
+        .nav-card h3 {
+            font-size: 1.1rem;
+        }
+
+        .nav-card p {
+            font-size: 0.9rem;
+        }
+
+        .footer-nav {
+            flex-direction: column;
+            gap: 15px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .site-title {
+            font-size: 1.9rem;
+        }
+
+        .site-subtitle {
+            font-size: 1.1rem;
+        }
+
+        .site-description {
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            padding: 0 10px;
+        }
+    }
+  </style>
 </head>
 <body class="notranslate" translate="no" data-page="portal">
-  <header class="site-header notranslate" translate="no" aria-label="Encabezado">
-    <div class="brand">
-      <div class="logo" aria-hidden="true">G&A</div>
-      <div class="titles">
-        <h1 class="site-title notranslate" translate="no">García y Asociados</h1>
-        <p class="site-subtitle notranslate" translate="no">Estudio Jurídico</p>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="intro card">
-      <div class="intro-content">
-        <div class="title-section">
-          <h2 class="notranslate portal-title" translate="no">Portal Principal</h2>
-          <div class="title-underline"></div>
-        </div>
-        <p class="intro-description">
-          Accedé a los sistemas internos del estudio. El contenido está en español y bloqueado contra traducciones automáticas.
-        </p>
+  <header class="site-header notranslate" translate="no" aria-label="Encabezado">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">G&A</div>
+      <div class="titles">
+        <h1 class="site-title notranslate" translate="no">García & Asociados</h1>
+        <p class="site-subtitle notranslate" translate="no">Estudio Jurídico - Portal Principal</p>
+        <p class="site-description">Accedé a los sistemas internos del estudio. Contenido en español y bloqueado contra traducciones automáticas.</p>
       </div>
-      
-      <!-- Elemento decorativo con marca de agua -->
-      <div class="watermark-bg">
-        <div class="justice-scales">⚖️</div>
-        <div class="law-book">📚</div>
-        <div class="gavel">⚖️</div>
-      </div>
-    </section>
-</main>
-
-<style>
-.intro.card {
-    background: linear-gradient(135deg, #1a237e 0%, #283593 25%, #3949ab 50%, #5c6bc0 100%);
-    color: white;
-    position: relative;
-    overflow: hidden;
-    padding: 40px 35px;
-    border-radius: 16px;
-    box-shadow: 
-        0 20px 40px rgba(26, 35, 126, 0.3),
-        0 8px 16px rgba(26, 35, 126, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    margin-bottom: 30px;
-}
-
-.intro-content {
-    position: relative;
-    z-index: 2;
-}
-
-.title-section {
-    text-align: center;
-    margin-bottom: 25px;
-}
-
-.portal-title {
-    font-family: 'Georgia', 'Times New Roman', serif;
-    font-size: 2.8rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin: 0;
-    text-shadow: 
-        0 2px 4px rgba(0, 0, 0, 0.3),
-        0 0 20px rgba(255, 255, 255, 0.1);
-    background: linear-gradient(45deg, #ffffff, #bca05b, #ffffff);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.title-underline {
-    width: 120px;
-    height: 4px;
-    background: linear-gradient(90deg, transparent, #bca05b, transparent);
-    margin: 15px auto;
-    border-radius: 2px;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.6; transform: scaleX(1); }
-    50% { opacity: 1; transform: scaleX(1.1); }
-}
-
-.intro-description {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 1.2rem;
-    line-height: 1.7;
-    text-align: center;
-    margin: 0;
-    font-weight: 400;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    opacity: 0.95;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-/* Marca de agua decorativa */
-.watermark-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
-    opacity: 0.08;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-.justice-scales,
-.law-book,
-.gavel {
-    position: absolute;
-    font-size: 4rem;
-    animation: float 6s ease-in-out infinite;
-    color: rgba(255, 255, 255, 0.3);
-}
-
-.justice-scales {
-    top: 10%;
-    right: 10%;
-    animation-delay: 0s;
-    transform: rotate(15deg);
-}
-
-.law-book {
-    bottom: 15%;
-    left: 8%;
-    animation-delay: 2s;
-    transform: rotate(-10deg);
-    font-size: 3.5rem;
-}
-
-.gavel {
-    top: 60%;
-    right: 15%;
-    animation-delay: 4s;
-    transform: rotate(25deg);
-    font-size: 3rem;
-}
-
-@keyframes float {
-    0%, 100% { 
-        transform: translateY(0px) rotate(var(--rotation, 0deg)); 
-        opacity: 0.05; 
-    }
-    50% { 
-        transform: translateY(-20px) rotate(var(--rotation, 0deg)); 
-        opacity: 0.12; 
-    }
-}
-
-.justice-scales { --rotation: 15deg; }
-.law-book { --rotation: -10deg; }
-.gavel { --rotation: 25deg; }
-
-/* Efecto de brillo en hover */
-.intro.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.1),
-        transparent
-    );
-    transition: left 0.8s ease;
-    z-index: 3;
-}
-
-.intro.card:hover::before {
-    left: 100%;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .intro.card {
-        padding: 30px 25px;
-        margin-bottom: 25px;
-    }
+    </div>
     
-    .portal-title {
-        font-size: 2.2rem;
-        letter-spacing: 1px;
-    }
-    
-    .intro-description {
-        font-size: 1.1rem;
-        line-height: 1.6;
-    }
-    
-    .justice-scales,
-    .law-book,
-    .gavel {
-        font-size: 3rem;
-    }
-    
-    .law-book {
-        font-size: 2.5rem;
-    }
-    
-    .gavel {
-        font-size: 2rem;
-    }
-}
+    <div class="watermark-bg">
+      <div class="justice-scales">⚖️</div>
+    </div>
+  </header>
 
-@media (max-width: 480px) {
-    .portal-title {
-        font-size: 1.8rem;
-    }
-    
-    .intro-description {
-        font-size: 1rem;
-    }
-    
-    .title-underline {
-        width: 80px;
-        height: 3px;
-    }
-}
-</style>
-    </section>
+  <main class="container">
+    <section class="grid">
+      <a class="nav-card" href="planilla-juridica.html" aria-label="Abrir Planilla Juridica">
+        <div class="nav-icon" aria-hidden="true">⚖️</div>
+        <h3 class="notranslate" translate="no">Planilla Jurídica</h3>
+        <p>Gestión de casos: audiencias, observaciones, estados, filtros y exportación.</p>
+      </a>
 
-    <section class="grid">
-      <a class="card nav-card" href="planilla-juridica.html" aria-label="Abrir Planilla Juridica">
-        <div class="nav-icon" aria-hidden="true">⚖️</div>
-        <h3 class="notranslate" translate="no">Planilla Jurídica</h3>
-        <p>Gestión de casos: audiencias, observaciones, estados, filtros y exportación.</p>
-      </a>
-
-      <a class="card nav-card" href="/planilla-siniestros/" aria-label="Abrir Planilla Siniestros">
-        <div class="nav-icon" aria-hidden="true">🚗</div>
-        <h3 class="notranslate" translate="no">Planilla Siniestros</h3>
-        <p>Gestión de reclamos de seguros: aseguradora, contra, estados, observaciones.</p>
-      </a>
-   
-      <a class="card nav-card" href="/control-abonos.html" aria-label="Abrir Control de Abonos">
-        <div class="nav-icon" aria-hidden="true">💼</div>
-        <h3 class="notranslate" translate="no">Control de Abonos</h3>
-        <p>Control de abonos mensuales, pagos, recibos y exportación.</p>
+      <a class="nav-card" href="/planilla-siniestros/" aria-label="Abrir Planilla Siniestros">
+        <div class="nav-icon" aria-hidden="true">🚗</div>
+        <h3 class="notranslate" translate="no">Planilla Siniestros</h3>
+        <p>Gestión de reclamos de seguros: aseguradora, contra, estados, observaciones.</p>
+      </a>
+   
+      <a class="nav-card" href="/control-abonos.html" aria-label="Abrir Control de Abonos">
+        <div class="nav-icon" aria-hidden="true">💼</div>
+        <h3 class="notranslate" translate="no">Control de Abonos</h3>
+        <p>Control de abonos mensuales, pagos, recibos y exportación.</p>
       </a>
       
-      <a class="card nav-card" href="fondo-de-reparo.html" aria-label="Abrir Fondo de Reparo">
+      <a class="nav-card" href="fondo-de-reparo.html" aria-label="Abrir Fondo de Reparo">
         <div class="nav-icon" aria-hidden="true">💰</div>
         <h3 class="notranslate" translate="no">Fondo de Reparo</h3>
         <p>Cálculo y seguimiento del fondo basado en ingresos, gastos y retenciones.</p>
       </a>
 
-          <a class="card nav-card" href="sistema_credenciales.html" aria-label="Abrir Sistema de Credenciales">
-  <div class="nav-icon" aria-hidden="true">🔐</div>
-  <h3 class="notranslate" translate="no">Sistema de Credenciales</h3>
-  <p>Gestión segura de domicilios electrónicos, claves y accesos con autenticación. <span style="color: #c0392b; font-weight: bold;">🔒 Acceso Restringido</span></p>
-</a>
-          </section>
-  </main>
+      <a class="nav-card" href="sistema_credenciales.html" aria-label="Abrir Sistema de Credenciales">
+        <div class="nav-icon" aria-hidden="true">🔐</div>
+        <h3 class="notranslate" translate="no">Sistema de Credenciales</h3>
+        <p>Gestión segura de domicilios electrónicos, claves y accesos con autenticación.</p>
+        <div class="restricted-access">🔒 Acceso Restringido</div>
+      </a>
+    </section>
+  </main>
 
-  <footer class="site-footer">
-    <nav class="footer-nav">
-      <a href="#" onclick="return false;" class="notranslate" translate="no">Términos</a>
-      <a href="#" onclick="return false;" class="notranslate" translate="no">Privacidad</a>
-      <a href="https://github.com/garciayasociadosjus-boop" target="_blank" rel="noopener">GitHub</a>
-    </nav>
-    <small class="muted">© <span id="year"></span> García y Asociados. Todos los derechos reservados.</small>
-  </footer>
+  <footer class="site-footer">
+    <nav class="footer-nav">
+      <a href="#" onclick="return false;" class="notranslate" translate="no">Términos</a>
+      <a href="#" onclick="return false;" class="notranslate" translate="no">Privacidad</a>
+      <a href="https://github.com/garciayasociadosjus-boop" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <small class="muted">© <span id="year"></span> García y Asociados. Todos los derechos reservados.</small>
+  </footer>
 
-  <script src="activos/app.js"></script>
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-    enforceNotranslate();
-  </script>
+  <script src="activos/app.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    enforceNotranslate();
+  </script>
 </body>
 </html>
