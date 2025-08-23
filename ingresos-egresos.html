@@ -326,7 +326,6 @@
                     const totals = calculateTotals(monthTransactions);
                     const monthName = formatMonthKey(monthKey);
 
-                    // ***** NUEVA FUNCIÓN: Se agrega el botón de eliminar mes *****
                     archiveHTML += `
                         <details class="archive-item" data-month-key="${monthKey}">
                             <summary>
@@ -338,7 +337,7 @@
                                 </div>
                             </summary>
                             <div class="archive-controls">
-                                <button class="btn btn-sm" data-month-key="${monthKey}" type="button">➕ Nueva Fila</button>
+                                <button class="btn btn-sm add-row-archive-btn" data-month-key="${monthKey}" type="button">➕ Nueva Fila</button>
                                 <button class="btn btn-sm btn-info sort-archive-btn" data-month-key="${monthKey}" type="button">🔤 Ordenar Mes</button>
                                 <button class="btn btn-sm btn-danger delete-month-btn" data-month-key="${monthKey}" type="button">🗑️ Eliminar Mes</button>
                             </div>
@@ -450,16 +449,23 @@
                 }
             }
             
+            // ##################################################################
+            // ##########              CÓDIGO CORREGIDO              ##########
+            // ##################################################################
             function handleTableClick(e) {
                 const target = e.target;
                 
+                // --- Acciones a nivel de MES (no necesitan una <tr>) ---
                 if (target.classList.contains('add-row-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const todayInMonth = new Date(monthKey + '-01T12:00:00').toISOString().split('T')[0];
+                    if (!allData[monthKey].transactions) {
+                        allData[monthKey].transactions = [];
+                    }
                     allData[monthKey].transactions.push({ fecha: todayInMonth, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
                     saveData();
                     renderApp();
-                    return;
+                    return; // Importante: Salir de la función después de actuar
                 }
 
                 if (target.classList.contains('sort-archive-btn')) {
@@ -470,10 +476,9 @@
                         saveData();
                         renderApp();
                     }
-                    return;
+                    return; // Importante: Salir
                 }
                 
-                // ***** NUEVA FUNCIÓN: Lógica para el botón de eliminar mes *****
                 if (target.classList.contains('delete-month-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const monthName = formatMonthKey(monthKey);
@@ -482,11 +487,15 @@
                         saveData();
                         renderApp();
                     }
-                    return;
+                    return; // Importante: Salir
                 }
 
+                // --- Acciones a nivel de FILA (sí necesitan una <tr>) ---
                 const tr = target.closest('tr');
-                if (!tr) return;
+                if (!tr) {
+                    // Si el clic no fue en una acción de mes ni en una fila, no hacer nada.
+                    return;
+                }
 
                 const rowIndex = parseInt(tr.dataset.index);
                 const monthKey = tr.dataset.monthKey;
