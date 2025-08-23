@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingresos y Egresos - García & Asociados</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1a237e;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h2 {
+            color: #666;
+            margin: 5px 0;
+            font-size: 1.1em;
+            font-weight: normal;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+            color: white;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            min-width: 140px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+        }
+        
+        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+        
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+            background: white;
+        }
+        
+        th {
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            border: 1px solid #0d47a1;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            font-size: 14px;
+        }
+        
+        td {
+            padding: 8px 6px;
+            border: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #f0f8ff;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 6px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        
+        .input-field:focus {
+            border-color: #1a237e;
+            outline: none;
+            box-shadow: 0 0 5px rgba(26, 35, 126, 0.3);
+        }
+        
+        .select-field {
+            width: 100%;
+            padding: 6px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+        }
+        
+        .numeric-field {
+            text-align: right;
+        }
+                
+        .category-ingreso { background-color: #e8f5e8; color: #2e7d32; }
+        .category-egreso { background-color: #ffebee; color: #c62828; }
+        
+        .obs-btn {
+            background: #3498db; color: white; border: none; padding: 8px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;
+        }
+        .obs-btn:hover { background: #2980b9; }
+        .obs-btn.has-content { background: #27ae60; }
+
+        .delete-row-btn {
+            background: none; border: none; cursor: pointer; font-size: 1.2em; color: #c0392b;
+        }
+        .delete-row-btn:hover { color: #e74c3c; transform: scale(1.2); }
+        
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px;
+            width: 80%; max-width: 600px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd;
+        }
+        
+        .modal-header h3 { margin: 0; color: #1a237e; }
+        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #000; }
+        
+        .obs-textarea {
+            width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc;
+            border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;
+            resize: vertical; box-sizing: border-box;
+        }
+        
+        .modal-buttons {
+            display: flex; justify-content: flex-end; gap: 10px;
+            margin-top: 15px; flex-wrap: wrap;
+        }
+        
+        .modal-btn {
+            padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer;
+            font-size: 14px; font-weight: bold;
+        }
+        
+        .modal-btn-save { background: #27ae60; color: white; }
+        .modal-btn-clear { background: #f39c12; color: white; }
+        .modal-btn-cancel { background: #95a5a6; color: white; }
+        .modal-btn-danger { background: #e74c3c; color: white; }
+        
+        .save-indicator {
+            position: fixed; top: 20px; right: 20px; padding: 8px 16px;
+            border-radius: 20px; font-size: 12px; font-weight: bold; opacity: 0;
+            transition: opacity 0.3s ease; z-index: 1001;
+        }
+        
+        .save-indicator.saving { background: #ffeaa7; color: #2d3436; opacity: 1; }
+        .save-indicator.saved { background: #00b894; color: white; opacity: 1; }
+        
+        .data-status {
+            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
+            padding: 10px; border-radius: 8px; margin: 20px 0;
+            text-align: center; font-size: 14px;
+        }
+        
+        .summary-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;
+            margin: 20px 0; display: flex; justify-content: space-around;
+            flex-wrap: wrap; gap: 15px;
+        }
+        
+        .summary-item { text-align: center; }
+        .summary-label { font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: bold; }
+        .summary-value { font-size: 18px; font-weight: bold; margin-top: 5px; }
+        .summary-ingreso { color: #28a745; }
+        .summary-egreso { color: #dc3545; }
+        .summary-balance { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="save-indicator" id="saveIndicator"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>GARCÍA & ASOCIADOS</h1>
+            <h2>Estudio Jurídico</h2>
+            <h2>Planilla de Ingresos y Egresos</h2>
+        </div>
+        
+        <div class="summary-box">
+            <div class="summary-item">
+                <div class="summary-label">Total Ingresos</div>
+                <div class="summary-value summary-ingreso" id="totalIngresos">$0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Egresos</div>
+                <div class="summary-value summary-egreso" id="totalEgresos">$0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Balance</div>
+                <div class="summary-value summary-balance" id="balance">$0</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila</button>
+            <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar por Descripción</button>
+            <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar a Excel</button>
+            <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Exportar JSON</button>
+            <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar JSON</button>
+        </div>
+        <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+        
+        
+        <div id="driveStatus" class="data-status" style="display: none;"></div>
+        <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Google Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" type="button">📤 Guardar en Drive</button>
+            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" type="button">📥 Cargar de Drive</button>
+        </section>
+        
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">Fecha</th>
+                        <th>Descripción</th>
+                        <th style="width: 110px;">Categoría</th>
+                        <th style="width: 130px;">Monto ($)</th>
+                        <th style="width: 120px;">Medio de pago</th>
+                        <th style="width: 110px;">Quien</th>
+                        <th style="width: 80px;">Obs</th>
+                        <th style="width: 60px;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="obsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Observaciones</h3>
+                <span class="close" id="closeModalBtn">&times;</span>
+            </div>
+            <textarea id="obsTextarea" class="obs-textarea" placeholder="Escriba sus observaciones aquí..."></textarea>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-danger" id="deleteRowFromModalBtn" type="button">Eliminar Fila</button>
+                <button class="modal-btn modal-btn-clear" id="clearObsBtn" type="button">Borrar Obs.</button>
+                <button class="modal-btn modal-btn-cancel" id="cancelObsBtn" type="button">Cancelar</button>
+                <button class="modal-btn modal-btn-save" id="saveObsBtn" type="button">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // =================================================================================
+            // 1. STATE MANAGEMENT & INITIALIZATION
+            // =================================================================================
+            let tableData = [];
+            let currentObsRowIndex = -1;
+
+            const initialData = [
+                { fecha: '2025-08-01', descripcion: 'Honorarios Juicio Laboral', categoria: 'ingreso', monto: 150000, medioPago: 'transferencia', quien: 'ESTUDIO', observaciones: 'Cliente: Juan Pérez' },
+                { fecha: '2025-08-02', descripcion: 'Compra de resmas de papel', categoria: 'egreso', monto: 8500, medioPago: 'efectivo', quien: 'CAMILA', observaciones: '' },
+                { fecha: '2025-08-05', descripcion: 'Pago de alquiler oficina', categoria: 'egreso', monto: 120000, medioPago: 'transferencia', quien: 'SEBA', observaciones: 'Correspondiente a Agosto' }
+            ];
+
+            const categorias = ['ingreso', 'egreso'];
+            const mediosPago = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'otro'];
+            const personas = ['CAMILA', 'SEBA', 'ESTUDIO', 'CLIENTE'];
+
+            function loadInitialData() {
+                const saved = localStorage.getItem('ingresosEgresosData');
+                if (saved) {
+                    try {
+                        tableData = JSON.parse(saved);
+                    } catch (error) {
+                        tableData = [...initialData];
+                    }
+                } else {
+                    tableData = [...initialData];
+                }
+                renderTable();
+            }
+
+            function saveData() {
+                try {
+                    showSaveIndicator('saving');
+                    localStorage.setItem('ingresosEgresosData', JSON.stringify(tableData));
+                    setTimeout(() => showSaveIndicator('saved'), 200);
+                } catch (error) {
+                    console.error('Error al guardar:', error);
+                }
+            }
+
+            // =================================================================================
+            // 2. DOM RENDERING & UPDATES
+            // =================================================================================
+            
+            function renderTable() {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = tableData.map((rowData, index) => createTableRow(rowData, index)).join('');
+                updateSummary();
+            }
+
+            function createTableRow(rowData, index) {
+                const categoryClass = rowData.categoria === 'ingreso' ? 'category-ingreso' : 'category-egreso';
+                const hasObs = rowData.observaciones && rowData.observaciones.trim() !== '';
+                
+                return `
+                    <tr data-index="${index}">
+                        <td><input type="date" class="input-field" value="${rowData.fecha || ''}" data-field="fecha"></td>
+                        <td><input type="text" class="input-field" value="${rowData.descripcion || ''}" data-field="descripcion"></td>
+                        <td class="${categoryClass}">
+                            <select class="select-field" data-field="categoria">
+                                ${categorias.map(cat => `<option value="${cat}" ${cat === rowData.categoria ? 'selected' : ''}>${capitalize(cat)}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td><input type="text" class="input-field numeric-field" value="${formatCurrency(rowData.monto, false)}" data-field="monto"></td>
+                        <td>
+                            <select class="select-field" data-field="medioPago">
+                                <option value="">Seleccionar...</option>
+                                ${mediosPago.map(mp => `<option value="${mp}" ${mp === rowData.medioPago ? 'selected' : ''}>${capitalize(mp)}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="input-field" list="personas-datalist" value="${rowData.quien || ''}" data-field="quien">
+                        </td>
+                        <td><button class="obs-btn ${hasObs ? 'has-content' : ''}" type="button">Obs</button></td>
+                        <td><button class="delete-row-btn" title="Eliminar Fila">🗑️</button></td>
+                    </tr>
+                `;
+            }
+             // Datalist para el campo "quien"
+            const datalist = document.createElement('datalist');
+            datalist.id = 'personas-datalist';
+            datalist.innerHTML = personas.map(p => `<option value="${p}"></option>`).join('');
+            document.body.appendChild(datalist);
+
+
+            function updateSummary() {
+                let totalIngresos = 0;
+                let totalEgresos = 0;
+
+                tableData.forEach(row => {
+                    if (row.categoria === 'ingreso') {
+                        totalIngresos += row.monto || 0;
+                    } else {
+                        totalEgresos += row.monto || 0;
+                    }
+                });
+
+                const balance = totalIngresos - totalEgresos;
+
+                document.getElementById('totalIngresos').textContent = formatCurrency(totalIngresos);
+                document.getElementById('totalEgresos').textContent = formatCurrency(totalEgresos);
+                
+                const balanceEl = document.getElementById('balance');
+                balanceEl.textContent = formatCurrency(balance);
+                balanceEl.className = 'summary-value ' + (balance >= 0 ? 'summary-ingreso' : 'summary-egreso');
+            }
+
+            function showSaveIndicator(status) {
+                const indicator = document.getElementById('saveIndicator');
+                if (!indicator) return;
+                
+                indicator.className = `save-indicator ${status}`;
+                indicator.textContent = status === 'saving' ? 'Guardando...' : 'Guardado ✓';
+                
+                if (status === 'saved') {
+                    setTimeout(() => indicator.className = 'save-indicator', 2000);
+                }
+            }
+
+
+            // =================================================================================
+            // 3. EVENT HANDLING
+            // =================================================================================
+            
+            document.getElementById('addRowBtn').addEventListener('click', () => {
+                tableData.push({ fecha: new Date().toISOString().split('T')[0], descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
+                renderTable();
+                saveData();
+            });
+            
+            document.getElementById('sortBtn').addEventListener('click', () => {
+                tableData.sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es', { sensitivity: 'base' }));
+                renderTable();
+                saveData();
+            });
+
+            document.getElementById('exportExcelBtn').addEventListener('click', () => {
+                const headers = ['Fecha', 'Descripción', 'Categoría', 'Ingreso', 'Egreso', 'Medio de pago', 'Quien', 'Observaciones'];
+                const rows = tableData.map(row => {
+                    const ingreso = row.categoria === 'ingreso' ? row.monto || 0 : 0;
+                    const egreso = row.categoria === 'egreso' ? row.monto || 0 : 0;
+                    return [
+                        row.fecha || '', `"${(row.descripcion || '').replace(/"/g, '""')}"`, row.categoria || '',
+                        ingreso, egreso, row.medioPago || '', row.quien || '', `"${(row.observaciones || '').replace(/"/g, '""')}"`
+                    ].join(',');
+                });
+                
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Reporte Contable - ${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('exportJSONBtn').addEventListener('click', () => {
+                const jsonContent = JSON.stringify(tableData, null, 2);
+                const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup-contable-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('importJSONBtn').addEventListener('click', () => {
+                document.getElementById('jsonFileInput').click();
+            });
+            
+            document.getElementById('jsonFileInput').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (Array.isArray(importedData)) {
+                             if (confirm('¿Está seguro? Se reemplazarán todos los datos actuales con el contenido del archivo.')) {
+                                tableData = importedData;
+                                renderTable();
+                                saveData();
+                                alert('Datos importados con éxito.');
+                             }
+                        } else {
+                            alert('Error: El archivo JSON no tiene el formato esperado (no es un array).');
+                        }
+                    } catch (err) {
+                        alert(`Error al leer el archivo JSON: ${err.message}`);
+                    } finally {
+                        event.target.value = null; // Resetear el input
+                    }
+                };
+                reader.readAsText(file);
+            });
+
+
+            document.getElementById('tableBody').addEventListener('click', (e) => {
+                const rowIndex = e.target.closest('tr').dataset.index;
+                if (e.target.classList.contains('obs-btn')) {
+                    openObsModal(parseInt(rowIndex));
+                }
+                if (e.target.classList.contains('delete-row-btn')) {
+                    if (confirm('¿Está seguro de que desea eliminar esta fila?')) {
+                        tableData.splice(rowIndex, 1);
+                        renderTable();
+                        saveData();
+                    }
+                }
+            });
+
+            document.getElementById('tableBody').addEventListener('change', (e) => {
+                const target = e.target;
+                const field = target.dataset.field;
+                if (!field) return;
+
+                const rowIndex = parseInt(target.closest('tr').dataset.index);
+                const value = target.value;
+                
+                tableData[rowIndex][field] = (field === 'monto') ? parseCurrency(value) : value;
+                
+                if (field === 'categoria' || field === 'monto') {
+                    renderTable(); // Re-render para color y totales
+                } else {
+                     saveData();
+                }
+            });
+            
+            document.getElementById('tableBody').addEventListener('focusout', (e) => {
+                const target = e.target;
+                const field = target.dataset.field;
+                if (field === 'monto') {
+                    target.value = formatCurrency(parseCurrency(target.value), false);
+                    saveData();
+                }
+            });
+
+
+            // =================================================================================
+            // 4. MODAL LOGIC
+            // =================================================================================
+            const modal = document.getElementById('obsModal');
+            const obsTextarea = document.getElementById('obsTextarea');
+
+            function openObsModal(index) {
+                currentObsRowIndex = index;
+                obsTextarea.value = tableData[index].observaciones || '';
+                modal.style.display = 'block';
+            }
+
+            function closeObsModal() {
+                modal.style.display = 'none';
+                currentObsRowIndex = -1;
+            }
+
+            document.getElementById('saveObsBtn').addEventListener('click', () => {
+                if (currentObsRowIndex >= 0) {
+                    tableData[currentObsRowIndex].observaciones = obsTextarea.value;
+                    closeObsModal();
+                    renderTable();
+                    saveData();
+                }
+            });
+
+            document.getElementById('clearObsBtn').addEventListener('click', () => {
+                obsTextarea.value = '';
+            });
+
+            document.getElementById('deleteRowFromModalBtn').addEventListener('click', () => {
+                if (currentObsRowIndex >= 0 && confirm('¿Está seguro de que desea eliminar esta fila?')) {
+                    tableData.splice(currentObsRowIndex, 1);
+                    closeObsModal();
+                    renderTable();
+                    saveData();
+                }
+            });
+            
+            document.getElementById('closeModalBtn').addEventListener('click', closeObsModal);
+            document.getElementById('cancelObsBtn').addEventListener('click', closeObsModal);
+            window.addEventListener('click', (e) => { if (e.target === modal) closeObsModal(); });
+
+
+            // =================================================================================
+            // 5. UTILITY FUNCTIONS
+            // =================================================================================
+            function formatCurrency(num, withSymbol = true) {
+                const number = parseFloat(num) || 0;
+                const options = { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 };
+                let formatted = new Intl.NumberFormat('es-AR', options).format(number);
+                return withSymbol ? formatted : formatted.replace(/\$\s?/g, '').trim();
+            }
+
+            function parseCurrency(str) {
+                if (!str) return 0;
+                return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+            }
+
+            function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+            
+            // =================================================================================
+            // INICIAR LA APLICACIÓN
+            // =================================================================================
+            loadInitialData();
+
+        }); // FIN DE DOMCONTENTLOADED
+
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        // =================================================================================
+        // 6. GOOGLE DRIVE INTEGRATION LOGIC
+        // =================================================================================
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const DATA_FILE_NAME = 'datos_ingresos_egresos_garcia.json';
+
+        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
+        
+        const driveStatusEl = document.getElementById('driveStatus'), 
+              connectDriveBtn = document.getElementById('connectDriveBtn'), 
+              saveToDriveBtn = document.getElementById('saveToDriveBtn'), 
+              loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
+
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+        function maybeEnableButtons() { if (gapiInited && gisInited) connectDriveBtn.onclick = handleAuthClick; }
+        
+        function updateDriveStatus(message, isSuccess = false) {
+            driveStatusEl.style.display = 'block';
+            driveStatusEl.textContent = message;
+            driveStatusEl.style.background = isSuccess ? '#d1e7dd' : '#fff3cd';
+            driveStatusEl.style.color = isSuccess ? '#0f5132' : '#664d03';
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) throw (resp);
+                updateDriveStatus('✅ Conectado a Google Drive.', true);
+                connectDriveBtn.style.display = 'none'; 
+                saveToDriveBtn.style.display = 'inline-block'; 
+                loadFromDriveBtn.style.display = 'inline-block';
+                saveToDriveBtn.onclick = saveDataToDrive; 
+                loadFromDriveBtn.onclick = loadDataFromDrive;
+                await findDataFile();
+            };
+            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
+        }
+
+        async function findDataFile() {
+            updateDriveStatus('Buscando archivo de datos en Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+                if (response.result.files.length > 0) { 
+                    dataFileId = response.result.files[0].id; 
+                    updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); 
+                } else { 
+                    updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); 
+                    dataFileId = null; 
+                }
+            } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+        }
+
+        async function saveDataToDrive() {
+            if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
+            updateDriveStatus('Guardando datos en Drive...', false);
+            
+            const currentDataString = localStorage.getItem('ingresosEgresosData');
+            if (!currentDataString) {
+                 updateDriveStatus('❌ Error: No se encontraron datos para guardar.', false);
+                 return;
+            }
+
+            try {
+                const boundary = '-------314159265358979323846';
+                const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
+                const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${currentDataString}\r\n--${boundary}--`;
+                
+                const request = gapi.client.request({
+                    path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files',
+                    method: dataFileId ? 'PATCH' : 'POST',
+                    params: { uploadType: 'multipart' },
+                    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: requestBody
+                });
+
+                const response = await request;
+                dataFileId = response.result.id;
+                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+            } catch (err) { 
+                console.error(err); 
+                updateDriveStatus('❌ Error al guardar en Drive.', false); 
+            }
+        }
+
+        async function loadDataFromDrive() {
+            if (!dataFileId) {
+                alert("No se ha encontrado un archivo de datos en Drive. Guarda primero para crear uno.");
+                return;
+            }
+            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+            
+            updateDriveStatus('Cargando datos desde Drive...', false);
+            try {
+                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+                const importedData = JSON.parse(response.body);
+                if (!Array.isArray(importedData)) throw new Error('El formato de los datos de Drive no es válido.');
+                
+                localStorage.setItem('ingresosEgresosData', JSON.stringify(importedData));
+                
+                updateDriveStatus('✅ Datos cargados. Recargando la página...', true);
+                setTimeout(() => window.location.reload(), 1500);
+
+            } catch (err) { 
+                console.error(err); 
+                updateDriveStatus('❌ Error al cargar desde Drive.', false); 
+                alert('Error al cargar desde Drive: ' + err.message); 
+            }
+        }
+    </script>
+</body>
+</html>
