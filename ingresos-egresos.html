@@ -41,7 +41,6 @@
         .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
         .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
         .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
-        /* NUEVO ESTILO PARA BOTONES PEQUEÑOS EN ARCHIVOS */
         .btn.btn-sm { padding: 6px 12px; font-size: 12px; }
 
         .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
@@ -86,8 +85,7 @@
         .total-ingreso { color: #28a745; }
         .total-egreso { color: #dc3545; }
         .total-balance { color: #007bff; }
-        /* NUEVO ESTILO PARA CONTROLES DE ARCHIVOS */
-        .archive-controls { padding: 0 15px 10px 15px; text-align: right; background: #fdfdfd; }
+        .archive-controls { padding: 0 15px 10px 15px; text-align: right; background: #fdfdfd; display: flex; justify-content: flex-end; gap: 8px; }
 
         .summary-box {
             background: linear-gradient(135deg, var(--light-gray) 0%, #e9ecef 100%);
@@ -264,9 +262,22 @@
             // =================================================================================
             // 2. MAIN APP RENDER
             // =================================================================================
+            
             function renderApp() {
+                const openArchiveKeys = new Set(
+                    Array.from(document.querySelectorAll('#archive-container .archive-item[open]'))
+                         .map(el => el.dataset.monthKey)
+                );
+
                 renderCurrentMonth();
                 renderArchives();
+
+                openArchiveKeys.forEach(monthKey => {
+                    const detailsElement = document.querySelector(`.archive-item[data-month-key="${monthKey}"]`);
+                    if (detailsElement) {
+                        detailsElement.open = true;
+                    }
+                });
             }
 
             function renderCurrentMonth() {
@@ -315,8 +326,9 @@
                     const totals = calculateTotals(monthTransactions);
                     const monthName = formatMonthKey(monthKey);
 
+                    // ***** NUEVA FUNCIÓN: Se agrega el botón de eliminar mes *****
                     archiveHTML += `
-                        <details class="archive-item">
+                        <details class="archive-item" data-month-key="${monthKey}">
                             <summary>
                                 <span class="archive-month-name">${monthName}</span>
                                 <div class="archive-totals">
@@ -326,8 +338,9 @@
                                 </div>
                             </summary>
                             <div class="archive-controls">
-                                <button class="btn btn-sm add-row-archive-btn" data-month-key="${monthKey}" type="button">➕ Nueva Fila</button>
+                                <button class="btn btn-sm" data-month-key="${monthKey}" type="button">➕ Nueva Fila</button>
                                 <button class="btn btn-sm btn-info sort-archive-btn" data-month-key="${monthKey}" type="button">🔤 Ordenar Mes</button>
+                                <button class="btn btn-sm btn-danger delete-month-btn" data-month-key="${monthKey}" type="button">🗑️ Eliminar Mes</button>
                             </div>
                             <div class="table-container">
                                 <table>
@@ -394,11 +407,10 @@
 
                 document.getElementById('addMonthBtn').addEventListener('click', addNewMonth);
                 
-                // MODIFICACIÓN: EL BOTÓN DE ORDENAR AHORA USA LA NUEVA FUNCIÓN
                 document.getElementById('sortBtn').addEventListener('click', () => {
                     const currentTransactions = allData[currentMonthKey]?.transactions;
                     if (currentTransactions) {
-                        sortTransactions(currentTransactions); // <-- USA LA NUEVA LÓGICA
+                        sortTransactions(currentTransactions);
                         saveData();
                         renderApp();
                     }
@@ -441,28 +453,38 @@
             function handleTableClick(e) {
                 const target = e.target;
                 
-                // MODIFICACIÓN: MANEJO DE CLICS PARA NUEVOS BOTONES DE ARCHIVOS
                 if (target.classList.contains('add-row-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const todayInMonth = new Date(monthKey + '-01T12:00:00').toISOString().split('T')[0];
                     allData[monthKey].transactions.push({ fecha: todayInMonth, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
                     saveData();
                     renderApp();
-                    return; // Detener para no procesar más
+                    return;
                 }
 
                 if (target.classList.contains('sort-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const transactions = allData[monthKey]?.transactions;
                     if (transactions) {
-                        sortTransactions(transactions); // <-- USA LA NUEVA LÓGICA
+                        sortTransactions(transactions);
                         saveData();
                         renderApp();
                     }
-                    return; // Detener para no procesar más
+                    return;
+                }
+                
+                // ***** NUEVA FUNCIÓN: Lógica para el botón de eliminar mes *****
+                if (target.classList.contains('delete-month-btn')) {
+                    const monthKey = target.dataset.monthKey;
+                    const monthName = formatMonthKey(monthKey);
+                    if (confirm(`¿Estás SEGURO de que querés eliminar TODO el mes de ${monthName}?\n\n⚠️ ¡Esta acción no se puede deshacer!`)) {
+                        delete allData[monthKey];
+                        saveData();
+                        renderApp();
+                    }
+                    return;
                 }
 
-                // Lógica existente para botones dentro de las filas
                 const tr = target.closest('tr');
                 if (!tr) return;
 
@@ -536,12 +558,6 @@
                 renderApp();
             }
 
-            /**
-             * MODIFICACIÓN: NUEVA FUNCIÓN DE ORDENAMIENTO
-             * Ordena las transacciones: primero por categoría (ingreso > egreso)
-             * y luego alfabéticamente por descripción.
-             * @param {Array} transactions El array de transacciones a ordenar.
-             */
             function sortTransactions(transactions) {
                 const categoryOrder = { 'ingreso': 1, 'egreso': 2 };
                 transactions.sort((a, b) => {
@@ -549,10 +565,9 @@
                     const orderB = categoryOrder[b.categoria] || 99;
                     
                     if (orderA !== orderB) {
-                        return orderA - orderB; // Criterio primario: categoría
+                        return orderA - orderB;
                     }
                     
-                    // Criterio secundario: descripción (si las categorías son iguales)
                     return (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' });
                 });
             }
@@ -757,7 +772,6 @@
                 const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
                 const importedData = JSON.parse(response.body);
                 
-                // ADAPTACIÓN: El formato correcto ahora es un objeto, no un array.
                 if (typeof importedData !== 'object' || Array.isArray(importedData) || importedData === null) {
                     throw new Error('El formato de los datos de Drive no es válido para esta versión.');
                 }
