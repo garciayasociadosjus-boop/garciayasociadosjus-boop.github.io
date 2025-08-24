@@ -70,7 +70,8 @@
         tbody tr:hover { background-color: #f0f8ff; }
 
         .action-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #555; transition: transform 0.2s, color 0.2s; padding: 5px; }
-        .action-btn:hover { transform: scale(1.2); }
+        .action-btn:hover:not(:disabled) { transform: scale(1.2); }
+        .action-btn:disabled { cursor: not-allowed; color: #ccc; }
         .obs-btn { color: #3498db; }
         .obs-btn.has-content { color: #27ae60; font-weight: bold; }
         .download-btn { color: #1a237e; }
@@ -196,8 +197,8 @@
 
         function saveData() {
             try {
-                // No guardamos el dataUrl en localStorage para no superar el límite.
-                // El usuario debe usar el backup JSON para transferir archivos.
+                // El dataUrl no se guarda en localStorage para no superar el límite.
+                // Se guarda el resto de la metadata, incluido el driveId si existe.
                 const metadata = allFiles.map(({ dataUrl, ...rest }) => rest);
                 localStorage.setItem('documentManagerData', JSON.stringify(metadata));
             } catch (e) {
@@ -209,6 +210,9 @@
         function loadData() {
             const savedData = localStorage.getItem('documentManagerData');
             if (savedData) {
+                // Al cargar, los archivos no tienen su contenido (dataUrl)
+                // Se deberá cargar de Drive o el usuario deberá volver a agregarlos
+                // para poder descargarlos sin conexión a Drive.
                 allFiles = JSON.parse(savedData);
             }
         }
@@ -224,6 +228,8 @@
 
             filteredFiles.forEach(file => {
                 const hasObs = file.observations && file.observations.trim() !== '';
+                // --- MODIFICACIÓN ---: Un archivo es descargable si tiene contenido local (dataUrl) o si está en Drive (driveId)
+                const isDownloadable = file.dataUrl || file.driveId;
                 const row = `
                     <tr data-id="${file.id}">
                         <td>${file.name}</td>
@@ -232,7 +238,7 @@
                         <td>${new Date(file.lastModified).toLocaleDateString()}</td>
                         <td style="text-align: center;">
                             <button class="action-btn obs-btn ${hasObs ? 'has-content' : ''}" title="Observaciones">📝</button>
-                            <button class="action-btn download-btn" title="Descargar" ${file.dataUrl ? '' : 'disabled'}>⬇️</button>
+                            <button class="action-btn download-btn" title="Descargar" ${isDownloadable ? '' : 'disabled'}>⬇️</button>
                             <button class="action-btn delete-btn" title="Eliminar">🗑️</button>
                         </td>
                     </tr>
@@ -258,19 +264,25 @@
                 const row = e.target.closest('tr');
                 const fileId = row.dataset.id;
                 currentFileId = fileId;
+                const file = allFiles.find(f => f.id === fileId);
+                if (!file) return;
 
                 if (button.classList.contains('delete-btn')) {
-                    if (confirm('¿Está seguro de que desea eliminar este archivo?')) {
+                    if (confirm('¿Está seguro de que desea eliminar este archivo? (Esto solo lo quita de la lista, no lo borra de Google Drive)')) {
                         allFiles = allFiles.filter(f => f.id !== fileId);
                         saveData();
                         renderFileTable(document.getElementById('searchInput').value);
                     }
                 } else if (button.classList.contains('download-btn')) {
-                    const file = allFiles.find(f => f.id === fileId);
-                    if (file && file.dataUrl) {
+                    // --- MODIFICACIÓN ---: Lógica de descarga dual
+                    if (file.dataUrl) {
+                        // Opción 1: Descargar desde dataUrl (si el archivo se acaba de agregar)
                         downloadFileFromDataUrl(file.dataUrl, file.name);
+                    } else if (file.driveId) {
+                        // Opción 2: Descargar desde Google Drive
+                        downloadFileFromDrive(file.driveId, file.name);
                     } else {
-                        alert('Este archivo no está disponible para descarga directa. Importe un backup completo o cárguelo desde Google Drive.');
+                        alert('Este archivo no está disponible para descarga. Importe un backup o cárguelo desde Google Drive.');
                     }
                 } else if (button.classList.contains('obs-btn')) {
                     openObsModal(fileId);
@@ -299,10 +311,11 @@
                         lastModified: file.lastModified,
                         observations: '',
                         dataUrl: e.target.result, // Base64 content
-                        driveId: null
+                        driveId: null // Aún no está en Drive
                     };
                     allFiles.push(newFile);
-                    saveData();
+                    // No llamamos a saveData() aquí para no llenar el localStorage innecesariamente
+                    // Se guardará la metadata al sincronizar con Drive o al exportar.
                     renderFileTable(document.getElementById('searchInput').value);
                 };
                 reader.readAsDataURL(file);
@@ -356,6 +369,8 @@
                 alert("No hay documentos para exportar.");
                 return;
             }
+            // Para exportar, es importante tener los dataUrl de los archivos que no están en Drive.
+            // Esta implementación asume que los archivos recién agregados están en `allFiles` con su dataUrl.
             const jsonString = JSON.stringify(allFiles, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -433,11 +448,12 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         // =================================================================================
-        // GOOGLE DRIVE INTEGRATION LOGIC - Credenciales Insertadas
+        // GOOGLE DRIVE INTEGRATION LOGIC
         // =================================================================================
         
-        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; 
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
+        // --- INSERTA TUS CREDENCIALES AQUÍ ---
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // Dejamos el que ya estaba
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // Dejamos el que ya estaba
         
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -460,9 +476,6 @@
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
                 connectDriveBtn.onclick = handleAuthClick;
-            } else if (!gapiInited || !gisInited) {
-                // Wait a bit more for libraries to load
-                setTimeout(maybeEnableButtons, 500);
             }
         }
 
@@ -478,7 +491,7 @@
             tokenClient.callback = async (resp) => {
                 if (resp.error) {
                     console.error('Google Auth Error:', resp);
-                    updateDriveStatus('❌ Error de autenticación. Revisa la consola para más detalles.', false);
+                    updateDriveStatus('❌ Error de autenticación. Revisa la consola.', false);
                     return;
                 }
                 updateDriveStatus('✅ Conectado a Google Drive.', true);
@@ -523,18 +536,16 @@
             if (!driveFolderId) { alert("Error: No se encontró la carpeta de destino en Drive."); return; }
             if (!confirm('Esto subirá todos los archivos nuevos y actualizará el backup en Google Drive. ¿Continuar?')) return;
             
-            const localFiles = JSON.parse(localStorage.getItem('documentManagerData') || '[]');
-            const localFilesWithContent = JSON.parse(JSON.stringify(window.allFiles));
+            // Usamos la variable global `allFiles` que contiene los dataUrl de los archivos nuevos.
+            const filesToProcess = window.allFiles;
 
-            for (let i = 0; i < localFiles.length; i++) {
-                let fileMeta = localFiles[i];
-                if (!fileMeta.driveId) {
-                    const fileWithContent = localFilesWithContent.find(f => f.id === fileMeta.id);
-                    if (!fileWithContent || !fileWithContent.dataUrl) continue;
-
-                    updateDriveStatus(`Subiendo archivo ${i+1}/${localFiles.length}: ${fileMeta.name}...`, false, true);
+            for (let i = 0; i < filesToProcess.length; i++) {
+                let fileMeta = filesToProcess[i];
+                // Subir solo si no tiene driveId y sí tiene contenido local (dataUrl)
+                if (!fileMeta.driveId && fileMeta.dataUrl) {
+                    updateDriveStatus(`Subiendo archivo ${i+1}/${filesToProcess.length}: ${fileMeta.name}...`, false, true);
                     try {
-                        const blob = dataURLtoBlob(fileWithContent.dataUrl);
+                        const blob = dataURLtoBlob(fileMeta.dataUrl);
                         const metadata = { name: fileMeta.name, parents: [driveFolderId] };
                         
                         const form = new FormData();
@@ -548,6 +559,8 @@
                         });
                         const result = await response.json();
                         fileMeta.driveId = result.id;
+                        // --- MODIFICACIÓN ---: Limpiamos el dataUrl después de subir para liberar memoria.
+                        delete fileMeta.dataUrl;
                     } catch(err) {
                         console.error("Error subiendo archivo:", fileMeta.name, err);
                         updateDriveStatus(`❌ Error subiendo ${fileMeta.name}`, false);
@@ -558,7 +571,9 @@
             
             updateDriveStatus('Subiendo archivo de metadata...', false, true);
             try {
-                const metadataBlob = new Blob([JSON.stringify(localFiles, null, 2)], { type: 'application/json' });
+                // Preparamos los metadatos para guardar (sin dataUrl)
+                const metadataToSave = filesToProcess.map(({ dataUrl, ...rest }) => rest);
+                const metadataBlob = new Blob([JSON.stringify(metadataToSave, null, 2)], { type: 'application/json' });
                 await findOrCreateMetadataFile();
                 
                 const form = new FormData();
@@ -575,8 +590,11 @@
 
                 await fetch(uploadUrl, { method: method, headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` }, body: form });
                 
-                localStorage.setItem('documentManagerData', JSON.stringify(localFiles));
+                // Actualizamos localStorage con los datos limpios (sin dataUrl y con los nuevos driveId)
+                localStorage.setItem('documentManagerData', JSON.stringify(metadataToSave));
                 updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
+                // --- MODIFICACIÓN ---: Recargamos la tabla para reflejar los cambios (ej. botones de descarga)
+                window.dispatchEvent(new CustomEvent('renderTable'));
             } catch(err) {
                 console.error("Error guardando metadata:", err);
                 updateDriveStatus('❌ Error al guardar el archivo de metadata.', false);
@@ -592,18 +610,17 @@
 
         async function loadDataFromDrive() {
             if (!driveFolderId) { alert("Error: No se encontró la carpeta de destino en Drive."); return; }
-            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive. Los archivos físicos no se descargarán automáticamente, pero sus referencias sí.")) return;
+            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
             
             updateDriveStatus('Buscando archivo de metadata en Drive...', false, true);
             try {
                 await findOrCreateMetadataFile();
                 if (!metadataFileId) {
-                    alert("No se encontró un archivo de metadata en Drive. Guarda primero para crear uno.");
-                    updateDriveStatus("No se encontró archivo de metadata.", false);
+                    updateDriveStatus("No se encontró archivo de metadata. Guarda primero para crear uno.", false);
                     return;
                 }
                 const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
-                const importedData = JSON.parse(response.body);
+                const importedData = response.result;
                 
                 localStorage.setItem('documentManagerData', JSON.stringify(importedData));
                 updateDriveStatus('✅ Datos cargados. Recargando la página...', true);
@@ -613,6 +630,39 @@
                 updateDriveStatus('❌ Error al cargar desde Drive.', false);
             }
         }
+        
+        // --- NUEVA FUNCIÓN ---: Para descargar archivos directamente desde Google Drive
+        async function downloadFileFromDrive(fileId, fileName) {
+            updateDriveStatus(`Descargando "${fileName}" desde Drive...`, false, true);
+            try {
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
+                });
+                
+                const blob = new Blob([response.body], { type: response.headers['Content-Type'] });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                updateDriveStatus(`✅ "${fileName}" descargado con éxito.`, true);
+
+            } catch (err) {
+                console.error('Error al descargar de Drive:', err);
+                updateDriveStatus(`❌ Error al descargar "${fileName}".`, false);
+                alert('No se pudo descargar el archivo desde Google Drive. Asegúrate de tener conexión y permisos.');
+            }
+        }
+        
+        // Event listener para recargar la tabla desde otras funciones
+        window.addEventListener('renderTable', () => {
+           document.getElementById('searchInput').dispatchEvent(new Event('input'));
+        });
     </script>
 </body>
 </html>
