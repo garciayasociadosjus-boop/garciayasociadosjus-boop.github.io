@@ -660,6 +660,9 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
+        // ##################################################################
+        // ##########          SECCIÓN DE GOOGLE DRIVE           ##########
+        // ##################################################################
         const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
@@ -701,7 +704,7 @@
             updateDriveStatus('Guardando datos en Drive...', false);
             try {
                 const content = JSON.stringify(yearsData, null, 2);
-                dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+                dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', dataFileId);
                 updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
         }
@@ -722,5 +725,46 @@
                 updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
         }
-        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-            const boundary = '
+
+        // ##################################################################
+        // ##########           FUNCIÓN CORREGIDA              ##########
+        // ##################################################################
+        async function uploadContent(content, fileName, mimeType, fileIdToUpdate) {
+            const metadata = {
+                name: fileName,
+                mimeType: mimeType,
+            };
+
+            const boundary = '-------314159265358979323846';
+            const delimiter = `\r\n--${boundary}\r\n`;
+            const close_delim = `\r\n--${boundary}--`;
+
+            const requestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: ' + mimeType + '\r\n\r\n' +
+                content +
+                close_delim;
+
+            const requestPath = fileIdToUpdate 
+                ? `/upload/drive/v3/files/${fileIdToUpdate}` 
+                : '/upload/drive/v3/files';
+            
+            const requestMethod = fileIdToUpdate ? 'PATCH' : 'POST';
+
+            const request = gapi.client.request({
+                path: requestPath,
+                method: requestMethod,
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: requestBody
+            });
+
+            const response = await request;
+            return response.result.id;
+        }
+    </script>
+</body>
+</html>
