@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Documentos - García & Asociados</title>
+    <style>
+        :root {
+            --primary-color: #1a237e;
+            --gradient-start: #2c3e50;
+            --gradient-end: #34495e;
+            --light-gray: #f8f9fa;
+            --border-color: #dee2e6;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--primary-color); margin-bottom: 10px; font-size: 2.2em; }
+        .header h2 { color: #666; margin: 5px 0; font-size: 1.1em; font-weight: normal; }
+        
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
+        .btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0d47a1 100%);
+            color: white; padding: 12px 18px; border: none; border-radius: 5px;
+            cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3); }
+        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .btn.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        .upload-area {
+            border: 3px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            background-color: var(--light-gray);
+            margin: 20px 0;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .upload-area.drag-over {
+            background-color: #e9ecef;
+            border-color: var(--primary-color);
+        }
+        .upload-area p { font-size: 1.1em; color: #555; margin: 0; }
+
+        .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; background: white; }
+        th {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0d47a1 100%);
+            color: white; padding: 12px 8px; text-align: left;
+            border: 1px solid #0d47a1; font-weight: bold;
+        }
+        td { padding: 8px 6px; border: 1px solid #ddd; vertical-align: middle; }
+        tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        tbody tr:hover { background-color: #f0f8ff; }
+
+        .action-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #555; transition: transform 0.2s, color 0.2s; padding: 5px; }
+        .action-btn:hover { transform: scale(1.2); }
+        .obs-btn { color: #3498db; }
+        .obs-btn.has-content { color: #27ae60; font-weight: bold; }
+        .download-btn { color: #1a237e; }
+        .delete-btn { color: #c0392b; }
+
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px;
+            width: 80%; max-width: 600px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd;
+        }
+        .modal-header h3 { margin: 0; color: var(--primary-color); }
+        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #000; }
+        .obs-textarea {
+            width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc;
+            border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;
+            resize: vertical; box-sizing: border-box;
+        }
+        .modal-buttons {
+            display: flex; justify-content: flex-end; gap: 10px;
+            margin-top: 15px; flex-wrap: wrap;
+        }
+        .modal-btn { padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .modal-btn-save { background: #27ae60; color: white; }
+        .modal-btn-clear { background: #f39c12; color: white; }
+        .modal-btn-cancel { background: #95a5a6; color: white; }
+
+        .data-status {
+            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
+            padding: 10px; border-radius: 8px; margin: 20px 0;
+            text-align: center; font-size: 14px; display: none;
+        }
+        .search-container { margin: 20px 0; }
+        .search-input {
+            width: 100%; padding: 10px; font-size: 1em; border: 1px solid var(--border-color);
+            border-radius: 5px; box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>GARCÍA & ASOCIADOS</h1>
+            <h2>Gestor de Documentos</h2>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="addFileBtn" type="button">➕ Agregar Archivo</button>
+            <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Exportar Backup (JSON)</button>
+            <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar Backup (JSON)</button>
+        </div>
+        <input type="file" id="fileInput" multiple style="display: none;">
+        <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+
+        <div id="uploadArea" class="upload-area">
+            <p>o arrastra y suelta tus archivos aquí</p>
+        </div>
+
+        <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Google Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" type="button">📤 Guardar en Drive</button>
+            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" type="button">📥 Cargar de Drive</button>
+        </section>
+        <div id="driveStatus" class="data-status"></div>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar documentos por nombre...">
+        </div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Nombre del Archivo</th>
+                        <th style="width: 15%;">Tipo</th>
+                        <th style="width: 15%;">Tamaño</th>
+                        <th style="width: 15%;">Fecha Modificación</th>
+                        <th style="width: 15%; text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="file-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="obsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Observaciones</h3>
+                <span class="close" id="closeModalBtn">&times;</span>
+            </div>
+            <textarea id="obsTextarea" class="obs-textarea" placeholder="Escriba sus observaciones aquí..."></textarea>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-clear" id="clearObsBtn" type="button">Borrar</button>
+                <button class="modal-btn modal-btn-cancel" id="cancelObsBtn" type="button">Cancelar</button>
+                <button class="modal-btn modal-btn-save" id="saveObsBtn" type="button">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        let allFiles = [];
+        let currentFileId = null;
+        const fileInput = document.getElementById('fileInput');
+        const fileTableBody = document.getElementById('file-table-body');
+        const uploadArea = document.getElementById('uploadArea');
+
+        function initializeApp() {
+            loadData();
+            renderFileTable();
+            setupEventListeners();
+        }
+
+        function saveData() {
+            try {
+                // No guardamos el dataUrl en localStorage para no superar el límite.
+                // El usuario debe usar el backup JSON para transferir archivos.
+                const metadata = allFiles.map(({ dataUrl, ...rest }) => rest);
+                localStorage.setItem('documentManagerData', JSON.stringify(metadata));
+            } catch (e) {
+                console.error("Error saving data:", e);
+                alert("Error al guardar los datos. Es posible que el almacenamiento local esté lleno.");
+            }
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem('documentManagerData');
+            if (savedData) {
+                allFiles = JSON.parse(savedData);
+            }
+        }
+
+        function renderFileTable(filter = '') {
+            fileTableBody.innerHTML = '';
+            const filteredFiles = allFiles.filter(file => file.name.toLowerCase().includes(filter.toLowerCase()));
+
+            if (filteredFiles.length === 0) {
+                fileTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">No hay documentos. ¡Agrega el primero!</td></tr>`;
+                return;
+            }
+
+            filteredFiles.forEach(file => {
+                const hasObs = file.observations && file.observations.trim() !== '';
+                const row = `
+                    <tr data-id="${file.id}">
+                        <td>${file.name}</td>
+                        <td>${file.type}</td>
+                        <td>${formatFileSize(file.size)}</td>
+                        <td>${new Date(file.lastModified).toLocaleDateString()}</td>
+                        <td style="text-align: center;">
+                            <button class="action-btn obs-btn ${hasObs ? 'has-content' : ''}" title="Observaciones">📝</button>
+                            <button class="action-btn download-btn" title="Descargar" ${file.dataUrl ? '' : 'disabled'}>⬇️</button>
+                            <button class="action-btn delete-btn" title="Eliminar">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+                fileTableBody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('addFileBtn').addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
+            document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
+            document.getElementById('jsonFileInput').addEventListener('change', importBackup);
+            
+            document.getElementById('searchInput').addEventListener('input', (e) => renderFileTable(e.target.value));
+
+            fileTableBody.addEventListener('click', (e) => {
+                const button = e.target.closest('.action-btn');
+                if (!button) return;
+
+                const row = e.target.closest('tr');
+                const fileId = row.dataset.id;
+                currentFileId = fileId;
+
+                if (button.classList.contains('delete-btn')) {
+                    if (confirm('¿Está seguro de que desea eliminar este archivo?')) {
+                        allFiles = allFiles.filter(f => f.id !== fileId);
+                        saveData();
+                        renderFileTable(document.getElementById('searchInput').value);
+                    }
+                } else if (button.classList.contains('download-btn')) {
+                    const file = allFiles.find(f => f.id === fileId);
+                    if (file && file.dataUrl) {
+                        downloadFileFromDataUrl(file.dataUrl, file.name);
+                    } else {
+                        alert('Este archivo no está disponible para descarga directa. Importe un backup completo o cárguelo desde Google Drive.');
+                    }
+                } else if (button.classList.contains('obs-btn')) {
+                    openObsModal(fileId);
+                }
+            });
+            
+            setupDragAndDrop();
+            setupModalEventListeners();
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            processFiles(files);
+            event.target.value = null; // Reset input
+        }
+        
+        function processFiles(files) {
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const newFile = {
+                        id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        name: file.name,
+                        type: file.type || 'Desconocido',
+                        size: file.size,
+                        lastModified: file.lastModified,
+                        observations: '',
+                        dataUrl: e.target.result, // Base64 content
+                        driveId: null
+                    };
+                    allFiles.push(newFile);
+                    saveData();
+                    renderFileTable(document.getElementById('searchInput').value);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function setupDragAndDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.add('drag-over'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('drag-over'), false);
+            });
+            uploadArea.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            processFiles(files);
+        }
+
+        // UTILITIES
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function downloadFileFromDataUrl(dataUrl, fileName) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function exportBackup() {
+            if (allFiles.length === 0) {
+                alert("No hay documentos para exportar.");
+                return;
+            }
+            const jsonString = JSON.stringify(allFiles, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup-documentos-garcia-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported) && confirm('Se reemplazarán todos los documentos actuales. ¿Continuar?')) {
+                        allFiles = imported;
+                        saveData();
+                        renderFileTable();
+                        alert('Backup importado con éxito.');
+                    } else {
+                        alert('Error: El archivo de backup no es válido.');
+                    }
+                } catch (err) { alert(`Error al leer el archivo: ${err.message}`); }
+            };
+            reader.readAsText(file);
+            event.target.value = null;
+        }
+
+        // MODAL LOGIC
+        const modal = document.getElementById('obsModal');
+        const obsTextarea = document.getElementById('obsTextarea');
+        const modalTitle = document.getElementById('modalTitle');
+
+        function openObsModal(fileId) {
+            const file = allFiles.find(f => f.id === fileId);
+            if (!file) return;
+            modalTitle.textContent = `Observaciones de: ${file.name}`;
+            obsTextarea.value = file.observations || '';
+            modal.style.display = 'block';
+        }
+
+        function closeObsModal() {
+            modal.style.display = 'none';
+            currentFileId = null;
+        }
+
+        function setupModalEventListeners() {
+            document.getElementById('saveObsBtn').addEventListener('click', () => {
+                if (currentFileId) {
+                    const fileIndex = allFiles.findIndex(f => f.id === currentFileId);
+                    if (fileIndex > -1) {
+                        allFiles[fileIndex].observations = obsTextarea.value;
+                        saveData();
+                        renderFileTable(document.getElementById('searchInput').value);
+                    }
+                }
+                closeObsModal();
+            });
+            document.getElementById('clearObsBtn').addEventListener('click', () => { obsTextarea.value = ''; });
+            document.getElementById('closeModalBtn').addEventListener('click', closeObsModal);
+            document.getElementById('cancelObsBtn').addEventListener('click', closeObsModal);
+            window.addEventListener('click', (e) => { if (e.target === modal) closeObsModal(); });
+        }
+        
+        initializeApp();
+    });
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        // =================================================================================
+        // GOOGLE DRIVE INTEGRATION LOGIC - Credenciales Insertadas
+        // =================================================================================
+        
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; 
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
+        
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        
+        const FOLDER_NAME = 'Gestor de Documentos - García & Asociados';
+        const METADATA_FILE_NAME = 'metadata_backup.json';
+
+        let tokenClient, gapiInited = false, gisInited = false;
+        let driveFolderId = null, metadataFileId = null;
+        
+        const driveStatusEl = document.getElementById('driveStatus');
+        const connectDriveBtn = document.getElementById('connectDriveBtn');
+        const saveToDriveBtn = document.getElementById('saveToDriveBtn');
+        const loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
+
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+        
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                connectDriveBtn.onclick = handleAuthClick;
+            } else if (!gapiInited || !gisInited) {
+                // Wait a bit more for libraries to load
+                setTimeout(maybeEnableButtons, 500);
+            }
+        }
+
+        function updateDriveStatus(message, isSuccess = false, isLoading = false) {
+            driveStatusEl.style.display = 'block';
+            let loader = isLoading ? ' <span class="loader"></span>' : '';
+            driveStatusEl.innerHTML = message + loader;
+            driveStatusEl.style.background = isSuccess ? '#d1e7dd' : '#fff3cd';
+            driveStatusEl.style.color = isSuccess ? '#0f5132' : '#664d03';
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    console.error('Google Auth Error:', resp);
+                    updateDriveStatus('❌ Error de autenticación. Revisa la consola para más detalles.', false);
+                    return;
+                }
+                updateDriveStatus('✅ Conectado a Google Drive.', true);
+                connectDriveBtn.style.display = 'none';
+                saveToDriveBtn.style.display = 'inline-block';
+                loadFromDriveBtn.style.display = 'inline-block';
+                saveToDriveBtn.onclick = saveDataToDrive;
+                loadFromDriveBtn.onclick = loadDataFromDrive;
+                await findOrCreateFolder();
+            };
+            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
+        }
+        
+        async function findOrCreateFolder() {
+            updateDriveStatus('Buscando carpeta en Drive...', false, true);
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
+                    fields: 'files(id, name)'
+                });
+                if (response.result.files.length > 0) {
+                    driveFolderId = response.result.files[0].id;
+                    updateDriveStatus('✅ Carpeta encontrada en Drive.', true);
+                } else {
+                    updateDriveStatus('Creando carpeta en Drive...', false, true);
+                    const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
+                    const createResponse = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
+                    driveFolderId = createResponse.result.id;
+                    updateDriveStatus('✅ Carpeta creada en Drive.', true);
+                }
+            } catch (err) { console.error(err); updateDriveStatus('❌ Error al buscar/crear carpeta.', false); }
+        }
+
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        async function saveDataToDrive() {
+            if (!driveFolderId) { alert("Error: No se encontró la carpeta de destino en Drive."); return; }
+            if (!confirm('Esto subirá todos los archivos nuevos y actualizará el backup en Google Drive. ¿Continuar?')) return;
+            
+            const localFiles = JSON.parse(localStorage.getItem('documentManagerData') || '[]');
+            const localFilesWithContent = JSON.parse(JSON.stringify(window.allFiles));
+
+            for (let i = 0; i < localFiles.length; i++) {
+                let fileMeta = localFiles[i];
+                if (!fileMeta.driveId) {
+                    const fileWithContent = localFilesWithContent.find(f => f.id === fileMeta.id);
+                    if (!fileWithContent || !fileWithContent.dataUrl) continue;
+
+                    updateDriveStatus(`Subiendo archivo ${i+1}/${localFiles.length}: ${fileMeta.name}...`, false, true);
+                    try {
+                        const blob = dataURLtoBlob(fileWithContent.dataUrl);
+                        const metadata = { name: fileMeta.name, parents: [driveFolderId] };
+                        
+                        const form = new FormData();
+                        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                        form.append('file', blob);
+
+                        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` },
+                            body: form
+                        });
+                        const result = await response.json();
+                        fileMeta.driveId = result.id;
+                    } catch(err) {
+                        console.error("Error subiendo archivo:", fileMeta.name, err);
+                        updateDriveStatus(`❌ Error subiendo ${fileMeta.name}`, false);
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+            }
+            
+            updateDriveStatus('Subiendo archivo de metadata...', false, true);
+            try {
+                const metadataBlob = new Blob([JSON.stringify(localFiles, null, 2)], { type: 'application/json' });
+                await findOrCreateMetadataFile();
+                
+                const form = new FormData();
+                const metadataUpdate = { name: METADATA_FILE_NAME, mimeType: 'application/json' };
+                if(!metadataFileId) metadataUpdate.parents = [driveFolderId];
+
+                form.append('metadata', new Blob([JSON.stringify(metadataUpdate)], { type: 'application/json' }));
+                form.append('file', metadataBlob);
+
+                const uploadUrl = metadataFileId ? 
+                    `https://www.googleapis.com/upload/drive/v3/files/${metadataFileId}?uploadType=multipart` :
+                    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+                const method = metadataFileId ? 'PATCH' : 'POST';
+
+                await fetch(uploadUrl, { method: method, headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` }, body: form });
+                
+                localStorage.setItem('documentManagerData', JSON.stringify(localFiles));
+                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
+            } catch(err) {
+                console.error("Error guardando metadata:", err);
+                updateDriveStatus('❌ Error al guardar el archivo de metadata.', false);
+            }
+        }
+        
+        async function findOrCreateMetadataFile() {
+             const response = await gapi.client.drive.files.list({
+                    q: `name='${METADATA_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`,
+                    fields: 'files(id)' });
+             metadataFileId = response.result.files.length > 0 ? response.result.files[0].id : null;
+        }
+
+        async function loadDataFromDrive() {
+            if (!driveFolderId) { alert("Error: No se encontró la carpeta de destino en Drive."); return; }
+            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive. Los archivos físicos no se descargarán automáticamente, pero sus referencias sí.")) return;
+            
+            updateDriveStatus('Buscando archivo de metadata en Drive...', false, true);
+            try {
+                await findOrCreateMetadataFile();
+                if (!metadataFileId) {
+                    alert("No se encontró un archivo de metadata en Drive. Guarda primero para crear uno.");
+                    updateDriveStatus("No se encontró archivo de metadata.", false);
+                    return;
+                }
+                const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
+                const importedData = JSON.parse(response.body);
+                
+                localStorage.setItem('documentManagerData', JSON.stringify(importedData));
+                updateDriveStatus('✅ Datos cargados. Recargando la página...', true);
+                setTimeout(() => window.location.reload(), 1500);
+            } catch (err) {
+                console.error(err);
+                updateDriveStatus('❌ Error al cargar desde Drive.', false);
+            }
+        }
+    </script>
+</body>
+</html>
