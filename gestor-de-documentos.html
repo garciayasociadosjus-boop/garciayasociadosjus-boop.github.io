@@ -76,7 +76,7 @@
         .action-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #555; transition: transform 0.2s, color 0.2s; padding: 5px; }
         .action-btn:hover { transform: scale(1.2); }
         .obs-btn { color: #3498db; }
-        .obs-btn.has-content { color: #27ae60; font-weight: bold; }
+        .obs-btn.has-content { color: #27ae60; font-weight: bold; } /* --- NUEVO: Estilo para botón con observaciones --- */
         .download-btn { color: #1a237e; }
         .delete-btn { color: #c0392b; }
 
@@ -84,9 +84,10 @@
             display: none; position: fixed; z-index: 1000; left: 0; top: 0;
             width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
             backdrop-filter: blur(5px);
+            align-items: center; justify-content: center;
         }
         .modal-content {
-            background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px;
+            background-color: white; padding: 20px; border-radius: 8px;
             width: 80%; max-width: 600px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
         .modal-header {
@@ -96,12 +97,14 @@
         .modal-header h3 { margin: 0; color: var(--primary-color); }
         .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: #000; }
+        /* --- NUEVO: Estilos para el área de texto de observaciones --- */
+        #obsTextarea { width: 100%; min-height: 150px; font-size: 1em; padding: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        .modal-footer { text-align: right; margin-top: 20px; }
         
-        /* --- BARRA DE ESTADO MEJORADA --- */
         .data-status {
             padding: 12px; border-radius: 8px; margin: 20px 0;
             text-align: center; font-size: 1em; font-weight: bold;
-            display: none; /* Se activa con JS */
+            display: none;
             transition: background-color 0.3s, color 0.3s;
         }
         .status-success {
@@ -191,15 +194,33 @@
         </div>
     </div>
 
+    <div id="obsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Observaciones del Archivo</h3>
+                <span class="close" id="closeObsModal">&times;</span>
+            </div>
+            <textarea id="obsTextarea" placeholder="Escribe tus observaciones aquí..."></textarea>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="saveObsBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
-    // Variable global para mantener todos los archivos en memoria (con su contenido)
-    var allFiles = [];
+    var allFiles = []; // Variable global para mantener todos los archivos
 
     document.addEventListener('DOMContentLoaded', () => {
         let currentFileId = null;
         const fileInput = document.getElementById('fileInput');
         const fileTableBody = document.getElementById('file-table-body');
-        const uploadArea = document.getElementById('uploadArea');
+        
+        // --- NUEVO: Elementos del Modal de Observaciones ---
+        const obsModal = document.getElementById('obsModal');
+        const closeObsModal = document.getElementById('closeObsModal');
+        const saveObsBtn = document.getElementById('saveObsBtn');
+        const obsTextarea = document.getElementById('obsTextarea');
 
         function initializeApp() {
             loadData();
@@ -207,7 +228,6 @@
             setupEventListeners();
         }
 
-        // Guarda solo la metadata (sin contenido) en el almacenamiento local
         function saveMetadata() {
             try {
                 const metadata = allFiles.map(({ dataUrl, ...rest }) => rest);
@@ -221,7 +241,6 @@
         function loadData() {
             const savedData = localStorage.getItem('documentManagerData');
             if (savedData) {
-                // Al cargar, solo tenemos metadata. El contenido se cargará al importar un backup.
                 allFiles = JSON.parse(savedData).map(file => ({...file, dataUrl: null}));
             }
         }
@@ -237,6 +256,8 @@
 
             filteredFiles.forEach(file => {
                 const canDownload = file.dataUrl || file.driveId;
+                // --- MODIFICADO: Se añade el botón de observaciones ---
+                const obsClass = file.observations ? 'obs-btn has-content' : 'obs-btn';
                 const row = `
                     <tr data-id="${file.id}">
                         <td>${file.name}</td>
@@ -245,7 +266,7 @@
                         <td>${new Date(file.lastModified).toLocaleDateString()}</td>
                         <td style="text-align: center;">
                              <button class="action-btn download-btn" title="Descargar/Ver" ${canDownload ? '' : 'disabled'}>⬇️</button>
-                             <button class="action-btn delete-btn" title="Eliminar">🗑️</button>
+                             <button class="action-btn ${obsClass}" title="Observaciones">📝</button> <button class="action-btn delete-btn" title="Eliminar">🗑️</button>
                         </td>
                     </tr>
                 `;
@@ -277,25 +298,36 @@
                         renderFileTable(document.getElementById('searchInput').value);
                     }
                 } else if (button.classList.contains('download-btn')) {
-                    if (file.dataUrl) { // Si el archivo está cargado en la página
+                    if (file.dataUrl) {
                         downloadFileFromDataUrl(file.dataUrl, file.name);
-                    } else if (file.driveId) { // Si el archivo está en Drive
-                        updateDriveStatus(`Abriendo archivo desde Google Drive...`, false);
-                        try {
-                           const driveFile = await gapi.client.drive.files.get({
-                                fileId: file.driveId,
-                                fields: 'webViewLink'
-                           });
-                           window.open(driveFile.result.webViewLink, '_blank');
-                           updateDriveStatus(`Archivo abierto con éxito.`, true);
-                        } catch(err) {
-                           console.error(err);
-                           updateDriveStatus(`❌ No se pudo abrir el archivo desde Drive.`, false);
-                        }
+                    } else if (file.driveId) {
+                       window.open(`https://drive.google.com/file/d/${file.driveId}/view`, '_blank');
                     }
+                // --- NUEVO: Lógica para el botón de observaciones ---
+                } else if (button.classList.contains('obs-btn')) {
+                    currentFileId = file.id; // Guardamos el ID del archivo actual
+                    obsTextarea.value = file.observations || '';
+                    obsModal.style.display = 'flex';
                 }
             });
             
+            // --- NUEVO: Eventos para el modal ---
+            closeObsModal.onclick = () => { obsModal.style.display = 'none'; };
+            saveObsBtn.onclick = () => {
+                const fileToUpdate = allFiles.find(f => f.id === currentFileId);
+                if (fileToUpdate) {
+                    fileToUpdate.observations = obsTextarea.value;
+                    saveMetadata(); // Guardamos los cambios en localStorage
+                    renderFileTable(document.getElementById('searchInput').value); // Re-renderizamos la tabla
+                }
+                obsModal.style.display = 'none';
+            };
+            window.onclick = (event) => {
+                if (event.target == obsModal) {
+                    obsModal.style.display = "none";
+                }
+            };
+
             setupDragAndDrop();
         }
 
@@ -309,9 +341,9 @@
                         type: file.type || 'Desconocido',
                         size: file.size,
                         lastModified: file.lastModified,
-                        observations: '',
+                        observations: '', // --- NUEVO: Se añade el campo observaciones
                         driveId: null,
-                        dataUrl: e.target.result // Contenido en Base64
+                        dataUrl: e.target.result
                     };
                     allFiles.push(newFile);
                     saveMetadata();
@@ -329,11 +361,69 @@
             area.addEventListener('drop', e => processFiles(e.dataTransfer.files), false);
         }
 
-        function getFriendlyFileType(mimeType, fileName) { /* ... sin cambios ... */ return 'Archivo'; }
-        function formatFileSize(bytes) { /* ... sin cambios ... */ return '0 Bytes'; }
-        function downloadFileFromDataUrl(dataUrl, fileName) { /* ... sin cambios ... */ }
-        function exportBackup() { /* ... sin cambios ... */ }
-        function importBackup(event) { /* ... sin cambios ... */ }
+        function getFriendlyFileType(mimeType, fileName) {
+            const extension = fileName.split('.').pop().toLowerCase();
+            if (mimeType.startsWith('image/')) return 'Imagen';
+            if (mimeType.startsWith('video/')) return 'Video';
+            if (mimeType === 'application/pdf') return 'PDF';
+            if (['doc', 'docx', 'rtf'].includes(extension)) return 'Documento Word';
+            if (['xls', 'xlsx'].includes(extension)) return 'Hoja de Cálculo';
+            if (['ppt', 'pptx'].includes(extension)) return 'Presentación';
+            return extension.toUpperCase() || 'Archivo';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function downloadFileFromDataUrl(dataUrl, fileName) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportBackup() {
+            if (allFiles.length === 0) {
+                alert('No hay documentos para exportar.');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allFiles, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "backup_documentos.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedFiles = JSON.parse(e.target.result);
+                        if (Array.isArray(importedFiles)) {
+                            allFiles = importedFiles;
+                            saveMetadata();
+                            renderFileTable();
+                            alert('Backup importado con éxito.');
+                        } else { throw new Error('Formato de archivo no válido.'); }
+                    } catch (err) {
+                        alert('Error al importar el archivo de backup.');
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
 
         initializeApp();
     });
@@ -346,8 +436,8 @@
         // GOOGLE DRIVE INTEGRATION - VERSIÓN CORREGIDA Y ROBUSTA
         // =================================================================================
         
-        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; 
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // Por favor, usa tu propio Client ID en producción
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // Por favor, usa tu propia API Key en producción
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         
@@ -369,15 +459,17 @@
             }
         }
         
-        // --- NUEVA FUNCIÓN DE ESTADO ---
-        function updateDriveStatus(message, isSuccess) {
+        function updateDriveStatus(message, isSuccess, duration = 0) {
             driveStatusEl.style.display = 'block';
             driveStatusEl.textContent = message;
-            driveStatusEl.className = 'data-status'; // Reset
+            driveStatusEl.className = 'data-status';
             if (isSuccess === true) {
                 driveStatusEl.classList.add('status-success');
             } else if (isSuccess === false) {
                 driveStatusEl.classList.add('status-warning');
+            }
+            if(duration > 0) {
+                setTimeout(() => { driveStatusEl.style.display = 'none'; }, duration);
             }
         }
 
@@ -389,13 +481,13 @@
                     return;
                 }
                 gapi.client.setToken({ access_token: resp.access_token });
-                updateDriveStatus('✅ Conectado a Google Drive.', true);
+                updateDriveStatus('✅ Conectado a Google Drive. Buscando carpeta...', null);
                 document.getElementById('connectDriveBtn').style.display = 'none';
                 document.getElementById('saveToDriveBtn').style.display = 'inline-block';
                 document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
                 document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
                 document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
-                await findOrCreateFolder();
+                await findOrCreateFolder(); // Esto es clave
             };
             if (!gapi.client.getToken()) {
                 tokenClient.requestAccessToken({prompt: 'consent'});
@@ -404,16 +496,37 @@
             }
         }
         
-        async function findOrCreateFolder() { /* ... sin cambios ... */ }
-        
-        function dataURLtoBlob(dataurl) {
-            let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-            while(n--) { u8arr[n] = bstr.charCodeAt(n); }
-            return new Blob([u8arr], {type:mime});
+        // --- CÓDIGO CORREGIDO Y COMPLETO ---
+        async function findOrCreateFolder() {
+            updateDriveStatus('Buscando carpeta en Google Drive...', null);
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                });
+                if (response.result.files.length > 0) {
+                    driveFolderId = response.result.files[0].id;
+                    updateDriveStatus('✅ Carpeta encontrada.', true, 3000);
+                } else {
+                    updateDriveStatus('Carpeta no encontrada, creando una nueva...', null);
+                    const folderMetadata = {
+                        name: FOLDER_NAME,
+                        mimeType: 'application/vnd.google-apps.folder',
+                    };
+                    const folderResponse = await gapi.client.drive.files.create({
+                        resource: folderMetadata,
+                        fields: 'id',
+                    });
+                    driveFolderId = folderResponse.result.id;
+                    updateDriveStatus('✅ Carpeta creada con éxito.', true, 3000);
+                }
+            } catch (err) {
+                console.error("Error finding or creating folder:", err);
+                updateDriveStatus('❌ Error al buscar o crear la carpeta en Drive.', false);
+                driveFolderId = null; // Asegurarse de que no quede un ID inválido
+            }
         }
         
-        // --- NUEVA LÓGICA DE SUBIDA (ROBUSTA) ---
         async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
             const boundary = '-------314159265358979323846';
             const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
@@ -435,59 +548,111 @@
                 body: requestBody
             });
 
-            const response = await request;
-            return response.result;
+            return await request;
         }
 
         async function saveDataToDrive() {
-            if (!driveFolderId) { alert("Error: La carpeta de destino en Drive no está lista."); return; }
-            if (!confirm('Se subirán los archivos nuevos a Google Drive. ¿Continuar?')) return;
+            if (!driveFolderId) {
+                alert("Error: La carpeta de destino en Drive no está lista. Por favor, intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('Se subirán los archivos nuevos y se actualizará la lista de respaldo en Google Drive. ¿Continuar?')) return;
             
             const filesToUpload = window.allFiles.filter(f => f.dataUrl && !f.driveId);
-            let uploadedCount = 0;
-
-            for (const file of filesToUpload) {
-                uploadedCount++;
-                updateDriveStatus(`Subiendo ${uploadedCount}/${filesToUpload.length}: ${file.name}...`, false);
+            
+            for (let i = 0; i < filesToUpload.length; i++) {
+                const file = filesToUpload[i];
+                updateDriveStatus(`Subiendo ${i + 1}/${filesToUpload.length}: ${file.name}...`, null);
                 try {
                     const base64Content = file.dataUrl.split(',')[1];
-                    const result = await uploadContent(base64Content, file.name, file.type, driveFolderId, null);
-                    // Actualiza el `driveId` en el array principal
+                    const response = await uploadContent(base64Content, file.name, file.type, driveFolderId, null);
                     const fileIndex = window.allFiles.findIndex(f => f.id === file.id);
-                    if (fileIndex > -1) window.allFiles[fileIndex].driveId = result.id;
+                    if (fileIndex > -1) {
+                         window.allFiles[fileIndex].driveId = response.result.id;
+                         window.allFiles[fileIndex].dataUrl = null; // Liberar memoria
+                    }
                 } catch(err) {
                     console.error("Error subiendo archivo:", file.name, err);
-                    updateDriveStatus(`❌ Error al subir ${file.name}. Intente de nuevo.`, false);
-                    return; // Detener en caso de error
+                    updateDriveStatus(`❌ Error al subir ${file.name}.`, false);
+                    return;
                 }
             }
             
-            updateDriveStatus('Guardando lista de respaldo...', false);
+            updateDriveStatus('Actualizando archivo de respaldo...', null);
             try {
-                // Prepara la metadata para guardar (sin contenido)
                 const metadataToSave = window.allFiles.map(({ dataUrl, ...rest }) => rest);
                 const metadataString = JSON.stringify(metadataToSave, null, 2);
                 const metadataBase64 = btoa(unescape(encodeURIComponent(metadataString)));
                 
                 await findOrCreateMetadataFile();
                 
-                const result = await uploadContent(metadataBase64, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
-                metadataFileId = result.id;
+                await uploadContent(metadataBase64, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
                 
-                // Actualiza localStorage con los nuevos driveIds
                 localStorage.setItem('documentManagerData', JSON.stringify(metadataToSave));
                 
-                // ¡Mensaje final de éxito!
-                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
-                document.defaultView.renderFileTable(); // Re-renderizar para actualizar botones
+                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true, 5000);
+                document.defaultView.renderFileTable();
             } catch(err) {
                 console.error("Error guardando metadata:", err);
-                updateDriveStatus('❌ Error al guardar la lista de archivos.', false);
+                updateDriveStatus('❌ Error al guardar la lista de archivos de respaldo.', false);
             }
         }
         
-        async function findOrCreateMetadataFile() { /* ... sin cambios ... */ }
-        async function loadDataFromDrive() { /* ... sin cambios ... */ }
+        // --- CÓDIGO CORREGIDO Y COMPLETO ---
+        async function findOrCreateMetadataFile() {
+             try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${METADATA_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`,
+                    fields: 'files(id)',
+                });
+                if (response.result.files.length > 0) {
+                    metadataFileId = response.result.files[0].id;
+                } else {
+                    metadataFileId = null; // No existe, se creará al subir
+                }
+            } catch (err) {
+                 console.error("Error finding metadata file:", err);
+                 metadataFileId = null;
+            }
+        }
+
+        // --- CÓDIGO CORREGIDO Y COMPLETO ---
+        async function loadDataFromDrive() {
+            if (!driveFolderId) {
+                alert("Error: No se ha encontrado la carpeta de Drive. Intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('Se reemplazarán los datos locales con la copia de seguridad de Google Drive. ¿Continuar?')) return;
+            
+            updateDriveStatus('Buscando archivo de respaldo en Drive...', null);
+            try {
+                await findOrCreateMetadataFile();
+                if (!metadataFileId) {
+                    updateDriveStatus('No se encontró un archivo de respaldo en Drive. Puede guardar uno primero.', false);
+                    return;
+                }
+
+                updateDriveStatus('Descargando datos...', null);
+                const response = await gapi.client.drive.files.get({
+                    fileId: metadataFileId,
+                    alt: 'media',
+                });
+                
+                const driveData = response.result;
+                if (Array.isArray(driveData)) {
+                    window.allFiles = driveData.map(file => ({ ...file, dataUrl: null })); // Aseguramos que no haya contenido local
+                    localStorage.setItem('documentManagerData', JSON.stringify(window.allFiles));
+                    document.defaultView.renderFileTable();
+                    updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true, 5000);
+                } else {
+                    throw new Error("El archivo de respaldo no tiene el formato correcto.");
+                }
+
+            } catch (err) {
+                console.error("Error al cargar datos desde Drive:", err);
+                updateDriveStatus('❌ Error al cargar los datos desde Drive.', false);
+            }
+        }
     </script>
 </body>
 </html>
