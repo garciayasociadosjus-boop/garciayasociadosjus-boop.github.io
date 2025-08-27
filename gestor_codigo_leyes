@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.9">
+    <title>Gestor de Códigos y Leyes - Estudio Jurídico</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #005f73; /* Azul verdoso oscuro */
+            --secondary-color: #0a9396; /* Cian oscuro */
+            --accent-color: #94d2bd; /* Verde agua claro */
+            --gradient-start: #2c3e50;
+            --gradient-end: #34495e;
+            --light-gray: #f8f9fa;
+            --border-color: #dee2e6;
+            --success-bg: #d1e7dd;
+            --success-color: #0f5132;
+            --warning-bg: #fff3cd;
+            --warning-color: #664d03;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--primary-color); margin-bottom: 5px; font-size: 2.2em; }
+        .header h2 { color: #555; margin-top: 0; font-size: 1.2em; font-weight: normal; }
+        
+        .controls, .centered-controls { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            margin: 20px 0; 
+            align-items: center;
+        }
+        .centered-controls {
+            justify-content: center;
+            padding: 15px 0;
+            border-top: 1px solid #eee;
+        }
+        .bottom-border {
+             border-bottom: 1px solid #eee;
+        }
+        .btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white; padding: 12px 18px; border: none; border-radius: 5px;
+            cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s;
+            text-decoration: none; display: inline-block;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 95, 115, 0.3); }
+        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .btn-excel { background: linear-gradient(135deg, #16a085, #1abc9c); }
+        .btn-secondary { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        
+        .action-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #555; transition: transform 0.2s, color 0.2s; padding: 5px; }
+        .action-btn:hover { transform: scale(1.2); }
+        .edit-btn { color: var(--secondary-color); }
+        .delete-btn { color: #c0392b; }
+
+        .search-container { margin: 25px 0; position: relative; }
+        .search-input {
+            width: 100%; padding: 15px 20px 15px 45px; font-size: 1.1em;
+            border: 2px solid var(--border-color); border-radius: 30px;
+            box-sizing: border-box; transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 8px rgba(0, 95, 115, 0.3); }
+        .search-container::before { content: '🔍'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 1.2em; color: #999; }
+        
+        .filter-container { display: flex; gap: 10px; align-items: center; }
+        .filter-container label { font-weight: bold; color: #333; }
+        .filter-container select { padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: #fff; min-width: 200px; }
+        
+        .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; background: white; }
+        th { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 12px 8px; text-align: left; border: 1px solid var(--primary-color); font-weight: bold; }
+        td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: top; }
+        tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        tbody tr:hover { background-color: #e8f7f7; }
+
+        .toggle-link { cursor: pointer; color: var(--primary-color); font-weight: bold; display: block; margin-top: 8px; }
+        .content-container { background-color: var(--light-gray); padding: 15px; margin-top: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-word; font-size: 0.9em; border-left: 3px solid var(--primary-color); }
+        .hidden { display: none; }
+        .actions-cell { text-align: center; }
+
+        /* --- Modal y Barra de Estado --- */
+        .modal {
+            display: none;
+            position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white; padding: 25px; border-radius: 8px;
+            width: 90%; max-width: 700px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
+        .modal-header h3 { margin: 0; color: var(--primary-color); font-size: 1.5em; }
+        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #000; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        
+        .data-status { padding: 12px; border-radius: 8px; margin: 20px 0; text-align: center; font-size: 1em; font-weight: bold; display: none; transition: all 0.3s; }
+        .status-success { background-color: var(--success-bg); border: 1px solid var(--success-color); color: var(--success-color); }
+        .status-warning { background-color: var(--warning-bg); border: 1px solid var(--warning-color); color: var(--warning-color); }
+        
+        #jsonFileInput { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gestor de Códigos y Leyes</h1>
+            <h2>Estudio Jurídico García & Asociados</h2>
+        </div>
+        
+        <div class="centered-controls bottom-border">
+            <button class="btn btn-info" id="exportJsonBtn">Exportar (JSON)</button>
+            <button class="btn btn-warning" id="importJsonBtn">Importar (JSON)</button>
+            <button class="btn btn-excel" id="exportExcelBtn">Exportar a Excel</button>
+        </div>
+
+        <div class="centered-controls">
+            <button id="connectDriveBtn" class="btn">🔗 Conectar a Google Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
+            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+        </div>
+        <input type="file" id="jsonFileInput" accept=".json">
+        <div id="driveStatus" class="data-status"></div>
+
+        <div class="controls">
+            <button class="btn" id="addArticleBtn">➕ Agregar Artículo</button>
+        </div>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Buscar por cualquier palabra...">
+        </div>
+        
+        <div class="filter-container">
+            <label for="keywordFilter">Filtrar por Palabra Clave:</label>
+            <select id="keywordFilter"></select>
+        </div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Ley / Código</th>
+                        <th style="width: 15%;">Artículo</th>
+                        <th style="width: 20%;">Título</th>
+                        <th style="width: 15%;">Palabra Clave</th>
+                        <th style="width: 20%;">Contenido</th>
+                        <th style="width: 10%; text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="articlesTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="articleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Agregar Artículo</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="articleForm">
+                <input type="hidden" id="articleId">
+                <div class="form-group"><label for="ley">Ley / Código</label><input type="text" id="ley" required></div>
+                <div class="form-group"><label for="articulo">Número del Artículo</label><input type="text" id="articulo" required></div>
+                <div class="form-group"><label for="titulo">Título del Artículo</label><input type="text" id="titulo" required></div>
+                <div class="form-group"><label for="palabraClave">Palabra Clave (ej: Cuidado Personal)</label><input type="text" id="palabraClave" required></div>
+                <div class="form-group"><label for="resumen">Resumen</label><textarea id="resumen" rows="5" required></textarea></div>
+                <div class="form-group"><label for="texto">Texto Completo del Artículo</label><textarea id="texto" rows="8" required></textarea></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn" id="saveBtn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Referencias a elementos del DOM
+    const articlesTableBody = document.getElementById('articlesTableBody');
+    const searchInput = document.getElementById('searchInput');
+    const keywordFilter = document.getElementById('keywordFilter');
+    const modal = document.getElementById('articleModal');
+    const articleForm = document.getElementById('articleForm');
+    
+    // El estado de la aplicación
+    let articles = [];
+    let editIndex = null;
+
+    // Inicializador
+    function initializeApp() {
+        loadArticles();
+        setupEventListeners();
+    }
+
+    // --- LÓGICA DE DATOS PRINCIPAL (localStorage) ---
+    function loadArticles() {
+        const stored = localStorage.getItem('estudioJuridicoGarciaAsociados');
+        articles = stored ? JSON.parse(stored) : getSampleData();
+        saveArticles(); 
+        populateKeywordFilter();
+        filterAndRender();
+    }
+    function saveArticles() {
+        localStorage.setItem('estudioJuridicoGarciaAsociados', JSON.stringify(articles));
+    }
+
+    // --- RENDERIZADO Y FILTRADO ---
+    function renderTable(data = articles) {
+        articlesTableBody.innerHTML = '';
+        if (data.length === 0) {
+            articlesTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">No se encontraron artículos.</td></tr>`;
+            return;
+        }
+        data.forEach(article => {
+            const originalIndex = articles.findIndex(a => a.id === article.id);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${article.ley}</td>
+                <td>${article.articulo}</td>
+                <td>${article.titulo}</td>
+                <td><span style="background-color: #ecf0f1; color: #34495e; padding: 3px 6px; border-radius: 4px; font-weight: bold;">${article.palabraClave}</span></td>
+                <td>
+                    <div class="toggle-link" data-type="resumen">Ver Resumen</div>
+                    <div class="content-container resumen-content hidden"><pre>${article.resumen}</pre></div>
+                    <div class="toggle-link" data-type="texto">Ver Artículo Completo</div>
+                    <div class="content-container texto-content hidden"><pre>${article.texto}</pre></div>
+                </td>
+                <td class="actions-cell">
+                    <button class="action-btn edit-btn" title="Editar" data-index="${originalIndex}">✏️</button>
+                    <button class="action-btn delete-btn" title="Eliminar" data-index="${originalIndex}">🗑️</button>
+                </td>
+            `;
+            articlesTableBody.appendChild(row);
+        });
+    }
+
+    function populateKeywordFilter() {
+        const keywords = [...new Set(articles.map(a => a.palabraClave))].sort();
+        keywordFilter.innerHTML = '<option value="">-- Todas las Palabras Clave --</option>';
+        keywords.forEach(kw => { if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; });
+    }
+
+    function filterAndRender() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const keyword = keywordFilter.value;
+        const filtered = articles.filter(art => 
+            (keyword === '' || art.palabraClave === keyword) &&
+            (searchTerm === '' || Object.values(art).some(val => String(val).toLowerCase().includes(searchTerm)))
+        );
+        renderTable(filtered);
+    }
+
+    // --- MANEJO DEL MODAL ---
+    function openModal(index = null) {
+        articleForm.reset();
+        editIndex = index;
+        document.getElementById('modalTitle').textContent = index !== null ? 'Editar Artículo' : 'Agregar Nuevo Artículo';
+        if (index !== null) {
+            const art = articles[index];
+            document.getElementById('articleId').value = art.id;
+            document.getElementById('ley').value = art.ley;
+            document.getElementById('articulo').value = art.articulo;
+            document.getElementById('titulo').value = art.titulo;
+            document.getElementById('palabraClave').value = art.palabraClave;
+            document.getElementById('resumen').value = art.resumen;
+            document.getElementById('texto').value = art.texto;
+        } else {
+            document.getElementById('articleId').value = '';
+        }
+        modal.style.display = 'flex';
+    }
+    function closeModal() { modal.style.display = 'none'; }
+    
+    function handleFormSubmit(e) {
+        e.preventDefault();
+        const data = {
+            id: editIndex !== null ? articles[editIndex].id : Date.now(),
+            ley: document.getElementById('ley').value.trim(),
+            articulo: document.getElementById('articulo').value.trim(),
+            titulo: document.getElementById('titulo').value.trim(),
+            palabraClave: document.getElementById('palabraClave').value.trim(),
+            resumen: document.getElementById('resumen').value,
+            texto: document.getElementById('texto').value
+        };
+        if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { 
+            alert('Ley, Artículo, Título y Palabra Clave son obligatorios.'); 
+            return; 
+        }
+        if (editIndex !== null) {
+            articles[editIndex] = data;
+        } else {
+            articles.push(data);
+        }
+        saveArticles();
+        populateKeywordFilter();
+        filterAndRender();
+        closeModal();
+    }
+    
+    // --- IMPORT/EXPORT ---
+    function exportData(type) {
+        if (type === 'json') {
+            const dataStr = JSON.stringify(articles, null, 2);
+            const blob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'backup_articulos_legales.json';
+            a.click(); URL.revokeObjectURL(url);
+        } else if (type === 'excel') {
+            const sheetData = articles.map(({id, ...rest}) => rest); // Excluye el ID
+            const worksheet = XLSX.utils.json_to_sheet(sheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
+            XLSX.writeFile(workbook, 'export_articulos_legales.xlsx');
+        }
+    }
+
+    function importFromJson() {
+        const input = document.getElementById('jsonFileInput');
+        input.onchange = e => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const imported = JSON.parse(event.target.result);
+                    // Valida que el archivo importado sea un array y que los objetos tengan las propiedades esperadas
+                    if (Array.isArray(imported) && imported.every(item => 'ley' in item && 'articulo' in item && 'titulo' in item)) {
+                        if (confirm('Esto reemplazará todos los artículos actuales. ¿Continuar?')) {
+                            articles = imported;
+                            saveArticles(); populateKeywordFilter(); filterAndRender();
+                            alert('Artículos importados con éxito.');
+                        }
+                    } else { throw new Error('Formato de archivo inválido o faltan campos requeridos (ley, articulo, titulo).'); }
+                } catch (error) { alert(`Error al importar: ${error.message}`); }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        };
+        input.click();
+    }
+
+    // --- EVENT LISTENERS ---
+    function setupEventListeners() {
+        document.getElementById('addArticleBtn').addEventListener('click', () => openModal());
+        document.getElementById('cancelBtn').addEventListener('click', closeModal);
+        document.querySelector('.modal .close').addEventListener('click', closeModal);
+        window.addEventListener('click', e => { if (e.target == modal) closeModal(); });
+        articleForm.addEventListener('submit', handleFormSubmit);
+
+        articlesTableBody.addEventListener('click', e => {
+            const btn = e.target.closest('.action-btn');
+            const toggle = e.target.closest('.toggle-link');
+            if (btn) {
+                const index = parseInt(btn.dataset.index);
+                if (btn.classList.contains('edit-btn')) {
+                    openModal(index);
+                } else if (btn.classList.contains('delete-btn')) {
+                    if (confirm('¿Seguro que desea eliminar este artículo?')) {
+                        articles.splice(index, 1);
+                        saveArticles();
+                        populateKeywordFilter();
+                        filterAndRender();
+                    }
+                }
+            } else if (toggle) {
+                const content = toggle.nextElementSibling;
+                const isHidden = content.classList.toggle('hidden');
+                const typeText = toggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
+                toggle.textContent = isHidden ? `Ver ${typeText}` : `Ocultar ${typeText}`;
+            }
+        });
+
+        searchInput.addEventListener('input', filterAndRender);
+        keywordFilter.addEventListener('change', filterAndRender);
+        document.getElementById('exportJsonBtn').addEventListener('click', () => exportData('json'));
+        document.getElementById('exportExcelBtn').addEventListener('click', () => exportData('excel'));
+        document.getElementById('importJsonBtn').addEventListener('click', importFromJson);
+    }
+    
+    // --- DATOS DE EJEMPLO ---
+    function getSampleData() {
+        return [
+            { id: 1, ley: 'Código Civil y Comercial', articulo: 'Art. 651', titulo: 'Reglas generales', palabraClave: 'Cuidado Personal', resumen: 'Regula el cuidado personal, priorizando el compartido indistinto.', texto: '“A pedido de uno o ambos progenitores o de oficio, el juez debe otorgar, como primera medida, el cuidado personal compartido indistinto...' },
+            { id: 2, ley: 'Ley 26.061', articulo: 'Art. 3', titulo: 'Interés superior', palabraClave: 'Interés Superior del Niño', resumen: 'Define el interés superior del niño y su primacía.', texto: '“A los efectos de la presente ley se entiende por interés superior de la niña, niño y adolescente la máxima satisfacción, integral y simultánea de los derechos y garantías...' }
+        ];
+    }
+    
+    initializeApp();
+
+    // --- LÓGICA DE GOOGLE DRIVE (SIN MODIFICAR) ---
+    // Esta sección se conecta directamente a la variable global 'articles' y a los eventos,
+    // por lo que no necesita cambios para manejar el nuevo campo "titulo".
+    
+    // Google Drive Global state
+    let driveArticles = articles;
+
+    // Listener para actualizar la variable global cuando los artículos cambien
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'estudioJuridicoGarciaAsociados') {
+             driveArticles = JSON.parse(event.newValue);
+        }
+    });
+
+    // Función para manejar la carga de datos desde Drive
+    function handleDataLoadedFromDrive(loadedArticles) {
+        if (Array.isArray(loadedArticles)) {
+            articles = loadedArticles; // Asigna los datos cargados
+            saveArticles(); // Guarda en localStorage
+            populateKeywordFilter(); // Actualiza el filtro
+            filterAndRender(); // Renderiza la tabla
+        }
+    }
+
+    // =================================================================================
+    // GOOGLE DRIVE INTEGRATION
+    // =================================================================================
+    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // USA TU PROPIO CLIENT_ID
+    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // USA TU PROPIA API_KEY
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    
+    const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
+    const METADATA_FILE_NAME = 'backup_articulos.json';
+
+    let tokenClient, gapiInited = false, gisInited = false;
+    let driveFolderId = null, metadataFileId = null;
+    
+    const driveStatusEl = document.getElementById('driveStatus');
+
+    window.gapiLoaded = function() { gapi.load('client', initializeGapiClient); }
+    async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+    window.gisLoaded = function() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+    
+    function maybeEnableButtons() {
+        if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
+    }
+    
+    function updateDriveStatus(message, isSuccess) {
+        driveStatusEl.style.display = 'block';
+        driveStatusEl.textContent = message;
+        driveStatusEl.className = 'data-status';
+        if (isSuccess === true) driveStatusEl.classList.add('status-success');
+        else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
+        if (isSuccess !== false) setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000);
+    }
+
+    function handleAuthClick() {
+        tokenClient.callback = async (resp) => {
+            if (resp.error) { console.error('Auth Error:', resp); return updateDriveStatus('❌ Error de autenticación.', false); }
+            gapi.client.setToken({ access_token: resp.access_token });
+            updateDriveStatus('✅ Conectado a Google Drive.', true);
+            document.getElementById('connectDriveBtn').style.display = 'none';
+            document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+            document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+            document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
+            document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+        };
+        if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'});
+        else tokenClient.requestAccessToken({prompt: ''});
+    }
+    
+    async function findOrCreateFolder() {
+        const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
+        const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+        if (response.result.files.length > 0) {
+            driveFolderId = response.result.files[0].id;
+        } else {
+            const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
+            const folder = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
+            driveFolderId = folder.result.id;
+        }
+    }
+
+    async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+        const boundary = '-------314159265358979323846';
+        const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
+        const base64Content = btoa(unescape(encodeURIComponent(content)));
+        const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+            `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}\r\n--${boundary}--`;
+        const request = await gapi.client.request({
+            path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+            method: fileIdToUpdate ? 'PATCH' : 'POST', params: { uploadType: 'multipart' },
+            headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: requestBody
+        });
+        return request.result;
+    }
+
+    async function saveDataToDrive() {
+        updateDriveStatus('Iniciando guardado en Drive...', false);
+        try {
+            await findOrCreateFolder();
+            if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
+            
+            // Usamos la variable 'articles' que está en el scope superior y siempre actualizada
+            const articlesData = JSON.stringify(articles, null, 2); 
+
+            await findOrCreateMetadataFile();
+            await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
+            updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
+        } catch (err) {
+            console.error("Error guardando en Drive:", err);
+            updateDriveStatus(`❌ Error al guardar: ${err.message}`, false);
+        }
+    }
+    
+    async function findOrCreateMetadataFile() {
+        if (metadataFileId) return;
+        const q = `'${driveFolderId}' in parents and name='${METADATA_FILE_NAME}' and trashed=false`;
+        const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id)' });
+        if (res.result.files.length > 0) metadataFileId = res.result.files[0].id;
+    }
+
+    async function loadDataFromDrive() {
+        if (!confirm('Esto reemplazará los datos locales con la versión de Google Drive. ¿Continuar?')) return;
+        updateDriveStatus('Buscando respaldo en Drive...', false);
+        try {
+            await findOrCreateFolder(); await findOrCreateMetadataFile();
+            if (!metadataFileId) return updateDriveStatus('⚠️ No se encontró un archivo de respaldo en Drive.', false);
+            const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
+            const importedArticles = JSON.parse(response.body);
+            if (Array.isArray(importedArticles)) {
+                handleDataLoadedFromDrive(importedArticles); // Llama a la función para actualizar la UI
+                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+            } else { throw new Error('El archivo de respaldo no tiene el formato correcto.'); }
+        } catch (err) {
+            console.error("Error cargando desde Drive:", err);
+            updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false);
+        }
+    }
+
+});
+</script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+</body>
+</html>
