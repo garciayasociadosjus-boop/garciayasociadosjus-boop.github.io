@@ -203,6 +203,7 @@
     </div>
 
 <script>
+// ########## LÓGICA PRINCIPAL DE LA APLICACIÓN ##########
 document.addEventListener('DOMContentLoaded', () => {
     // Referencias a elementos del DOM
     const articlesTableBody = document.getElementById('articlesTableBody');
@@ -231,6 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function saveArticles() {
         localStorage.setItem('estudioJuridicoGarciaAsociados', JSON.stringify(articles));
+        // Actualizamos la variable global para que Drive siempre tenga la última versión
+        window.driveArticles = articles;
     }
 
     // --- RENDERIZADO Y FILTRADO ---
@@ -351,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = event => {
                 try {
                     const imported = JSON.parse(event.target.result);
-                    // Valida que el archivo importado sea un array y que los objetos tengan las propiedades esperadas
                     if (Array.isArray(imported) && imported.every(item => 'ley' in item && 'articulo' in item && 'titulo' in item)) {
                         if (confirm('Esto reemplazará todos los artículos actuales. ¿Continuar?')) {
                             articles = imported;
@@ -413,23 +415,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
     }
     
-    initializeApp();
-
-    // --- LÓGICA DE GOOGLE DRIVE (SIN MODIFICAR) ---
-    // Esta sección se conecta directamente a la variable global 'articles' y a los eventos,
-    // por lo que no necesita cambios para manejar el nuevo campo "titulo".
-    
-    // Google Drive Global state
-    let driveArticles = articles;
-
-    // Listener para actualizar la variable global cuando los artículos cambien
-    window.addEventListener('storage', (event) => {
-        if (event.key === 'estudioJuridicoGarciaAsociados') {
-             driveArticles = JSON.parse(event.newValue);
-        }
-    });
-
-    // Función para manejar la carga de datos desde Drive
+    // ##### CORRECCIÓN #####: Esta función ahora está dentro del DOMContentLoaded
+    // pero la expondremos al `window` para que la lógica de Drive pueda llamarla.
     function handleDataLoadedFromDrive(loadedArticles) {
         if (Array.isArray(loadedArticles)) {
             articles = loadedArticles; // Asigna los datos cargados
@@ -439,125 +426,138 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // =================================================================================
-    // GOOGLE DRIVE INTEGRATION
-    // =================================================================================
-    const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // USA TU PROPIO CLIENT_ID
-    const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // USA TU PROPIA API_KEY
-    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    // ##### CORRECCIÓN #####: Hacemos la función global
+    window.handleDataLoadedFromDrive = handleDataLoadedFromDrive;
     
-    const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
-    const METADATA_FILE_NAME = 'backup_articulos.json';
-
-    let tokenClient, gapiInited = false, gisInited = false;
-    let driveFolderId = null, metadataFileId = null;
-    
-    const driveStatusEl = document.getElementById('driveStatus');
-
-    window.gapiLoaded = function() { gapi.load('client', initializeGapiClient); }
-    async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
-    window.gisLoaded = function() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
-    
-    function maybeEnableButtons() {
-        if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
-    }
-    
-    function updateDriveStatus(message, isSuccess) {
-        driveStatusEl.style.display = 'block';
-        driveStatusEl.textContent = message;
-        driveStatusEl.className = 'data-status';
-        if (isSuccess === true) driveStatusEl.classList.add('status-success');
-        else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
-        if (isSuccess !== false) setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000);
-    }
-
-    function handleAuthClick() {
-        tokenClient.callback = async (resp) => {
-            if (resp.error) { console.error('Auth Error:', resp); return updateDriveStatus('❌ Error de autenticación.', false); }
-            gapi.client.setToken({ access_token: resp.access_token });
-            updateDriveStatus('✅ Conectado a Google Drive.', true);
-            document.getElementById('connectDriveBtn').style.display = 'none';
-            document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-            document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-            document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
-            document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
-        };
-        if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'});
-        else tokenClient.requestAccessToken({prompt: ''});
-    }
-    
-    async function findOrCreateFolder() {
-        const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
-        const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-        if (response.result.files.length > 0) {
-            driveFolderId = response.result.files[0].id;
-        } else {
-            const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
-            const folder = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
-            driveFolderId = folder.result.id;
-        }
-    }
-
-    async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-        const boundary = '-------314159265358979323846';
-        const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
-        const base64Content = btoa(unescape(encodeURIComponent(content)));
-        const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-            `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}\r\n--${boundary}--`;
-        const request = await gapi.client.request({
-            path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
-            method: fileIdToUpdate ? 'PATCH' : 'POST', params: { uploadType: 'multipart' },
-            headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: requestBody
-        });
-        return request.result;
-    }
-
-    async function saveDataToDrive() {
-        updateDriveStatus('Iniciando guardado en Drive...', false);
-        try {
-            await findOrCreateFolder();
-            if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
-            
-            // Usamos la variable 'articles' que está en el scope superior y siempre actualizada
-            const articlesData = JSON.stringify(articles, null, 2); 
-
-            await findOrCreateMetadataFile();
-            await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
-            updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
-        } catch (err) {
-            console.error("Error guardando en Drive:", err);
-            updateDriveStatus(`❌ Error al guardar: ${err.message}`, false);
-        }
-    }
-    
-    async function findOrCreateMetadataFile() {
-        if (metadataFileId) return;
-        const q = `'${driveFolderId}' in parents and name='${METADATA_FILE_NAME}' and trashed=false`;
-        const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id)' });
-        if (res.result.files.length > 0) metadataFileId = res.result.files[0].id;
-    }
-
-    async function loadDataFromDrive() {
-        if (!confirm('Esto reemplazará los datos locales con la versión de Google Drive. ¿Continuar?')) return;
-        updateDriveStatus('Buscando respaldo en Drive...', false);
-        try {
-            await findOrCreateFolder(); await findOrCreateMetadataFile();
-            if (!metadataFileId) return updateDriveStatus('⚠️ No se encontró un archivo de respaldo en Drive.', false);
-            const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
-            const importedArticles = JSON.parse(response.body);
-            if (Array.isArray(importedArticles)) {
-                handleDataLoadedFromDrive(importedArticles); // Llama a la función para actualizar la UI
-                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
-            } else { throw new Error('El archivo de respaldo no tiene el formato correcto.'); }
-        } catch (err) {
-            console.error("Error cargando desde Drive:", err);
-            updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false);
-        }
-    }
-
+    initializeApp();
 });
+
+// ########## LÓGICA DE GOOGLE DRIVE - AHORA ES GLOBAL ##########
+// Esta sección se ha movido fuera del `DOMContentLoaded` para ser accesible globalmente.
+
+// Variable global para que la lógica de Drive acceda a los datos
+let driveArticles = [];
+
+// =================================================================================
+// GOOGLE DRIVE INTEGRATION
+// =================================================================================
+const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // USA TU PROPIO CLIENT_ID
+const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // USA TU PROPIA API_KEY
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
+const METADATA_FILE_NAME = 'backup_articulos.json';
+
+let tokenClient, gapiInited = false, gisInited = false;
+let driveFolderId = null, metadataFileId = null;
+
+// La referencia al elemento del DOM se puede obtener aquí, ya que el script se carga al final del body
+const driveStatusEl = document.getElementById('driveStatus');
+
+function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+
+function maybeEnableButtons() {
+    if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
+}
+
+function updateDriveStatus(message, isSuccess) {
+    driveStatusEl.style.display = 'block';
+    driveStatusEl.textContent = message;
+    driveStatusEl.className = 'data-status';
+    if (isSuccess === true) driveStatusEl.classList.add('status-success');
+    else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
+    if (isSuccess !== false) setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000);
+}
+
+function handleAuthClick() {
+    tokenClient.callback = async (resp) => {
+        if (resp.error) { console.error('Auth Error:', resp); return updateDriveStatus('❌ Error de autenticación.', false); }
+        gapi.client.setToken({ access_token: resp.access_token });
+        updateDriveStatus('✅ Conectado a Google Drive.', true);
+        document.getElementById('connectDriveBtn').style.display = 'none';
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
+        document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+    };
+    if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'});
+    else tokenClient.requestAccessToken({prompt: ''});
+}
+
+async function findOrCreateFolder() {
+    const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
+    const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+    if (response.result.files.length > 0) {
+        driveFolderId = response.result.files[0].id;
+    } else {
+        const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
+        const folder = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
+        driveFolderId = folder.result.id;
+    }
+}
+
+async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+    const boundary = '-------314159265358979323846';
+    const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
+    const base64Content = btoa(unescape(encodeURIComponent(content)));
+    const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+        `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}\r\n--${boundary}--`;
+    const request = await gapi.client.request({
+        path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+        method: fileIdToUpdate ? 'PATCH' : 'POST', params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: requestBody
+    });
+    return request.result;
+}
+
+async function saveDataToDrive() {
+    updateDriveStatus('Iniciando guardado en Drive...', false);
+    try {
+        await findOrCreateFolder();
+        if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
+        
+        // Usamos la variable 'driveArticles' que se actualiza desde la lógica principal
+        const articlesData = JSON.stringify(window.driveArticles, null, 2); 
+
+        await findOrCreateMetadataFile();
+        await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
+        updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
+    } catch (err) {
+        console.error("Error guardando en Drive:", err);
+        updateDriveStatus(`❌ Error al guardar: ${err.message}`, false);
+    }
+}
+
+async function findOrCreateMetadataFile() {
+    if (metadataFileId) return;
+    const q = `'${driveFolderId}' in parents and name='${METADATA_FILE_NAME}' and trashed=false`;
+    const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id)' });
+    if (res.result.files.length > 0) metadataFileId = res.result.files[0].id;
+}
+
+async function loadDataFromDrive() {
+    if (!confirm('Esto reemplazará los datos locales con la versión de Google Drive. ¿Continuar?')) return;
+    updateDriveStatus('Buscando respaldo en Drive...', false);
+    try {
+        await findOrCreateFolder(); await findOrCreateMetadataFile();
+        if (!metadataFileId) return updateDriveStatus('⚠️ No se encontró un archivo de respaldo en Drive.', false);
+        const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
+        const importedArticles = JSON.parse(response.body);
+        if (Array.isArray(importedArticles)) {
+            // ##### CORRECCIÓN #####: Llamamos a la función global que expusimos antes
+            window.handleDataLoadedFromDrive(importedArticles); 
+            updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+        } else { throw new Error('El archivo de respaldo no tiene el formato correcto.'); }
+    } catch (err) {
+        console.error("Error cargando desde Drive:", err);
+        updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false);
+    }
+}
 </script>
+
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 
