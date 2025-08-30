@@ -6,32 +6,20 @@
     <title>Gestor de Códigos y Leyes - Estudio Jurídico</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* --- CAMBIO: Paleta de colores renovada --- */
         :root {
-            --primary-color: #005f73;
-            --secondary-color: #0a9396;
-            --accent-color: #94d2bd;
-            --action-color: #d9534f; /* Color de acción para botones importantes */
-            --gradient-start: #f4f7f6; /* Gradiente de fondo más suave */
-            --gradient-end: #e8f1f2;
-            --light-gray: #fdfdfd;
-            --border-color: #dee2e6;
-            --success-bg: #d1e7dd;
-            --success-color: #0f5132;
-            --warning-bg: #fff3cd;
-            --warning-color: #664d03;
+            --primary-color: #005f73; --secondary-color: #0a9396; --accent-color: #94d2bd;
+            --action-color: #d9534f; --gradient-start: #f4f7f6; --gradient-end: #e8f1f2;
+            --light-gray: #fdfdfd; --border-color: #dee2e6; --success-bg: #d1e7dd;
+            --success-color: #0f5132; --warning-bg: #fff3cd; --warning-color: #664d03;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 10px;
-            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-            min-height: 100vh;
-            color: #333;
+            margin: 0; padding: 10px; background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            min-height: 100vh; color: #333;
         }
         .container {
-            max-width: 1300px; margin: 0 auto; background-color: white;
-            padding: 20px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 1300px; margin: 0 auto; background-color: white; padding: 20px;
+            border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { color: var(--primary-color); margin-bottom: 5px; font-size: 2.2em; }
@@ -50,7 +38,7 @@
         }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         .btn-default { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); }
-        .btn-action { background: linear-gradient(135deg, #e74c3c, var(--action-color)); } /* CAMBIO: Botón de agregar con color de acción */
+        .btn-action { background: linear-gradient(135deg, #e74c3c, var(--action-color)); }
         .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
         .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
         .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
@@ -77,36 +65,42 @@
         .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 1000px; background: white; }
         th { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 12px 8px; text-align: left; border: 1px solid var(--primary-color); font-weight: bold; }
-        td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: top; }
+        td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: middle; } /* Alineación vertical centrada */
         tbody tr:nth-child(even) { background-color: #f9f9f9; }
         tbody tr:hover { background-color: #e8f7f7; }
 
-        /* --- CAMBIO: Estilo de botones para ver/ocultar contenido --- */
         .toggle-link {
             cursor: pointer; color: white; background-color: var(--secondary-color);
             padding: 6px 10px; border-radius: 4px; font-weight: bold; display: inline-block;
-            margin-top: 8px; text-align: center; transition: background-color 0.3s, transform 0.2s;
+            margin-top: 5px; margin-bottom: 5px; text-align: center; transition: background-color 0.3s, transform 0.2s;
             border: none;
         }
         .toggle-link:hover { background-color: var(--primary-color); transform: translateY(-1px); }
-
-        /* --- CAMBIO: Contenedor de texto con ajuste automático --- */
-        .content-container { 
-            background-color: var(--light-gray); padding: 15px; margin-top: 10px; border-radius: 5px; 
-            white-space: pre-wrap; /* Mantiene saltos de línea pero ajusta el texto */
-            word-break: break-word; /* Rompe palabras largas si es necesario */
-            font-size: 0.9em; border-left: 3px solid var(--primary-color); 
-        }
-
-        .hidden { display: none; }
         .actions-cell { text-align: center; }
 
+        /* --- Estilos para la ventana Modal --- */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px); align-items: center; justify-content: center; }
-        .modal-content { background-color: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+        .modal-content { background-color: white; padding: 25px; border-radius: 8px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
         .modal-header h3 { margin: 0; color: var(--primary-color); font-size: 1.5em; }
         .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: #000; }
+        
+        /* Modal de edición */
+        #articleModal .modal-content { max-width: 700px; }
+        
+        /* --- NUEVO: Estilos para el modal de visualización de texto --- */
+        #textViewModal .modal-content { max-width: 900px; }
+        .text-view-body {
+            white-space: pre-wrap;     /* Mantiene saltos de línea pero ajusta el texto */
+            word-break: break-word;    /* Rompe palabras largas si es necesario */
+            font-size: 1.1em;          /* Texto más grande para facilitar la lectura */
+            line-height: 1.6;          /* Espaciado de línea generoso */
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
         .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
@@ -121,48 +115,28 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Gestor de Códigos y Leyes</h1>
-            <h2>Estudio Jurídico Dra. Camila Florencia Rodríguez García</h2>
-        </div>
-        
+        <div class="header"><h1>Gestor de Códigos y Leyes</h1><h2>Estudio Jurídico Dra. Camila Florencia Rodríguez García</h2></div>
         <div class="centered-controls bottom-border">
             <button class="btn btn-info" id="exportJsonBtn">Exportar (JSON)</button>
             <button class="btn btn-warning" id="importJsonBtn">Importar (JSON)</button>
             <button class="btn btn-excel" id="exportExcelBtn">Exportar a Excel</button>
         </div>
-
         <div class="centered-controls">
             <button id="connectDriveBtn" class="btn btn-default">🔗 Conectar a Google Drive</button>
             <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
             <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
         </div>
-        <input type="file" id="jsonFileInput" accept=".json">
-        <div id="driveStatus" class="data-status"></div>
-
-        <div class="controls">
-            <button class="btn btn-action" id="addArticleBtn">➕ Agregar Artículo</button>
-        </div>
-
-        <div class="search-container">
-            <input type="text" id="searchInput" class="search-input" placeholder="Buscar por cualquier palabra...">
-        </div>
-        
-        <div class="filter-container">
-            <label for="keywordFilter">Filtrar por Palabra Clave:</label>
-            <select id="keywordFilter"></select>
-        </div>
-        
+        <input type="file" id="jsonFileInput" accept=".json"><div id="driveStatus" class="data-status"></div>
+        <div class="controls"><button class="btn btn-action" id="addArticleBtn">➕ Agregar Artículo</button></div>
+        <div class="search-container"><input type="text" id="searchInput" class="search-input" placeholder="Buscar por cualquier palabra..."></div>
+        <div class="filter-container"><label for="keywordFilter">Filtrar por Palabra Clave:</label><select id="keywordFilter"></select></div>
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 20%;">Ley / Código / Convenciones y Otros</th>
-                        <th style="width: 15%;">Artículo</th>
-                        <th style="width: 20%;">Título</th>
-                        <th style="width: 15%;">Palabra Clave</th>
-                        <th style="width: 20%;">Contenido</th>
-                        <th style="width: 10%; text-align: center;">Acciones</th>
+                        <th style="width: 20%;">Ley / Código / Convenciones y Otros</th><th style="width: 15%;">Artículo</th>
+                        <th style="width: 20%;">Título</th><th style="width: 15%;">Palabra Clave</th>
+                        <th style="width: 20%;">Contenido</th><th style="width: 10%; text-align: center;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="articlesTableBody"></tbody>
@@ -172,16 +146,13 @@
 
     <div id="articleModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Agregar Artículo</h3>
-                <span class="close">&times;</span>
-            </div>
+            <div class="modal-header"><h3 id="modalTitle">Agregar Artículo</h3><span class="close" id="closeArticleModal">&times;</span></div>
             <form id="articleForm">
                 <input type="hidden" id="articleId">
                 <div class="form-group"><label for="ley">Ley / Código / Convenciones y Otros</label><input type="text" id="ley" required></div>
                 <div class="form-group"><label for="articulo">Número del Artículo</label><input type="text" id="articulo" required></div>
                 <div class="form-group"><label for="titulo">Título del Artículo</label><input type="text" id="titulo" required></div>
-                <div class="form-group"><label for="palabraClave">Palabra Clave (ej: Cuidado Personal)</label><input type="text" id="palabraClave" required></div>
+                <div class="form-group"><label for="palabraClave">Palabra Clave</label><input type="text" id="palabraClave" required></div>
                 <div class="form-group"><label for="resumen">Resumen</label><textarea id="resumen" rows="5" required></textarea></div>
                 <div class="form-group"><label for="texto">Texto Completo del Artículo</label><textarea id="texto" rows="8" required></textarea></div>
                 <div class="modal-buttons">
@@ -191,15 +162,31 @@
             </form>
         </div>
     </div>
+    
+    <div id="textViewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="textViewTitle"></h3>
+                <span class="close" id="closeTextViewModal">&times;</span>
+            </div>
+            <div id="textViewBody" class="text-view-body"></div>
+        </div>
+    </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Referencias a elementos del DOM
     const articlesTableBody = document.getElementById('articlesTableBody');
     const searchInput = document.getElementById('searchInput');
     const keywordFilter = document.getElementById('keywordFilter');
-    const modal = document.getElementById('articleModal');
+    const articleModal = document.getElementById('articleModal');
     const articleForm = document.getElementById('articleForm');
     
+    // NUEVO: Referencias al modal de visualización de texto
+    const textViewModal = document.getElementById('textViewModal');
+    const textViewTitle = document.getElementById('textViewTitle');
+    const textViewBody = document.getElementById('textViewBody');
+
     let articles = [];
     let editIndex = null;
 
@@ -211,9 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadArticles() {
         const stored = localStorage.getItem('estudioJuridicoPersonal');
         articles = stored ? JSON.parse(stored) : getSampleData();
-        saveArticles(); 
-        populateKeywordFilter();
-        filterAndRender();
+        saveArticles(); populateKeywordFilter(); filterAndRender();
     }
     function saveArticles() {
         localStorage.setItem('estudioJuridicoPersonal', JSON.stringify(articles));
@@ -229,23 +214,21 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(article => {
             const originalIndex = articles.findIndex(a => a.id === article.id);
             const row = document.createElement('tr');
-            // --- CAMBIO: Se elimina la etiqueta <pre> para permitir el ajuste de texto ---
+            // CAMBIO: La celda de contenido ahora solo tiene botones que abrirán el nuevo modal.
+            // Se añade 'data-index' a los botones para saber qué artículo mostrar.
             row.innerHTML = `
                 <td>${article.ley}</td>
                 <td>${article.articulo}</td>
                 <td>${article.titulo}</td>
                 <td><span style="background-color: #ecf0f1; color: #34495e; padding: 3px 6px; border-radius: 4px; font-weight: bold;">${article.palabraClave}</span></td>
                 <td>
-                    <button class="toggle-link" data-type="resumen">Ver Resumen</button>
-                    <div class="content-container resumen-content hidden">${article.resumen}</div>
-                    <button class="toggle-link" data-type="texto">Ver Artículo Completo</button>
-                    <div class="content-container texto-content hidden">${article.texto}</div>
+                    <button class="toggle-link" data-type="resumen" data-index="${originalIndex}">Ver Resumen</button>
+                    <button class="toggle-link" data-type="texto" data-index="${originalIndex}">Ver Artículo Completo</button>
                 </td>
                 <td class="actions-cell">
                     <button class="action-btn edit-btn" title="Editar" data-index="${originalIndex}">✏️</button>
                     <button class="action-btn delete-btn" title="Eliminar" data-index="${originalIndex}">🗑️</button>
-                </td>
-            `;
+                </td>`;
             articlesTableBody.appendChild(row);
         });
     }
@@ -265,27 +248,35 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         renderTable(filtered);
     }
-
-    function openModal(index = null) {
-        articleForm.reset();
-        editIndex = index;
+    
+    // --- Lógica de Modales ---
+    function openEditModal(index = null) {
+        articleForm.reset(); editIndex = index;
         document.getElementById('modalTitle').textContent = index !== null ? 'Editar Artículo' : 'Agregar Nuevo Artículo';
         if (index !== null) {
             const art = articles[index];
+            Object.keys(art).forEach(key => {
+                const el = document.getElementById(key);
+                if (el) el.value = art[key];
+            });
             document.getElementById('articleId').value = art.id;
-            document.getElementById('ley').value = art.ley;
-            document.getElementById('articulo').value = art.articulo;
-            document.getElementById('titulo').value = art.titulo;
-            document.getElementById('palabraClave').value = art.palabraClave;
-            document.getElementById('resumen').value = art.resumen;
-            document.getElementById('texto').value = art.texto;
         } else {
             document.getElementById('articleId').value = '';
         }
-        modal.style.display = 'flex';
+        articleModal.style.display = 'flex';
     }
-    function closeModal() { modal.style.display = 'none'; }
+    function closeEditModal() { articleModal.style.display = 'none'; }
     
+    // NUEVO: Funciones para abrir y cerrar el modal de visualización de texto
+    function openTextViewModal(index, type) {
+        const article = articles[index];
+        const titlePrefix = type === 'resumen' ? 'Resumen de:' : 'Texto Completo de:';
+        textViewTitle.textContent = `${titlePrefix} ${article.ley} - ${article.articulo}`;
+        textViewBody.textContent = article[type];
+        textViewModal.style.display = 'flex';
+    }
+    function closeTextViewModal() { textViewModal.style.display = 'none'; }
+
     function handleFormSubmit(e) {
         e.preventDefault();
         const data = {
@@ -298,14 +289,14 @@ document.addEventListener('DOMContentLoaded', () => {
             texto: document.getElementById('texto').value
         };
         if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { 
-            alert('Ley, Artículo, Título y Palabra Clave son obligatorios.'); 
-            return; 
+            alert('Todos los campos son obligatorios.'); return; 
         }
         if (editIndex !== null) { articles[editIndex] = data; } 
         else { articles.push(data); }
-        saveArticles(); populateKeywordFilter(); filterAndRender(); closeModal();
+        saveArticles(); populateKeywordFilter(); filterAndRender(); closeEditModal();
     }
     
+    // --- Lógica de Import/Export (sin cambios) ---
     function exportData(type) {
         if (type === 'json') {
             const dataStr = JSON.stringify(articles, null, 2);
@@ -321,7 +312,6 @@ document.addEventListener('DOMContentLoaded', () => {
             XLSX.writeFile(workbook, 'export_articulos_legales.xlsx');
         }
     }
-
     function importFromJson() {
         const input = document.getElementById('jsonFileInput');
         input.onchange = e => {
@@ -345,46 +335,41 @@ document.addEventListener('DOMContentLoaded', () => {
         input.click();
     }
 
+    // --- Lógica de Eventos ---
     function setupEventListeners() {
-        document.getElementById('addArticleBtn').addEventListener('click', () => openModal());
-        document.getElementById('cancelBtn').addEventListener('click', closeModal);
-        document.querySelector('.modal .close').addEventListener('click', closeModal);
-        window.addEventListener('click', e => { if (e.target == modal) closeModal(); });
+        document.getElementById('addArticleBtn').addEventListener('click', () => openEditModal());
+        document.getElementById('cancelBtn').addEventListener('click', closeEditModal);
+        document.getElementById('closeArticleModal').addEventListener('click', closeEditModal);
+        document.getElementById('closeTextViewModal').addEventListener('click', closeTextViewModal);
+        
+        window.addEventListener('click', e => {
+            if (e.target == articleModal) closeEditModal();
+            if (e.target == textViewModal) closeTextViewModal();
+        });
+        
         articleForm.addEventListener('submit', handleFormSubmit);
 
         articlesTableBody.addEventListener('click', e => {
-            const btn = e.target.closest('.action-btn');
-            const toggle = e.target.closest('.toggle-link');
-            if (btn) {
-                const index = parseInt(btn.dataset.index);
-                if (btn.classList.contains('edit-btn')) {
-                    openModal(index);
-                } else if (btn.classList.contains('delete-btn')) {
+            const target = e.target;
+            const actionBtn = target.closest('.action-btn');
+            const toggleBtn = target.closest('.toggle-link');
+
+            if (actionBtn) {
+                const index = parseInt(actionBtn.dataset.index);
+                if (actionBtn.classList.contains('edit-btn')) {
+                    openEditModal(index);
+                } else if (actionBtn.classList.contains('delete-btn')) {
                     if (confirm('¿Seguro que desea eliminar este artículo?')) {
                         articles.splice(index, 1);
                         saveArticles(); populateKeywordFilter(); filterAndRender();
                     }
                 }
             } 
-            // --- CAMBIO: Nueva lógica de "acordeón" para mostrar/ocultar ---
-            else if (toggle) {
-                const contentToShow = toggle.nextElementSibling;
-                const isCurrentlyHidden = contentToShow.classList.contains('hidden');
-                
-                // 1. Ocultar todos los contenidos abiertos
-                document.querySelectorAll('.content-container:not(.hidden)').forEach(openContent => {
-                    openContent.classList.add('hidden');
-                    const correspondingToggle = openContent.previousElementSibling;
-                    const typeText = correspondingToggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
-                    correspondingToggle.textContent = `Ver ${typeText}`;
-                });
-
-                // 2. Si el que clickeamos estaba oculto, lo mostramos
-                if (isCurrentlyHidden) {
-                    contentToShow.classList.remove('hidden');
-                    const typeText = toggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
-                    toggle.textContent = `Ocultar ${typeText}`;
-                }
+            // CAMBIO: La lógica ahora abre el modal de visualización
+            else if (toggleBtn) {
+                const index = parseInt(toggleBtn.dataset.index);
+                const type = toggleBtn.dataset.type;
+                openTextViewModal(index, type);
             }
         });
 
@@ -409,18 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     window.handleDataLoadedFromDrive = handleDataLoadedFromDrive;
-    
     initializeApp();
 });
 
 // ########## LÓGICA DE GOOGLE DRIVE ##########
-let driveArticles = [];
-const CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE'; // IMPORTANTE: Reemplaza con tu Client ID
-const API_KEY = 'TU_API_KEY_DE_GOOGLE'; // IMPORTANTE: Reemplaza con tu API Key
+// CORRECCIÓN: Se restauraron las credenciales originales para que la conexión funcione.
+const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
 const METADATA_FILE_NAME = 'backup_articulos.json';
+
+let driveArticles = [];
 let tokenClient, gapiInited = false, gisInited = false;
 let driveFolderId = null, metadataFileId = null;
 const driveStatusEl = document.getElementById('driveStatus');
@@ -430,8 +416,7 @@ async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
 function maybeEnableButtons() { if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; } }
 function updateDriveStatus(message, isSuccess) {
-    driveStatusEl.style.display = 'block';
-    driveStatusEl.textContent = message;
+    driveStatusEl.style.display = 'block'; driveStatusEl.textContent = message;
     driveStatusEl.className = 'data-status';
     if (isSuccess === true) driveStatusEl.classList.add('status-success');
     else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
@@ -456,8 +441,7 @@ async function findOrCreateFolder() {
     const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
     if (response.result.files.length > 0) { driveFolderId = response.result.files[0].id; } 
     else {
-        const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
-        const folder = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
+        const folder = await gapi.client.drive.files.create({ resource: { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }, fields: 'id' });
         driveFolderId = folder.result.id;
     }
 }
@@ -477,8 +461,7 @@ async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpda
 async function saveDataToDrive() {
     updateDriveStatus('Iniciando guardado en Drive...', false);
     try {
-        await findOrCreateFolder();
-        if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
+        await findOrCreateFolder(); if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
         const articlesData = JSON.stringify(window.driveArticles, null, 2); 
         await findOrCreateMetadataFile();
         await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
@@ -506,9 +489,7 @@ async function loadDataFromDrive() {
     } catch (err) { console.error("Error cargando desde Drive:", err); updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false); }
 }
 </script>
-
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
 </body>
 </html>
