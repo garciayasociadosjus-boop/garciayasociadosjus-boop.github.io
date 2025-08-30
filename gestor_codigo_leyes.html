@@ -6,13 +6,15 @@
     <title>Gestor de Códigos y Leyes - Estudio Jurídico</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
+        /* --- CAMBIO: Paleta de colores renovada --- */
         :root {
-            --primary-color: #005f73; /* Azul verdoso oscuro */
-            --secondary-color: #0a9396; /* Cian oscuro */
-            --accent-color: #94d2bd; /* Verde agua claro */
-            --gradient-start: #2c3e50;
-            --gradient-end: #34495e;
-            --light-gray: #f8f9fa;
+            --primary-color: #005f73;
+            --secondary-color: #0a9396;
+            --accent-color: #94d2bd;
+            --action-color: #d9534f; /* Color de acción para botones importantes */
+            --gradient-start: #f4f7f6; /* Gradiente de fondo más suave */
+            --gradient-end: #e8f1f2;
+            --light-gray: #fdfdfd;
             --border-color: #dee2e6;
             --success-bg: #d1e7dd;
             --success-color: #0f5132;
@@ -20,46 +22,35 @@
             --warning-color: #664d03;
         }
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
             padding: 10px;
             background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
             min-height: 100vh;
+            color: #333;
         }
         .container {
-            max-width: 1300px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 1300px; margin: 0 auto; background-color: white;
+            padding: 20px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { color: var(--primary-color); margin-bottom: 5px; font-size: 2.2em; }
         .header h2 { color: #555; margin-top: 0; font-size: 1.2em; font-weight: normal; }
         
         .controls, .centered-controls { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 10px; 
-            margin: 20px 0; 
-            align-items: center;
+            display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; align-items: center;
         }
-        .centered-controls {
-            justify-content: center;
-            padding: 15px 0;
-            border-top: 1px solid #eee;
-        }
-        .bottom-border {
-             border-bottom: 1px solid #eee;
-        }
+        .centered-controls { justify-content: center; padding: 15px 0; border-top: 1px solid #eee; }
+        .bottom-border { border-bottom: 1px solid #eee; }
+
         .btn {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white; padding: 12px 18px; border: none; border-radius: 5px;
-            cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s;
-            text-decoration: none; display: inline-block;
+            color: white; padding: 12px 18px; border: none; border-radius: 5px; cursor: pointer;
+            font-size: 14px; font-weight: bold; transition: all 0.3s; text-decoration: none;
+            display: inline-block;
         }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 95, 115, 0.3); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .btn-default { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); }
+        .btn-action { background: linear-gradient(135deg, #e74c3c, var(--action-color)); } /* CAMBIO: Botón de agregar con color de acción */
         .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
         .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
         .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
@@ -73,9 +64,8 @@
 
         .search-container { margin: 25px 0; position: relative; }
         .search-input {
-            width: 100%; padding: 15px 20px 15px 45px; font-size: 1.1em;
-            border: 2px solid var(--border-color); border-radius: 30px;
-            box-sizing: border-box; transition: border-color 0.3s, box-shadow 0.3s;
+            width: 100%; padding: 15px 20px 15px 45px; font-size: 1.1em; border: 2px solid var(--border-color);
+            border-radius: 30px; box-sizing: border-box; transition: border-color 0.3s, box-shadow 0.3s;
         }
         .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 8px rgba(0, 95, 115, 0.3); }
         .search-container::before { content: '🔍'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 1.2em; color: #999; }
@@ -84,35 +74,35 @@
         .filter-container label { font-weight: bold; color: #333; }
         .filter-container select { padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: #fff; min-width: 200px; }
         
-        .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 1000px; background: white; }
         th { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 12px 8px; text-align: left; border: 1px solid var(--primary-color); font-weight: bold; }
         td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: top; }
         tbody tr:nth-child(even) { background-color: #f9f9f9; }
         tbody tr:hover { background-color: #e8f7f7; }
 
-        .toggle-link { cursor: pointer; color: var(--primary-color); font-weight: bold; display: block; margin-top: 8px; }
-        .content-container { background-color: var(--light-gray); padding: 15px; margin-top: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-word; font-size: 0.9em; border-left: 3px solid var(--primary-color); }
+        /* --- CAMBIO: Estilo de botones para ver/ocultar contenido --- */
+        .toggle-link {
+            cursor: pointer; color: white; background-color: var(--secondary-color);
+            padding: 6px 10px; border-radius: 4px; font-weight: bold; display: inline-block;
+            margin-top: 8px; text-align: center; transition: background-color 0.3s, transform 0.2s;
+            border: none;
+        }
+        .toggle-link:hover { background-color: var(--primary-color); transform: translateY(-1px); }
+
+        /* --- CAMBIO: Contenedor de texto con ajuste automático --- */
+        .content-container { 
+            background-color: var(--light-gray); padding: 15px; margin-top: 10px; border-radius: 5px; 
+            white-space: pre-wrap; /* Mantiene saltos de línea pero ajusta el texto */
+            word-break: break-word; /* Rompe palabras largas si es necesario */
+            font-size: 0.9em; border-left: 3px solid var(--primary-color); 
+        }
+
         .hidden { display: none; }
         .actions-cell { text-align: center; }
 
-        /* --- Modal y Barra de Estado --- */
-        .modal {
-            display: none;
-            position: fixed; z-index: 1000; left: 0; top: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: white; padding: 25px; border-radius: 8px;
-            width: 90%; max-width: 700px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            max-height: 90vh;
-            overflow-y: auto;
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px); align-items: center; justify-content: center; }
+        .modal-content { background-color: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
         .modal-header h3 { margin: 0; color: var(--primary-color); font-size: 1.5em; }
         .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
@@ -133,7 +123,7 @@
     <div class="container">
         <div class="header">
             <h1>Gestor de Códigos y Leyes</h1>
-            <h2>Estudio Jurídico García & Asociados</h2>
+            <h2>Estudio Jurídico Dra. Camila Florencia Rodríguez García</h2>
         </div>
         
         <div class="centered-controls bottom-border">
@@ -143,7 +133,7 @@
         </div>
 
         <div class="centered-controls">
-            <button id="connectDriveBtn" class="btn">🔗 Conectar a Google Drive</button>
+            <button id="connectDriveBtn" class="btn btn-default">🔗 Conectar a Google Drive</button>
             <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
             <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
         </div>
@@ -151,7 +141,7 @@
         <div id="driveStatus" class="data-status"></div>
 
         <div class="controls">
-            <button class="btn" id="addArticleBtn">➕ Agregar Artículo</button>
+            <button class="btn btn-action" id="addArticleBtn">➕ Agregar Artículo</button>
         </div>
 
         <div class="search-container">
@@ -167,7 +157,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 20%;">Ley / Código</th>
+                        <th style="width: 20%;">Ley / Código / Convenciones y Otros</th>
                         <th style="width: 15%;">Artículo</th>
                         <th style="width: 20%;">Título</th>
                         <th style="width: 15%;">Palabra Clave</th>
@@ -188,7 +178,7 @@
             </div>
             <form id="articleForm">
                 <input type="hidden" id="articleId">
-                <div class="form-group"><label for="ley">Ley / Código</label><input type="text" id="ley" required></div>
+                <div class="form-group"><label for="ley">Ley / Código / Convenciones y Otros</label><input type="text" id="ley" required></div>
                 <div class="form-group"><label for="articulo">Número del Artículo</label><input type="text" id="articulo" required></div>
                 <div class="form-group"><label for="titulo">Título del Artículo</label><input type="text" id="titulo" required></div>
                 <div class="form-group"><label for="palabraClave">Palabra Clave (ej: Cuidado Personal)</label><input type="text" id="palabraClave" required></div>
@@ -196,47 +186,40 @@
                 <div class="form-group"><label for="texto">Texto Completo del Artículo</label><textarea id="texto" rows="8" required></textarea></div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
-                    <button type="submit" class="btn" id="saveBtn">Guardar</button>
+                    <button type="submit" class="btn btn-default" id="saveBtn">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 
 <script>
-// ########## LÓGICA PRINCIPAL DE LA APLICACIÓN ##########
 document.addEventListener('DOMContentLoaded', () => {
-    // Referencias a elementos del DOM
     const articlesTableBody = document.getElementById('articlesTableBody');
     const searchInput = document.getElementById('searchInput');
     const keywordFilter = document.getElementById('keywordFilter');
     const modal = document.getElementById('articleModal');
     const articleForm = document.getElementById('articleForm');
     
-    // El estado de la aplicación
     let articles = [];
     let editIndex = null;
 
-    // Inicializador
     function initializeApp() {
         loadArticles();
         setupEventListeners();
     }
 
-    // --- LÓGICA DE DATOS PRINCIPAL (localStorage) ---
     function loadArticles() {
-        const stored = localStorage.getItem('estudioJuridicoGarciaAsociados');
+        const stored = localStorage.getItem('estudioJuridicoPersonal');
         articles = stored ? JSON.parse(stored) : getSampleData();
         saveArticles(); 
         populateKeywordFilter();
         filterAndRender();
     }
     function saveArticles() {
-        localStorage.setItem('estudioJuridicoGarciaAsociados', JSON.stringify(articles));
-        // Actualizamos la variable global para que Drive siempre tenga la última versión
+        localStorage.setItem('estudioJuridicoPersonal', JSON.stringify(articles));
         window.driveArticles = articles;
     }
 
-    // --- RENDERIZADO Y FILTRADO ---
     function renderTable(data = articles) {
         articlesTableBody.innerHTML = '';
         if (data.length === 0) {
@@ -246,16 +229,17 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(article => {
             const originalIndex = articles.findIndex(a => a.id === article.id);
             const row = document.createElement('tr');
+            // --- CAMBIO: Se elimina la etiqueta <pre> para permitir el ajuste de texto ---
             row.innerHTML = `
                 <td>${article.ley}</td>
                 <td>${article.articulo}</td>
                 <td>${article.titulo}</td>
                 <td><span style="background-color: #ecf0f1; color: #34495e; padding: 3px 6px; border-radius: 4px; font-weight: bold;">${article.palabraClave}</span></td>
                 <td>
-                    <div class="toggle-link" data-type="resumen">Ver Resumen</div>
-                    <div class="content-container resumen-content hidden"><pre>${article.resumen}</pre></div>
-                    <div class="toggle-link" data-type="texto">Ver Artículo Completo</div>
-                    <div class="content-container texto-content hidden"><pre>${article.texto}</pre></div>
+                    <button class="toggle-link" data-type="resumen">Ver Resumen</button>
+                    <div class="content-container resumen-content hidden">${article.resumen}</div>
+                    <button class="toggle-link" data-type="texto">Ver Artículo Completo</button>
+                    <div class="content-container texto-content hidden">${article.texto}</div>
                 </td>
                 <td class="actions-cell">
                     <button class="action-btn edit-btn" title="Editar" data-index="${originalIndex}">✏️</button>
@@ -282,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable(filtered);
     }
 
-    // --- MANEJO DEL MODAL ---
     function openModal(index = null) {
         articleForm.reset();
         editIndex = index;
@@ -318,18 +301,11 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Ley, Artículo, Título y Palabra Clave son obligatorios.'); 
             return; 
         }
-        if (editIndex !== null) {
-            articles[editIndex] = data;
-        } else {
-            articles.push(data);
-        }
-        saveArticles();
-        populateKeywordFilter();
-        filterAndRender();
-        closeModal();
+        if (editIndex !== null) { articles[editIndex] = data; } 
+        else { articles.push(data); }
+        saveArticles(); populateKeywordFilter(); filterAndRender(); closeModal();
     }
     
-    // --- IMPORT/EXPORT ---
     function exportData(type) {
         if (type === 'json') {
             const dataStr = JSON.stringify(articles, null, 2);
@@ -338,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const a = document.createElement('a'); a.href = url; a.download = 'backup_articulos_legales.json';
             a.click(); URL.revokeObjectURL(url);
         } else if (type === 'excel') {
-            const sheetData = articles.map(({id, ...rest}) => rest); // Excluye el ID
+            const sheetData = articles.map(({id, ...rest}) => rest);
             const worksheet = XLSX.utils.json_to_sheet(sheetData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
@@ -360,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             saveArticles(); populateKeywordFilter(); filterAndRender();
                             alert('Artículos importados con éxito.');
                         }
-                    } else { throw new Error('Formato de archivo inválido o faltan campos requeridos (ley, articulo, titulo).'); }
+                    } else { throw new Error('Formato de archivo inválido.'); }
                 } catch (error) { alert(`Error al importar: ${error.message}`); }
             };
             reader.readAsText(file);
@@ -369,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
         input.click();
     }
 
-    // --- EVENT LISTENERS ---
     function setupEventListeners() {
         document.getElementById('addArticleBtn').addEventListener('click', () => openModal());
         document.getElementById('cancelBtn').addEventListener('click', closeModal);
@@ -387,16 +362,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (btn.classList.contains('delete-btn')) {
                     if (confirm('¿Seguro que desea eliminar este artículo?')) {
                         articles.splice(index, 1);
-                        saveArticles();
-                        populateKeywordFilter();
-                        filterAndRender();
+                        saveArticles(); populateKeywordFilter(); filterAndRender();
                     }
                 }
-            } else if (toggle) {
-                const content = toggle.nextElementSibling;
-                const isHidden = content.classList.toggle('hidden');
-                const typeText = toggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
-                toggle.textContent = isHidden ? `Ver ${typeText}` : `Ocultar ${typeText}`;
+            } 
+            // --- CAMBIO: Nueva lógica de "acordeón" para mostrar/ocultar ---
+            else if (toggle) {
+                const contentToShow = toggle.nextElementSibling;
+                const isCurrentlyHidden = contentToShow.classList.contains('hidden');
+                
+                // 1. Ocultar todos los contenidos abiertos
+                document.querySelectorAll('.content-container:not(.hidden)').forEach(openContent => {
+                    openContent.classList.add('hidden');
+                    const correspondingToggle = openContent.previousElementSibling;
+                    const typeText = correspondingToggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
+                    correspondingToggle.textContent = `Ver ${typeText}`;
+                });
+
+                // 2. Si el que clickeamos estaba oculto, lo mostramos
+                if (isCurrentlyHidden) {
+                    contentToShow.classList.remove('hidden');
+                    const typeText = toggle.dataset.type === 'resumen' ? 'Resumen' : 'Artículo Completo';
+                    toggle.textContent = `Ocultar ${typeText}`;
+                }
             }
         });
 
@@ -407,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('importJsonBtn').addEventListener('click', importFromJson);
     }
     
-    // --- DATOS DE EJEMPLO ---
     function getSampleData() {
         return [
             { id: 1, ley: 'Código Civil y Comercial', articulo: 'Art. 651', titulo: 'Reglas generales', palabraClave: 'Cuidado Personal', resumen: 'Regula el cuidado personal, priorizando el compartido indistinto.', texto: '“A pedido de uno o ambos progenitores o de oficio, el juez debe otorgar, como primera medida, el cuidado personal compartido indistinto...' },
@@ -415,54 +402,33 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
     }
     
-    // ##### CORRECCIÓN #####: Esta función ahora está dentro del DOMContentLoaded
-    // pero la expondremos al `window` para que la lógica de Drive pueda llamarla.
     function handleDataLoadedFromDrive(loadedArticles) {
         if (Array.isArray(loadedArticles)) {
-            articles = loadedArticles; // Asigna los datos cargados
-            saveArticles(); // Guarda en localStorage
-            populateKeywordFilter(); // Actualiza el filtro
-            filterAndRender(); // Renderiza la tabla
+            articles = loadedArticles;
+            saveArticles(); populateKeywordFilter(); filterAndRender();
         }
     }
-
-    // ##### CORRECCIÓN #####: Hacemos la función global
     window.handleDataLoadedFromDrive = handleDataLoadedFromDrive;
     
     initializeApp();
 });
 
-// ########## LÓGICA DE GOOGLE DRIVE - AHORA ES GLOBAL ##########
-// Esta sección se ha movido fuera del `DOMContentLoaded` para ser accesible globalmente.
-
-// Variable global para que la lógica de Drive acceda a los datos
+// ########## LÓGICA DE GOOGLE DRIVE ##########
 let driveArticles = [];
-
-// =================================================================================
-// GOOGLE DRIVE INTEGRATION
-// =================================================================================
-const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; // USA TU PROPIO CLIENT_ID
-const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // USA TU PROPIA API_KEY
+const CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE'; // IMPORTANTE: Reemplaza con tu Client ID
+const API_KEY = 'TU_API_KEY_DE_GOOGLE'; // IMPORTANTE: Reemplaza con tu API Key
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
 const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
 const METADATA_FILE_NAME = 'backup_articulos.json';
-
 let tokenClient, gapiInited = false, gisInited = false;
 let driveFolderId = null, metadataFileId = null;
-
-// La referencia al elemento del DOM se puede obtener aquí, ya que el script se carga al final del body
 const driveStatusEl = document.getElementById('driveStatus');
 
 function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
-
-function maybeEnableButtons() {
-    if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
-}
-
+function maybeEnableButtons() { if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; } }
 function updateDriveStatus(message, isSuccess) {
     driveStatusEl.style.display = 'block';
     driveStatusEl.textContent = message;
@@ -471,7 +437,6 @@ function updateDriveStatus(message, isSuccess) {
     else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
     if (isSuccess !== false) setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000);
 }
-
 function handleAuthClick() {
     tokenClient.callback = async (resp) => {
         if (resp.error) { console.error('Auth Error:', resp); return updateDriveStatus('❌ Error de autenticación.', false); }
@@ -486,19 +451,16 @@ function handleAuthClick() {
     if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'});
     else tokenClient.requestAccessToken({prompt: ''});
 }
-
 async function findOrCreateFolder() {
     const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
     const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-    if (response.result.files.length > 0) {
-        driveFolderId = response.result.files[0].id;
-    } else {
+    if (response.result.files.length > 0) { driveFolderId = response.result.files[0].id; } 
+    else {
         const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
         const folder = await gapi.client.drive.files.create({ resource: folderMetadata, fields: 'id' });
         driveFolderId = folder.result.id;
     }
 }
-
 async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
     const boundary = '-------314159265358979323846';
     const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
@@ -512,32 +474,23 @@ async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpda
     });
     return request.result;
 }
-
 async function saveDataToDrive() {
     updateDriveStatus('Iniciando guardado en Drive...', false);
     try {
         await findOrCreateFolder();
         if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
-        
-        // Usamos la variable 'driveArticles' que se actualiza desde la lógica principal
         const articlesData = JSON.stringify(window.driveArticles, null, 2); 
-
         await findOrCreateMetadataFile();
         await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
         updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
-    } catch (err) {
-        console.error("Error guardando en Drive:", err);
-        updateDriveStatus(`❌ Error al guardar: ${err.message}`, false);
-    }
+    } catch (err) { console.error("Error guardando en Drive:", err); updateDriveStatus(`❌ Error al guardar: ${err.message}`, false); }
 }
-
 async function findOrCreateMetadataFile() {
     if (metadataFileId) return;
     const q = `'${driveFolderId}' in parents and name='${METADATA_FILE_NAME}' and trashed=false`;
     const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id)' });
     if (res.result.files.length > 0) metadataFileId = res.result.files[0].id;
 }
-
 async function loadDataFromDrive() {
     if (!confirm('Esto reemplazará los datos locales con la versión de Google Drive. ¿Continuar?')) return;
     updateDriveStatus('Buscando respaldo en Drive...', false);
@@ -547,14 +500,10 @@ async function loadDataFromDrive() {
         const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
         const importedArticles = JSON.parse(response.body);
         if (Array.isArray(importedArticles)) {
-            // ##### CORRECCIÓN #####: Llamamos a la función global que expusimos antes
             window.handleDataLoadedFromDrive(importedArticles); 
             updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
         } else { throw new Error('El archivo de respaldo no tiene el formato correcto.'); }
-    } catch (err) {
-        console.error("Error cargando desde Drive:", err);
-        updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false);
-    }
+    } catch (err) { console.error("Error cargando desde Drive:", err); updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false); }
 }
 </script>
 
