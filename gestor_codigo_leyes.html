@@ -24,8 +24,8 @@
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { color: var(--primary-color); margin-bottom: 5px; font-size: 2.2em; }
         .header h2 { color: #555; margin-top: 0; font-size: 1.2em; font-weight: normal; }
-        
-        .controls, .centered-controls { 
+
+        .controls, .centered-controls {
             display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; align-items: center;
         }
         .centered-controls { justify-content: center; padding: 15px 0; border-top: 1px solid #eee; }
@@ -44,7 +44,7 @@
         .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
         .btn-excel { background: linear-gradient(135deg, #16a085, #1abc9c); }
         .btn-secondary { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
-        
+
         .action-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #555; transition: transform 0.2s, color 0.2s; padding: 5px; }
         .action-btn:hover { transform: scale(1.2); }
         .edit-btn { color: var(--secondary-color); }
@@ -57,15 +57,15 @@
         }
         .search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 8px rgba(0, 95, 115, 0.3); }
         .search-container::before { content: '🔍'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 1.2em; color: #999; }
-        
+
         .filter-container { display: flex; gap: 10px; align-items: center; }
         .filter-container label { font-weight: bold; color: #333; }
         .filter-container select { padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: #fff; min-width: 200px; }
-        
+
         .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 1000px; background: white; }
         th { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 12px 8px; text-align: left; border: 1px solid var(--primary-color); font-weight: bold; }
-        td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: middle; } /* Alineación vertical centrada */
+        td { padding: 10px 8px; border: 1px solid #ddd; vertical-align: middle; }
         tbody tr:nth-child(even) { background-color: #f9f9f9; }
         tbody tr:hover { background-color: #e8f7f7; }
 
@@ -78,7 +78,6 @@
         .toggle-link:hover { background-color: var(--primary-color); transform: translateY(-1px); }
         .actions-cell { text-align: center; }
 
-        /* --- Estilos para la ventana Modal --- */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px); align-items: center; justify-content: center; }
         .modal-content { background-color: white; padding: 25px; border-radius: 8px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
@@ -86,16 +85,14 @@
         .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: #000; }
         
-        /* Modal de edición */
         #articleModal .modal-content { max-width: 700px; }
         
-        /* --- NUEVO: Estilos para el modal de visualización de texto --- */
         #textViewModal .modal-content { max-width: 900px; }
         .text-view-body {
-            white-space: pre-wrap;     /* Mantiene saltos de línea pero ajusta el texto */
-            word-break: break-word;    /* Rompe palabras largas si es necesario */
-            font-size: 1.1em;          /* Texto más grande para facilitar la lectura */
-            line-height: 1.6;          /* Espaciado de línea generoso */
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 1.1em;
+            line-height: 1.6;
             background-color: #f8f9fa;
             padding: 20px;
             border-radius: 5px;
@@ -105,11 +102,11 @@
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
         .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        
+
         .data-status { padding: 12px; border-radius: 8px; margin: 20px 0; text-align: center; font-size: 1em; font-weight: bold; display: none; transition: all 0.3s; }
         .status-success { background-color: var(--success-bg); border: 1px solid var(--success-color); color: var(--success-color); }
         .status-warning { background-color: var(--warning-bg); border: 1px solid var(--warning-color); color: var(--warning-color); }
-        
+
         #jsonFileInput { display: none; }
     </style>
 </head>
@@ -162,7 +159,7 @@
             </form>
         </div>
     </div>
-    
+
     <div id="textViewModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -181,8 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keywordFilter = document.getElementById('keywordFilter');
     const articleModal = document.getElementById('articleModal');
     const articleForm = document.getElementById('articleForm');
-    
-    // NUEVO: Referencias al modal de visualización de texto
+
     const textViewModal = document.getElementById('textViewModal');
     const textViewTitle = document.getElementById('textViewTitle');
     const textViewBody = document.getElementById('textViewBody');
@@ -214,8 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(article => {
             const originalIndex = articles.findIndex(a => a.id === article.id);
             const row = document.createElement('tr');
-            // CAMBIO: La celda de contenido ahora solo tiene botones que abrirán el nuevo modal.
-            // Se añade 'data-index' a los botones para saber qué artículo mostrar.
             row.innerHTML = `
                 <td>${article.ley}</td>
                 <td>${article.articulo}</td>
@@ -239,17 +233,34 @@ document.addEventListener('DOMContentLoaded', () => {
         keywords.forEach(kw => { if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; });
     }
 
+    // --- FUNCIÓN DE BÚSQUEDA CORREGIDA ---
     function filterAndRender() {
-        const searchTerm = searchInput.value.toLowerCase();
+        const searchTerm = searchInput.value.toLowerCase().trim();
         const keyword = keywordFilter.value;
-        const filtered = articles.filter(art => 
-            (keyword === '' || art.palabraClave === keyword) &&
-            (searchTerm === '' || Object.values(art).some(val => String(val).toLowerCase().includes(searchTerm)))
-        );
+
+        if (!searchTerm && !keyword) {
+            renderTable(articles);
+            return;
+        }
+
+        const filtered = articles.filter(art => {
+            const keywordMatch = !keyword || art.palabraClave === keyword;
+
+            const termMatch = !searchTerm || (
+                (art.ley && art.ley.toLowerCase().includes(searchTerm)) ||
+                (art.articulo && art.articulo.toLowerCase().includes(searchTerm)) ||
+                (art.titulo && art.titulo.toLowerCase().includes(searchTerm)) ||
+                (art.palabraClave && art.palabraClave.toLowerCase().includes(searchTerm)) ||
+                (art.resumen && art.resumen.toLowerCase().includes(searchTerm)) ||
+                (art.texto && art.texto.toLowerCase().includes(searchTerm))
+            );
+
+            return keywordMatch && termMatch;
+        });
+
         renderTable(filtered);
     }
-    
-    // --- Lógica de Modales ---
+
     function openEditModal(index = null) {
         articleForm.reset(); editIndex = index;
         document.getElementById('modalTitle').textContent = index !== null ? 'Editar Artículo' : 'Agregar Nuevo Artículo';
@@ -266,8 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         articleModal.style.display = 'flex';
     }
     function closeEditModal() { articleModal.style.display = 'none'; }
-    
-    // NUEVO: Funciones para abrir y cerrar el modal de visualización de texto
+
     function openTextViewModal(index, type) {
         const article = articles[index];
         const titlePrefix = type === 'resumen' ? 'Resumen de:' : 'Texto Completo de:';
@@ -288,15 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
             resumen: document.getElementById('resumen').value,
             texto: document.getElementById('texto').value
         };
-        if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { 
-            alert('Todos los campos son obligatorios.'); return; 
+        if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) {
+            alert('Todos los campos son obligatorios.'); return;
         }
-        if (editIndex !== null) { articles[editIndex] = data; } 
+        if (editIndex !== null) { articles[editIndex] = data; }
         else { articles.push(data); }
         saveArticles(); populateKeywordFilter(); filterAndRender(); closeEditModal();
     }
-    
-    // --- Lógica de Import/Export (sin cambios) ---
+
     function exportData(type) {
         if (type === 'json') {
             const dataStr = JSON.stringify(articles, null, 2);
@@ -335,18 +344,17 @@ document.addEventListener('DOMContentLoaded', () => {
         input.click();
     }
 
-    // --- Lógica de Eventos ---
     function setupEventListeners() {
         document.getElementById('addArticleBtn').addEventListener('click', () => openEditModal());
         document.getElementById('cancelBtn').addEventListener('click', closeEditModal);
         document.getElementById('closeArticleModal').addEventListener('click', closeEditModal);
         document.getElementById('closeTextViewModal').addEventListener('click', closeTextViewModal);
-        
+
         window.addEventListener('click', e => {
             if (e.target == articleModal) closeEditModal();
             if (e.target == textViewModal) closeTextViewModal();
         });
-        
+
         articleForm.addEventListener('submit', handleFormSubmit);
 
         articlesTableBody.addEventListener('click', e => {
@@ -364,8 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         saveArticles(); populateKeywordFilter(); filterAndRender();
                     }
                 }
-            } 
-            // CAMBIO: La lógica ahora abre el modal de visualización
+            }
             else if (toggleBtn) {
                 const index = parseInt(toggleBtn.dataset.index);
                 const type = toggleBtn.dataset.type;
@@ -379,14 +386,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('exportExcelBtn').addEventListener('click', () => exportData('excel'));
         document.getElementById('importJsonBtn').addEventListener('click', importFromJson);
     }
-    
+
     function getSampleData() {
         return [
             { id: 1, ley: 'Código Civil y Comercial', articulo: 'Art. 651', titulo: 'Reglas generales', palabraClave: 'Cuidado Personal', resumen: 'Regula el cuidado personal, priorizando el compartido indistinto.', texto: '“A pedido de uno o ambos progenitores o de oficio, el juez debe otorgar, como primera medida, el cuidado personal compartido indistinto...' },
             { id: 2, ley: 'Ley 26.061', articulo: 'Art. 3', titulo: 'Interés superior', palabraClave: 'Interés Superior del Niño', resumen: 'Define el interés superior del niño y su primacía.', texto: '“A los efectos de la presente ley se entiende por interés superior de la niña, niño y adolescente la máxima satisfacción, integral y simultánea de los derechos y garantías...' }
         ];
     }
-    
+
     function handleDataLoadedFromDrive(loadedArticles) {
         if (Array.isArray(loadedArticles)) {
             articles = loadedArticles;
@@ -398,9 +405,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ########## LÓGICA DE GOOGLE DRIVE ##########
-// CORRECCIÓN: Se restauraron las credenciales originales para que la conexión funcione.
 const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
+const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
@@ -439,7 +445,7 @@ function handleAuthClick() {
 async function findOrCreateFolder() {
     const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
     const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-    if (response.result.files.length > 0) { driveFolderId = response.result.files[0].id; } 
+    if (response.result.files.length > 0) { driveFolderId = response.result.files[0].id; }
     else {
         const folder = await gapi.client.drive.files.create({ resource: { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }, fields: 'id' });
         driveFolderId = folder.result.id;
@@ -462,7 +468,7 @@ async function saveDataToDrive() {
     updateDriveStatus('Iniciando guardado en Drive...', false);
     try {
         await findOrCreateFolder(); if (!driveFolderId) throw new Error("No se pudo crear la carpeta en Drive.");
-        const articlesData = JSON.stringify(window.driveArticles, null, 2); 
+        const articlesData = JSON.stringify(window.driveArticles, null, 2);
         await findOrCreateMetadataFile();
         await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
         updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
@@ -483,7 +489,7 @@ async function loadDataFromDrive() {
         const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
         const importedArticles = JSON.parse(response.body);
         if (Array.isArray(importedArticles)) {
-            window.handleDataLoadedFromDrive(importedArticles); 
+            window.handleDataLoadedFromDrive(importedArticles);
             updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
         } else { throw new Error('El archivo de respaldo no tiene el formato correcto.'); }
     } catch (err) { console.error("Error cargando desde Drive:", err); updateDriveStatus(`❌ Error al cargar: ${err.result?.error?.message || err.message}`, false); }
