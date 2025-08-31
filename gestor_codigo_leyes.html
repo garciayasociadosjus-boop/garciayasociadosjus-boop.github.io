@@ -233,20 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
         keywords.forEach(kw => { if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; });
     }
 
-    // --- FUNCIÓN DE BÚSQUEDA CORREGIDA ---
+    // --- FUNCIÓN DE BÚSQUEDA CORREGIDA Y MEJORADA ---
     function filterAndRender() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         const keyword = keywordFilter.value;
 
-        if (!searchTerm && !keyword) {
-            renderTable(articles);
-            return;
-        }
+        let results = articles; // Empezamos con todos los artículos.
 
-        const filtered = articles.filter(art => {
-            const keywordMatch = !keyword || art.palabraClave === keyword;
-
-            const termMatch = !searchTerm || (
+        // 1. Primero, aplicamos el filtro de la búsqueda general si hay algo escrito.
+        if (searchTerm) {
+            results = results.filter(art =>
                 (art.ley && art.ley.toLowerCase().includes(searchTerm)) ||
                 (art.articulo && art.articulo.toLowerCase().includes(searchTerm)) ||
                 (art.titulo && art.titulo.toLowerCase().includes(searchTerm)) ||
@@ -254,11 +250,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 (art.resumen && art.resumen.toLowerCase().includes(searchTerm)) ||
                 (art.texto && art.texto.toLowerCase().includes(searchTerm))
             );
+        }
 
-            return keywordMatch && termMatch;
-        });
+        // 2. Luego, sobre los resultados anteriores, aplicamos el filtro de la palabra clave.
+        if (keyword) {
+            results = results.filter(art => art.palabraClave === keyword);
+        }
 
-        renderTable(filtered);
+        renderTable(results);
     }
 
     function openEditModal(index = null) {
@@ -444,7 +443,7 @@ function handleAuthClick() {
 }
 async function findOrCreateFolder() {
     const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
-    const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+    const response = await g.client.drive.files.list({ q: query, fields: 'files(id)' });
     if (response.result.files.length > 0) { driveFolderId = response.result.files[0].id; }
     else {
         const folder = await gapi.client.drive.files.create({ resource: { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }, fields: 'id' });
