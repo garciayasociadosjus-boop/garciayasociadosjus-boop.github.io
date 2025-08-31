@@ -471,7 +471,7 @@ async function saveDataToDrive() {
         await findOrCreateMetadataFile();
         await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
         updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
-    } catch (err) { console.error("Error guardando en Drive:", err); updateDriveStatus(`❌ Error al guardar: ${err.message}`, false); }
+    } catch (err) { console.error("Error guardando en Drive:", err);updateDriveStatus(`❌ Error al guardar: ${err.result?.error?.message || err.message}`, false); }
 }
 async function findOrCreateMetadataFile() {
     if (metadataFileId) return;
