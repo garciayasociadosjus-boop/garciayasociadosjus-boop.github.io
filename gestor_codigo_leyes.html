@@ -380,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- LÓGICA DE FILTROS CORREGIDA ---
     function updateKeywordFilter(sourceArticles) {
         const currentKeyword = keywordFilter.value;
         const keywords = [...new Set(sourceArticles.map(a => a.palabraClave))].sort();
@@ -388,7 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
         keywords.forEach(kw => { 
             if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; 
         });
-        // Restaurar selección si la palabra clave todavía existe en la nueva lista
         if (keywords.includes(currentKeyword)) {
             keywordFilter.value = currentKeyword;
         }
@@ -412,12 +410,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let filtered = articles;
 
-        // 1. Filtro principal y jerárquico: LEY
         if (ley) {
             filtered = articles.filter(art => art.ley === ley);
         }
 
-        // 2. Filtros secundarios (Palabra Clave y Búsqueda General) operan sobre el resultado anterior
         filtered = filtered.filter(art => 
             (keyword === '' || art.palabraClave === keyword) &&
             matchesSearch(art, searchTerms, searchMode)
@@ -425,7 +421,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         renderTable(filtered);
     }
-    // --- FIN DE LÓGICA DE FILTROS CORREGIDA ---
 
     function getSearchTerms() {
         const searchTerm = searchInput.value.trim().toLowerCase();
@@ -462,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearFilters() {
         keywordFilter.value = '';
         leyFilter.value = '';
-        updateKeywordFilter(articles); // Restaura todas las palabras clave
+        updateKeywordFilter(articles);
         filterAndRender();
     }
 
@@ -508,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const existingId = document.getElementById('articleId').value;
         const data = {
-            // --- CORRECCIÓN: ID ÚNICO MÁS ROBUSTO ---
             id: existingId ? existingId : crypto.randomUUID(),
             ley: document.getElementById('ley').value.trim(),
             articulo: document.getElementById('articulo').value.trim(),
@@ -569,7 +563,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imported = JSON.parse(event.target.result);
                     if (Array.isArray(imported)) {
                         if (confirm('Esto reemplazará todos los artículos actuales. ¿Continuar?')) {
-                            // Asignar IDs únicos si no existen en el archivo importado
                             articles = imported.map(item => ({...item, id: item.id || crypto.randomUUID()}));
                             saveArticles(); 
                             populateFilters(); 
@@ -631,7 +624,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         keywordFilter.addEventListener('change', filterAndRender);
         
-        // --- EVENTO CORREGIDO PARA FILTRO EN CASCADA ---
         leyFilter.addEventListener('change', () => {
             const selectedLey = leyFilter.value;
             const sourceForKeywords = selectedLey ? articles.filter(a => a.ley === selectedLey) : articles;
@@ -738,7 +730,6 @@ async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpda
     const boundary = '-------314159265358979323846';
     const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
     
-    // CORRECCIÓN: Se debe usar btoa(unescape(encodeURIComponent(content))) para manejar correctamente caracteres UTF-8
     const base64Content = btoa(unescape(encodeURIComponent(content)));
     
     const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}\r\n--${boundary}--`;
@@ -791,9 +782,10 @@ async function loadDataFromDrive() {
         
         const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
         
-        // --- CORRECCIÓN CLAVE PARA EL ERROR DE CARGA ---
-        const decodedBody = decodeURIComponent(escape(atob(response.body)));
-        const importedArticles = JSON.parse(decodedBody);
+        // --- CORRECCIÓN PARA EL ERROR DE CARGA ---
+        // El cuerpo de la respuesta (response.body) ya es el texto JSON decodificado.
+        // No es necesario usar atob(), lo que causaba el error con caracteres UTF-8.
+        const importedArticles = JSON.parse(response.body);
         // --- FIN DE LA CORRECCIÓN ---
         
         if (Array.isArray(importedArticles)) {
