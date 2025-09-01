@@ -267,6 +267,11 @@
             cursor: pointer;
             font-size: 0.8em;
         }
+        
+        .observation-toggle.has-observation {
+            background: var(--success-color);
+            font-weight: 600;
+        }
 
         .observation-content {
             display: none;
@@ -442,7 +447,7 @@
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DATA_FILE_NAME = 'datos_credenciales_estudio.json';
 
-        // Datos iniciales actualizados
+        // Datos iniciales (se reemplazarán por datos locales si existen)
         let domiciliosData = [
             {
                 "id": "dom_1724307332308",
@@ -484,6 +489,33 @@
         const connectDriveBtn = document.getElementById('connectDriveBtn');
         const saveToDriveBtn = document.getElementById('saveToDriveBtn');
         const loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
+
+        // --- INICIO: FUNCIONES PARA GUARDADO LOCAL ---
+        function saveDataToLocal() {
+            try {
+                const dataToSave = {
+                    domicilios: domiciliosData,
+                    claves: clavesData
+                };
+                localStorage.setItem('estudioCredencialesData', JSON.stringify(dataToSave));
+            } catch (error) {
+                console.error("Error al guardar datos en el almacenamiento local:", error);
+            }
+        }
+
+        function loadDataFromLocal() {
+            try {
+                const savedData = localStorage.getItem('estudioCredencialesData');
+                if (savedData) {
+                    const loadedData = JSON.parse(savedData);
+                    domiciliosData = loadedData.domicilios || [];
+                    clavesData = loadedData.claves || [];
+                }
+            } catch (error) {
+                console.error("Error al cargar datos del almacenamiento local:", error);
+            }
+        }
+        // --- FIN: FUNCIONES PARA GUARDADO LOCAL ---
 
         // Funciones de autenticación
         function authenticateUser(action) {
@@ -547,14 +579,16 @@
 
         function renderDomiciliosTable() {
             const tableBody = document.getElementById('domiciliosTable').querySelector('tbody');
-            tableBody.innerHTML = domiciliosData.map(item => `
+            tableBody.innerHTML = domiciliosData.map(item => {
+                const hasObservation = item.OBSERVACIONES && item.OBSERVACIONES.trim() !== '';
+                return `
                 <tr data-id="${item.id}">
                     <td class="editable-cell" contenteditable="true" data-field="DOMICILIOS_ELECTRONICOS">${item.DOMICILIOS_ELECTRONICOS}</td>
                     <td class="editable-cell link-cell" contenteditable="true" data-field="LINK">
                         ${item.LINK ? `<a href="${item.LINK}" target="_blank">${item.LINK}</a>` : item.LINK || ''}
                     </td>
                     <td class="observation-cell">
-                        <button class="observation-toggle" onclick="toggleObservation('${item.id}', 'domicilio')">📝 Obs</button>
+                        <button class="observation-toggle ${hasObservation ? 'has-observation' : ''}" onclick="toggleObservation('${item.id}', 'domicilio')">📝 Obs</button>
                         <div class="observation-content" id="obs-${item.id}">
                             <textarea class="observation-text" placeholder="Escriba sus observaciones aquí...">${item.OBSERVACIONES || ''}</textarea>
                             <div class="observation-buttons">
@@ -570,14 +604,16 @@
                         <button class="btn btn-sm btn-danger" onclick="deleteRow('${item.id}', 'domicilio')" title="Eliminar">🗑️</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
             
             addEditListeners('domicilio');
         }
         
         function renderClavesTable() {
             const tableBody = document.getElementById('clavesTable').querySelector('tbody');
-            tableBody.innerHTML = clavesData.map(item => `
+            tableBody.innerHTML = clavesData.map(item => {
+                const hasObservation = item.OBSERVACIONES && item.OBSERVACIONES.trim() !== '';
+                return `
                 <tr data-id="${item.id}">
                     <td class="editable-cell link-cell" contenteditable="true" data-field="LINK">
                         ${item.LINK ? `<a href="${item.LINK}" target="_blank">${item.LINK}</a>` : item.LINK || ''}
@@ -586,7 +622,7 @@
                     <td class="editable-cell" contenteditable="true" data-field="USUARIO">${item.USUARIO}</td>
                     <td class="editable-cell" contenteditable="true" data-field="CONTRASEÑA" style="font-family: monospace;">${item.CONTRASEÑA}</td>
                     <td class="observation-cell">
-                        <button class="observation-toggle" onclick="toggleObservation('${item.id}', 'clave')">📝 Obs</button>
+                        <button class="observation-toggle ${hasObservation ? 'has-observation' : ''}" onclick="toggleObservation('${item.id}', 'clave')">📝 Obs</button>
                         <div class="observation-content" id="obs-${item.id}">
                             <textarea class="observation-text" placeholder="Escriba sus observaciones aquí...">${item.OBSERVACIONES || ''}</textarea>
                             <div class="observation-buttons">
@@ -602,7 +638,7 @@
                         <button class="btn btn-sm btn-danger" onclick="deleteRow('${item.id}', 'clave')" title="Eliminar">🗑️</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
             
             addEditListeners('clave');
         }
@@ -656,10 +692,10 @@
             if (item) {
                 item[field] = newValue;
                 
-                // Si es un campo de link, actualizar la visualización
                 if (field === 'LINK' && newValue) {
                     cellElement.innerHTML = `<a href="${newValue}" target="_blank">${newValue}</a>`;
                 }
+                saveDataToLocal(); // Guarda en local
             }
             
             delete cellElement.dataset.originalValue;
@@ -689,8 +725,8 @@
             }
             
             renderTables();
+            saveDataToLocal(); // Guarda en local
             
-            // Enfocar en la primera celda de la nueva fila
             setTimeout(() => {
                 const tableId = type === 'domicilio' ? 'domiciliosTable' : 'clavesTable';
                 const table = document.getElementById(tableId);
@@ -703,7 +739,6 @@
         }
 
         function editRow(id, type) {
-            // La edición ahora es directa en las celdas
             const tableId = type === 'domicilio' ? 'domiciliosTable' : 'clavesTable';
             const table = document.getElementById(tableId);
             const row = table.querySelector(`tr[data-id="${id}"]`);
@@ -722,6 +757,7 @@
                     clavesData = clavesData.filter(c => c.id !== id);
                 }
                 renderTables();
+                saveDataToLocal(); // Guarda en local
             }
         }
 
@@ -730,12 +766,10 @@
             const obsContent = document.getElementById(`obs-${id}`);
             const isVisible = obsContent.classList.contains('show');
             
-            // Cerrar todas las observaciones abiertas
             document.querySelectorAll('.observation-content').forEach(obs => {
                 obs.classList.remove('show');
             });
             
-            // Abrir la observación actual si no estaba visible
             if (!isVisible) {
                 obsContent.classList.add('show');
             }
@@ -752,6 +786,8 @@
             if (item) {
                 item.OBSERVACIONES = newValue;
                 alert('Observación guardada correctamente');
+                saveDataToLocal(); // Guarda en local
+                renderTables();    // Re-renderiza para actualizar el color del botón
             }
         }
 
@@ -773,6 +809,8 @@
                     const textarea = obsContent.querySelector('.observation-text');
                     textarea.value = '';
                     alert('Observación borrada');
+                    saveDataToLocal(); // Guarda en local
+                    renderTables();    // Re-renderiza para actualizar el color del botón
                 }
             }
         }
@@ -782,7 +820,7 @@
             obsContent.classList.remove('show');
         }
 
-        // Integración con Google Drive (mantenida del original)
+        // Integración con Google Drive
         function gapiLoaded() { gapi.load('client', initializeGapiClient); }
         
         async function initializeGapiClient() { 
@@ -802,10 +840,7 @@
         }
         
         function maybeEnableButtons() { 
-            if (gapiInited && gisInited) {
-                // No asignar automáticamente el onclick, lo manejamos con la función separada
-                // que requiere autenticación
-            }
+            if (gapiInited && gisInited) {}
         }
         
         function updateDriveStatus(message, isConnected = false) { 
@@ -890,6 +925,7 @@
                 clavesData = loadedData.claves || [];
                 
                 renderTables();
+                saveDataToLocal(); // Guarda en local los datos recién cargados de Drive
                 updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
             } catch (err) { 
                 console.error(err); 
@@ -932,23 +968,20 @@
         function authenticateForImport() {
             if (!authenticateUser()) return false;
             document.getElementById('importFile').click();
-            return false; // Prevenir el comportamiento por defecto del label
+            return false;
         }
 
         function exportToExcel() {
             if (!authenticateUser()) return;
             
-            // Crear un nuevo libro de trabajo
             const wb = XLSX.utils.book_new();
             
-            // Preparar datos de domicilios para Excel
             const domiciliosForExcel = domiciliosData.map(item => ({
                 'Domicilios Electrónicos': item.DOMICILIOS_ELECTRONICOS || '',
                 'Link': item.LINK || '',
                 'Observaciones': item.OBSERVACIONES || ''
             }));
             
-            // Preparar datos de claves para Excel
             const clavesForExcel = clavesData.map(item => ({
                 'Link': item.LINK || '',
                 'Detalle': item.DETALLE || '',
@@ -957,27 +990,17 @@
                 'Observaciones': item.OBSERVACIONES || ''
             }));
             
-            // Crear hojas de trabajo
             const wsDomicilios = XLSX.utils.json_to_sheet(domiciliosForExcel);
             const wsClaves = XLSX.utils.json_to_sheet(clavesForExcel);
             
-            // Agregar las hojas al libro
             XLSX.utils.book_append_sheet(wb, wsDomicilios, "Domicilios Electrónicos");
             XLSX.utils.book_append_sheet(wb, wsClaves, "Claves y Accesos");
             
-            // Configurar el ancho de las columnas
-            const colWidths = [
-                {wch: 40}, // Domicilios/Link
-                {wch: 30}, // Link/Detalle
-                {wch: 20}, // Observaciones/Usuario
-                {wch: 20}, // Contraseña
-                {wch: 30}  // Observaciones
-            ];
+            const colWidths = [ {wch: 40}, {wch: 30}, {wch: 20}, {wch: 20}, {wch: 30} ];
             
             wsDomicilios['!cols'] = colWidths.slice(0, 3);
             wsClaves['!cols'] = colWidths;
             
-            // Generar el archivo
             const fileName = `credenciales_estudio_${new Date().toISOString().split('T')[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
         }
@@ -1004,7 +1027,6 @@
         }
 
         function importFromJSON(event) {
-            // La autenticación ya se validó en authenticateForImport()
             const file = event.target.files[0];
             if (!file) return;
             
@@ -1017,6 +1039,7 @@
                         domiciliosData = importedData.domicilios || [];
                         clavesData = importedData.claves || [];
                         renderTables();
+                        saveDataToLocal(); // Guarda en local los datos recién importados
                         alert('Datos importados correctamente');
                     }
                 } catch (error) {
@@ -1031,7 +1054,6 @@
 
         // Eventos y atajos de teclado
         document.addEventListener('keydown', function(event) {
-            // Ctrl+S para guardar
             if (event.ctrlKey && event.key === 's') {
                 event.preventDefault();
                 if (saveToDriveBtn.style.display !== 'none') {
@@ -1039,20 +1061,17 @@
                 }
             }
             
-            // Escape para cancelar edición y cerrar observaciones
             if (event.key === 'Escape') {
                 const activeElement = document.activeElement;
                 if (activeElement && activeElement.classList.contains('editable-cell')) {
                     activeElement.blur();
                 }
                 
-                // Cerrar observaciones abiertas
                 document.querySelectorAll('.observation-content.show').forEach(obs => {
                     obs.classList.remove('show');
                 });
             }
             
-            // Atajos para cambiar vistas (con autenticación)
             if (event.ctrlKey) {
                 switch(event.key) {
                     case '1':
@@ -1082,13 +1101,12 @@
 
         // Inicialización al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            renderTables();
+            loadDataFromLocal(); // Carga datos locales en las variables
+            renderTables(); // Renderiza las tablas (estarán ocultas al inicio)
             
-            // Al inicio, no mostrar ninguna tabla hasta autenticarse
             document.getElementById('domiciliosCard').classList.add('hidden');
             document.getElementById('clavesCard').classList.add('hidden');
             
-            // Mensaje inicial
             const mainContent = document.querySelector('.main-content');
             const initialMessage = document.createElement('div');
             initialMessage.id = 'initialMessage';
@@ -1106,11 +1124,9 @@
                 <p>Seleccione una opción de visualización para acceder a los datos.</p>
             `;
             
-            // Insertar mensaje después de los tabs
             const verticalLayout = document.getElementById('verticalLayout');
             verticalLayout.appendChild(initialMessage);
         });
-
     </script>
 </body>
 </html>
