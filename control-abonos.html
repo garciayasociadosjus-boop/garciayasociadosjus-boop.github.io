@@ -315,7 +315,8 @@
     let isAmountHidden = false;
     let realAmounts = { cobrado: 0, pendientes: 0, falta: 0 };
     let currentObsId = null;
-    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios'];
+    // MODIFICACIÓN: Se agrega "Pago de Aportes" a las opciones de TIPO
+    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios', 'Pago de Aportes'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -588,14 +589,13 @@
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
           if (lastRecord.estado === 'Terminado') {
-            return;
+            return; // No arrastrar clientes cuyo último estado es 'Terminado'
           }
           
-          var dateStr = ny+'-'+String(nm+1).padStart(2,'0')+'-01';
-          var observaciones = lastRecord.observaciones || '';
-          var registrosAgregados = 0;
           var mesServicioNuevo = { month: nm, year: ny };
+          var registrosAgregadosEnCliente = 0;
           
+          // Manejo de Abonos Mensuales
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
           if (abonosmensuales.length > 0) {
             var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
@@ -607,27 +607,43 @@
               var obsAbono = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
               addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: montoTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsAbono, mesServicio: mesServicioNuevo });
             } else {
-              addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observaciones, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: lastRecord.observaciones || '', mesServicio: mesServicioNuevo });
             }
-            registrosAgregados++;
+            registrosAgregadosEnCliente++;
           }
           
-          var regulaciones = clienteRecords.filter(function(r){ return r.tipo === 'Regulación Honorarios'; });
-          regulaciones.forEach(function(record) {
-            var montoRestante = 0, observacionRegulacion = '';
-            if (record.estado === 'Pago Parcial') {
-              montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
-              observacionRegulacion = 'Saldo pendiente de regulación anterior: ' + formatCurrency(montoRestante);
-            } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
-              montoRestante = parseFloat(record.monto) || 0;
-              observacionRegulacion = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestante);
+          // MODIFICACIÓN: Lógica mejorada para arrastrar TODOS los otros tipos de cargos pendientes (Regulaciones, Aportes, etc.)
+          var otrosCargos = clienteRecords.filter(function(r){ return r.tipo !== 'Abono Mensual'; });
+          
+          otrosCargos.forEach(function(record) {
+            var montoRestante = 0, observacionNueva = '';
+            var estadoOriginal = record.estado;
+
+            if (estadoOriginal === 'Pago Parcial') {
+                montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
+                observacionNueva = 'Saldo pendiente de ' + record.tipo + ' anterior: ' + formatCurrency(montoRestante);
+            } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(estadoOriginal)) {
+                montoRestante = parseFloat(record.monto) || 0;
+                observacionNueva = record.tipo + ' pendiente: ' + formatCurrency(montoRestante);
             }
+
             if (montoRestante > 0) {
-              addAbono({ cliente: cliente, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
-              registrosAgregados++;
+              addAbono({ 
+                  cliente: cliente, 
+                  tipo: record.tipo, 
+                  monto: montoRestante, 
+                  montoBase: montoRestante, 
+                  deudaAcumulada: 0, 
+                  fechaPago: '', 
+                  estado: 'Pendiente', 
+                  observaciones: observacionNueva, 
+                  mesServicio: mesServicioNuevo 
+              });
+              registrosAgregadosEnCliente++;
             }
           });
-          if (registrosAgregados > 0) { added++; }
+
+          if (registrosAgregadosEnCliente > 0) { added++; }
         }
       });
 
@@ -638,6 +654,7 @@
         alert('Todos los clientes ya existen en el próximo mes o estaban terminados.');
       }
     }
+
 
     // ====== MES ======
     function initializeMonth(){ var t=new Date(); currentMonth = { month:t.getMonth(), year:t.getFullYear() }; updateMonthDisplay(); }
@@ -674,7 +691,6 @@
       }).format(v||0).replace(/,/g, '.'); 
     }
     
-    // MODIFICACIÓN 1: El ojo oculta todos los montos del dashboard
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var toggleIcon = document.getElementById('toggleIcon');
@@ -736,9 +752,8 @@
 
       document.getElementById('totalRegistros').textContent = abonos.length;
 
-      // Actualizar vista según el estado de visibilidad
-      toggleAmountVisibility(); // Llama a la función para refrescar
-      toggleAmountVisibility(); // y la revierte para mantener el estado actual
+      toggleAmountVisibility(); 
+      toggleAmountVisibility(); 
     }
 
     function updateFilterCounts(abonos){
