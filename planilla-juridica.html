@@ -30,7 +30,8 @@
             box-shadow: var(--shadow); overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            /* === CAMBIO DE COLOR A AZUL MARINO === */
+            background: linear-gradient(135deg, #020c24 0%, #081e4b 100%);
             color: var(--light-text); padding: 30px; text-align: center;
         }
         .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
@@ -107,6 +108,15 @@
             max-width: 900px; max-height: 90vh; overflow-y: auto; animation: modalSlide 0.3s ease;
         }
         @keyframes modalSlide { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* === ESTILO PARA LA ALERTA DE VENCIMIENTOS === */
+        #vencimientoAlertModal .modal-content {
+            border-top: 10px solid var(--danger-color);
+        }
+        #vencimientoAlertModal h2 {
+            color: var(--danger-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
         .client-info { background: var(--light-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
         .client-info h4 { color: var(--dark-text); margin-bottom: 15px; font-size: 1.2em; }
         .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
@@ -120,11 +130,15 @@
         .history-item { background: var(--light-text); border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; position: relative; }
         .history-item-audience { border-left: 5px solid #8e44ad; }
         .history-item-task { border-left: 5px solid var(--secondary-color); }
-        .history-date { font-size: 0.9em; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; }
+        /* === ESTILO PARA VENCIMIENTOS === */
+        .history-item-vencimiento { border-left: 5px solid #ff6347; } /* Color Tomate */
+        .history-date { font-size: 0.9em; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; display: flex; align-items: center;}
         .history-text { color: var(--dark-text); }
         .history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-top: 5px; font-weight: 500; display: inline-block; }
         .tag-audience { background-color: #8e44ad; }
         .tag-task { background-color: var(--secondary-color); }
+        /* === ESTILO PARA VENCIMIENTOS === */
+        .tag-vencimiento { background-color: #ff6347; }
         .close { float: right; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; }
         .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
         .data-status {
@@ -214,6 +228,7 @@
     <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
     <div id="documentModal" class="modal"><div class="modal-content"></div></div>
+    <div id="vencimientoAlertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
         let clientsData = [];
@@ -259,6 +274,9 @@
                 c.id = c.id || generateId(c);
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
+                // === AÑADIR VENCIMIENTOS_LIST ===
+                c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
+
                 c.observaciones.forEach(obs => {
                     obs.id = obs.id || generateId({});
                     obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
@@ -266,6 +284,11 @@
                 c.audiencias_list.forEach(aud => {
                     aud.id = aud.id || generateId({});
                     aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
+                });
+                // === SANITIZAR VENCIMIENTOS ===
+                c.vencimientos_list.forEach(venc => {
+                    venc.id = venc.id || generateId({});
+                    venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
                 });
                 updateClientNextRevision(c);
             });
@@ -286,7 +309,7 @@
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
         
-        function generateId(item) { return `CLI_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
+        function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
 
         function updateClientNextRevision(client) {
@@ -326,6 +349,20 @@
             aud.completed = !aud.completed;
             saveData();
             renderAll();
+            showClientModal(clientId);
+        }
+
+        // === NUEVA FUNCIÓN PARA COMPLETAR VENCIMIENTOS ===
+        function toggleVencimientoCompleted(event, clientId, vencId) {
+            event.stopPropagation();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const venc = client.vencimientos_list.find(v => v.id === vencId);
+            if (!venc) return;
+            venc.completed = !venc.completed;
+            saveData();
+            renderAll();
+            showClientModal(clientId);
         }
 
         function renderAll() {
@@ -348,7 +385,14 @@
                         id: aud.id, client: client, reviewDate: aud.fecha,
                         reviewText: `AUDIENCIA: ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed
                     }));
-                return [...tasks, ...audiences];
+                // === AÑADIR VENCIMIENTOS A LA LISTA DEL DASHBOARD ===
+                const vencimientos = (client.vencimientos_list || [])
+                    .filter(venc => venc.fecha && !venc.completed)
+                    .map(venc => ({
+                        id: venc.id, client: client, reviewDate: venc.fecha,
+                        reviewText: `VENCIMIENTO: ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed
+                    }));
+                return [...tasks, ...audiences, ...vencimientos];
             });
 
             const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
@@ -369,7 +413,8 @@
                 else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
                 else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
                 
-                const toggleFunc = item.type === 'task' ? 'toggleCompleted' : 'toggleAudienceCompleted';
+                // === MANEJAR EL NUEVO TIPO 'vencimiento' ===
+                const toggleFunc = item.type === 'task' ? 'toggleCompleted' : item.type === 'audience' ? 'toggleAudienceCompleted' : 'toggleVencimientoCompleted';
                 const completedClass = item.completed ? 'completed' : '';
                 const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}(event, '${item.client.id}', '${item.id}')">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
                 
@@ -423,9 +468,10 @@
                         ${renderHistoryList(client)}
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
                     <form class="form-group" onsubmit="addObservation(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agregar Tarea</h4><div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form>
                     <form class="form-group" onsubmit="addAudience(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agendar Audiencia</h4><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Audiencia</label><input type="date" id="newAudienceDate" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form>
+                    <form class="form-group" onsubmit="addVencimiento(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agendar Vencimiento</h4><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="newVencimientoDate" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form>
                 </div>
                 <div class="action-buttons">
                     <button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Gestionar Documentos</button>
@@ -440,10 +486,12 @@
         function renderHistoryList(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
+            // === AÑADIR VENCIMIENTOS AL HISTORIAL ===
+            const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
             
-            const combinedHistory = [...tasks, ...audiences].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-            return combinedHistory.length === 0 ? '<p>No hay tareas ni audiencias registradas.</p>' : combinedHistory.map(item => {
+            return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
                 if (item.type === 'task') {
                     return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}">
                         <div class="history-date">
@@ -455,11 +503,17 @@
                         <button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button>
                     </div>`;
-                } else { // type === 'audience'
+                } else if (item.type === 'audience') {
                     return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}">
-                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div>
+                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div>
                         <div class="history-text">${item.texto}</div>
                         <button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button>
+                    </div>`;
+                } else { // === RENDERIZAR VENCIMIENTOS ===
+                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}">
+                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div>
+                        <div class="history-text">${item.texto}</div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button>
                     </div>`;
                 }
             }).join('');
@@ -481,7 +535,7 @@
             const obs = client.observaciones.find(o => o.id === obsId);
             obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value;
             obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value;
-            obs.fecha = getTodayYMD(); // ACTUALIZA LA FECHA DE TRABAJO
+            obs.fecha = getTodayYMD();
             updateClientNextRevision(client);
             saveData();
             renderAll();
@@ -502,6 +556,16 @@
             if (!confirm('¿Estás seguro de que quieres eliminar esta audiencia?')) return;
             const client = clientsData.find(c => c.id === clientId);
             client.audiencias_list = client.audiencias_list.filter(a => a.id !== audId);
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+
+        // === NUEVA FUNCIÓN PARA ELIMINAR VENCIMIENTOS ===
+        function deleteVencimiento(clientId, vencId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este vencimiento?')) return;
+            const client = clientsData.find(c => c.id === clientId);
+            client.vencimientos_list = client.vencimientos_list.filter(v => v.id !== vencId);
             saveData();
             renderAll();
             showClientModal(clientId);
@@ -543,11 +607,23 @@
             saveData(); renderAll(); showClientModal(clientId);
         }
 
+        // === NUEVA FUNCIÓN PARA AGREGAR VENCIMIENTOS ===
+        function addVencimiento(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.vencimientos_list) client.vencimientos_list = [];
+            client.vencimientos_list.push({ id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, texto: document.getElementById('newVencimientoText').value, completed: false });
+            saveData(); renderAll(); showClientModal(clientId);
+        }
+
         function exportToExcel() {
             const excelData = clientsData.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}]: ${obs.texto}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - Fecha: ${formatDate(aud.fecha)}]: ${aud.texto}`).join(' \n ');
-                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Audiencias (Campo Antiguo)': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds };
+                // === AÑADIR VENCIMIENTOS AL EXCEL ===
+                const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - Fecha: ${formatDate(venc.fecha)}]: ${venc.texto}`).join(' \n ');
+                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Audiencias (Campo Antiguo)': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
@@ -605,9 +681,12 @@
         function renderHistoryListForPrint(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
-            const combinedHistory = [...tasks, ...audiences].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            // === AÑADIR VENCIMIENTOS A LA IMPRESIÓN ===
+            const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
+            
+            const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-            return combinedHistory.length === 0 ? '<p>No hay tareas ni audiencias registradas.</p>' : combinedHistory.map(item => {
+            return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
                 if (item.type === 'task') {
                     return `<div class="history-item history-item-task ${item.completed ? 'completed' : ''}">
                         <div class="history-date">
@@ -617,13 +696,50 @@
                         </div>
                         <div class="history-text">${item.texto}</div>
                     </div>`;
-                } else {
+                } else if (item.type === 'audience'){
                     return `<div class="history-item history-item-audience">
                         <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div>
                         <div class="history-text">${item.texto}</div>
                     </div>`;
+                } else { // Vencimiento
+                    return `<div class="history-item history-item-vencimiento">
+                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div>
+                        <div class="history-text">${item.texto}</div>
+                    </div>`;
                 }
             }).join('');
+        }
+        
+        // === NUEVA FUNCIÓN PARA MOSTRAR ALERTA DE VENCIMIENTOS ===
+        function checkVencimientosDelDia() {
+            const vencimientosHoy = clientsData.flatMap(client => 
+                (client.vencimientos_list || [])
+                .filter(venc => isToday(venc.fecha) && !venc.completed)
+                .map(venc => ({ client, venc }))
+            );
+
+            if (vencimientosHoy.length > 0) {
+                const modal = document.getElementById('vencimientoAlertModal');
+                const content = `
+                    <span class="close" onclick="closeModal('vencimientoAlertModal')">&times;</span>
+                    <h2>⚠️ ¡Alerta de Vencimientos para Hoy!</h2>
+                    <div class="reviews-list" style="max-height: 60vh;">
+                        ${vencimientosHoy.map(item => `
+                            <div class="review-item today">
+                                <div class="review-item-content" onclick="showClientModal('${item.client.id}')">
+                                    <div class="review-client">${getDisplayName(item.client)}</div>
+                                    <div class="review-obs"><strong>Vencimiento:</strong> ${item.venc.texto}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div style="text-align:center; margin-top: 20px;">
+                        <button class="btn btn-warning" onclick="closeModal('vencimientoAlertModal')">Entendido</button>
+                    </div>
+                `;
+                modal.querySelector('.modal-content').innerHTML = content;
+                modal.classList.add('active');
+            }
         }
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -655,7 +771,8 @@
                     estado: document.getElementById('newEstado').value,
                     audiencias: document.getElementById('newAudiencias').value,
                     observaciones: [],
-                    audiencias_list: []
+                    audiencias_list: [],
+                    vencimientos_list: []
                 };
                 const obsText = document.getElementById('newObservacion').value;
                 const revDate = document.getElementById('newFechaRevision').value;
@@ -678,6 +795,8 @@
 
             loadData();
             renderAll();
+            // === LLAMAR A LA FUNCIÓN DE ALERTA AL CARGAR LA PÁGINA ===
+            checkVencimientosDelDia();
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
     </script>
@@ -685,6 +804,7 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
+        // === El resto del script de Google Drive permanece igual ===
         const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
