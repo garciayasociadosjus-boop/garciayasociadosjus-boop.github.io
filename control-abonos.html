@@ -25,6 +25,7 @@
     .card .value.positive{color:var(--success-color)}
     .card.warning-card{border-left-color:var(--warning-color)}
     .card.danger-card{border-left-color:var(--danger-color)}
+    .card.info-card{border-left-color:var(--info-color)}
     .value-container{display:flex;align-items:center;justify-content:space-between}
     .toggle-visibility{background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--secondary-color);transition:.3s;padding:5px;opacity:.6}
     .toggle-visibility:hover{opacity:1;transform:scale(1.1)}
@@ -151,7 +152,7 @@
 
       <div class="dashboard">
         <div class="card">
-          <h3>Total Cobrado</h3>
+          <h3>Total Cobrado (Ingresos)</h3>
           <div class="value-container">
             <div class="value positive" id="totalCobrado">$0.00</div>
             <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar montos">
@@ -159,7 +160,10 @@
             </button>
           </div>
         </div>
-        <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
+        <div class="card info-card">
+          <h3>Aportes Pagados</h3>
+          <div class="value" id="totalAportes" style="color:var(--info-color);">$0.00</div>
+        </div>
         <div class="card warning-card">
           <h3>$ Pendientes</h3>
           <div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div>
@@ -240,6 +244,15 @@
       <form id="abonoForm" class="modal-form">
         <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
+        
+        <div id="subTipoDiv" class="form-group" style="display:none; background-color: #f0f9ff; padding: 10px; border-radius: 8px;">
+          <label>Concepto de la Regulación</label>
+          <select id="subTipo">
+            <option value="Honorarios">Regulación de Honorarios</option>
+            <option value="Aportes">Pago de Aportes</option>
+          </select>
+        </div>
+
         <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><input type="text" id="formaPago"></div>
@@ -313,10 +326,10 @@
     let currentFilter = 'todos';
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0 };
+    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, aportes: 0 };
     let currentObsId = null;
-    // MODIFICACIÓN: Se agrega "Pago de Aportes" a las opciones de TIPO
-    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios', 'Pago de Aportes'];
+    // MODIFICACIÓN: Se simplifica la lista. "Pago de Aportes" se seleccionará de forma anidada.
+    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -378,6 +391,9 @@
         div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
       });
 
+      // MODIFICACIÓN: Event listener para el menú condicional
+      document.getElementById('tipo').addEventListener('change', handleTipoChange);
+
       // Modal Observaciones
       document.getElementById('obsModalClose').addEventListener('click', closeObsModal);
       document.getElementById('obsEditBtn').addEventListener('click', editObservations);
@@ -401,6 +417,13 @@
       setupModal();
       render();
     });
+    
+    // MODIFICACIÓN: Nueva función para manejar la visibilidad del sub-menú
+    function handleTipoChange() {
+        const tipoValue = document.getElementById('tipo').value;
+        const subTipoDiv = document.getElementById('subTipoDiv');
+        subTipoDiv.style.display = (tipoValue === 'Regulación Honorarios') ? 'block' : 'none';
+    }
 
     // ====== UTIL DATOS ======
     function saveData(){ localStorage.setItem('abonosData', JSON.stringify(abonosData)); }
@@ -589,13 +612,12 @@
           var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
           
           if (lastRecord.estado === 'Terminado') {
-            return; // No arrastrar clientes cuyo último estado es 'Terminado'
+            return;
           }
           
           var mesServicioNuevo = { month: nm, year: ny };
           var registrosAgregadosEnCliente = 0;
           
-          // Manejo de Abonos Mensuales
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
           if (abonosmensuales.length > 0) {
             var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
@@ -612,7 +634,6 @@
             registrosAgregadosEnCliente++;
           }
           
-          // MODIFICACIÓN: Lógica mejorada para arrastrar TODOS los otros tipos de cargos pendientes (Regulaciones, Aportes, etc.)
           var otrosCargos = clienteRecords.filter(function(r){ return r.tipo !== 'Abono Mensual'; });
           
           otrosCargos.forEach(function(record) {
@@ -694,8 +715,10 @@
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var toggleIcon = document.getElementById('toggleIcon');
+      // MODIFICACIÓN: Se agrega el nuevo panel de aportes al array para ocultarlo/mostrarlo
       var cards = [
         { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
+        { el: document.getElementById('totalAportes'),   value: realAmounts.aportes },
         { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
         { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta }
       ];
@@ -739,18 +762,25 @@
     
 
     function renderDashboard(abonos){
-      var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado' || a.estado === 'Terminado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
-      totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+      // MODIFICACIÓN: Se excluye 'Pago de Aportes' del total cobrado.
+      var totalCobrado = abonos.filter(function(a){ return a.tipo !== 'Pago de Aportes' && (a.estado==='Pagado' || a.estado === 'Terminado'); }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
+      totalCobrado += abonos.filter(function(a){ return a.tipo !== 'Pago de Aportes' && a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+      
+      // MODIFICACIÓN: Se calcula el total de aportes pagados.
+      var totalAportes = abonos.filter(function(a){ return a.tipo === 'Pago de Aportes' && (a.estado==='Pagado' || a.estado === 'Terminado'); }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
+      totalAportes += abonos.filter(function(a){ return a.tipo === 'Pago de Aportes' && a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
       realAmounts = {
         cobrado: totalCobrado,
+        aportes: totalAportes,
         pendientes: totalPendientes,
         falta: totalFaltaPago
       };
 
-      document.getElementById('totalRegistros').textContent = abonos.length;
+      document.getElementById('totalAportes').textContent = formatCurrency(totalAportes);
 
       toggleAmountVisibility(); 
       toggleAmountVisibility(); 
@@ -821,7 +851,8 @@
 
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
+          // No se puede editar en línea el tipo si es 'Regulación' o 'Aportes' por la lógica anidada
+          '<td>'+(abono.tipo||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="text">'+(abono.formaPago||'N/A')+'</td>'+
@@ -877,7 +908,9 @@
             render();
           }
         } else {
-          updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
+          var updateData = {};
+          updateData[field] = newValue;
+          updateAbono(id, updateData);
         }
       };
 
@@ -899,6 +932,7 @@
       document.getElementById('fechaPago').value = '';
       document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
+      handleTipoChange(); // Asegura que el sub-menú esté en el estado correcto al abrir
       document.getElementById('abonoModal').classList.add('active');
     }
     function closeModal(){ document.getElementById('abonoModal').classList.remove('active'); }
@@ -908,9 +942,20 @@
 
     function handleFormSubmit(e){
       e.preventDefault();
+      
+      // MODIFICACIÓN: Determinar el tipo final basado en la selección anidada
+      let tipoSeleccionado = document.getElementById('tipo').value;
+      let tipoFinal = tipoSeleccionado;
+      if (tipoSeleccionado === 'Regulación Honorarios') {
+        const subTipo = document.getElementById('subTipo').value;
+        if (subTipo === 'Aportes') {
+            tipoFinal = 'Pago de Aportes';
+        }
+      }
+
       var data = {
         cliente: document.getElementById('cliente').value,
-        tipo: document.getElementById('tipo').value,
+        tipo: tipoFinal,
         monto: parseFloat(document.getElementById('monto').value),
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
