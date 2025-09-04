@@ -6,10 +6,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
+:root {
+    --primary-color: #2980b9;
+    --secondary-color: #3498db;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --success-color: #2ecc71;
+    --light-bg: #ecf0f1;
+    --dark-text: #2c3e50;
+    --light-text: #ffffff;
+    --border-radius: 12px;
+    --shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
 .container{max-width:1400px;margin:0 auto;background:#fff;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,.1);overflow:hidden}
-.header{background:linear-gradient(135deg,#2c3e50,#3498db);color:#fff;padding:30px;text-align:center}
+.header{background:linear-gradient(135deg,#020c24 0%,#081e4b 100%);color:#fff;padding:30px;text-align:center}
 .header h1{font-size:2.4em;margin-bottom:8px}
 .main-content{padding:30px}
 .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;margin-bottom:40px}
@@ -53,21 +65,22 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .info-value{font-size:.85em;font-weight:500;color:#2c3e50;margin-top:2px;word-break:break-word}
 .editable-field{cursor:pointer;padding:2px 4px;margin:-2px -4px;}
 .editable-field:hover{background:#eef5ff;border-radius:4px}
-
-.obs-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:0.9rem}
-.obs-item .btn { font-size: 0.85rem; padding: 5px 10px; }
-
-.obs-item.completed{opacity:.6}
-.obs-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
-.obs-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
+.history-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:0.9rem}
+.history-item.completed{opacity:.6}
+.history-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
+.history-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
+.history-item-mediacion { border-left-color: #1abc9c; } /* Color para mediaciones */
+.history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-left: auto; font-weight: 500; display: inline-block; }
+.tag-task { background-color: var(--secondary-color); }
+.tag-mediacion { background-color: #1abc9c; }
 .form-section{background:#f8f9fa;padding:16px;border:1px solid #e0e0e0;border-radius:10px;margin-top:16px}
 .action-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
-.document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.8em}
+.document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.9em}
 .document-list li{background:#f1f3f5;padding:8px 10px;border-radius:6px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .document-list a{color:#3498db;text-decoration:none;font-weight:500;flex:1;word-break:break-word}
 .document-list a:hover{text-decoration:underline}
-.inline-note{font-size:.65em;opacity:.7;margin-top:4px}
-#driveDebugLog{width:100%;height:140px;font:11px monospace;background:#111;color:#0f0;border:1px solid #444;border-radius:6px;padding:6px;resize:vertical;outline:none}
+.document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media (max-width:780px){
   .reviews-list{max-height:300px}
   .action-buttons .btn{flex:1 1 100%}
@@ -118,7 +131,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
       <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
       <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
       <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
-      <div class="inline-note">Abrir este archivo como http://localhost/... (no file://)</div>
     </div>
 
     <div class="filter-bar">
@@ -133,7 +145,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
           <option value="RECHAZADO">Rechazado</option>
           <option value="SIN INICIAR">Sin iniciar</option>
           <option value="FINALIZADA">Finalizada</option>
-            <option value="FINALIZADA P">Finalizada P</option>
+          <option value="FINALIZADA P">Finalizada P</option>
           <option value="EJECUCION">Ejecución</option>
           <option value="DEMORADA">Demorada</option>
         </select>
@@ -144,46 +156,53 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
       <h3>📋 Todos los Siniestros</h3>
       <div id="allSiniestros" class="reviews-list" style="max-height:580px;"></div>
     </div>
-
-    <div style="margin-top:25px; display: none;">
-      <label style="font:11px monospace;color:#333;">LOG DRIVE</label>
-      <textarea id="driveDebugLog" readonly></textarea>
-    </div>
-
   </div>
 </div>
 
 <input type="file" id="importInput" accept=".json" style="display:none" onchange="handleImport(event)">
-<input type="file" id="documentUploadInput" style="display:none">
+<input type="file" id="documentUploadInput" style="display:none" multiple>
 
 <div id="newSiniestroModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroSelectorModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroInfoModal" class="modal"><div class="modal-content"></div></div>
-<div id="documentModal" class="modal"><div class="modal-content"></div></div>
+<div id="documentModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('documentModal')">&times;</span>
+        <h2 id="documentModalTitle"></h2>
+        <div id="uploadArea" style="border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 15px 0; background: #f9f9f9;">
+            <p>Arrastra y suelta tus archivos aquí</p>
+        </div>
+        <ul id="localDocumentList" class="document-list" style="margin-top:10px;"></ul>
+        <h4>Documentos ya guardados en Drive:</h4>
+        <ul id="driveDocumentList" class="document-list"></ul>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-info" onclick="triggerLocalFileUpload()">➕ Agregar Archivo</button>
+            <button class="btn btn-success" onclick="saveDocumentsToDrive()">📤 Guardar Documentos en Drive</button>
+        </div>
+    </div>
+</div>
 
 <script>
-/* ================== DATOS LOCALES Y UI ================== */
-const initialData=[{"id":"SINIESTRO_1_1735933845000","fecha":"","cliente":"GONCALVES BEATRIZ","dni":"22108382","celular":"1164233680","aseguradoEn":"RIVADAVIA","contra":"ORBIS","numeroReclamo":"232644","observacion":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1140000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_1","fecha":"2025-04-30","texto":"SE INFORMO A CLIENTE QUE NO SE DARA RESOLUCION POR ORBIS NO DA RESPUESTA","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_2_1735933845001","fecha":"2025-05-06","cliente":"GRANADO MIGUEL ANGEL","dni":"21543471","celular":"1173653571","aseguradoEn":"COPAN","contra":"ZURICH","numeroReclamo":"0","observacion":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":285999.99,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_2","fecha":"2025-05-20","texto":"SE INFOMO A CLIENTE QUE ZURICH NO CUBRE EL PARABRISAS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_3_1735933845002","fecha":"","cliente":"SILGUEIRO VICTOR","dni":"34566518","celular":"","aseguradoEn":"FEDERACION","contra":"LA CAJA","numeroReclamo":"54000113645","observacion":"SE FUE CON NEMESIS","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":1074000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_3","fecha":"2025-05-26","texto":"SE FUE CON NEMESIS","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_4_1735933845003","fecha":"","cliente":"GALEPPI SUSANA","dni":"11130200","celular":"1151388650","aseguradoEn":"GALENO","contra":"SAN CRISTÓBAL","numeroReclamo":"UC368744","observacion":"NO HIZO LA DENUECIA LE 3RO","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":530000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_4","fecha":"2025-05-26","texto":"NO HIZO LA DENUEcia LE 3RO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_5_1735933845004","fecha":"2025-04-01","cliente":"ALVAREZ CLAUDIA","dni":"28456789","celular":"1145678901","aseguradoEn":"COPAN","contra":"FEDERACION","numeroReclamo":"CP2025001","observacion":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","fechaRevision":"2025-05-01","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":890000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_5","fecha":"2025-04-15","texto":"PERITAJE REALIZADO, ESPERANDO LIQUIDACION","proximaRevision":"2025-05-01","completed":false}]},{"id":"SINIESTRO_6_1735933845005","fecha":"2024-12-15","cliente":"RODRIGUEZ MARIA","dni":"32567890","celular":"1156789012","aseguradoEn":"FEDERACION","contra":"SANCOR","numeroReclamo":"FED2024089","observacion":"CASO FINALIZADO CON ACUERDO TOTAL","fechaRevision":"","estado":"FINALIZADA","acuerdo":"SI","fechaPago":"2025-01-15","presupuesto":1250000,"indemnizacion":1250000,"honorarios":187500,"factura":"SI","observaciones":[{"id":"obs_6","fecha":"2025-01-10","texto":"CASO FINALIZADO CON ACUERDO TOTAL","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_7_1735933845006","fecha":"2024-11-20","cliente":"MARTINEZ CARLOS","dni":"29345678","celular":"1167890123","aseguradoEn":"RIVADAVIA","contra":"ZURICH","numeroReclamo":"RIV2024045","observacion":"FINALIZADO CON PAGO PARCIAL ACORDADO","fechaRevision":"","estado":"FINALIZADA P","acuerdo":"SI","fechaPago":"2024-12-25","presupuesto":2100000,"indemnizacion":1575000,"honorarios":236250,"factura":"SI","observaciones":[{"id":"obs_7","fecha":"2024-12-20","texto":"FINALIZADO CON PAGO PARCIAL ACORDADO","proximaRevision":"","completed":true}]},{"id":"SINIESTRO_8_1735933845007","fecha":"2025-01-10","cliente":"LOPEZ PATRICIA","dni":"30456789","celular":"1178901234","aseguradoEn":"COPAN","contra":"LA CAJA","numeroReclamo":"CP2025002","observacion":"DOCUMENTACION ADICIONAL SOLICITADA","fechaRevision":"2025-03-01","estado":"DEMORADA","acuerdo":"","fechaPago":"","presupuesto":675000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_8","fecha":"2025-02-01","texto":"DOCUMENTACION ADICIONAL SOLICITADA","proximaRevision":"2025-03-01","completed":false}]},{"id":"SINIESTRO_9_1735933845008","fecha":"2024-10-15","cliente":"GARCIA FERNANDO","dni":"31567890","celular":"1189012345","aseguradoEn":"FEDERACION","contra":"ORBIS","numeroReclamo":"FED2024067","observacion":"PERITAJE FAVORABLE, EN LIQUIDACION","fechaRevision":"2025-01-15","estado":"EJECUCION","acuerdo":"","fechaPago":"","presupuesto":1450000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_9","fecha":"2024-11-30","texto":"PERITAJE FAVORABLE, EN LIQUIDACION","proximaRevision":"2025-01-15","completed":false}]},{"id":"SINIESTRO_10_1735933845009","fecha":"2024-09-05","cliente":"FERNANDEZ ANA","dni":"27890123","celular":"1190123456","aseguradoEn":"RIVADAVIA","contra":"SANCOR","numeroReclamo":"RIV2024034","observacion":"RECHAZADO POR FALTA DE COBERTURA","fechaRevision":"","estado":"RECHAZADO","acuerdo":"","fechaPago":"","presupuesto":820000,"indemnizacion":"","honorarios":"","factura":"NO","observaciones":[{"id":"obs_10","fecha":"2024-10-15","texto":"RECHAZADO POR FALTA DE COBERTURA","proximaRevision":"","completed":true}]}];
-
 let siniestrosData=[];
-let editingSiniestroId=null,editingField=null;
+let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
 
 function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados');}
 function loadData(){
   const saved=localStorage.getItem('planilla_siniestros_data');
-  let data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(initialData));
-  siniestrosData=sanitizeData(data);
-  if(!saved) saveData();
+  siniestrosData = saved ? JSON.parse(saved) : [];
+  if (!saved || siniestrosData.length === 0) {
+      siniestrosData = initialData; // Carga datos iniciales si no hay nada guardado
+  }
+  siniestrosData=sanitizeData(siniestrosData);
   updateDataStatus(saved?'✅ Datos cargados':'📋 Datos iniciales listos');
 }
 function sanitizeData(data){
   (data||[]).forEach(s=>{
-    if(!s.id) s.id=generateId(s);
-    if(!Array.isArray(s.observaciones)) s.observaciones=[];
-    s.observaciones.forEach(o=>{
-      if(!o.id) o.id=generateId({});
-      if(typeof o.completed==='undefined') o.completed=false;
-    });
+    s.id=s.id||generateId(s);
+    s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[];
+    s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[];
+    s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;});
+    s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;});
     updateSiniestroNextRevision(s);
   });
   return data;
@@ -200,9 +219,21 @@ function formatDate(d){if(!d) return 'No definida';const [y,m,day]=d.split('-');
 function isToday(d){return d&&d===todayYMD}
 function isPastDue(d){return d&&d<todayYMD}
 function getDaysDifference(d){if(!d) return 999;return Math.ceil((new Date(d)-new Date(todayYMD))/86400000)}
-function generateId(it){return `SIN_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1000)}`}
-function getDisplayName(s){return `${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado})`}
+function generateId(it){return `EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1000)}`}
+function getDisplayName(s){return `${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`}
 function formatCurrency(v){if(v===null||v===undefined||v==='') return 'S/D';return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v)}
+
+function toggleFormVisibility(formId) {
+    const formElement = document.getElementById(formId);
+    const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
+    if (formElement.style.display === 'none' || formElement.style.display === '') {
+        formElement.style.display = 'block';
+        if(iconElement) iconElement.textContent = '➖';
+    } else {
+        formElement.style.display = 'none';
+        if(iconElement) iconElement.textContent = '➕';
+    }
+}
 
 function updateSiniestroNextRevision(s){
   const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
@@ -210,43 +241,49 @@ function updateSiniestroNextRevision(s){
   else {s.fechaRevision='';s.observacion='No hay tareas pendientes';}
 }
 
-function toggleCompleted(e,sid,oid){
-  e.stopPropagation();
-  const s=siniestrosData.find(x=>x.id===sid);
-  const o=s.observaciones.find(y=>y.id===oid);
-  o.completed=!o.completed;
-  updateSiniestroNextRevision(s);
-  saveData();renderAll();
+function toggleCompleted(e,sid,oid, type='task'){
+    e.stopPropagation();
+    const s = siniestrosData.find(x => x.id === sid);
+    let item;
+    if (type === 'task') {
+        item = s.observaciones.find(y => y.id === oid);
+    } else if (type === 'mediacion') {
+        item = s.mediaciones_list.find(y => y.id === oid);
+    }
+    if(item) item.completed = !item.completed;
+    if (type === 'task') updateSiniestroNextRevision(s);
+    saveData();
+    renderAll();
 }
 
 function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderDashboardLists();renderAllSiniestrosList();}
 
 function renderDashboardLists(){
-  const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).map(o=>({...o,siniestro:s})));
-  const today=tasks.filter(t=>!t.completed&&isToday(t.proximaRevision));
-  const overdue=tasks.filter(t=>!t.completed&&isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  const upcoming=tasks.filter(t=>!t.completed&&getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  renderReviewList('todayReviews',today,'No hay revisiones hoy','today');
-  renderReviewList('overdueReviews',overdue,'No hay vencidas','overdue');
-  renderReviewList('upcomingReviews',upcoming,'No hay próximas','upcoming');
+  const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o => !o.completed && o.proximaRevision).map(o => ({...o, siniestro: s, type: 'task'})));
+  const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m => !m.completed && m.fecha).map(m => ({...m, siniestro: s, type: 'mediacion', proximaRevision: m.fecha})));
+  const allItems = [...tasks, ...mediaciones];
+
+  const today=allItems.filter(t=>isToday(t.proximaRevision));
+  const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+  const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+  renderReviewList('todayReviews',today,'No hay eventos para hoy');
+  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos');
+  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos');
 }
 
-function renderReviewList(id,tasks,empty,type){
+function renderReviewList(id,items,empty){
   const c=document.getElementById(id);
-  if(!tasks.length){c.innerHTML=`<p style="opacity:.85;">${empty}</p>`;return;}
-  c.innerHTML=tasks.map(t=>{
-    let info='';
-    if(type==='today') info='HOY';
-    else if(type==='overdue') info=`VENCIDA - ${formatDate(t.proximaRevision)}`;
-    else info=`En ${getDaysDifference(t.proximaRevision)} días - ${formatDate(t.proximaRevision)}`;
-    // CAMBIO 1: Corregido color de texto para "Trabajado en"
+  if(!items.length){c.innerHTML=`<p style="opacity:.85;">${empty}</p>`;return;}
+  c.innerHTML=items.map(item=>{
+    const info = `HOY - ${formatDate(item.proximaRevision)}`;
+    const label = item.type === 'mediacion' ? 'MEDIACIÓN:' : '';
+    const toggleFunc = item.type === 'mediacion' ? `toggleCompleted(event,'${item.siniestro.id}','${item.id}', 'mediacion')` : `toggleCompleted(event,'${item.siniestro.id}','${item.id}', 'task')`;
     return `<div class="review-item">
-      <button class="complete-btn" onclick="toggleCompleted(event,'${t.siniestro.id}','${t.id}')">✔</button>
-      <div class="review-item-content" onclick="showSiniestroModal('${t.siniestro.id}')">
+      <button class="complete-btn" onclick="${toggleFunc}">✔</button>
+      <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
         <div class="review-date">${info}</div>
-        ${t.fechaTrabajado ? `<div class="review-date" style="font-size: 0.9em; color: #34495e; font-weight: 500;">Trabajado: ${formatDate(t.fechaTrabajado)}</div>` : ''}
-        <div class="review-client">${t.siniestro.cliente}</div>
-        <div class="review-obs">${t.texto}</div>
+        <div class="review-client">${item.siniestro.cliente}</div>
+        <div class="review-obs"><b>${label}</b> ${item.texto}</div>
       </div>
     </div>`;
   }).join('');
@@ -263,12 +300,8 @@ function renderAllSiniestrosList(){
   document.getElementById('allSiniestros').innerHTML=filtrados.length?filtrados.map(s=>{
     const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision);
     const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
-    
-    const lastWorkedObs = (s.observaciones || [])
-        .filter(o => o.fechaTrabajado)
-        .sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
+    const lastWorkedObs = (s.observaciones || []).filter(o => o.fechaTrabajado).sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
     const lastWorkedDate = lastWorkedObs ? lastWorkedObs.fechaTrabajado : null;
-
     return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
       <div class="review-item-content">
         <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
@@ -295,100 +328,46 @@ function closeModal(id){document.getElementById(id).classList.remove('active');e
 function showSiniestroModal(id){
   const s=siniestrosData.find(x=>x.id===id);if(!s)return;
   updateSiniestroNextRevision(s);
-
-  // CAMBIO 3: Generar listas para autocompletado
   const aseguradoras = [...new Set(siniestrosData.map(s => s.aseguradoEn).filter(Boolean))];
   const contras = [...new Set(siniestrosData.map(s => s.contra).filter(Boolean))];
-  const datalistsHTML = `
-    <datalist id="aseguradorasList">
-      ${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}
-    </datalist>
-    <datalist id="contrasList">
-      ${contras.map(c => `<option value="${c}"></option>`).join('')}
-    </datalist>
-  `;
-
+  const datalistsHTML = `<datalist id="aseguradorasList">${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
   const html=`
-    <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span>
-    <h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
-    <div class="info-grid">
-      ${Object.entries({
-        cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',
-        aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',
-        presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',
-        acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'
-      }).map(([k,l])=>`
-        <div class="info-item">
-          <div class="info-label">${l}</div>
-          <div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">
-            ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}
-          </div>
-        </div>`).join('')}
-      <div class="info-item">
-        <div class="info-label">Próxima Tarea</div>
-        <div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div>
-      </div>
+    <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
+    <div class="info-grid">${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+    <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
+        <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
+        <div class="form-section">
+            <h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4>
+            <form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form>
+        </div>
     </div>
-    <div style="margin-top:18px;">
-      <h4 style="margin-bottom:8px;font-size:.9em;">Historial de Tareas</h4>
-      <div id="obs-list-${s.id}" style="max-height:230px;overflow:auto;">
-        ${renderObsList(s)}
-      </div>
-    </div>
-    <form class="form-section" onsubmit="addObservation(event,'${s.id}')">
-      <h4 style="margin:0 0 10px;font-size:.9em;">➕ Agregar Tarea</h4>
-      <div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div>
-      <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
-      <button class="btn btn-success" type="submit">Guardar</button>
-    </form>
-    <div class="action-buttons">
-      <button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button>
-      <button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button>
-      <button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button>
-      <button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button>
-    </div>
-    ${datalistsHTML}`; // <-- Se inyectan los datalists aquí
-  const m=document.getElementById('siniestroInfoModal');
-  m.querySelector('.modal-content').innerHTML=html;
-  m.classList.add('active');
+    <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
+  const m=document.getElementById('siniestroInfoModal');m.querySelector('.modal-content').innerHTML=html;m.classList.add('active');
 }
 
-function renderObsList(s){
-  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>{
-    const highlight=o.proximaRevision===s.fechaRevision && !o.completed;
-    return `<div class="obs-item ${o.completed?'completed':''}" style="${highlight?'border-left-color:#e74c3c;':''}" id="obs-item-${o.id}">
-      <div class="obs-date">Creación: ${formatDate(o.fecha)}</div>
-      ${o.fechaTrabajado ? `<div class="obs-date" style="color: #27ae60;">Trabajado: ${formatDate(o.fechaTrabajado)}</div>` : ''}
-      <div class="obs-text">${o.texto}</div>
-      <div class="obs-revision-date">Revisión: ${formatDate(o.proximaRevision)}</div>
-      <div style="margin-top:6px;display:flex;gap:6px;">
-        <button class="btn btn-sm" onclick="editObs('${s.id}','${o.id}')">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteObs('${s.id}','${o.id}')">Eliminar</button>
-      </div>
-    </div>`;
-  }).join(''):'<p style="font-size:.75em;">Sin tareas.</p>';
+function renderHistoryList(s){
+    const tasks = (s.observaciones||[]).map(o => ({...o, type: 'task', date: o.proximaRevision}));
+    const mediaciones = (s.mediaciones_list||[]).map(m => ({...m, type: 'mediacion', date: m.fecha}));
+    const allEvents = [...tasks, ...mediaciones].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    return allEvents.length ? allEvents.map(item => {
+        if(item.type === 'task') {
+            return `<div class="history-item ${item.completed?'completed':''}" id="obs-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">Creación: ${formatDate(item.fecha)}</div><span class="history-tag tag-task">TAREA</span></div>${item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}<div>${item.texto}</div><div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteObs('${s.id}','${item.id}')">Eliminar</button></div></div>`;
+        } else { // Mediacion
+            return `<div class="history-item history-item-mediacion ${item.completed?'completed':''}" id="mediacion-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">Fecha: ${formatDate(item.fecha)}</div><span class="history-tag tag-mediacion">MEDIACIÓN</span></div><div>${item.texto}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-danger btn-sm" onclick="deleteMediacion('${s.id}','${item.id}')">Eliminar</button></div></div>`;
+        }
+    }).join('') : '<p style="font-size:.8em;">Sin eventos.</p>';
 }
 
 function renderObsListForPrint(s){
-  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>`
-    <div class="obs-item">
-      <div class="obs-date"><b>Creación:</b> ${formatDate(o.fecha)}</div>
-      ${o.fechaTrabajado ? `<div><b>Trabajado:</b> ${formatDate(o.fechaTrabajado)}</div>` : ''}
-      <div class="obs-text"><b>Obs:</b> ${o.texto}</div>
-      <div class="obs-revision-date"><b>Revisión:</b> ${formatDate(o.proximaRevision)}</div>
-      <div><b>Estado:</b> ${o.completed?'Completada':'Pendiente'}</div>
-    </div>`).join(''):'<p>No hay tareas.</p>';
+  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>`<div class="obs-item"><div class="obs-date"><b>Creación:</b> ${formatDate(o.fecha)}</div>${o.fechaTrabajado ? `<div><b>Trabajado:</b> ${formatDate(o.fechaTrabajado)}</div>` : ''}<div class="obs-text"><b>Obs:</b> ${o.texto}</div><div class="obs-revision-date"><b>Revisión:</b> ${formatDate(o.proximaRevision)}</div><div><b>Estado:</b> ${o.completed?'Completada':'Pendiente'}</div></div>`).join(''):'<p>No hay tareas.</p>';
 }
 
 function editObs(sid,oid){
   const s=siniestrosData.find(x=>x.id===sid);
   const o=s.observaciones.find(k=>k.id===oid);
   const el=document.getElementById(`obs-item-${o.id}`);
-  el.innerHTML=`
-    <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div>
-    <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div>
-    <button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button>
-    <button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
+  el.innerHTML=`<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
 }
 
 function saveObs(sid,oid){
@@ -396,7 +375,6 @@ function saveObs(sid,oid){
   const o=s.observaciones.find(k=>k.id===oid);
   o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;
   o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value;
-  o.fechaTrabajado = getTodayYMD();
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 function deleteObs(sid,oid){
@@ -406,58 +384,36 @@ function deleteObs(sid,oid){
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 
+function addMediacion(e,sid){
+  e.preventDefault();
+  const s=siniestrosData.find(x=>x.id===sid);
+  s.mediaciones_list.push({id:generateId({}), fecha:document.getElementById('newMediacionDate').value, texto:document.getElementById('newMediacionText').value, completed:false});
+  saveData();renderAll();showSiniestroModal(sid);
+}
+function deleteMediacion(sid,mid){
+  if(!confirm('¿Eliminar mediación?'))return;
+  const s=siniestrosData.find(x=>x.id===sid);
+  s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);
+  saveData();renderAll();showSiniestroModal(sid);
+}
 
-// CAMBIO 2: Lógica de edición de campos mejorada (estilo input)
 function editField(sid, field, element) {
-    if (editingField) return; // Evita editar dos campos a la vez
-
-    editingSiniestroId = sid;
-    editingField = field;
-    
+    if (editingField) return;
+    editingSiniestroId = sid; editingField = field;
     const s = siniestrosData.find(x => x.id === sid);
     const currentValue = s[field] || '';
-
     const input = document.createElement('input');
     input.type = /presupuesto|indemnizacion|honorarios|dni|celular/.test(field) ? 'number' : 'text';
     input.value = currentValue;
-    input.style.width = '100%';
-    input.style.fontSize = '0.85em';
-    input.style.border = '1px solid #667eea';
-    input.style.padding = '2px';
-
-    // CAMBIO 3: Asignar lista de autocompletado
-    if (field === 'aseguradoEn') {
-        input.setAttribute('list', 'aseguradorasList');
-    } else if (field === 'contra') {
-        input.setAttribute('list', 'contrasList');
-    }
-
-    const save = () => {
-        const s = siniestrosData.find(x => x.id === editingSiniestroId);
-        s[editingField] = input.value;
-        saveData();
-        editingSiniestroId = null;
-        editingField = null;
-        showSiniestroModal(sid); // Refresca el modal para mostrar el valor guardado
-    };
-    
+    input.style.cssText='width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
+    if (field === 'aseguradoEn') input.setAttribute('list', 'aseguradorasList');
+    if (field === 'contra') input.setAttribute('list', 'contrasList');
+    const save = () => { s[editingField] = input.value; saveData(); editingSiniestroId = null; editingField = null; showSiniestroModal(sid); };
     input.addEventListener('blur', save);
-    input.addEventListener('keypress', e => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur(); // Dispara el evento blur que guarda
-        }
-    });
-
-    element.innerHTML = '';
-    element.appendChild(input);
-    input.focus();
-    
-    // Posicionar el cursor al final para evitar la selección automática
-    const valLength = input.value.length;
-    input.setSelectionRange(valLength, valLength);
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); }});
+    element.innerHTML = ''; element.appendChild(input); input.focus();
+    const valLength = input.value.length; input.setSelectionRange(valLength, valLength);
 }
-
 
 function deleteSiniestro(id){
   if(!confirm('¿Eliminar siniestro?'))return;
@@ -475,111 +431,66 @@ function addObservation(e,sid){
 function exportToExcel(){
   const rows=siniestrosData.map(s=>{
     const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}): ${o.texto}`).join(' | ');
-    return {'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular,'Estado':s.estado,'Asegurado En':s.aseguradoEn,'Contra':s.contra,'N° Reclamo':s.numeroReclamo,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Historial':hist};
+    const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)}: ${m.texto}`).join(' | ');
+    return {'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular,'Estado':s.estado,'Asegurado En':s.aseguradoEn,'Contra':s.contra,'N° Reclamo':s.numeroReclamo,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Historial Tareas':hist, 'Historial Mediaciones':med};
   });
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
 }
 function exportData(){
-  const data=JSON.stringify(siniestrosData,null,2);
-  const a=document.createElement('a');
+  const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
-  a.download=`siniestros_${todayYMD}.json`;
-  a.click();
+  a.download=`siniestros_${todayYMD}.json`;a.click();
 }
 function importData(){document.getElementById('importInput').click();}
 function handleImport(ev){
-  const f=ev.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{
-    try{
-      const imp=JSON.parse(e.target.result);
-      if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros?`)){
-        siniestrosData=sanitizeData(imp);saveData();renderAll();
-      }
-    }catch(err){alert('Error al importar');}
-  };
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros?`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar');}};
   r.readAsText(f);ev.target.value='';
 }
 
 function printFicha(id){
   const s=siniestrosData.find(x=>x.id===id);if(!s)return;
-  const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3>
-  <div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;
+  const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;
   const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
 }
 function printHistorial(id){
   const s=siniestrosData.find(x=>x.id===id);if(!s)return;
-  const hist=renderObsListForPrint(s);
-  const html=`<div class="print-area"><h2>Historial de Observaciones</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;
+  const hist=renderHistoryList(s);
+  const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;
   const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // Modal nuevo siniestro
   document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
-    <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span>
-    <h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
-    <form id="newSiniestroForm">
-      <div class="info-grid">
+    <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
+    <form id="newSiniestroForm"><div class="info-grid">
         <div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div>
         <div class="form-group"><label>DNI</label><input id="newDni" type="number"></div>
         <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
-        <div class="form-group"><label>Estado *</label><select id="newEstado" required>
-           <option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option>
-           <option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option>
-        </select></div>
-        <div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div>
-        <div class="form-group"><label>Contra</label><input id="newContra"></div>
-        <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div>
-        <div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
-      </div>
-      <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
-      <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
-      <div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div>
-    </form>`;
-  document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`
-    <span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span>
-    <h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2>
-    <div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
-  document.getElementById('documentModal').querySelector('.modal-content').innerHTML=`
-    <span class="close" onclick="closeModal('documentModal')">&times;</span>
-    <h2 id="documentModalTitle" style="margin-bottom:12px;"></h2>
-    <ul id="documentList" class="document-list"></ul>
-    <div style="text-align:center;margin-top:14px;">
-      <button class="btn btn-info" onclick="triggerDocumentUpload()">➕ Subir Documento</button>
-    </div>`;
-
+        <div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div>
+        <div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div>
+        <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
+    </div>
+    <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
+    <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
+    <div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
+  document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
+  
   document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
     e.preventDefault();
-    const n={
-      id:generateId({}),
-      cliente:document.getElementById('newCliente').value.toUpperCase(),
-      dni:document.getElementById('newDni').value,
-      celular:document.getElementById('newCelular').value,
-      estado:document.getElementById('newEstado').value,
-      aseguradoEn:document.getElementById('newAseguradoEn').value.toUpperCase(),
-      contra:document.getElementById('newContra').value.toUpperCase(),
-      numeroReclamo:document.getElementById('newNumeroReclamo').value,
-      presupuesto:document.getElementById('newPresupuesto').value,
-      observaciones:[]
-    };
+    const n={id:generateId({}),cliente:document.getElementById('newCliente').value.toUpperCase(),dni:document.getElementById('newDni').value,celular:document.getElementById('newCelular').value,estado:document.getElementById('newEstado').value,aseguradoEn:document.getElementById('newAseguradoEn').value.toUpperCase(),contra:document.getElementById('newContra').value.toUpperCase(),numeroReclamo:document.getElementById('newNumeroReclamo').value,presupuesto:document.getElementById('newPresupuesto').value,observaciones:[], mediaciones_list:[]};
     const txt=document.getElementById('newObservacion').value;
     const rev=document.getElementById('newFechaRevision').value;
-    if(txt&&rev){
-      n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false, fechaTrabajado: todayYMD});
-    }
-    updateSiniestroNextRevision(n);
-    siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
+    if(txt&&rev){n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false, fechaTrabajado: todayYMD});}
+    updateSiniestroNextRevision(n);siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
   });
 
-  loadData();
-  renderAll();
+  loadData();renderAll();
 });
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
 <script>
-/* ============= CONFIG ============= */
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
 const GD_DISCOVERY='https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
@@ -588,48 +499,18 @@ const GD_DATA_FILE='datos_planilla_siniestros.json';
 const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
 
 let gdTokenClient, gdGapiReady=false, gdGisReady=false;
-let gdDataFileId=null, gdDocsFolderId=null, currentSiniestroIdForDocs=null;
+let gdDataFileId=null, gdDocsFolderId=null;
 
-/* ============= LOG SIMPLE ============= */
-function dlog(msg){
-  const ta=document.getElementById('driveDebugLog');
-  if(ta){
-    ta.value+=`[${new Date().toLocaleTimeString()}] ${msg}\n`;
-    ta.scrollTop=ta.scrollHeight;
-  }
-  console.log('[DRIVE]',msg);
-}
 function updateDriveStatus(text,connected){
   const el=document.getElementById('driveStatus');
-  el.style.display='block';
-  el.textContent=text;
+  el.style.display='block'; el.textContent=text;
   el.style.background=connected?'#d1e7dd':'#fff3cd';
   el.style.color=connected?'#0f5132':'#664d03';
 }
-
-/* ============= INICIALIZACIÓN ============= */
-function gapiLoaded(){
-  dlog('gapiLoaded');
-  gapi.load('client',async()=>{
-    try{
-      await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});
-      gdGapiReady=true;
-      dlog('gapi client listo');
-      maybeEnableDriveButton();
-    }catch(e){
-      dlog('Error init gapi: '+e.message);
-      updateDriveStatus('❌ Error inicializando Drive',false);
-    }
-  });
-}
-function gisLoaded(){
-  dlog('gisLoaded');
-  gdTokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:GD_CLIENT_ID,
-    scope:GD_SCOPES,
+function gapiLoaded(){gapi.load('client',async()=>{try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});gdGapiReady=true;maybeEnableDriveButton();}catch(e){updateDriveStatus('❌ Error inicializando Drive',false);}});}
+function gisLoaded(){gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,
     callback:(resp)=>{
-      dlog('callback token');
-      if(resp.error){dlog('Auth error');updateDriveStatus('❌ Error autenticación',false);return;}
+      if(resp.error){updateDriveStatus('❌ Error autenticación',false);return;}
       updateDriveStatus('✅ Conectado a Drive',true);
       document.getElementById('connectDriveBtn').style.display='none';
       document.getElementById('saveToDriveBtn').style.display='inline-block';
@@ -637,169 +518,116 @@ function gisLoaded(){
       document.getElementById('saveToDriveBtn').onclick=saveDataToDrive;
       document.getElementById('loadFromDriveBtn').onclick=loadDataFromDrive;
       findDataFile();
-    }
-  });
-  gdGisReady=true;
-  dlog('GIS listo');
-  maybeEnableDriveButton();
+    }});
+  gdGisReady=true;maybeEnableDriveButton();
 }
-
-function maybeEnableDriveButton(){
-  if(gdGapiReady && gdGisReady){
-    dlog('Habilitando botón Conectar');
-    document.getElementById('connectDriveBtn').onclick=handleDriveAuth;
-  }
-}
-
-/* ============= AUTH ============= */
-function handleDriveAuth(){
-  dlog('Click conectar. Token? '+(gapi.client.getToken()?'SI':'NO'));
-  if(gapi.client.getToken()==null){
-    gdTokenClient.requestAccessToken({prompt:'consent'});
-  }else{
-    gdTokenClient.requestAccessToken({prompt:''});
-  }
-}
-
-/* ============= OPERACIONES PRINCIPALES ============= */
+function maybeEnableDriveButton(){if(gdGapiReady&&gdGisReady){document.getElementById('connectDriveBtn').onclick=handleDriveAuth;}}
+function handleDriveAuth(){if(gapi.client.getToken()==null){gdTokenClient.requestAccessToken({prompt:'consent'});}else{gdTokenClient.requestAccessToken({prompt:''});}}
 async function findDataFile(){
   updateDriveStatus('🔎 Buscando archivo...',false);
-  dlog('Buscando archivo datos');
-  try{
-    const r=await gapi.client.drive.files.list({
-      q:`name='${GD_DATA_FILE}' and trashed=false`,
-      fields:'files(id,name)',spaces:'drive'
-    });
-    if(r.result.files.length){
-      gdDataFileId=r.result.files[0].id;
-      updateDriveStatus('✅ Archivo encontrado',true);
-      dlog('Archivo existente id='+gdDataFileId);
-    }else{
-      updateDriveStatus('⚠️ No existe archivo (se creará al guardar)',false);
-      dlog('No se encontró archivo');
-    }
-  }catch(e){
-    dlog('Error buscando archivo: '+e.message);
-    updateDriveStatus('❌ Error buscando archivo',false);
-  }
+  try{const r=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id,name)',spaces:'drive'});
+    if(r.result.files.length){gdDataFileId=r.result.files[0].id;updateDriveStatus('✅ Archivo encontrado',true);}
+    else{updateDriveStatus('⚠️ No existe archivo (se creará al guardar)',false);}}
+  catch(e){updateDriveStatus('❌ Error buscando archivo',false);}
 }
-
 async function saveDataToDrive(){
-  if(!confirm('¿Guardar datos en Drive?'))return;
-  updateDriveStatus('💾 Guardando...',false);
-  dlog('Subiendo JSON');
-  try{
-    const content=JSON.stringify(siniestrosData,null,2);
-    gdDataFileId=await uploadContent(content,GD_DATA_FILE,'application/json',null,gdDataFileId);
-    updateDriveStatus('✅ Guardado en Drive',true);
-    dlog('Guardado id='+gdDataFileId);
-  }catch(e){
-    dlog('Error guardando: '+e.message);
-    updateDriveStatus('❌ Error guardando',false);
-  }
+  if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('💾 Guardando...',false);
+  try{const content=JSON.stringify(siniestrosData,null,2);gdDataFileId=await uploadContent(content,GD_DATA_FILE,'application/json',null,gdDataFileId);updateDriveStatus('✅ Guardado en Drive',true);}
+  catch(e){updateDriveStatus('❌ Error guardando',false);}
 }
-
 async function loadDataFromDrive(){
   if(!gdDataFileId){alert('No existe archivo remoto. Guardá primero.');return;}
-  if(!confirm('¿Reemplazar datos locales con los de Drive?'))return;
-  updateDriveStatus('📥 Cargando...',false);
-  dlog('Descargando archivo id='+gdDataFileId);
-  try{
-    const r=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});
-    const imported=JSON.parse(r.body);
-    if(!Array.isArray(imported)) throw new Error('Formato inválido');
-    siniestrosData=sanitizeData(imported);
-    saveData();renderAll();
-    updateDriveStatus('✅ Datos cargados',true);
-    dlog('Cargados '+imported.length+' registros');
-  }catch(e){
-    dlog('Error cargando: '+e.message);
-    updateDriveStatus('❌ Error al cargar',false);
-  }
+  if(!confirm('¿Reemplazar datos locales con los de Drive?'))return;updateDriveStatus('📥 Cargando...',false);
+  try{const r=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});
+    const imported=JSON.parse(r.body);if(!Array.isArray(imported))throw new Error('Formato inválido');
+    siniestrosData=sanitizeData(imported);saveData();renderAll();updateDriveStatus('✅ Datos cargados',true);}
+  catch(e){updateDriveStatus('❌ Error al cargar',false);}
 }
 
-/* ============= DOCUMENTOS POR SINIESTRO ============= */
-async function getOrCreateFolder(name,parentId=null){
-  let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
-  if(parentId) q+=` and '${parentId}' in parents`;
-  const r=await gapi.client.drive.files.list({q,fields:'files(id)',pageSize:5});
-  if(r.result.files.length) return r.result.files[0].id;
-  const newF=await gapi.client.drive.files.create({resource:{name,mimeType:'application/vnd.google-apps.folder',...(parentId&&{parents:[parentId]})},fields:'id'});
-  return newF.result.id;
+// ==================================================================
+// NUEVO BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
+// ==================================================================
+let localFilesForUpload = [];
+async function showDocumentModal(sid) {
+    if (gapi.client.getToken() === null) return alert('Conecta con Google Drive primero.');
+    currentSiniestroIdForDocs = sid;
+    localFilesForUpload = [];
+    const s = siniestrosData.find(x => x.id === sid);
+    if (!s) return;
+    document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`;
+    document.getElementById('documentModal').classList.add('active');
+    renderLocalFileList();
+    await renderDriveFileList();
+    const area = document.getElementById('uploadArea');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName=>area.addEventListener(eName, e=>{e.preventDefault();e.stopPropagation();}, false));
+    ['dragenter','dragover'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#eef5ff',false));
+    ['dragleave','drop'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#f9f9f9',false));
+    area.addEventListener('drop', e => processFiles(e.dataTransfer.files), false);
 }
-
-async function showDocumentModal(sid){
-  if(gapi.client.getToken()==null){alert('Conectá Drive primero');return;}
-  currentSiniestroIdForDocs=sid;
-  const s=siniestrosData.find(x=>x.id===sid);
-  document.getElementById('documentModalTitle').innerText=`Documentos: ${getDisplayName(s)}`;
-  document.getElementById('documentModal').classList.add('active');
-  const list=document.getElementById('documentList');
-  list.innerHTML='<li>Cargando...</li>';
-  try{
-    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
-    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
-    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
-    const r=await gapi.client.drive.files.list({q:`'${clientFolder}' in parents and trashed=false`,fields:'files(id,name,webViewLink)',orderBy:'name'});
-    list.innerHTML=r.result.files.length? r.result.files.map(f=>`<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join(''):'<li>Sin documentos.</li>';
-  }catch(e){
-    list.innerHTML='<li>Error al listar.</li>';
-    dlog('Error docs: '+e.message);
-  }
+function processFiles(files) {
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result});
+            renderLocalFileList();
+        };
+        reader.readAsDataURL(file);
+    }
 }
-
-async function deleteDocument(fid){
-  if(!confirm('¿Eliminar documento?'))return;
-  try{await gapi.client.drive.files.delete({fileId:fid});showDocumentModal(currentSiniestroIdForDocs);}catch(e){alert('Error al eliminar');}
+function renderLocalFileList() {
+    const listEl = document.getElementById('localDocumentList');
+    listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '';
 }
-
-function triggerDocumentUpload(){
-  const up=document.getElementById('documentUploadInput');
-  up.onchange=handleDocumentUpload;
-  up.value='';
-  up.click();
+function removeLocalFile(id) {
+    localFilesForUpload = localFilesForUpload.filter(f => f.id !== id);
+    renderLocalFileList();
 }
-
-async function handleDocumentUpload(ev){
-  const file=ev.target.files[0];if(!file)return;
-  const list=document.getElementById('documentList');
-  list.innerHTML='<li>Subiendo...</li>';
-  try{
-    const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
-    if(!gdDocsFolderId) gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);
-    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
-    const clientFolder=await getOrCreateFolder(folderName,gdDocsFolderId);
-    const reader=new FileReader();
-    reader.onload=async e=>{
-      await uploadContent(e.target.result,file.name,file.type||'application/octet-stream',clientFolder,null);
-      showDocumentModal(currentSiniestroIdForDocs);
-    };
-    reader.readAsArrayBuffer(file);
-  }catch(e){
-    list.innerHTML='<li>Error en subida.</li>';
-    dlog('Upload error: '+e.message);
-  }
+function triggerLocalFileUpload() {
+    const up = document.getElementById('documentUploadInput');
+    up.onchange = (e) => processFiles(e.target.files);
+    up.value = '';
+    up.click();
 }
-
-async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
-  const boundary='-------314159265358979323846';
-  const meta={name:fileName,mimeType, ...(parentId&&{parents:[parentId]})};
-  const base64=content instanceof ArrayBuffer
-    ? btoa(String.fromCharCode(...new Uint8Array(content)))
-    : btoa(unescape(encodeURIComponent(content)));
-  const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
-  const req=gapi.client.request({
-    path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',
-    method:fileIdToUpdate?'PATCH':'POST',
-    params:{uploadType:'multipart'},
-    headers:{'Content-Type':`multipart/related; boundary=${boundary}`},
-    body
-  });
-  const resp=await req;
-  return resp.result.id;
+async function saveDocumentsToDrive() {
+    if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar.");
+    document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>';
+    const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
+    const folderName = `${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+    try {
+        if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
+        const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
+        for (const file of localFilesForUpload) {
+            await uploadContent(file.dataUrl, file.name, file.type, clientFolder, null);
+        }
+        localFilesForUpload = [];
+        renderLocalFileList();
+        await renderDriveFileList();
+    } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); }
+}
+async function renderDriveFileList() {
+    const listEl = document.getElementById('driveDocumentList');
+    listEl.innerHTML = '<div class="spinner"></div>';
+    try {
+        const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
+        if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
+        const folderName = `${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+        const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
+        const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' });
+        listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>';
+    } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; }
+}
+async function deleteDocument(fid) {
+    if (confirm('¿Eliminar documento?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); }
+}
+async function getOrCreateFolder(name, parentId = null) {
+    let q = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
+    if (parentId) q += ` and '${parentId}' in parents`;
+    const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' });
+    if (r.result.files.length) return r.result.files[0].id;
+    const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) };
+    const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' });
+    return newF.result.id;
 }
 </script>
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
