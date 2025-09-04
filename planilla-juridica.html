@@ -328,17 +328,16 @@
         function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
         
-        // NUEVA FUNCIÓN PARA FORMULARIOS EXPansibles
         function toggleFormVisibility(formId) {
             const formElement = document.getElementById(formId);
             const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
 
             if (formElement.style.display === 'none' || formElement.style.display === '') {
                 formElement.style.display = 'block';
-                if(iconElement) iconElement.textContent = '➖'; // Cambia a ícono de contraer
+                if(iconElement) iconElement.textContent = '➖';
             } else {
                 formElement.style.display = 'none';
-                if(iconElement) iconElement.textContent = '➕'; // Cambia a ícono de expandir
+                if(iconElement) iconElement.textContent = '➕';
             }
         }
 
@@ -460,7 +459,6 @@
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
 
-        // FUNCIÓN DE MODAL MODIFICADA CON FORMULARIOS EXPansibles
         function showClientModal(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
@@ -481,9 +479,7 @@
                         ${renderHistoryList(client)}
                     </div>
                 </div>
-
                 <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                    
                     <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
                         <h4>📝 Agregar Tarea</h4>
                         <form onsubmit="addObservation(event, '${client.id}')">
@@ -492,9 +488,7 @@
                             <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
                         </form>
                     </div>
-
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-
                         <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
                             <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;">
                                 <span class="toggle-icon">➕</span> Agendar Audiencia
@@ -505,7 +499,6 @@
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
-                        
                         <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
                             <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;">
                                 <span class="toggle-icon">➕</span> Agendar Vencimiento
@@ -516,7 +509,6 @@
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
-
                     </div>
                 </div>
                 <div class="action-buttons">
@@ -553,12 +545,13 @@
             itemElement.innerHTML = `<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
         }
 
+        // FUNCIÓN MODIFICADA PARA NO ALTERAR LA FECHA DE TRABAJO
         function saveObsEdit(clientId, obsId) {
             const client = clientsData.find(c => c.id === clientId);
             const obs = client.observaciones.find(o => o.id === obsId);
             obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value;
             obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value;
-            obs.fecha = getTodayYMD();
+            // La línea que actualizaba la fecha (obs.fecha = getTodayYMD();) ha sido eliminada.
             updateClientNextRevision(client);
             saveData();
             renderAll();
@@ -808,10 +801,6 @@
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
         }
 
-        // ==================================================================
-        // INICIO DEL BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
-        // ==================================================================
-
         let localFilesForUpload = [];
 
         async function showDocumentModal(clientId) {
@@ -1005,9 +994,6 @@
             const response = await request;
             return response.result.id;
         }
-        // ==================================================================
-        // FIN DEL BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
-        // ==================================================================
     </script>
 </body>
 </html>
