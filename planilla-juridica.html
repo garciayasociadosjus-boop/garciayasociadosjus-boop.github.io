@@ -107,10 +107,10 @@
             max-width: 900px; max-height: 90vh; overflow-y: auto; animation: modalSlide 0.3s ease;
         }
         @keyframes modalSlide { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        #vencimientoAlertModal .modal-content {
+        #alertModal .modal-content {
             border-top: 10px solid var(--danger-color);
         }
-        #vencimientoAlertModal h2 {
+        #alertModal h2 {
             color: var(--danger-color);
             text-align: center;
             margin-bottom: 20px;
@@ -246,7 +246,7 @@
         </div>
     </div>
 
-    <div id="vencimientoAlertModal" class="modal"><div class="modal-content"></div></div>
+    <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
         let clientsData = [];
@@ -355,6 +355,18 @@
                 client.observacion = 'No hay tareas pendientes';
                 client.fechaTrabajado = '';
             }
+        }
+
+        // NUEVA FUNCIÓN para actualizar el campo resumen de audiencias
+        function updateAudienciasSummary(client) {
+            if (!client.audiencias_list) {
+                client.audiencias = '';
+                return;
+            }
+            client.audiencias = client.audiencias_list
+                .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+                .map(aud => `[${formatDate(aud.fecha)}]: ${aud.texto}`)
+                .join('; ');
         }
 
         function toggleCompleted(event, clientId, obsId) {
@@ -468,7 +480,7 @@
                 <div class="client-info">
                     <h4>📋 Información del Caso</h4>
                     <div class="info-grid">
-                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `
+                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias'}).map(([key, label]) => `
                         <div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}', '${String(client[key] || '').replace(/'/g, '&#39;')}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
                         <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                     </div>
@@ -545,13 +557,11 @@
             itemElement.innerHTML = `<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
         }
 
-        // FUNCIÓN MODIFICADA PARA NO ALTERAR LA FECHA DE TRABAJO
         function saveObsEdit(clientId, obsId) {
             const client = clientsData.find(c => c.id === clientId);
             const obs = client.observaciones.find(o => o.id === obsId);
             obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value;
             obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value;
-            // La línea que actualizaba la fecha (obs.fecha = getTodayYMD();) ha sido eliminada.
             updateClientNextRevision(client);
             saveData();
             renderAll();
@@ -572,6 +582,7 @@
             if (!confirm('¿Estás seguro de que quieres eliminar esta audiencia?')) return;
             const client = clientsData.find(c => c.id === clientId);
             client.audiencias_list = client.audiencias_list.filter(a => a.id !== audId);
+            updateAudienciasSummary(client); // Actualiza el campo resumen
             saveData();
             renderAll();
             showClientModal(clientId);
@@ -619,7 +630,10 @@
             if (!client) return;
             if (!client.audiencias_list) client.audiencias_list = [];
             client.audiencias_list.push({ id: generateId({}), fecha: document.getElementById('newAudienceDate').value, texto: document.getElementById('newAudienceText').value, completed: false });
-            saveData(); renderAll(); showClientModal(clientId);
+            updateAudienciasSummary(client); // Actualiza el campo resumen
+            saveData(); 
+            renderAll(); 
+            showClientModal(clientId);
         }
 
         function addVencimiento(event, clientId) {
@@ -636,7 +650,7 @@
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}]: ${obs.texto}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - Fecha: ${formatDate(aud.fecha)}]: ${aud.texto}`).join(' \n ');
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - Fecha: ${formatDate(venc.fecha)}]: ${venc.texto}`).join(' \n ');
-                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Audiencias (Campo Antiguo)': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
+                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
@@ -655,7 +669,7 @@
         function printClientSheet(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const printContent = `<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key] || 'S/D'}</div></div>`).join('')}</div></div>`;
+            const printContent = `<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias'}).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key] || 'S/D'}</div></div>`).join('')}</div></div>`;
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
             printWindow.document.close();
@@ -691,23 +705,48 @@
             }).join('');
         }
         
-        function checkVencimientosDelDia() {
+        // NUEVA FUNCIÓN DE ALERTA COMBINADA
+        function checkAlertsDelDia() {
             const vencimientosHoy = clientsData.flatMap(client => 
                 (client.vencimientos_list || [])
                 .filter(venc => isToday(venc.fecha) && !venc.completed)
-                .map(venc => ({ client, venc }))
+                .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
             );
 
-            if (vencimientosHoy.length > 0) {
-                const modal = document.getElementById('vencimientoAlertModal');
-                const content = `<span class="close" onclick="closeModal('vencimientoAlertModal')">&times;</span><h2>⚠️ ¡Alerta de Vencimientos para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${vencimientosHoy.map(item => `<div class="review-item today"><div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs"><strong>Vencimiento:</strong> ${item.venc.texto}</div></div></div>`).join('')}</div><div style="text-align:center; margin-top: 20px;"><button class="btn btn-warning" onclick="closeModal('vencimientoAlertModal')">Entendido</button></div>`;
+            const audienciasHoy = clientsData.flatMap(client => 
+                (client.audiencias_list || [])
+                .filter(aud => isToday(aud.fecha) && !aud.completed)
+                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
+            );
+
+            const alertsToday = [...vencimientosHoy, ...audienciasHoy];
+
+            if (alertsToday.length > 0) {
+                const modal = document.getElementById('alertModal');
+                const content = `
+                    <span class="close" onclick="closeModal('alertModal')">&times;</span>
+                    <h2>⚠️ ¡Alertas para Hoy!</h2>
+                    <div class="reviews-list" style="max-height: 60vh;">
+                        ${alertsToday.map(alert => `
+                            <div class="review-item today">
+                                <div class="review-item-content" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">
+                                    <div class="review-client">${getDisplayName(alert.client)}</div>
+                                    <div class="review-obs"><strong>${alert.type}:</strong> ${alert.item.texto}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div style="text-align:center; margin-top: 20px;">
+                        <button class="btn btn-warning" onclick="closeModal('alertModal')">Entendido</button>
+                    </div>
+                `;
                 modal.querySelector('.modal-content').innerHTML = content;
                 modal.classList.add('active');
             }
         }
         
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div><div class="form-group"><label>Audiencias (Texto simple)</label><input type="text" id="newAudiencias"></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div><div class="form-group"><label>Audiencias (se autocompleta)</label><input type="text" id="newAudiencias" disabled></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             
             document.getElementById('newClientForm').addEventListener('submit', function(e) {
@@ -718,7 +757,7 @@
                     alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".\nPor favor, verifique los datos.`);
                     return;
                 }
-                const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: document.getElementById('newAudiencias').value, observaciones: [], audiencias_list: [], vencimientos_list: [] };
+                const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', observaciones: [], audiencias_list: [], vencimientos_list: [] };
                 const obsText = document.getElementById('newObservacion').value;
                 const revDate = document.getElementById('newFechaRevision').value;
                 if (obsText && revDate) {
@@ -734,7 +773,7 @@
 
             loadData();
             renderAll();
-            checkVencimientosDelDia();
+            checkAlertsDelDia();
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
     </script>
