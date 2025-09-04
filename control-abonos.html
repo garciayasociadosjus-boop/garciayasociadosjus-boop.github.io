@@ -17,12 +17,14 @@
     .header h1{font-size:2.2em;margin-bottom:8px}
     .header p{font-size:1.1em;opacity:.9}
     .main-content{padding:30px}
-    /* MODIFICACIÓN: Se redujo el tamaño mínimo de las tarjetas de 250px a 220px */
-    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:25px;margin-bottom:30px}
+    /* MODIFICACIÓN 1: Se redujo aún más el tamaño mínimo de las tarjetas de 220px a 190px */
+    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:25px;margin-bottom:30px}
     .card{background:var(--light-bg);border-radius:12px;padding:25px;box-shadow:0 5px 15px rgba(0,0,0,.07);border-left:5px solid var(--primary-color);transition:.2s;position:relative}
     .card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
-    .card h3{color:var(--secondary-color);margin-bottom:15px;font-size:1.1em;text-transform:uppercase;letter-spacing:.5px}
-    .card .value{font-size:1.5em;font-weight:700;color:var(--primary-color);word-break:break-word;overflow-wrap:break-word}
+    /* MODIFICACIÓN 2: Se redujo el tamaño de la fuente y el margen del título de la tarjeta */
+    .card h3{color:var(--secondary-color);margin-bottom:12px;font-size:1em;text-transform:uppercase;letter-spacing:.5px}
+    /* MODIFICACIÓN 3: Se redujo el tamaño de la fuente del valor de la tarjeta */
+    .card .value{font-size:1.4em;font-weight:700;color:var(--primary-color);word-break:break-word;overflow-wrap:break-word}
     .card .value.positive{color:var(--success-color)}
     .card.success-card{border-left-color:var(--success-color)}
     .card.warning-card{border-left-color:var(--warning-color)}
@@ -698,7 +700,7 @@
       toggleIcon.textContent = isAmountHidden ? '👁️‍🗨️' : '👁️';
 
       cards.forEach(card => {
-        if(card.el) { // Check if element exists before manipulating
+        if(card.el) {
             if (isAmountHidden) {
                 card.el.textContent = '••••••';
                 card.el.classList.add('hidden-value');
