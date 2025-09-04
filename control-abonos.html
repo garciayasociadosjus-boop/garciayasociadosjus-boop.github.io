@@ -315,7 +315,8 @@
     let isAmountHidden = false;
     let realAmounts = { cobrado: 0, pendientes: 0, falta: 0 };
     let currentObsId = null;
-    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios'];
+    // MODIFICACIÓN 1: Agregar la nueva opción al array de Tipos
+    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -674,7 +675,7 @@
       }).format(v||0).replace(/,/g, '.'); 
     }
     
-    // MODIFICACIÓN 1: El ojo oculta todos los montos del dashboard
+    // MODIFICACIÓN: El ojo oculta todos los montos del dashboard (Ya estaba)
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var toggleIcon = document.getElementById('toggleIcon');
@@ -723,8 +724,15 @@
     
 
     function renderDashboard(abonos){
-      var totalCobrado = abonos.filter(function(a){ return a.estado==='Pagado' || a.estado === 'Terminado'; }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
-      totalCobrado += abonos.filter(function(a){ return a.estado==='Pago Parcial'; }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+      // MODIFICACIÓN 2: Excluir 'Pago de Bonos y AP' del cálculo de 'Total Cobrado'
+      var totalCobrado = abonos.filter(function(a){ 
+        return (a.estado==='Pagado' || a.estado === 'Terminado') && a.tipo !== 'Pago de Bonos y AP'; 
+      }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
+      
+      totalCobrado += abonos.filter(function(a){ 
+        return a.estado==='Pago Parcial' && a.tipo !== 'Pago de Bonos y AP'; 
+      }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
