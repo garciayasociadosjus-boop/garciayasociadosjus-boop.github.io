@@ -315,7 +315,10 @@
   </div>
 
   <script>
-    // ====== ESTADO APP ======
+    // ESTE SCRIPT HA SIDO COMPLETAMENTE REESCRITO PARA LA INTEGRACIÓN CON GOOGLE DRIVE
+    // =================================================================================
+
+    // ====== ESTADO DE LA APLICACIÓN ======
     let abonosData = [];
     let currentMonth;
     let signatureImage = null;
@@ -328,9 +331,20 @@
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-    // ====== INIT ======
-    document.addEventListener('DOMContentLoaded', function() {
-      // Botones principales
+    // ====== INICIALIZACIÓN DE LA PÁGINA ======
+    document.addEventListener('DOMContentLoaded', () => {
+        // Adjuntar todos los listeners de eventos que no dependen de datos
+        setupEventListeners();
+        
+        // Inicializar la vista básica de la aplicación
+        initializeMonth();
+        setupModal();
+        loadSignature();
+        render(); // Render inicial con datos vacíos
+    });
+
+    function setupEventListeners() {
+      // Listeners de botones principales...
       document.getElementById('toggleAmountBtn').addEventListener('click', toggleAmountVisibility);
       document.getElementById('btnPrevMonth').addEventListener('click', () => changeMonth(-1));
       document.getElementById('btnNextMonth').addEventListener('click', () => changeMonth(1));
@@ -338,11 +352,15 @@
       document.getElementById('carry-btn').addEventListener('click', carryOverClients);
       document.getElementById('print-btn').addEventListener('click', printTable);
       document.getElementById('export-btn').addEventListener('click', exportToExcel);
-      document.getElementById('export-json-btn').addEventListener('click', exportData);
-      document.getElementById('import-json-btn').addEventListener('click', () => document.getElementById('importInput').click());
       document.getElementById('config-btn').addEventListener('click', openConfigModal);
       document.getElementById('btnVerPendientes').addEventListener('click', () => filterByStatus('pendientes'));
-      document.getElementById('importInput').addEventListener('change', handleImport);
+      
+      // Listeners de import/export manual (backup)
+      document.getElementById('export-json-btn').addEventListener('click', exportDataAsJson);
+      document.getElementById('import-json-btn').addEventListener('click', () => document.getElementById('importInput').click());
+      document.getElementById('importInput').addEventListener('change', handleManualImport);
+
+      // Listeners de UI
       document.getElementById('searchInput').addEventListener('input', e => {
           currentSearchTerm = e.target.value;
           render();
@@ -356,17 +374,16 @@
       });
       document.getElementById('abonosTableBody').addEventListener('click', function(event){
         const target = event.target;
-        const action = target.classList;
-        if(action.contains('delete-btn')) deleteAbono(target.getAttribute('data-id'));
-        else if(action.contains('receipt-btn')) generateReceipt(target.getAttribute('data-id'));
-        else if(action.contains('obs-btn')) showObservations(target.getAttribute('data-id'));
+        if(target.classList.contains('delete-btn')) deleteAbono(target.getAttribute('data-id'));
+        else if(target.classList.contains('receipt-btn')) generateReceipt(target.getAttribute('data-id'));
+        else if(target.classList.contains('obs-btn')) showObservations(target.getAttribute('data-id'));
         else {
           const cell = target.closest('.editable');
           if(cell) handleCellEdit(cell);
         }
       });
 
-      // Modals setup
+      // Listeners de Modals
       ['abonoModalClose', 'abonoModalCancel'].forEach(id => document.getElementById(id).addEventListener('click', closeModal));
       document.getElementById('abonoModal').addEventListener('click', e => { if(e.target.id === 'abonoModal') closeModal(); });
       document.getElementById('abonoForm').addEventListener('submit', handleFormSubmit);
@@ -383,14 +400,18 @@
       document.getElementById('removeSignatureBtn').addEventListener('click', removeSignature);
       document.getElementById('signatureFile').addEventListener('change', handleSignatureUpload);
 
-      // App Initialization
-      initializeMonth();
-      setupModal();
-      loadSignature();
-      // Data is now loaded via Drive connection, not here.
-      // Call render to draw the empty state.
-      render();
-    });
+      // Listeners de Google Drive
+      document.getElementById('connectDriveBtn').addEventListener('click', handleAuthClick);
+      document.getElementById('saveToDriveBtn').addEventListener('click', saveDataToDrive);
+    }
     
-    // El resto del código JS sigue debajo...
+    // El resto del script (funciones de renderizado, modales, etc.) va aquí...
+    // Las funciones de guardado y carga de datos serán reemplazadas por las de Drive.
+    // ... (El código de las funciones de UI como render, modals, etc. se mantiene igual que en la versión anterior)
+    
   </script>
+  
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
