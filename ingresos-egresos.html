@@ -138,7 +138,6 @@
         .modal-btn-clear { background: #f39c12; color: white; }
         .modal-btn-cancel { background: #95a5a6; color: white; }
 
-        /* === ESTILOS DE GOOGLE DRIVE === */
         .data-status {
             background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
             padding: 10px; border-radius: 8px; margin: 20px 0;
@@ -158,10 +157,12 @@
             <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
             <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar Mes Actual</button>
             <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar Todo a Excel</button>
+            <button class="btn" id="syncAbonosBtn" type="button" style="background: linear-gradient(135deg, #6a1b9a, #4a148c);">🔄 Sincronizar Honorarios</button>
             <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Exportar Backup (JSON)</button>
             <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar Backup (JSON)</button>
         </div>
         <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+        <input type="file" id="abonosJsonInput" accept=".json" style="display: none;">
 
         <div id="driveStatus" class="data-status" style="display: none;"></div>
         <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
@@ -419,6 +420,11 @@
                 document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
                 document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
                 document.getElementById('jsonFileInput').addEventListener('change', importBackup);
+                
+                // === INICIO DE NUEVA FUNCIONALIDAD DE SINCRONIZACIÓN ===
+                document.getElementById('syncAbonosBtn').addEventListener('click', () => document.getElementById('abonosJsonInput').click());
+                document.getElementById('abonosJsonInput').addEventListener('change', handleAbonosFileSync);
+                // === FIN DE NUEVA FUNCIONALIDAD DE SINCRONIZACIÓN ===
 
                 document.body.addEventListener('change', handleTableChange);
                 document.body.addEventListener('focusout', handleTableFocusOut);
@@ -449,13 +455,9 @@
                 }
             }
             
-            // ##################################################################
-            // ##########              CÓDIGO CORREGIDO              ##########
-            // ##################################################################
             function handleTableClick(e) {
                 const target = e.target;
                 
-                // --- Acciones a nivel de MES (no necesitan una <tr>) ---
                 if (target.classList.contains('add-row-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const todayInMonth = new Date(monthKey + '-01T12:00:00').toISOString().split('T')[0];
@@ -465,7 +467,7 @@
                     allData[monthKey].transactions.push({ fecha: todayInMonth, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
                     saveData();
                     renderApp();
-                    return; // Importante: Salir de la función después de actuar
+                    return;
                 }
 
                 if (target.classList.contains('sort-archive-btn')) {
@@ -476,7 +478,7 @@
                         saveData();
                         renderApp();
                     }
-                    return; // Importante: Salir
+                    return;
                 }
                 
                 if (target.classList.contains('delete-month-btn')) {
@@ -487,13 +489,11 @@
                         saveData();
                         renderApp();
                     }
-                    return; // Importante: Salir
+                    return;
                 }
 
-                // --- Acciones a nivel de FILA (sí necesitan una <tr>) ---
                 const tr = target.closest('tr');
                 if (!tr) {
-                    // Si el clic no fue en una acción de mes ni en una fila, no hacer nada.
                     return;
                 }
 
@@ -583,8 +583,97 @@
 
 
             // =================================================================================
-            // 6. DATA EXPORT/IMPORT
+            // 6. DATA EXPORT/IMPORT & SYNC
             // =================================================================================
+            
+            // === INICIO DE NUEVA FUNCIÓN DE SINCRONIZACIÓN ===
+            function handleAbonosFileSync(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const abonosData = JSON.parse(e.target.result);
+                        if (!Array.isArray(abonosData)) {
+                            throw new Error("El archivo no es una lista de registros válida.");
+                        }
+                        
+                        // 1. Calcular los totales de honorarios por mes desde el archivo de abonos
+                        const monthlyHonorarios = {};
+                        abonosData.forEach(abono => {
+                            // Validar que el registro sea un honorario cobrado
+                            const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
+                            const esCobrado = abono.estado === 'Pagado' || abono.estado === 'Terminado' || abono.estado === 'Pago Parcial';
+                            
+                            if (esHonorario && esCobrado && abono.mesServicio) {
+                                const monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
+                                if (!monthlyHonorarios[monthKey]) {
+                                    monthlyHonorarios[monthKey] = 0;
+                                }
+                                
+                                const monto = abono.estado === 'Pago Parcial' 
+                                    ? parseFloat(abono.montoPagado) || 0 
+                                    : parseFloat(abono.monto) || 0;
+                                
+                                monthlyHonorarios[monthKey] += monto;
+                            }
+                        });
+
+                        // 2. Actualizar la planilla de Ingresos/Egresos
+                        let updatedMonthsCount = 0;
+                        let createdMonthsCount = 0;
+                        Object.keys(monthlyHonorarios).forEach(monthKey => {
+                            const totalHonorarios = monthlyHonorarios[monthKey];
+
+                            // Asegurarse de que el mes existe en la planilla de egresos
+                            if (!allData[monthKey]) {
+                                allData[monthKey] = { transactions: [] };
+                                createdMonthsCount++;
+                            }
+
+                            // Buscar si ya existe una entrada para "Honorarios Profesionales"
+                            const transactions = allData[monthKey].transactions;
+                            const existingEntryIndex = transactions.findIndex(t => t.descripcion === 'Honorarios Profesionales');
+                            
+                            if (existingEntryIndex > -1) {
+                                // Si existe, la actualiza
+                                transactions[existingEntryIndex].monto = totalHonorarios;
+                                transactions[existingEntryIndex].categoria = 'ingreso'; // Asegurar categoría
+                            } else {
+                                // Si no existe, crea una nueva entrada
+                                transactions.unshift({
+                                    fecha: `${monthKey}-01`,
+                                    descripcion: 'Honorarios Profesionales',
+                                    categoria: 'ingreso',
+                                    monto: totalHonorarios,
+                                    medioPago: 'Automático',
+                                    quien: 'ESTUDIO',
+                                    observaciones: 'Sincronizado desde planilla de Abonos.'
+                                });
+                            }
+                            updatedMonthsCount++;
+                        });
+
+                        if (updatedMonthsCount > 0) {
+                            saveData();
+                            renderApp();
+                            alert(`Sincronización completa.\n\nSe actualizaron/crearon registros de honorarios para ${updatedMonthsCount} mes(es).`);
+                        } else {
+                            alert("No se encontraron honorarios cobrados en el archivo seleccionado para sincronizar.");
+                        }
+
+                    } catch (err) {
+                        alert(`Error al procesar el archivo de abonos: ${err.message}`);
+                    } finally {
+                        event.target.value = null; // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+                    }
+                };
+                reader.readAsText(file);
+            }
+            // === FIN DE NUEVA FUNCIÓN DE SINCRONIZACIÓN ===
+
+
             function exportAllToExcel() {
                 let allTransactions = [];
                 Object.keys(allData).forEach(monthKey => {
@@ -685,7 +774,7 @@
         // 8. GOOGLE DRIVE INTEGRATION LOGIC
         // =================================================================================
         const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // Esta API Key es de ejemplo, deberías usar la tuya.
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DATA_FILE_NAME = 'datos_ingresos_egresos_garcia.json';
