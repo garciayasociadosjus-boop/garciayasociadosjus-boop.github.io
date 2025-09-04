@@ -30,7 +30,6 @@
             box-shadow: var(--shadow); overflow: hidden;
         }
         .header {
-            /* === CAMBIO DE COLOR A AZUL MARINO === */
             background: linear-gradient(135deg, #020c24 0%, #081e4b 100%);
             color: var(--light-text); padding: 30px; text-align: center;
         }
@@ -108,7 +107,6 @@
             max-width: 900px; max-height: 90vh; overflow-y: auto; animation: modalSlide 0.3s ease;
         }
         @keyframes modalSlide { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        /* === ESTILO PARA LA ALERTA DE VENCIMIENTOS === */
         #vencimientoAlertModal .modal-content {
             border-top: 10px solid var(--danger-color);
         }
@@ -130,14 +128,12 @@
         .history-item { background: var(--light-text); border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; position: relative; }
         .history-item-audience { border-left: 5px solid #8e44ad; }
         .history-item-task { border-left: 5px solid var(--secondary-color); }
-        /* === ESTILO PARA VENCIMIENTOS === */
-        .history-item-vencimiento { border-left: 5px solid #ff6347; } /* Color Tomate */
+        .history-item-vencimiento { border-left: 5px solid #ff6347; }
         .history-date { font-size: 0.9em; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; display: flex; align-items: center;}
         .history-text { color: var(--dark-text); }
         .history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-top: 5px; font-weight: 500; display: inline-block; }
         .tag-audience { background-color: #8e44ad; }
         .tag-task { background-color: var(--secondary-color); }
-        /* === ESTILO PARA VENCIMIENTOS === */
         .tag-vencimiento { background-color: #ff6347; }
         .close { float: right; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; }
         .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
@@ -222,12 +218,33 @@
     </div>
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
-    <input type="file" id="documentUploadInput" style="display: none;">
+    <input type="file" id="documentUploadInput" style="display: none;" multiple>
 
     <div id="newClientModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
-    <div id="documentModal" class="modal"><div class="modal-content"></div></div>
+    
+    <div id="documentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('documentModal')">&times;</span>
+            <h2 id="documentModalTitle"></h2>
+            
+            <div id="uploadArea" class="upload-area" style="border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 15px 0; background: #f9f9f9;">
+                <p>Arrastra y suelta tus archivos aquí</p>
+            </div>
+            <ul id="localDocumentList" class="document-list" style="margin-top:10px;">
+                <p style="font-style: italic; color: #666;">Archivos listos para subir:</p>
+            </ul>
+
+            <h4>Documentos ya guardados en Drive:</h4>
+            <ul id="driveDocumentList" class="document-list"></ul>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-info" onclick="triggerLocalFileUpload()">➕ Agregar Archivo</button>
+                <button class="btn btn-success" onclick="saveDocumentsToDrive()">📤 Guardar Documentos en Drive</button>
+            </div>
+        </div>
+    </div>
     <div id="vencimientoAlertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
@@ -274,7 +291,6 @@
                 c.id = c.id || generateId(c);
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
-                // === AÑADIR VENCIMIENTOS_LIST ===
                 c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
 
                 c.observaciones.forEach(obs => {
@@ -285,7 +301,6 @@
                     aud.id = aud.id || generateId({});
                     aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
                 });
-                // === SANITIZAR VENCIMIENTOS ===
                 c.vencimientos_list.forEach(venc => {
                     venc.id = venc.id || generateId({});
                     venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
@@ -352,7 +367,6 @@
             showClientModal(clientId);
         }
 
-        // === NUEVA FUNCIÓN PARA COMPLETAR VENCIMIENTOS ===
         function toggleVencimientoCompleted(event, clientId, vencId) {
             event.stopPropagation();
             const client = clientsData.find(c => c.id === clientId);
@@ -373,25 +387,9 @@
 
         function renderDashboardLists() {
             const allSchedulableItems = clientsData.flatMap(client => {
-                const tasks = (client.observaciones || [])
-                    .filter(obs => !obs.completed && obs.proximaRevision)
-                    .map(obs => ({
-                        id: obs.id, client: client, reviewDate: obs.proximaRevision,
-                        reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed
-                    }));
-                const audiences = (client.audiencias_list || [])
-                    .filter(aud => aud.fecha && !aud.completed)
-                    .map(aud => ({
-                        id: aud.id, client: client, reviewDate: aud.fecha,
-                        reviewText: `AUDIENCIA: ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed
-                    }));
-                // === AÑADIR VENCIMIENTOS A LA LISTA DEL DASHBOARD ===
-                const vencimientos = (client.vencimientos_list || [])
-                    .filter(venc => venc.fecha && !venc.completed)
-                    .map(venc => ({
-                        id: venc.id, client: client, reviewDate: venc.fecha,
-                        reviewText: `VENCIMIENTO: ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed
-                    }));
+                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client: client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed }));
+                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client: client, reviewDate: aud.fecha, reviewText: `AUDIENCIA: ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client: client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO: ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
 
@@ -413,7 +411,6 @@
                 else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
                 else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
                 
-                // === MANEJAR EL NUEVO TIPO 'vencimiento' ===
                 const toggleFunc = item.type === 'task' ? 'toggleCompleted' : item.type === 'audience' ? 'toggleAudienceCompleted' : 'toggleVencimientoCompleted';
                 const completedClass = item.completed ? 'completed' : '';
                 const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}(event, '${item.client.id}', '${item.id}')">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
@@ -486,35 +483,17 @@
         function renderHistoryList(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
-            // === AÑADIR VENCIMIENTOS AL HISTORIAL ===
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
             
             const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
                 if (item.type === 'task') {
-                    return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}">
-                        <div class="history-date">
-                            Revisar el: ${formatDate(item.proximaRevision)}
-                            ${item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''}
-                            <span class="history-tag tag-task" style="margin-left: auto;">TAREA</span>
-                        </div>
-                        <div class="history-text">${item.texto}</div>
-                        <button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button>
-                    </div>`;
+                    return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}"><div class="history-date">Revisar el: ${formatDate(item.proximaRevision)}${item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''}<span class="history-tag tag-task" style="margin-left: auto;">TAREA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 } else if (item.type === 'audience') {
-                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}">
-                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div>
-                        <div class="history-text">${item.texto}</div>
-                        <button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button>
-                    </div>`;
-                } else { // === RENDERIZAR VENCIMIENTOS ===
-                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}">
-                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div>
-                        <div class="history-text">${item.texto}</div>
-                        <button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button>
-                    </div>`;
+                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button></div>`;
+                } else {
+                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 }
             }).join('');
         }
@@ -522,12 +501,7 @@
         function editObs(clientId, obsId) {
             const obs = clientsData.find(c => c.id === clientId).observaciones.find(o => o.id === obsId);
             const itemElement = document.getElementById(`task-item-${obsId}`);
-            itemElement.innerHTML = `
-                <div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div>
-                <div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div>
-                <button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button>
-                <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
-            `;
+            itemElement.innerHTML = `<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
         }
 
         function saveObsEdit(clientId, obsId) {
@@ -561,7 +535,6 @@
             showClientModal(clientId);
         }
 
-        // === NUEVA FUNCIÓN PARA ELIMINAR VENCIMIENTOS ===
         function deleteVencimiento(clientId, vencId) {
             if (!confirm('¿Estás seguro de que quieres eliminar este vencimiento?')) return;
             const client = clientsData.find(c => c.id === clientId);
@@ -607,7 +580,6 @@
             saveData(); renderAll(); showClientModal(clientId);
         }
 
-        // === NUEVA FUNCIÓN PARA AGREGAR VENCIMIENTOS ===
         function addVencimiento(event, clientId) {
             event.preventDefault();
             const client = clientsData.find(c => c.id === clientId);
@@ -621,7 +593,6 @@
             const excelData = clientsData.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}]: ${obs.texto}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - Fecha: ${formatDate(aud.fecha)}]: ${aud.texto}`).join(' \n ');
-                // === AÑADIR VENCIMIENTOS AL EXCEL ===
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - Fecha: ${formatDate(venc.fecha)}]: ${venc.texto}`).join(' \n ');
                 return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Audiencias (Campo Antiguo)': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
@@ -642,19 +613,7 @@
         function printClientSheet(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const printContent = `
-                <div class="print-area">
-                    <h2>Ficha del Caso</h2>
-                    <h3>${getDisplayName(client)}</h3>
-                    <div class="info-grid">
-                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `
-                        <div class="info-item">
-                            <div class="info-label">${label}</div>
-                            <div class="info-value">${client[key] || 'S/D'}</div>
-                        </div>`).join('')}
-                    </div>
-                </div>
-            `;
+            const printContent = `<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Audiencias (Campo Antiguo)'}).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key] || 'S/D'}</div></div>`).join('')}</div></div>`;
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
             printWindow.document.close();
@@ -665,13 +624,7 @@
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             const historyHTML = renderHistoryListForPrint(client);
-            const printContent = `
-                <div class="print-area">
-                    <h2>Historial de Actuaciones</h2>
-                    <h3>${getDisplayName(client)}</h3>
-                    ${historyHTML}
-                </div>
-            `;
+            const printContent = `<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
             printWindow.document.close();
@@ -681,36 +634,21 @@
         function renderHistoryListForPrint(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
-            // === AÑADIR VENCIMIENTOS A LA IMPRESIÓN ===
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
             
             const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
                 if (item.type === 'task') {
-                    return `<div class="history-item history-item-task ${item.completed ? 'completed' : ''}">
-                        <div class="history-date">
-                            Revisar el: ${formatDate(item.proximaRevision)}
-                            ${item.fecha ? `(Trabajado el: ${formatDate(item.fecha)})` : ''}
-                            <span class="history-tag tag-task">TAREA</span>
-                        </div>
-                        <div class="history-text">${item.texto}</div>
-                    </div>`;
+                    return `<div class="history-item history-item-task ${item.completed ? 'completed' : ''}"><div class="history-date">Revisar el: ${formatDate(item.proximaRevision)}${item.fecha ? `(Trabajado el: ${formatDate(item.fecha)})` : ''}<span class="history-tag tag-task">TAREA</span></div><div class="history-text">${item.texto}</div></div>`;
                 } else if (item.type === 'audience'){
-                    return `<div class="history-item history-item-audience">
-                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div>
-                        <div class="history-text">${item.texto}</div>
-                    </div>`;
-                } else { // Vencimiento
-                    return `<div class="history-item history-item-vencimiento">
-                        <div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div>
-                        <div class="history-text">${item.texto}</div>
-                    </div>`;
+                    return `<div class="history-item history-item-audience"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div><div class="history-text">${item.texto}</div></div>`;
+                } else {
+                    return `<div class="history-item history-item-vencimiento"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div></div>`;
                 }
             }).join('');
         }
         
-        // === NUEVA FUNCIÓN PARA MOSTRAR ALERTA DE VENCIMIENTOS ===
         function checkVencimientosDelDia() {
             const vencimientosHoy = clientsData.flatMap(client => 
                 (client.vencimientos_list || [])
@@ -720,23 +658,7 @@
 
             if (vencimientosHoy.length > 0) {
                 const modal = document.getElementById('vencimientoAlertModal');
-                const content = `
-                    <span class="close" onclick="closeModal('vencimientoAlertModal')">&times;</span>
-                    <h2>⚠️ ¡Alerta de Vencimientos para Hoy!</h2>
-                    <div class="reviews-list" style="max-height: 60vh;">
-                        ${vencimientosHoy.map(item => `
-                            <div class="review-item today">
-                                <div class="review-item-content" onclick="showClientModal('${item.client.id}')">
-                                    <div class="review-client">${getDisplayName(item.client)}</div>
-                                    <div class="review-obs"><strong>Vencimiento:</strong> ${item.venc.texto}</div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div style="text-align:center; margin-top: 20px;">
-                        <button class="btn btn-warning" onclick="closeModal('vencimientoAlertModal')">Entendido</button>
-                    </div>
-                `;
+                const content = `<span class="close" onclick="closeModal('vencimientoAlertModal')">&times;</span><h2>⚠️ ¡Alerta de Vencimientos para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${vencimientosHoy.map(item => `<div class="review-item today"><div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs"><strong>Vencimiento:</strong> ${item.venc.texto}</div></div></div>`).join('')}</div><div style="text-align:center; margin-top: 20px;"><button class="btn btn-warning" onclick="closeModal('vencimientoAlertModal')">Entendido</button></div>`;
                 modal.querySelector('.modal-content').innerHTML = content;
                 modal.classList.add('active');
             }
@@ -745,45 +667,20 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div><div class="form-group"><label>Audiencias (Texto simple)</label><input type="text" id="newAudiencias"></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
-            document.getElementById('documentModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('documentModal')">&times;</span><h2 id="documentModalTitle"></h2><ul id="documentList" class="document-list"></ul><div style="text-align: center; margin-top: 20px;"><button class="btn btn-info" onclick="triggerDocumentUpload()">➕ Subir Documento</button></div>`;
             
             document.getElementById('newClientForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                
                 const caratulaInput = document.getElementById('newCaratula');
                 const caratulaValue = caratulaInput.value.trim();
-
                 if (caratulaValue && clientsData.some(client => client.caratula && client.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) {
                     alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".\nPor favor, verifique los datos.`);
                     return;
                 }
-
-                const newClient = {
-                    id: generateId({}),
-                    nombre: document.getElementById('newNombre').value.toUpperCase(),
-                    dni: document.getElementById('newDni').value,
-                    telefono: document.getElementById('newTelefono').value,
-                    caratula: caratulaValue,
-                    expediente: document.getElementById('newExpediente').value.trim(),
-                    juzgado: document.getElementById('newJuzgado').value,
-                    direccionJuzgado: document.getElementById('newDireccionJuzgado').value,
-                    telJuzgado: document.getElementById('newTelJuzgado').value,
-                    estado: document.getElementById('newEstado').value,
-                    audiencias: document.getElementById('newAudiencias').value,
-                    observaciones: [],
-                    audiencias_list: [],
-                    vencimientos_list: []
-                };
+                const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: document.getElementById('newAudiencias').value, observaciones: [], audiencias_list: [], vencimientos_list: [] };
                 const obsText = document.getElementById('newObservacion').value;
                 const revDate = document.getElementById('newFechaRevision').value;
                 if (obsText && revDate) {
-                    newClient.observaciones.push({
-                        id: generateId({}),
-                        fecha: getTodayYMD(),
-                        texto: obsText,
-                        proximaRevision: revDate,
-                        completed: false
-                    });
+                    newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false });
                 }
                 updateClientNextRevision(newClient);
                 clientsData.push(newClient);
@@ -795,7 +692,6 @@
 
             loadData();
             renderAll();
-            // === LLAMAR A LA FUNCIÓN DE ALERTA AL CARGAR LA PÁGINA ===
             checkVencimientosDelDia();
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
@@ -804,7 +700,6 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
-        // === El resto del script de Google Drive permanece igual ===
         const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
@@ -863,55 +758,185 @@
                 updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
             } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
         }
-        async function getOrCreateFolder(name, parentId = null) {
-            let query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
-            if (parentId) query += ` and '${parentId}' in parents`;
-            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-            if (response.result.files.length > 0) return response.result.files[0].id;
-            const fileMetadata = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && {parents: [parentId]}) };
-            const newFolder = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
-            return newFolder.result.id;
-        }
+
+        // ==================================================================
+        // INICIO DEL NUEVO BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
+        // ==================================================================
+
+        let localFilesForUpload = [];
+
         async function showDocumentModal(clientId) {
-            if (gapi.client.getToken() === null) return alert('Conecta con Google Drive primero.');
+            if (gapi.client.getToken() === null) {
+                return alert('Para gestionar documentos, primero debes conectar con Google Drive.');
+            }
             currentClientIdForDocs = clientId;
+            localFilesForUpload = []; 
+
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
+
             document.getElementById('documentModalTitle').innerText = `Documentos de: ${getDisplayName(client)}`;
             document.getElementById('documentModal').classList.add('active');
-            const listEl = document.getElementById('documentList');
-            listEl.innerHTML = '<div class="spinner"></div>';
+            
+            renderLocalFileList();
+            await renderDriveFileList();
+
+            setupDragAndDrop();
+        }
+
+        function setupDragAndDrop() {
+            const area = document.getElementById('uploadArea');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => area.addEventListener(eName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false));
+            ['dragenter', 'dragover'].forEach(eName => area.addEventListener(eName, () => area.classList.add('drag-over'), false));
+            ['dragleave', 'drop'].forEach(eName => area.addEventListener(eName, () => area.classList.remove('drag-over'), false));
+            area.addEventListener('drop', e => processFiles(e.dataTransfer.files), false);
+        }
+
+        function processFiles(files) {
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const newFile = {
+                        id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        name: file.name,
+                        type: file.type || 'Desconocido',
+                        size: file.size,
+                        dataUrl: e.target.result
+                    };
+                    localFilesForUpload.push(newFile);
+                    renderLocalFileList();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function renderLocalFileList() {
+            const listEl = document.getElementById('localDocumentList');
+            if (localFilesForUpload.length === 0) {
+                listEl.innerHTML = '<p style="font-style: italic; color: #666; text-align:center; padding:10px;">No hay archivos nuevos para subir.</p>';
+                return;
+            }
+            listEl.innerHTML = '<p style="font-style: italic; color: #666;">Archivos listos para subir:</p>';
+            listEl.innerHTML += localFilesForUpload.map(file => `
+                <li>
+                    <span>${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+                    <button class="btn btn-danger btn-sm" onclick="removeLocalFile('${file.id}')">X</button>
+                </li>
+            `).join('');
+        }
+        
+        function removeLocalFile(fileId) {
+            localFilesForUpload = localFilesForUpload.filter(f => f.id !== fileId);
+            renderLocalFileList();
+        }
+
+        function triggerLocalFileUpload() {
+            const uploader = document.getElementById('documentUploadInput');
+            uploader.onchange = (e) => processFiles(e.target.files);
+            uploader.value = '';
+            uploader.click();
+        }
+
+        async function saveDocumentsToDrive() {
+            if (localFilesForUpload.length === 0) {
+                alert("No hay archivos nuevos para guardar. Arrastre archivos al área designada o use el botón 'Agregar Archivo'.");
+                return;
+            }
+
+            const driveListEl = document.getElementById('driveDocumentList');
+            driveListEl.innerHTML += '<div class="spinner"></div><p style="text-align:center;">Subiendo archivos...</p>';
+
+            const client = clientsData.find(c => c.id === currentClientIdForDocs);
+            const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
+            
             try {
                 if (!docsFolderId) docsFolderId = await getOrCreateFolder(DOCS_FOLDER_NAME);
-                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
                 const clientFolderId = await getOrCreateFolder(clientFolderName, docsFolderId);
-                const response = await gapi.client.drive.files.list({ q: `'${clientFolderId}' in parents and trashed=false`, fields: 'files(id, name, webViewLink)' });
-                listEl.innerHTML = response.result.files.length === 0 ? '<li>No hay documentos.</li>' : response.result.files.map(file => `<li><a href="${file.webViewLink}" target="_blank">${file.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${file.id}')">X</button></li>`).join('');
-            } catch (err) { console.error(err); listEl.innerHTML = '<li>Error al cargar documentos.</li>'; }
+                
+                for (let i = 0; i < localFilesForUpload.length; i++) {
+                    const file = localFilesForUpload[i];
+                    document.getElementById('documentModalTitle').innerText = `Subiendo ${i+1}/${localFilesForUpload.length}: ${file.name}`;
+                    await uploadContent(file.dataUrl, file.name, file.type, clientFolderId, null);
+                }
+                
+                localFilesForUpload = [];
+                renderLocalFileList();
+                await renderDriveFileList();
+                document.getElementById('documentModalTitle').innerText = `Documentos de: ${getDisplayName(client)}`;
+
+            } catch (err) {
+                console.error(err);
+                alert("Error al subir los archivos.");
+                await renderDriveFileList();
+            }
         }
-        async function deleteDocument(fileId) { if (confirm('¿Eliminar este documento permanentemente de Google Drive?')) try { await gapi.client.drive.files.delete({ fileId }); showDocumentModal(currentClientIdForDocs); } catch (err) { alert('Error al eliminar.'); } }
-        function triggerDocumentUpload() { const uploader = document.getElementById('documentUploadInput'); uploader.onchange = handleDocumentUpload; uploader.value = ''; uploader.click(); }
-        async function handleDocumentUpload(event) {
-            const file = event.target.files[0]; if (!file) return;
-            const listEl = document.getElementById('documentList');
-            listEl.innerHTML = '<div class="spinner"></div><p style="text-align:center;">Subiendo...</p>';
+        
+        async function renderDriveFileList() {
+            const listEl = document.getElementById('driveDocumentList');
+            listEl.innerHTML = '<div class="spinner"></div>';
             try {
                 const client = clientsData.find(c => c.id === currentClientIdForDocs);
                 if (!docsFolderId) docsFolderId = await getOrCreateFolder(DOCS_FOLDER_NAME);
                 const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
                 const clientFolderId = await getOrCreateFolder(clientFolderName, docsFolderId);
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    await uploadContent(e.target.result, file.name, file.type, clientFolderId, null);
-                    showDocumentModal(currentClientIdForDocs);
-                };
-                reader.readAsArrayBuffer(file);
-            } catch (err) { console.error(err); alert("Error al subir."); showDocumentModal(currentClientIdForDocs); }
+                
+                const response = await gapi.client.drive.files.list({
+                    q: `'${clientFolderId}' in parents and trashed=false`,
+                    fields: 'files(id, name, webViewLink)'
+                });
+                
+                if (response.result.files.length === 0) {
+                    listEl.innerHTML = '<li>No hay documentos guardados en Drive para este caso.</li>';
+                } else {
+                    listEl.innerHTML = response.result.files.map(file => `
+                        <li>
+                            <a href="${file.webViewLink}" target="_blank">${file.name}</a>
+                            <button class="btn btn-danger btn-sm" onclick="deleteDocument('${file.id}')">X</button>
+                        </li>`).join('');
+                }
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = '<li>Error al cargar documentos de Drive.</li>';
+            }
         }
+
+        async function deleteDocument(fileId) {
+            if (confirm('¿Eliminar este documento permanentemente de Google Drive?')) {
+                try {
+                    await gapi.client.drive.files.delete({ fileId });
+                    await renderDriveFileList();
+                } catch (err) {
+                    alert('Error al eliminar el documento.');
+                }
+            }
+        }
+
+        async function getOrCreateFolder(name, parentId = null) {
+            let query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
+            if (parentId) {
+                query += ` and '${parentId}' in parents`;
+            }
+            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+            if (response.result.files.length > 0) {
+                return response.result.files[0].id;
+            }
+            const fileMetadata = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && {parents: [parentId]}) };
+            const newFolder = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
+            return newFolder.result.id;
+        }
+
         async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
             const boundary = '-------314159265358979323846';
-            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
-            const base64Data = content instanceof ArrayBuffer ? btoa(String.fromCharCode.apply(null, new Uint8Array(content))) : btoa(unescape(encodeURIComponent(content)));
+            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
+            let base64Data;
+            if (typeof content === 'string' && content.startsWith('data:')) {
+                base64Data = content.split(',')[1];
+            } else {
+                base64Data = btoa(unescape(encodeURIComponent(content)));
+            }
             const requestBody =
                 `--${boundary}\r\n` +
                 `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
@@ -921,7 +946,6 @@
                 `Content-Transfer-Encoding: base64\r\n\r\n` +
                 base64Data +
                 `\r\n--${boundary}--`;
-            
             const request = gapi.client.request({
                 path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
                 method: fileIdToUpdate ? 'PATCH' : 'POST',
@@ -932,7 +956,10 @@
             const response = await request;
             return response.result.id;
         }
+
+        // ==================================================================
+        // FIN DEL NUEVO BLOQUE DE CÓDIGO
+        // ==================================================================
     </script>
-    
 </body>
 </html>
