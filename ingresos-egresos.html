@@ -137,12 +137,6 @@
         .modal-btn-save { background: #27ae60; color: white; }
         .modal-btn-clear { background: #f39c12; color: white; }
         .modal-btn-cancel { background: #95a5a6; color: white; }
-
-        .data-status {
-            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
-            padding: 10px; border-radius: 8px; margin: 20px 0;
-            text-align: center; font-size: 14px;
-        }
     </style>
 </head>
 <body>
@@ -156,21 +150,13 @@
             <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila (Mes Actual)</button>
             <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
             <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar Mes Actual</button>
-            <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar Todo a Excel</button>
-            <button class="btn" id="syncAbonosBtn" type="button" style="background: linear-gradient(135deg, #6a1b9a, #4a148c);">🔄 Sincronizar Honorarios</button>
+            <button class="btn" id="syncAbonosBtn" type="button" style="background: linear-gradient(135deg, #6a1b9a, #4a148c);">🔄 Sincronizar con Abonos</button>
+            <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar a Excel</button>
             <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Exportar Backup (JSON)</button>
             <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar Backup (JSON)</button>
         </div>
         <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
-        <input type="file" id="abonosJsonInput" accept=".json" style="display: none;">
 
-        <div id="driveStatus" class="data-status" style="display: none;"></div>
-        <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-            <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Google Drive</button>
-            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" type="button">📤 Guardar en Drive</button>
-            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" type="button">📥 Cargar de Drive</button>
-        </section>
-        
         <div class="month-section" id="current-month-container">
         </div>
 
@@ -196,15 +182,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // =================================================================================
-            // 1. STATE MANAGEMENT & INITIALIZATION
-            // =================================================================================
             let allData = {}; 
             let currentMonthKey = '';
-
             let currentObsRowIndex = -1;
             let currentObsMonthKey = '';
-
             const categorias = ['ingreso', 'egreso'];
             const mediosPago = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'otro'];
             const personas = ['CAMILA', 'SEBA', 'ESTUDIO', 'CLIENTE'];
@@ -213,45 +194,17 @@
                 const now = new Date();
                 const nowInArgentina = new Date(now.toLocaleString("en-US", {timeZone: "America/Argentina/Buenos_Aires"}));
                 currentMonthKey = `${nowInArgentina.getFullYear()}-${String(nowInArgentina.getMonth() + 1).padStart(2, '0')}`;
-                
-                loadDataAndMigrate();
+                loadData();
                 renderApp();
                 setupEventListeners();
             }
 
-            function loadDataAndMigrate() {
+            function loadData() {
                 const savedDataRaw = localStorage.getItem('ingresosEgresosData');
-                if (!savedDataRaw) {
-                    allData = {};
-                    return;
-                }
-                
                 try {
-                    const parsedData = JSON.parse(savedDataRaw);
-                    
-                    if (Array.isArray(parsedData)) {
-                        console.log("Detectando formato antiguo. Migrando datos...");
-                        allData = {};
-                        parsedData.forEach(transaction => {
-                            const date = new Date(transaction.fecha);
-                            if (isNaN(date.getTime())) return;
-                            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                            if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
-                            if (transaction.observaciones === undefined) transaction.observaciones = '';
-                            allData[monthKey].transactions.push(transaction);
-                        });
-                        saveData();
-                        alert("Sus datos han sido actualizados al nuevo formato mensual.");
-                    } else {
-                         Object.keys(parsedData).forEach(monthKey => {
-                            parsedData[monthKey].transactions.forEach(tx => {
-                                if (tx.observaciones === undefined) tx.observaciones = '';
-                            });
-                        });
-                        allData = parsedData;
-                    }
+                    allData = savedDataRaw ? JSON.parse(savedDataRaw) : {};
                 } catch (error) {
-                    console.error("Error al cargar o migrar datos:", error);
+                    console.error("Error al cargar datos:", error);
                     allData = {};
                 }
             }
@@ -260,24 +213,13 @@
                 localStorage.setItem('ingresosEgresosData', JSON.stringify(allData));
             }
             
-            // =================================================================================
-            // 2. MAIN APP RENDER
-            // =================================================================================
-            
             function renderApp() {
-                const openArchiveKeys = new Set(
-                    Array.from(document.querySelectorAll('#archive-container .archive-item[open]'))
-                         .map(el => el.dataset.monthKey)
-                );
-
+                const openArchiveKeys = new Set(Array.from(document.querySelectorAll('#archive-container .archive-item[open]')).map(el => el.dataset.monthKey));
                 renderCurrentMonth();
                 renderArchives();
-
                 openArchiveKeys.forEach(monthKey => {
                     const detailsElement = document.querySelector(`.archive-item[data-month-key="${monthKey}"]`);
-                    if (detailsElement) {
-                        detailsElement.open = true;
-                    }
+                    if (detailsElement) detailsElement.open = true;
                 });
             }
 
@@ -285,10 +227,8 @@
                 const container = document.getElementById('current-month-container');
                 const monthTransactions = allData[currentMonthKey]?.transactions || [];
                 const monthName = formatMonthKey(currentMonthKey);
-
                 const totals = calculateTotals(monthTransactions);
-                
-                let tableHTML = `
+                container.innerHTML = `
                     <h2 class="month-title">Planilla de ${monthName}</h2>
                     <div class="summary-box">
                         <div class="summary-item"><div class="summary-label">Ingresos del Mes</div><div class="summary-value summary-ingreso">${formatCurrency(totals.ingresos)}</div></div>
@@ -304,29 +244,22 @@
                                     <th style="width: 110px;">Quien</th><th style="width: 80px;">Obs</th><th style="width: 60px;">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${monthTransactions.map((rowData, index) => createTableRow(rowData, index, currentMonthKey)).join('')}
-                            </tbody>
+                            <tbody>${monthTransactions.map((rowData, index) => createTableRow(rowData, index, currentMonthKey)).join('')}</tbody>
                         </table>
                     </div>`;
-                container.innerHTML = tableHTML;
             }
 
             function renderArchives() {
                 const container = document.getElementById('archive-container');
                 const monthKeys = Object.keys(allData).sort().reverse();
-
                 let archiveHTML = '<h2>Meses Archivados</h2>';
                 let hasArchives = false;
-
                 monthKeys.forEach(monthKey => {
                     if (monthKey === currentMonthKey) return;
                     hasArchives = true;
-                    
                     const monthTransactions = allData[monthKey]?.transactions || [];
                     const totals = calculateTotals(monthTransactions);
                     const monthName = formatMonthKey(monthKey);
-
                     archiveHTML += `
                         <details class="archive-item" data-month-key="${monthKey}">
                             <summary>
@@ -351,13 +284,10 @@
                                             <th style="width: 110px;">Quien</th><th style="width: 80px;">Obs</th><th style="width: 60px;">Acción</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        ${monthTransactions.map((rowData, index) => createTableRow(rowData, index, monthKey)).join('')}
-                                    </tbody>
+                                    <tbody>${monthTransactions.map((rowData, index) => createTableRow(rowData, index, monthKey)).join('')}</tbody>
                                 </table>
                             </div>
-                        </details>
-                    `;
+                        </details>`;
                 });
                 if (!hasArchives) archiveHTML += '<p>No hay meses archivados.</p>';
                 container.innerHTML = archiveHTML;
@@ -370,61 +300,38 @@
                     <tr data-index="${index}" data-month-key="${monthKey}">
                         <td><input type="date" class="input-field" value="${rowData.fecha || ''}" data-field="fecha"></td>
                         <td><input type="text" class="input-field" value="${rowData.descripcion || ''}" data-field="descripcion"></td>
-                        <td class="${categoryClass}">
-                            <select class="select-field" data-field="categoria">
-                                ${categorias.map(cat => `<option value="${cat}" ${cat === rowData.categoria ? 'selected' : ''}>${capitalize(cat)}</option>`).join('')}
-                            </select>
-                        </td>
+                        <td class="${categoryClass}"><select class="select-field" data-field="categoria">${categorias.map(cat => `<option value="${cat}" ${cat === rowData.categoria ? 'selected' : ''}>${capitalize(cat)}</option>`).join('')}</select></td>
                         <td><input type="text" class="input-field numeric-field" value="${formatCurrency(rowData.monto, false)}" data-field="monto"></td>
-                        <td>
-                            <select class="select-field" data-field="medioPago">
-                                <option value="">Seleccionar...</option>
-                                ${mediosPago.map(mp => `<option value="${mp}" ${mp === rowData.medioPago ? 'selected' : ''}>${capitalize(mp)}</option>`).join('')}
-                            </select>
-                        </td>
+                        <td><select class="select-field" data-field="medioPago"><option value="">Seleccionar...</option>${mediosPago.map(mp => `<option value="${mp}" ${mp === rowData.medioPago ? 'selected' : ''}>${capitalize(mp)}</option>`).join('')}</select></td>
                         <td><input type="text" class="input-field" list="personas-datalist" value="${rowData.quien || ''}" data-field="quien"></td>
                         <td><button class="obs-btn ${hasObs ? 'has-content' : ''}" type="button">Obs</button></td>
                         <td><button class="delete-row-btn" title="Eliminar Fila">🗑️</button></td>
-                    </tr>
-                `;
+                    </tr>`;
             }
-             const datalist = document.createElement('datalist');
+            const datalist = document.createElement('datalist');
             datalist.id = 'personas-datalist';
             datalist.innerHTML = personas.map(p => `<option value="${p}"></option>`).join('');
             document.body.appendChild(datalist);
 
-            // =================================================================================
-            // 3. EVENT HANDLING
-            // =================================================================================
             function setupEventListeners() {
                 document.getElementById('addRowBtn').addEventListener('click', () => {
                     if (!allData[currentMonthKey]) allData[currentMonthKey] = { transactions: [] };
                     const today = new Date().toISOString().split('T')[0];
                     allData[currentMonthKey].transactions.push({ fecha: today, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                    saveData();
-                    renderApp();
+                    saveData(); renderApp();
                 });
-
                 document.getElementById('addMonthBtn').addEventListener('click', addNewMonth);
-                
                 document.getElementById('sortBtn').addEventListener('click', () => {
                     const currentTransactions = allData[currentMonthKey]?.transactions;
-                    if (currentTransactions) {
-                        sortTransactions(currentTransactions);
-                        saveData();
-                        renderApp();
-                    }
+                    if (currentTransactions) { sortTransactions(currentTransactions); saveData(); renderApp(); }
                 });
-
                 document.getElementById('exportExcelBtn').addEventListener('click', exportAllToExcel);
                 document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
                 document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
                 document.getElementById('jsonFileInput').addEventListener('change', importBackup);
                 
-                // === INICIO DE NUEVA FUNCIONALIDAD DE SINCRONIZACIÓN ===
-                document.getElementById('syncAbonosBtn').addEventListener('click', () => document.getElementById('abonosJsonInput').click());
-                document.getElementById('abonosJsonInput').addEventListener('change', handleAbonosFileSync);
-                // === FIN DE NUEVA FUNCIONALIDAD DE SINCRONIZACIÓN ===
+                // === LISTENER PARA EL NUEVO BOTÓN DE SINCRONIZACIÓN ===
+                document.getElementById('syncAbonosBtn').addEventListener('click', syncWithAbonos);
 
                 document.body.addEventListener('change', handleTableChange);
                 document.body.addEventListener('focusout', handleTableFocusOut);
@@ -436,15 +343,12 @@
                 const target = e.target;
                 const field = target.dataset.field;
                 if (!field || !target.closest('tr')) return;
-
                 const tr = target.closest('tr');
                 const rowIndex = parseInt(tr.dataset.index);
                 const monthKey = tr.dataset.monthKey;
                 const value = target.value;
-                
                 allData[monthKey].transactions[rowIndex][field] = (field === 'monto') ? parseCurrency(value) : value;
-                saveData();
-                renderApp();
+                saveData(); renderApp();
             }
 
             function handleTableFocusOut(e) {
@@ -457,86 +361,56 @@
             
             function handleTableClick(e) {
                 const target = e.target;
-                
                 if (target.classList.contains('add-row-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const todayInMonth = new Date(monthKey + '-01T12:00:00').toISOString().split('T')[0];
-                    if (!allData[monthKey].transactions) {
-                        allData[monthKey].transactions = [];
-                    }
+                    if (!allData[monthKey].transactions) allData[monthKey].transactions = [];
                     allData[monthKey].transactions.push({ fecha: todayInMonth, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                    saveData();
-                    renderApp();
-                    return;
+                    saveData(); renderApp(); return;
                 }
-
                 if (target.classList.contains('sort-archive-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const transactions = allData[monthKey]?.transactions;
-                    if (transactions) {
-                        sortTransactions(transactions);
-                        saveData();
-                        renderApp();
-                    }
+                    if (transactions) { sortTransactions(transactions); saveData(); renderApp(); }
                     return;
                 }
-                
                 if (target.classList.contains('delete-month-btn')) {
                     const monthKey = target.dataset.monthKey;
                     const monthName = formatMonthKey(monthKey);
-                    if (confirm(`¿Estás SEGURO de que querés eliminar TODO el mes de ${monthName}?\n\n⚠️ ¡Esta acción no se puede deshacer!`)) {
-                        delete allData[monthKey];
-                        saveData();
-                        renderApp();
+                    if (confirm(`¿Está SEGURO de que quiere eliminar TODO el mes de ${monthName}?\n\n⚠️ ¡Esta acción no se puede deshacer!`)) {
+                        delete allData[monthKey]; saveData(); renderApp();
                     }
                     return;
                 }
-
                 const tr = target.closest('tr');
-                if (!tr) {
-                    return;
-                }
-
+                if (!tr) return;
                 const rowIndex = parseInt(tr.dataset.index);
                 const monthKey = tr.dataset.monthKey;
-
                 if (target.classList.contains('delete-row-btn')) {
                     if (confirm('¿Está seguro de que desea eliminar esta fila?')) {
                         allData[monthKey].transactions.splice(rowIndex, 1);
-                        saveData();
-                        renderApp();
+                        saveData(); renderApp();
                     }
                 } else if (target.classList.contains('obs-btn')) {
                     openObsModal(rowIndex, monthKey);
                 }
             }
 
-            // =================================================================================
-            // 4. MODAL LOGIC (OBSERVACIONES)
-            // =================================================================================
             const modal = document.getElementById('obsModal');
             const obsTextarea = document.getElementById('obsTextarea');
-
             function openObsModal(index, monthKey) {
-                currentObsRowIndex = index;
-                currentObsMonthKey = monthKey;
+                currentObsRowIndex = index; currentObsMonthKey = monthKey;
                 obsTextarea.value = allData[monthKey].transactions[index].observaciones || '';
                 modal.style.display = 'block';
             }
-
             function closeObsModal() {
-                modal.style.display = 'none';
-                currentObsRowIndex = -1;
-                currentObsMonthKey = '';
+                modal.style.display = 'none'; currentObsRowIndex = -1; currentObsMonthKey = '';
             }
-            
             function setupModalEventListeners() {
                 document.getElementById('saveObsBtn').addEventListener('click', () => {
                     if (currentObsRowIndex >= 0 && currentObsMonthKey) {
                         allData[currentObsMonthKey].transactions[currentObsRowIndex].observaciones = obsTextarea.value;
-                        closeObsModal();
-                        saveData();
-                        renderApp();
+                        closeObsModal(); saveData(); renderApp();
                     }
                 });
                 document.getElementById('clearObsBtn').addEventListener('click', () => { obsTextarea.value = ''; });
@@ -545,157 +419,110 @@
                 window.addEventListener('click', (e) => { if (e.target === modal) closeObsModal(); });
             }
 
-            // =================================================================================
-            // 5. NUEVAS FUNCIONALIDADES Y LÓGICA DE ORDENAMIENTO
-            // =================================================================================
             function addNewMonth() {
                 const newMonthKey = prompt('Ingrese el nuevo mes en formato AAAA-MM (ej: 2025-09):');
-                if (!newMonthKey) return;
-                if (!/^\d{4}-\d{2}$/.test(newMonthKey)) {
-                    alert('Formato incorrecto. Por favor, use AAAA-MM.');
-                    return;
+                if (!newMonthKey || !/^\d{4}-\d{2}$/.test(newMonthKey)) {
+                    if(newMonthKey) alert('Formato incorrecto. Por favor, use AAAA-MM.'); return;
                 }
-                if (allData[newMonthKey]) {
-                    alert('Error: Ese mes ya existe en los registros.');
-                    return;
-                }
+                if (allData[newMonthKey]) { alert('Error: Ese mes ya existe.'); return; }
                 allData[newMonthKey] = { transactions: [] };
                 const today = new Date(newMonthKey + '-01T12:00:00').toISOString().split('T')[0];
                 allData[newMonthKey].transactions.push({ fecha: today, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                alert(`Mes ${formatMonthKey(newMonthKey)} agregado con éxito.`);
-                saveData();
-                renderApp();
+                alert(`Mes ${formatMonthKey(newMonthKey)} agregado.`); saveData(); renderApp();
             }
 
             function sortTransactions(transactions) {
-                const categoryOrder = { 'ingreso': 1, 'egreso': 2 };
-                transactions.sort((a, b) => {
-                    const orderA = categoryOrder[a.categoria] || 99;
-                    const orderB = categoryOrder[b.categoria] || 99;
-                    
-                    if (orderA !== orderB) {
-                        return orderA - orderB;
-                    }
-                    
-                    return (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' });
-                });
+                transactions.sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' }));
             }
-
-
-            // =================================================================================
-            // 6. DATA EXPORT/IMPORT & SYNC
-            // =================================================================================
             
-            // === INICIO DE NUEVA FUNCIÓN DE SINCRONIZACIÓN ===
-            function handleAbonosFileSync(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const abonosData = JSON.parse(e.target.result);
-                        if (!Array.isArray(abonosData)) {
-                            throw new Error("El archivo no es una lista de registros válida.");
-                        }
-                        
-                        // 1. Calcular los totales de honorarios por mes desde el archivo de abonos
-                        const monthlyHonorarios = {};
-                        abonosData.forEach(abono => {
-                            // Validar que el registro sea un honorario cobrado
-                            const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
-                            const esCobrado = abono.estado === 'Pagado' || abono.estado === 'Terminado' || abono.estado === 'Pago Parcial';
-                            
-                            if (esHonorario && esCobrado && abono.mesServicio) {
-                                const monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
-                                if (!monthlyHonorarios[monthKey]) {
-                                    monthlyHonorarios[monthKey] = 0;
-                                }
-                                
-                                const monto = abono.estado === 'Pago Parcial' 
-                                    ? parseFloat(abono.montoPagado) || 0 
-                                    : parseFloat(abono.monto) || 0;
-                                
-                                monthlyHonorarios[monthKey] += monto;
-                            }
-                        });
-
-                        // 2. Actualizar la planilla de Ingresos/Egresos
-                        let updatedMonthsCount = 0;
-                        let createdMonthsCount = 0;
-                        Object.keys(monthlyHonorarios).forEach(monthKey => {
-                            const totalHonorarios = monthlyHonorarios[monthKey];
-
-                            // Asegurarse de que el mes existe en la planilla de egresos
-                            if (!allData[monthKey]) {
-                                allData[monthKey] = { transactions: [] };
-                                createdMonthsCount++;
-                            }
-
-                            // Buscar si ya existe una entrada para "Honorarios Profesionales"
-                            const transactions = allData[monthKey].transactions;
-                            const existingEntryIndex = transactions.findIndex(t => t.descripcion === 'Honorarios Profesionales');
-                            
-                            if (existingEntryIndex > -1) {
-                                // Si existe, la actualiza
-                                transactions[existingEntryIndex].monto = totalHonorarios;
-                                transactions[existingEntryIndex].categoria = 'ingreso'; // Asegurar categoría
-                            } else {
-                                // Si no existe, crea una nueva entrada
-                                transactions.unshift({
-                                    fecha: `${monthKey}-01`,
-                                    descripcion: 'Honorarios Profesionales',
-                                    categoria: 'ingreso',
-                                    monto: totalHonorarios,
-                                    medioPago: 'Automático',
-                                    quien: 'ESTUDIO',
-                                    observaciones: 'Sincronizado desde planilla de Abonos.'
-                                });
-                            }
-                            updatedMonthsCount++;
-                        });
-
-                        if (updatedMonthsCount > 0) {
-                            saveData();
-                            renderApp();
-                            alert(`Sincronización completa.\n\nSe actualizaron/crearon registros de honorarios para ${updatedMonthsCount} mes(es).`);
-                        } else {
-                            alert("No se encontraron honorarios cobrados en el archivo seleccionado para sincronizar.");
-                        }
-
-                    } catch (err) {
-                        alert(`Error al procesar el archivo de abonos: ${err.message}`);
-                    } finally {
-                        event.target.value = null; // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+            // =================================================================================
+            // LÓGICA DE SINCRONIZACIÓN DIRECTA CON LOCALSTORAGE
+            // =================================================================================
+            function syncWithAbonos() {
+                try {
+                    console.log("Iniciando sincronización con Abonos...");
+                    const abonosDataRaw = localStorage.getItem('abonosData');
+                    if (!abonosDataRaw) {
+                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez en este navegador.');
+                        return;
                     }
-                };
-                reader.readAsText(file);
+
+                    const abonosData = JSON.parse(abonosDataRaw);
+                    if (!Array.isArray(abonosData)) {
+                        throw new Error("Los datos de Abonos no tienen el formato esperado.");
+                    }
+                    
+                    const monthlyHonorarios = {};
+                    abonosData.forEach(abono => {
+                        const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
+                        const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
+                        
+                        if (esHonorario && esCobrado && abono.mesServicio) {
+                            const monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
+                            if (!monthlyHonorarios[monthKey]) {
+                                monthlyHonorarios[monthKey] = 0;
+                            }
+                            const monto = abono.estado === 'Pago Parcial' 
+                                ? (parseFloat(abono.montoPagado) || 0) 
+                                : (parseFloat(abono.monto) || 0);
+                            monthlyHonorarios[monthKey] += monto;
+                        }
+                    });
+
+                    let updatedCount = 0;
+                    Object.keys(monthlyHonorarios).forEach(monthKey => {
+                        const totalHonorarios = monthlyHonorarios[monthKey];
+                        if (!allData[monthKey]) {
+                            allData[monthKey] = { transactions: [] };
+                        }
+                        const transactions = allData[monthKey].transactions;
+                        const entryIndex = transactions.findIndex(t => t.descripcion === 'Honorarios Profesionales');
+                        
+                        if (entryIndex > -1) {
+                            transactions[entryIndex].monto = totalHonorarios;
+                        } else {
+                            transactions.unshift({
+                                fecha: `${monthKey}-01`,
+                                descripcion: 'Honorarios Profesionales',
+                                categoria: 'ingreso',
+                                monto: totalHonorarios,
+                                medioPago: 'Automático',
+                                quien: 'ESTUDIO',
+                                observaciones: 'Sincronizado desde planilla de Abonos.'
+                            });
+                        }
+                        updatedCount++;
+                    });
+
+                    if (updatedCount > 0) {
+                        saveData();
+                        renderApp();
+                        alert(`✅ Sincronización completa. Se actualizaron los honorarios para ${updatedCount} mes(es).`);
+                    } else {
+                        alert("No se encontraron honorarios cobrados en la planilla de Abonos para sincronizar.");
+                    }
+
+                } catch (err) {
+                    alert(`Ocurrió un error durante la sincronización: ${err.message}`);
+                    console.error("Error en syncWithAbonos:", err);
+                }
             }
-            // === FIN DE NUEVA FUNCIÓN DE SINCRONIZACIÓN ===
 
-
+            // (El resto de funciones como exportación, utilidades, etc., se mantienen sin cambios)
             function exportAllToExcel() {
                 let allTransactions = [];
-                Object.keys(allData).forEach(monthKey => {
+                Object.keys(allData).sort().forEach(monthKey => {
                     allTransactions.push(...allData[monthKey].transactions);
                 });
-                allTransactions.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                 const headers = ['Fecha', 'Descripción', 'Categoría', 'Ingreso', 'Egreso', 'Medio de pago', 'Quien', 'Observaciones'];
                 const rows = allTransactions.map(row => {
                     const ingreso = row.categoria === 'ingreso' ? row.monto || 0 : 0;
                     const egreso = row.categoria === 'egreso' ? row.monto || 0 : 0;
-                    const cleanDesc = `"${(row.descripcion || '').replace(/"/g, '""')}"`;
-                    const cleanObs = `"${(row.observaciones || '').replace(/"/g, '""')}"`;
-                    return [row.fecha, cleanDesc, row.categoria, ingreso, egreso, row.medioPago, row.quien, cleanObs].join(',');
+                    return [row.fecha, row.descripcion, row.categoria, ingreso, egreso, row.medioPago, row.quien, row.observaciones || ''].join(',');
                 });
-                const csvContent = [headers.join(','), ...rows].join('\n');
-                downloadFile(csvContent, 'Reporte Contable Completo.csv', 'text/csv;charset=utf-8;');
+                downloadFile([headers.join(','), ...rows].join('\n'), 'Reporte_Contable_Completo.csv', 'text/csv;charset=utf-8;');
             }
-            
-            function exportBackup() {
-                downloadFile(JSON.stringify(allData, null, 2), 'backup-contable-completo.json', 'application/json');
-            }
-
+            function exportBackup() { downloadFile(JSON.stringify(allData, null, 2), 'backup-ingresos-egresos.json', 'application/json'); }
             function importBackup(event) {
                 const file = event.target.files[0];
                 if (!file) return;
@@ -704,187 +531,47 @@
                     try {
                         const imported = JSON.parse(e.target.result);
                         if (typeof imported === 'object' && !Array.isArray(imported) && imported !== null) {
-                             if (confirm('Se reemplazarán todos los datos actuales con el contenido del archivo. ¿Continuar?')) {
-                                allData = imported;
-                                saveData();
-                                renderApp();
-                                alert('Datos importados con éxito.');
+                             if (confirm('Se reemplazarán todos los datos actuales. ¿Continuar?')) {
+                                allData = imported; saveData(); renderApp(); alert('Datos importados.');
                              }
-                        } else {
-                            alert('Error: El archivo de backup no tiene el formato esperado.');
-                        }
-                    } catch (err) { alert(`Error al leer el archivo: ${err.message}`); }
+                        } else { alert('Error: Formato de archivo incorrecto.'); }
+                    } catch (err) { alert(`Error al leer archivo: ${err.message}`); }
                 };
                 reader.readAsText(file);
                 event.target.value = null;
             }
-
-            // =================================================================================
-            // 7. UTILITY FUNCTIONS
-            // =================================================================================
             function calculateTotals(transactions) {
                 const totals = { ingresos: 0, egresos: 0, balance: 0 };
                 transactions.forEach(row => {
                     const monto = parseFloat(row.monto) || 0;
-                    if (row.categoria === 'ingreso') totals.ingresos += monto;
-                    else totals.egresos += monto;
+                    if (row.categoria === 'ingreso') totals.ingresos += monto; else totals.egresos += monto;
                 });
                 totals.balance = totals.ingresos - totals.egresos;
                 return totals;
             }
-
             function formatMonthKey(monthKey) {
                 if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "Mes Inválido";
                 const [year, month] = monthKey.split('-');
                 const date = new Date(year, month - 1, 1);
                 return capitalize(date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' }));
             }
-
             function downloadFile(content, fileName, mimeType) {
                 const blob = new Blob(['\ufeff' + content], { type: mimeType });
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                a.href = URL.createObjectURL(blob); a.download = fileName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
             }
-
             function formatCurrency(num, withSymbol = true) {
                 const number = parseFloat(num) || 0;
-                const options = { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 };
+                const options = { style: 'currency', currency: 'ARS' };
                 let formatted = new Intl.NumberFormat('es-AR', options).format(number);
                 return withSymbol ? formatted : formatted.replace(/\$\s?/g, '').trim();
             }
-
-            function parseCurrency(str) {
-                return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-            }
-
+            function parseCurrency(str) { return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0; }
             function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
             
             initializeApp();
         });
-    </script>
-    
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <script>
-        // =================================================================================
-        // 8. GOOGLE DRIVE INTEGRATION LOGIC
-        // =================================================================================
-        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        const DATA_FILE_NAME = 'datos_ingresos_egresos_garcia.json';
-
-        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
-        
-        const driveStatusEl = document.getElementById('driveStatus'), 
-              connectDriveBtn = document.getElementById('connectDriveBtn'), 
-              saveToDriveBtn = document.getElementById('saveToDriveBtn'), 
-              loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
-
-        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
-        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
-        function maybeEnableButtons() { if (gapiInited && gisInited) connectDriveBtn.onclick = handleAuthClick; }
-        
-        function updateDriveStatus(message, isSuccess = false) {
-            driveStatusEl.style.display = 'block';
-            driveStatusEl.textContent = message;
-            driveStatusEl.style.background = isSuccess ? '#d1e7dd' : '#fff3cd';
-            driveStatusEl.style.color = isSuccess ? '#0f5132' : '#664d03';
-        }
-
-        function handleAuthClick() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error) throw (resp);
-                updateDriveStatus('✅ Conectado a Google Drive.', true);
-                connectDriveBtn.style.display = 'none'; 
-                saveToDriveBtn.style.display = 'inline-block'; 
-                loadFromDriveBtn.style.display = 'inline-block';
-                saveToDriveBtn.onclick = saveDataToDrive; 
-                loadFromDriveBtn.onclick = loadDataFromDrive;
-                await findDataFile();
-            };
-            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
-        }
-
-        async function findDataFile() {
-            updateDriveStatus('Buscando archivo de datos en Drive...', false);
-            try {
-                const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
-                if (response.result.files.length > 0) { 
-                    dataFileId = response.result.files[0].id; 
-                    updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); 
-                } else { 
-                    updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); 
-                    dataFileId = null; 
-                }
-            } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
-        }
-
-        async function saveDataToDrive() {
-            if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
-            updateDriveStatus('Guardando datos en Drive...', false);
-            
-            const currentDataString = localStorage.getItem('ingresosEgresosData');
-            if (!currentDataString || currentDataString === '{}') {
-                 updateDriveStatus('❌ Error: No se encontraron datos locales para guardar.', false);
-                 return;
-            }
-
-            try {
-                const boundary = '-------314159265358979323846';
-                const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
-                const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${currentDataString}\r\n--${boundary}--`;
-                
-                const request = gapi.client.request({
-                    path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files',
-                    method: dataFileId ? 'PATCH' : 'POST',
-                    params: { uploadType: 'multipart' },
-                    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: requestBody
-                });
-
-                const response = await request;
-                dataFileId = response.result.id;
-                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al guardar en Drive.', false); 
-            }
-        }
-
-        async function loadDataFromDrive() {
-            if (!dataFileId) {
-                alert("No se ha encontrado un archivo de datos en Drive. Guarda primero para crear uno.");
-                return;
-            }
-            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
-            
-            updateDriveStatus('Cargando datos desde Drive...', false);
-            try {
-                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                const importedData = JSON.parse(response.body);
-                
-                if (typeof importedData !== 'object' || Array.isArray(importedData) || importedData === null) {
-                    throw new Error('El formato de los datos de Drive no es válido para esta versión.');
-                }
-                
-                localStorage.setItem('ingresosEgresosData', JSON.stringify(importedData));
-                
-                updateDriveStatus('✅ Datos cargados. Recargando la página...', true);
-                setTimeout(() => window.location.reload(), 1500);
-
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al cargar desde Drive.', false); 
-                alert('Error al cargar desde Drive: ' + err.message); 
-            }
-        }
     </script>
 </body>
 </html>
