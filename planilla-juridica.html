@@ -245,6 +245,7 @@
             </div>
         </div>
     </div>
+
     <div id="vencimientoAlertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
@@ -326,6 +327,20 @@
         
         function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
+        
+        // NUEVA FUNCIÓN PARA FORMULARIOS EXPansibles
+        function toggleFormVisibility(formId) {
+            const formElement = document.getElementById(formId);
+            const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
+
+            if (formElement.style.display === 'none' || formElement.style.display === '') {
+                formElement.style.display = 'block';
+                if(iconElement) iconElement.textContent = '➖'; // Cambia a ícono de contraer
+            } else {
+                formElement.style.display = 'none';
+                if(iconElement) iconElement.textContent = '➕'; // Cambia a ícono de expandir
+            }
+        }
 
         function updateClientNextRevision(client) {
             const futureObs = (client.observaciones || [])
@@ -445,6 +460,7 @@
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
 
+        // FUNCIÓN DE MODAL MODIFICADA CON FORMULARIOS EXPansibles
         function showClientModal(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
@@ -465,10 +481,43 @@
                         ${renderHistoryList(client)}
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                    <form class="form-group" onsubmit="addObservation(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agregar Tarea</h4><div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form>
-                    <form class="form-group" onsubmit="addAudience(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agendar Audiencia</h4><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Audiencia</label><input type="date" id="newAudienceDate" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form>
-                    <form class="form-group" onsubmit="addVencimiento(event, '${client.id}')" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>➕ Agendar Vencimiento</h4><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="newVencimientoDate" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form>
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    
+                    <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                        <h4>📝 Agregar Tarea</h4>
+                        <form onsubmit="addObservation(event, '${client.id}')">
+                            <div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div>
+                            <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+                            <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
+                        </form>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;">
+                                <span class="toggle-icon">➕</span> Agendar Audiencia
+                            </h4>
+                            <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
+                                <div class="form-group"><label>Fecha de Audiencia</label><input type="date" id="newAudienceDate" required></div>
+                                <button type="submit" class="btn btn-success">💾 Agendar</button>
+                            </form>
+                        </div>
+                        
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;">
+                                <span class="toggle-icon">➕</span> Agendar Vencimiento
+                            </h4>
+                            <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
+                                <div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="newVencimientoDate" required></div>
+                                <button type="submit" class="btn btn-success">💾 Agendar</button>
+                            </form>
+                        </div>
+
+                    </div>
                 </div>
                 <div class="action-buttons">
                     <button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Gestionar Documentos</button>
@@ -760,7 +809,7 @@
         }
 
         // ==================================================================
-        // INICIO DEL NUEVO BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
+        // INICIO DEL BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
         // ==================================================================
 
         let localFilesForUpload = [];
@@ -956,9 +1005,8 @@
             const response = await request;
             return response.result.id;
         }
-
         // ==================================================================
-        // FIN DEL NUEVO BLOQUE DE CÓDIGO
+        // FIN DEL BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
         // ==================================================================
     </script>
 </body>
