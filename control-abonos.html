@@ -23,6 +23,7 @@
     .card h3{color:var(--secondary-color);margin-bottom:15px;font-size:1.1em;text-transform:uppercase;letter-spacing:.5px}
     .card .value{font-size:1.5em;font-weight:700;color:var(--primary-color);word-break:break-word;overflow-wrap:break-word}
     .card .value.positive{color:var(--success-color)}
+    .card.success-card{border-left-color:var(--success-color)}
     .card.warning-card{border-left-color:var(--warning-color)}
     .card.danger-card{border-left-color:var(--danger-color)}
     .value-container{display:flex;align-items:center;justify-content:space-between}
@@ -150,16 +151,23 @@
       </div>
 
       <div class="dashboard">
-        <div class="card">
-          <h3>Total Cobrado</h3>
+        <div class="card success-card">
+          <h3>Total de Ingresos Brutos</h3>
           <div class="value-container">
-            <div class="value positive" id="totalCobrado">$0.00</div>
-            <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar montos">
+            <div class="value positive" id="totalIngresosBrutos">$0.00</div>
+             <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar montos">
               <span id="toggleIcon">👁️</span>
             </button>
           </div>
         </div>
-        <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
+        <div class="card">
+          <h3>Honorarios Cobrados</h3>
+          <div class="value positive" id="totalCobrado">$0.00</div>
+        </div>
+        <div class="card">
+          <h3>Bonos y AP Cobrados</h3>
+          <div class="value" id="totalBonosCobrados" style="color: var(--info-color);">$0.00</div>
+        </div>
         <div class="card warning-card">
           <h3>$ Pendientes</h3>
           <div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div>
@@ -168,6 +176,7 @@
           <h3>$ Falta de Pago</h3>
           <div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div>
         </div>
+         <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
       </div>
 
       <div class="controls no-print">
@@ -313,9 +322,9 @@
     let currentFilter = 'todos';
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0 };
+    // MODIFICACIÓN: Se amplía el objeto de montos reales para los nuevos totales
+    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, bonos: 0, bruto: 0 };
     let currentObsId = null;
-    // MODIFICACIÓN 1: Agregar la nueva opción al array de Tipos
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -675,12 +684,14 @@
       }).format(v||0).replace(/,/g, '.'); 
     }
     
-    // MODIFICACIÓN: El ojo oculta todos los montos del dashboard (Ya estaba)
+    // MODIFICACIÓN: La función ahora maneja todos los nuevos totales
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var toggleIcon = document.getElementById('toggleIcon');
       var cards = [
+        { el: document.getElementById('totalIngresosBrutos'), value: realAmounts.bruto },
         { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
+        { el: document.getElementById('totalBonosCobrados'), value: realAmounts.bonos },
         { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
         { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta }
       ];
@@ -722,31 +733,45 @@
       updateAlertBanner(abonosMes);
     }
     
-
+    // MODIFICACIÓN: Función de renderizado del dashboard actualizada con todos los nuevos cálculos
     function renderDashboard(abonos){
-      // MODIFICACIÓN 2: Excluir 'Pago de Bonos y AP' del cálculo de 'Total Cobrado'
-      var totalCobrado = abonos.filter(function(a){ 
+      // 1. Honorarios Cobrados (excluye Bonos)
+      var honorariosCobrados = abonos.filter(function(a){ 
         return (a.estado==='Pagado' || a.estado === 'Terminado') && a.tipo !== 'Pago de Bonos y AP'; 
       }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
-      
-      totalCobrado += abonos.filter(function(a){ 
+      honorariosCobrados += abonos.filter(function(a){ 
         return a.estado==='Pago Parcial' && a.tipo !== 'Pago de Bonos y AP'; 
       }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
 
+      // 2. Bonos y AP Cobrados
+      var bonosCobrados = abonos.filter(function(a){ 
+        return a.tipo === 'Pago de Bonos y AP' && (a.estado === 'Pagado' || a.estado === 'Terminado');
+      }).reduce(function(s, a){ return s + Number(a.monto || 0); }, 0);
+      bonosCobrados += abonos.filter(function(a){ 
+        return a.tipo === 'Pago de Bonos y AP' && a.estado === 'Pago Parcial';
+      }).reduce(function(s, a){ return s + Number(a.montoPagado || 0); }, 0);
+      
+      // 3. Total de Ingresos Brutos (Suma de los dos anteriores)
+      var totalIngresosBrutos = honorariosCobrados + bonosCobrados;
+
+      // 4. Totales de deuda (sin cambios)
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
+      // 5. Guardar todos los valores reales para la función de ocultar/mostrar
       realAmounts = {
-        cobrado: totalCobrado,
+        cobrado: honorariosCobrados,
         pendientes: totalPendientes,
-        falta: totalFaltaPago
+        falta: totalFaltaPago,
+        bonos: bonosCobrados,
+        bruto: totalIngresosBrutos
       };
 
       document.getElementById('totalRegistros').textContent = abonos.length;
 
       // Actualizar vista según el estado de visibilidad
-      toggleAmountVisibility(); // Llama a la función para refrescar
-      toggleAmountVisibility(); // y la revierte para mantener el estado actual
+      toggleAmountVisibility();
+      toggleAmountVisibility(); 
     }
 
     function updateFilterCounts(abonos){
