@@ -17,7 +17,8 @@
     .header h1{font-size:2.2em;margin-bottom:8px}
     .header p{font-size:1.1em;opacity:.9}
     .main-content{padding:30px}
-    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:25px;margin-bottom:30px}
+    /* MODIFICACIÓN: Se redujo el tamaño mínimo de las tarjetas de 250px a 220px */
+    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:25px;margin-bottom:30px}
     .card{background:var(--light-bg);border-radius:12px;padding:25px;box-shadow:0 5px 15px rgba(0,0,0,.07);border-left:5px solid var(--primary-color);transition:.2s;position:relative}
     .card:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
     .card h3{color:var(--secondary-color);margin-bottom:15px;font-size:1.1em;text-transform:uppercase;letter-spacing:.5px}
@@ -322,7 +323,6 @@
     let currentFilter = 'todos';
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    // MODIFICACIÓN: Se amplía el objeto de montos reales para los nuevos totales
     let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, bonos: 0, bruto: 0 };
     let currentObsId = null;
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
@@ -684,7 +684,6 @@
       }).format(v||0).replace(/,/g, '.'); 
     }
     
-    // MODIFICACIÓN: La función ahora maneja todos los nuevos totales
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
       var toggleIcon = document.getElementById('toggleIcon');
@@ -699,12 +698,14 @@
       toggleIcon.textContent = isAmountHidden ? '👁️‍🗨️' : '👁️';
 
       cards.forEach(card => {
-        if (isAmountHidden) {
-          card.el.textContent = '••••••';
-          card.el.classList.add('hidden-value');
-        } else {
-          card.el.textContent = formatCurrency(card.value);
-          card.el.classList.remove('hidden-value');
+        if(card.el) { // Check if element exists before manipulating
+            if (isAmountHidden) {
+                card.el.textContent = '••••••';
+                card.el.classList.add('hidden-value');
+            } else {
+                card.el.textContent = formatCurrency(card.value);
+                card.el.classList.remove('hidden-value');
+            }
         }
       });
     }
@@ -733,9 +734,7 @@
       updateAlertBanner(abonosMes);
     }
     
-    // MODIFICACIÓN: Función de renderizado del dashboard actualizada con todos los nuevos cálculos
     function renderDashboard(abonos){
-      // 1. Honorarios Cobrados (excluye Bonos)
       var honorariosCobrados = abonos.filter(function(a){ 
         return (a.estado==='Pagado' || a.estado === 'Terminado') && a.tipo !== 'Pago de Bonos y AP'; 
       }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
@@ -743,7 +742,6 @@
         return a.estado==='Pago Parcial' && a.tipo !== 'Pago de Bonos y AP'; 
       }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
 
-      // 2. Bonos y AP Cobrados
       var bonosCobrados = abonos.filter(function(a){ 
         return a.tipo === 'Pago de Bonos y AP' && (a.estado === 'Pagado' || a.estado === 'Terminado');
       }).reduce(function(s, a){ return s + Number(a.monto || 0); }, 0);
@@ -751,14 +749,11 @@
         return a.tipo === 'Pago de Bonos y AP' && a.estado === 'Pago Parcial';
       }).reduce(function(s, a){ return s + Number(a.montoPagado || 0); }, 0);
       
-      // 3. Total de Ingresos Brutos (Suma de los dos anteriores)
       var totalIngresosBrutos = honorariosCobrados + bonosCobrados;
 
-      // 4. Totales de deuda (sin cambios)
       var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
-      // 5. Guardar todos los valores reales para la función de ocultar/mostrar
       realAmounts = {
         cobrado: honorariosCobrados,
         pendientes: totalPendientes,
@@ -769,7 +764,6 @@
 
       document.getElementById('totalRegistros').textContent = abonos.length;
 
-      // Actualizar vista según el estado de visibilidad
       toggleAmountVisibility();
       toggleAmountVisibility(); 
     }
