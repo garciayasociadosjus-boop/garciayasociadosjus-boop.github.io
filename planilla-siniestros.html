@@ -58,6 +58,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000}
 .modal.active{display:flex;align-items:center;justify-content:center}
 .modal-content{background:#fff;border-radius:14px;padding:28px;max-width:900px;width:95%;max-height:90vh;overflow:auto}
+#alertModal .modal-content { border-top: 10px solid var(--danger-color); }
+#alertModal h2 { color: var(--danger-color); text-align: center; margin-bottom: 20px; }
 .close{float:right;font-size:26px;font-weight:700;color:#999;cursor:pointer;margin-top:-8px}
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
 .info-item{background:#fff;padding:10px;border-left:3px solid #667eea;border-radius:6px}
@@ -69,7 +71,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .history-item.completed{opacity:.6}
 .history-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
 .history-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
-.history-item-mediacion { border-left-color: #1abc9c; } /* Color para mediaciones */
+.history-item-mediacion { border-left-color: #1abc9c; }
 .history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-left: auto; font-weight: 500; display: inline-block; }
 .tag-task { background-color: var(--secondary-color); }
 .tag-mediacion { background-color: #1abc9c; }
@@ -106,15 +108,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 
     <div class="dashboard">
       <div class="card today-reviews">
-        <h3>Revisiones de Hoy</h3>
+        <h3>Eventos de Hoy</h3>
         <div class="reviews-list" id="todayReviews"></div>
       </div>
       <div class="card overdue-reviews">
-        <h3>Revisiones Vencidas</h3>
+        <h3>Eventos Vencidos</h3>
         <div class="reviews-list" id="overdueReviews"></div>
       </div>
       <div class="card pending-reviews">
-        <h3>Próximas Revisiones</h3>
+        <h3>Próximos Eventos</h3>
         <div class="reviews-list" id="upcomingReviews"></div>
       </div>
     </div>
@@ -165,6 +167,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <div id="newSiniestroModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroSelectorModal" class="modal"><div class="modal-content"></div></div>
 <div id="siniestroInfoModal" class="modal"><div class="modal-content"></div></div>
+<div id="alertModal" class="modal"><div class="modal-content"></div></div>
 <div id="documentModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal('documentModal')">&times;</span>
@@ -190,11 +193,9 @@ function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringi
 function loadData(){
   const saved=localStorage.getItem('planilla_siniestros_data');
   siniestrosData = saved ? JSON.parse(saved) : [];
-  if (!saved || siniestrosData.length === 0) {
-      siniestrosData = initialData; // Carga datos iniciales si no hay nada guardado
-  }
+  if (!saved || siniestrosData.length === 0) { siniestrosData = []; }
   siniestrosData=sanitizeData(siniestrosData);
-  updateDataStatus(saved?'✅ Datos cargados':'📋 Datos iniciales listos');
+  updateDataStatus(saved?'✅ Datos cargados':'📋 Planilla lista para usar.');
 }
 function sanitizeData(data){
   (data||[]).forEach(s=>{
@@ -245,15 +246,12 @@ function toggleCompleted(e,sid,oid, type='task'){
     e.stopPropagation();
     const s = siniestrosData.find(x => x.id === sid);
     let item;
-    if (type === 'task') {
-        item = s.observaciones.find(y => y.id === oid);
-    } else if (type === 'mediacion') {
-        item = s.mediaciones_list.find(y => y.id === oid);
-    }
+    if (type === 'task') item = s.observaciones.find(y => y.id === oid);
+    else if (type === 'mediacion') item = s.mediaciones_list.find(y => y.id === oid);
+    
     if(item) item.completed = !item.completed;
     if (type === 'task') updateSiniestroNextRevision(s);
-    saveData();
-    renderAll();
+    saveData(); renderAll();
 }
 
 function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderDashboardLists();renderAllSiniestrosList();}
@@ -275,13 +273,13 @@ function renderReviewList(id,items,empty){
   const c=document.getElementById(id);
   if(!items.length){c.innerHTML=`<p style="opacity:.85;">${empty}</p>`;return;}
   c.innerHTML=items.map(item=>{
-    const info = `HOY - ${formatDate(item.proximaRevision)}`;
-    const label = item.type === 'mediacion' ? 'MEDIACIÓN:' : '';
-    const toggleFunc = item.type === 'mediacion' ? `toggleCompleted(event,'${item.siniestro.id}','${item.id}', 'mediacion')` : `toggleCompleted(event,'${item.siniestro.id}','${item.id}', 'task')`;
+    let label = '';
+    if(item.type === 'mediacion') label = 'MEDIACIÓN:';
+    const toggleFunc = `toggleCompleted(event,'${item.siniestro.id}','${item.id}', '${item.type}')`;
     return `<div class="review-item">
       <button class="complete-btn" onclick="${toggleFunc}">✔</button>
       <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
-        <div class="review-date">${info}</div>
+        <div class="review-date">HOY - ${formatDate(item.proximaRevision)}</div>
         <div class="review-client">${item.siniestro.cliente}</div>
         <div class="review-obs"><b>${label}</b> ${item.texto}</div>
       </div>
@@ -293,7 +291,8 @@ function renderAllSiniestrosList(){
   const sterm=document.getElementById('searchInput').value.toLowerCase();
   const estado=document.getElementById('estadoFilter').value;
   const filtrados=siniestrosData.filter(s=>{
-    const matchS=!sterm||Object.values(s).some(v=>String(v).toLowerCase().includes(sterm));
+    const searchString = `${s.cliente} ${s.dni} ${s.numeroReclamo} ${s.estado}`.toLowerCase();
+    const matchS=!sterm||searchString.includes(sterm);
     const matchE=!estado||s.estado===estado;
     return matchS&&matchE;
   }).sort((a,b)=>(a.fechaRevision||'9999').localeCompare(b.fechaRevision||'9999'));
@@ -305,7 +304,7 @@ function renderAllSiniestrosList(){
     return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
       <div class="review-item-content">
         <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div class="review-date">Próx: ${formatDate(s.fechaRevision)}</div>
+            <div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>
             ${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}
         </div>
         <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div>
@@ -318,7 +317,7 @@ function renderAllSiniestrosList(){
 function showNewSiniestroModal(){document.getElementById('newSiniestroModal').classList.add('active')}
 function showSiniestroSelectorModal(){
   const sel=document.getElementById('siniestroSelector');
-  sel.innerHTML='<option value="">-- Seleccionar --</option>' + [...siniestrosData].sort((a,b)=>a.cliente.localeCompare(b.cliente))
+  sel.innerHTML='<option value="">-- Seleccionar --</option>' + [...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||''))
     .map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('');
   document.getElementById('siniestroSelectorModal').classList.add('active');
 }
@@ -351,22 +350,40 @@ function renderHistoryList(s){
     const mediaciones = (s.mediaciones_list||[]).map(m => ({...m, type: 'mediacion', date: m.fecha}));
     const allEvents = [...tasks, ...mediaciones].sort((a,b) => (b.date||'').localeCompare(a.date||''));
     return allEvents.length ? allEvents.map(item => {
+        let tagClass, tagText, itemClass, dateLabel, dateValue, deleteFunc;
         if(item.type === 'task') {
-            return `<div class="history-item ${item.completed?'completed':''}" id="obs-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">Creación: ${formatDate(item.fecha)}</div><span class="history-tag tag-task">TAREA</span></div>${item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}<div>${item.texto}</div><div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteObs('${s.id}','${item.id}')">Eliminar</button></div></div>`;
+            tagClass = 'tag-task'; tagText = 'TAREA'; itemClass = '';
+            dateLabel = 'Creación'; dateValue = item.fecha;
+            deleteFunc = `deleteObs('${s.id}','${item.id}')`;
         } else { // Mediacion
-            return `<div class="history-item history-item-mediacion ${item.completed?'completed':''}" id="mediacion-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">Fecha: ${formatDate(item.fecha)}</div><span class="history-tag tag-mediacion">MEDIACIÓN</span></div><div>${item.texto}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-danger btn-sm" onclick="deleteMediacion('${s.id}','${item.id}')">Eliminar</button></div></div>`;
+            tagClass = 'tag-mediacion'; tagText = 'MEDIACIÓN'; itemClass = 'history-item-mediacion';
+            dateLabel = 'Fecha'; dateValue = item.fecha;
+            deleteFunc = `deleteMediacion('${s.id}','${item.id}')`;
         }
+        return `<div class="history-item ${itemClass} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}">
+            <div style="display:flex; align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)}</div><span class="history-tag ${tagClass}">${tagText}</span></div>
+            ${item.type === 'task' && item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}
+            <div>${item.texto}</div>
+            ${item.type === 'task' ? `<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>` : ''}
+            <div style="margin-top:6px;display:flex;gap:6px;">
+                ${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>` : ''}
+                <button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button>
+            </div>
+        </div>`;
     }).join('') : '<p style="font-size:.8em;">Sin eventos.</p>';
 }
 
 function renderObsListForPrint(s){
-  return (s.observaciones||[]).length?[...s.observaciones].sort((a,b)=>(b.proximaRevision||'').localeCompare(a.proximaRevision||'')).map(o=>`<div class="obs-item"><div class="obs-date"><b>Creación:</b> ${formatDate(o.fecha)}</div>${o.fechaTrabajado ? `<div><b>Trabajado:</b> ${formatDate(o.fechaTrabajado)}</div>` : ''}<div class="obs-text"><b>Obs:</b> ${o.texto}</div><div class="obs-revision-date"><b>Revisión:</b> ${formatDate(o.proximaRevision)}</div><div><b>Estado:</b> ${o.completed?'Completada':'Pendiente'}</div></div>`).join(''):'<p>No hay tareas.</p>';
+    const tasks = (s.observaciones||[]).map(o => ({...o, type: 'task', date: o.proximaRevision}));
+    const mediaciones = (s.mediaciones_list||[]).map(m => ({...m, type: 'mediacion', date: m.fecha}));
+    const allEvents = [...tasks, ...mediaciones].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    return allEvents.length ? allEvents.map(item => `<div class="history-item"><b>${item.type.toUpperCase()}:</b> ${item.texto} <b>Fecha:</b> ${formatDate(item.date)}</div>`).join('') : '<p>Sin eventos.</p>';
 }
 
 function editObs(sid,oid){
   const s=siniestrosData.find(x=>x.id===sid);
   const o=s.observaciones.find(k=>k.id===oid);
-  const el=document.getElementById(`obs-item-${o.id}`);
+  const el=document.getElementById(`task-item-${o.id}`);
   el.innerHTML=`<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
 }
 
@@ -384,22 +401,11 @@ function deleteObs(sid,oid){
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 
-function addMediacion(e,sid){
-  e.preventDefault();
-  const s=siniestrosData.find(x=>x.id===sid);
-  s.mediaciones_list.push({id:generateId({}), fecha:document.getElementById('newMediacionDate').value, texto:document.getElementById('newMediacionText').value, completed:false});
-  saveData();renderAll();showSiniestroModal(sid);
-}
-function deleteMediacion(sid,mid){
-  if(!confirm('¿Eliminar mediación?'))return;
-  const s=siniestrosData.find(x=>x.id===sid);
-  s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);
-  saveData();renderAll();showSiniestroModal(sid);
-}
+function addMediacion(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);s.mediaciones_list.push({id:generateId({}), fecha:document.getElementById('newMediacionDate').value, texto:document.getElementById('newMediacionText').value, completed:false});saveData();renderAll();showSiniestroModal(sid);}
+function deleteMediacion(sid,mid){if(!confirm('¿Eliminar mediación?'))return;const s=siniestrosData.find(x=>x.id===sid);s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);saveData();renderAll();showSiniestroModal(sid);}
 
 function editField(sid, field, element) {
-    if (editingField) return;
-    editingSiniestroId = sid; editingField = field;
+    if (editingField) return; editingSiniestroId = sid; editingField = field;
     const s = siniestrosData.find(x => x.id === sid);
     const currentValue = s[field] || '';
     const input = document.createElement('input');
@@ -415,18 +421,8 @@ function editField(sid, field, element) {
     const valLength = input.value.length; input.setSelectionRange(valLength, valLength);
 }
 
-function deleteSiniestro(id){
-  if(!confirm('¿Eliminar siniestro?'))return;
-  siniestrosData=siniestrosData.filter(s=>s.id!==id);
-  saveData();renderAll();closeModal('siniestroInfoModal');
-}
-
-function addObservation(e,sid){
-  e.preventDefault();
-  const s=siniestrosData.find(x=>x.id===sid);
-  s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false, fechaTrabajado: todayYMD});
-  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
-}
+function deleteSiniestro(id){if(!confirm('¿Eliminar siniestro?'))return;siniestrosData=siniestrosData.filter(s=>s.id!==id);saveData();renderAll();closeModal('siniestroInfoModal');}
+function addObservation(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false, fechaTrabajado: todayYMD});updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
 
 function exportToExcel(){
   const rows=siniestrosData.map(s=>{
@@ -436,44 +432,32 @@ function exportToExcel(){
   });
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
 }
-function exportData(){
-  const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
-  a.download=`siniestros_${todayYMD}.json`;a.click();
-}
+function exportData(){const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=`siniestros_${todayYMD}.json`;a.click();}
 function importData(){document.getElementById('importInput').click();}
-function handleImport(ev){
-  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros?`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar');}};
-  r.readAsText(f);ev.target.value='';
-}
+function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros?`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar');}};r.readAsText(f);ev.target.value='';}
 
-function printFicha(id){
-  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
-  const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;
-  const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
-}
-function printHistorial(id){
-  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
-  const hist=renderHistoryList(s);
-  const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;
-  const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);
+function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
+function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
+
+function checkMediacionesDelDia() {
+    const mediacionesHoy = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&!m.completed).map(m=>({siniestro:s,item:m,type:'Mediación'})));
+    if (mediacionesHoy.length > 0) {
+        const modal = document.getElementById('alertModal');
+        const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">
+            ${mediacionesHoy.map(alert => `<div class="review-item today"><div class="review-item-content" onclick="closeModal('alertModal'); showSiniestroModal('${alert.siniestro.id}');">
+                <div class="review-client">${getDisplayName(alert.siniestro)}</div>
+                <div class="review-obs"><strong>${alert.type}:</strong> ${alert.item.texto}</div>
+            </div></div>`).join('')}</div>
+            <div style="text-align:center; margin-top: 20px;"><button class="btn btn-warning" onclick="closeModal('alertModal')">Entendido</button></div>`;
+        modal.querySelector('.modal-content').innerHTML = content;
+        modal.classList.add('active');
+    }
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
     <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
-    <form id="newSiniestroForm"><div class="info-grid">
-        <div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div>
-        <div class="form-group"><label>DNI</label><input id="newDni" type="number"></div>
-        <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
-        <div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div>
-        <div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div>
-        <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
-    </div>
-    <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
-    <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
-    <div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
+    <form id="newSiniestroForm"><div class="info-grid"><div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div><div class="form-group"><label>DNI</label><input id="newDni" type="number"></div><div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div><div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div><div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div></div><div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div><div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div><div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
   document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
   
   document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
@@ -485,11 +469,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     updateSiniestroNextRevision(n);siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
   });
 
-  loadData();renderAll();
+  loadData();renderAll();checkMediacionesDelDia();
 });
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded"></script>
 <script>
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
@@ -501,12 +487,6 @@ const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
 let gdTokenClient, gdGapiReady=false, gdGisReady=false;
 let gdDataFileId=null, gdDocsFolderId=null;
 
-function updateDriveStatus(text,connected){
-  const el=document.getElementById('driveStatus');
-  el.style.display='block'; el.textContent=text;
-  el.style.background=connected?'#d1e7dd':'#fff3cd';
-  el.style.color=connected?'#0f5132':'#664d03';
-}
 function gapiLoaded(){gapi.load('client',async()=>{try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});gdGapiReady=true;maybeEnableDriveButton();}catch(e){updateDriveStatus('❌ Error inicializando Drive',false);}});}
 function gisLoaded(){gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,
     callback:(resp)=>{
@@ -543,90 +523,73 @@ async function loadDataFromDrive(){
     siniestrosData=sanitizeData(imported);saveData();renderAll();updateDriveStatus('✅ Datos cargados',true);}
   catch(e){updateDriveStatus('❌ Error al cargar',false);}
 }
-
-// ==================================================================
-// NUEVO BLOQUE DE CÓDIGO PARA MANEJO DE DOCUMENTOS
-// ==================================================================
 let localFilesForUpload = [];
 async function showDocumentModal(sid) {
-    if (gapi.client.getToken() === null) return alert('Conecta con Google Drive primero.');
-    currentSiniestroIdForDocs = sid;
-    localFilesForUpload = [];
-    const s = siniestrosData.find(x => x.id === sid);
-    if (!s) return;
+    if (!gapi.client.getToken()) return alert('Conecta con Google Drive primero.');
+    currentSiniestroIdForDocs = sid; localFilesForUpload = [];
+    const s = siniestrosData.find(x => x.id === sid); if (!s) return;
     document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`;
     document.getElementById('documentModal').classList.add('active');
-    renderLocalFileList();
-    await renderDriveFileList();
+    renderLocalFileList(); await renderDriveFileList();
     const area = document.getElementById('uploadArea');
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName=>area.addEventListener(eName, e=>{e.preventDefault();e.stopPropagation();}, false));
-    ['dragenter','dragover'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#eef5ff',false));
-    ['dragleave','drop'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#f9f9f9',false));
-    area.addEventListener('drop', e => processFiles(e.dataTransfer.files), false);
+    ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false));
+    ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false));
+    ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false));
+    area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);
 }
 function processFiles(files) {
     for (const file of files) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result});
-            renderLocalFileList();
-        };
+        reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); };
         reader.readAsDataURL(file);
     }
 }
 function renderLocalFileList() {
     const listEl = document.getElementById('localDocumentList');
-    listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '';
+    listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>';
 }
-function removeLocalFile(id) {
-    localFilesForUpload = localFilesForUpload.filter(f => f.id !== id);
-    renderLocalFileList();
-}
-function triggerLocalFileUpload() {
-    const up = document.getElementById('documentUploadInput');
-    up.onchange = (e) => processFiles(e.target.files);
-    up.value = '';
-    up.click();
-}
+function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
+function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
 async function saveDocumentsToDrive() {
     if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar.");
     document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>';
-    const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
-    const folderName = `${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+    const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
+    const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
     try {
         if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
         const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
-        for (const file of localFilesForUpload) {
-            await uploadContent(file.dataUrl, file.name, file.type, clientFolder, null);
-        }
-        localFilesForUpload = [];
-        renderLocalFileList();
-        await renderDriveFileList();
+        for (const file of localFilesForUpload) { await uploadContent(file.dataUrl, file.name, file.type, clientFolder, null); }
+        localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList();
     } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); }
 }
 async function renderDriveFileList() {
-    const listEl = document.getElementById('driveDocumentList');
-    listEl.innerHTML = '<div class="spinner"></div>';
+    const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>';
     try {
-        const s = siniestrosData.find(x => x.id === currentSiniestroIdForDocs);
+        const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs);
         if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
-        const folderName = `${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
+        const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`;
         const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId);
         const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' });
         listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>';
     } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; }
 }
-async function deleteDocument(fid) {
-    if (confirm('¿Eliminar documento?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); }
-}
+async function deleteDocument(fid) { if (confirm('¿Eliminar documento?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
 async function getOrCreateFolder(name, parentId = null) {
-    let q = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
-    if (parentId) q += ` and '${parentId}' in parents`;
+    let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`;
     const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' });
     if (r.result.files.length) return r.result.files[0].id;
     const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) };
     const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' });
     return newF.result.id;
+}
+async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
+    const boundary='--314159265358979323846';
+    const meta={name:fileName,mimeType, ...(parentId&&!fileIdToUpdate&&{parents:[parentId]})};
+    let base64Data;
+    if(typeof content==='string'&&content.startsWith('data:')){base64Data=content.split(',')[1];}else{base64Data=btoa(unescape(encodeURIComponent(content)));}
+    const body=`${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n${boundary}--`;
+    const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary.substring(2)}`},body});
+    return (await req).result.id;
 }
 </script>
 </body>
