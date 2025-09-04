@@ -332,82 +332,65 @@
     document.addEventListener('DOMContentLoaded', function() {
       // Botones principales
       document.getElementById('toggleAmountBtn').addEventListener('click', toggleAmountVisibility);
-      document.getElementById('btnPrevMonth').addEventListener('click', function(){ changeMonth(-1); });
-      document.getElementById('btnNextMonth').addEventListener('click', function(){ changeMonth(1); });
+      document.getElementById('btnPrevMonth').addEventListener('click', () => changeMonth(-1));
+      document.getElementById('btnNextMonth').addEventListener('click', () => changeMonth(1));
       document.getElementById('add-record-btn').addEventListener('click', openModal);
       document.getElementById('carry-btn').addEventListener('click', carryOverClients);
       document.getElementById('print-btn').addEventListener('click', printTable);
       document.getElementById('export-btn').addEventListener('click', exportToExcel);
       document.getElementById('export-json-btn').addEventListener('click', exportData);
-      document.getElementById('import-json-btn').addEventListener('click', function(){ document.getElementById('importInput').click(); });
+      document.getElementById('import-json-btn').addEventListener('click', () => document.getElementById('importInput').click());
       document.getElementById('config-btn').addEventListener('click', openConfigModal);
-      document.getElementById('btnVerPendientes').addEventListener('click', function(){ filterByStatus('pendientes'); });
-
+      document.getElementById('btnVerPendientes').addEventListener('click', () => filterByStatus('pendientes'));
       document.getElementById('importInput').addEventListener('change', handleImport);
-      
-      // Buscador
-      document.getElementById('searchInput').addEventListener('input', function(e) {
+      document.getElementById('searchInput').addEventListener('input', e => {
           currentSearchTerm = e.target.value;
           render();
       });
-
-      // Filtros delegación
-      document.getElementById('filtersBar').addEventListener('click', function(e){
-        var btn = e.target.closest('.filter-btn');
-        if(!btn){ return; }
-        document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+      document.getElementById('filtersBar').addEventListener('click', e => {
+        const btn = e.target.closest('.filter-btn');
+        if(!btn) return;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         filterByStatus(btn.getAttribute('data-status'));
       });
-
-      // Tabla delegación
       document.getElementById('abonosTableBody').addEventListener('click', function(event){
-        var target = event.target;
-        if(target.classList.contains('delete-btn')) {
-          deleteAbono(target.getAttribute('data-id'));
-        } else if(target.classList.contains('receipt-btn')) {
-          generateReceipt(target.getAttribute('data-id'));
-        } else if(target.classList.contains('obs-btn')) {
-          showObservations(target.getAttribute('data-id'));
-        } else {
-          var cell = target.closest('.editable');
-          if(cell){ handleCellEdit(cell); }
+        const target = event.target;
+        const action = target.classList;
+        if(action.contains('delete-btn')) deleteAbono(target.getAttribute('data-id'));
+        else if(action.contains('receipt-btn')) generateReceipt(target.getAttribute('data-id'));
+        else if(action.contains('obs-btn')) showObservations(target.getAttribute('data-id'));
+        else {
+          const cell = target.closest('.editable');
+          if(cell) handleCellEdit(cell);
         }
       });
 
-      // Modal Abono
-      document.getElementById('abonoModalClose').addEventListener('click', closeModal);
-      document.getElementById('abonoModalCancel').addEventListener('click', closeModal);
-      document.getElementById('abonoModal').addEventListener('click', function(e){ if(e.target.id === 'abonoModal'){ closeModal(); } });
+      // Modals setup
+      ['abonoModalClose', 'abonoModalCancel'].forEach(id => document.getElementById(id).addEventListener('click', closeModal));
+      document.getElementById('abonoModal').addEventListener('click', e => { if(e.target.id === 'abonoModal') closeModal(); });
       document.getElementById('abonoForm').addEventListener('submit', handleFormSubmit);
-      
       document.getElementById('estado').addEventListener('change', function() {
-        var div = document.getElementById('pagoMontoParcialDiv');
-        div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
+        document.getElementById('pagoMontoParcialDiv').style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
       });
-
-      // Modal Observaciones
       document.getElementById('obsModalClose').addEventListener('click', closeObsModal);
       document.getElementById('obsEditBtn').addEventListener('click', editObservations);
       document.getElementById('obsSaveBtn').addEventListener('click', saveObservations);
       document.getElementById('obsCancelBtn').addEventListener('click', cancelObsEdit);
-
-      // Modal Recibo
-      document.getElementById('receiptClose').addEventListener('click', function(){ document.getElementById('receiptModal').classList.remove('active'); });
-      document.getElementById('receiptCancel').addEventListener('click', function(){ document.getElementById('receiptModal').classList.remove('active'); });
+      ['receiptClose', 'receiptCancel'].forEach(id => document.getElementById(id).addEventListener('click', () => document.getElementById('receiptModal').classList.remove('active')));
       document.getElementById('printReceiptBtn').addEventListener('click', printReceipt);
-
-      // Modal Config
       document.getElementById('configClose').addEventListener('click', closeConfigModal);
       document.getElementById('removeSignatureBtn').addEventListener('click', removeSignature);
       document.getElementById('signatureFile').addEventListener('change', handleSignatureUpload);
 
-      // Datos
+      // App Initialization
       initializeMonth();
       setupModal();
       loadSignature();
-      // LA CARGA DE DATOS AHORA SE INICIA DESDE LA CONEXIÓN CON DRIVE
+      // Data is now loaded via Drive connection, not here.
+      // Call render to draw the empty state.
+      render();
     });
     
-    // El resto del código JS sigue debajo
-</script>
+    // El resto del código JS sigue debajo...
+  </script>
