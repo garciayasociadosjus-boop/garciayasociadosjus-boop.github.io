@@ -474,8 +474,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
@@ -487,6 +487,7 @@ const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
 let gdTokenClient, gdGapiReady=false, gdGisReady=false;
 let gdDataFileId=null, gdDocsFolderId=null;
 
+// ========= INICIO SCRIPT DE GOOGLE DRIVE (CORREGIDO Y COMPLETO) =========
 function gapiLoaded(){gapi.load('client',async()=>{try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});gdGapiReady=true;maybeEnableDriveButton();}catch(e){updateDriveStatus('❌ Error inicializando Drive',false);}});}
 function gisLoaded(){gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,
     callback:(resp)=>{
