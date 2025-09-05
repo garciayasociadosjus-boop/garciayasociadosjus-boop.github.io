@@ -78,9 +78,9 @@
         .controls button, .delete-year-btn {
             background-color: #1a237e; color: white; padding: 10px 15px;
             border: none; border-radius: 5px; cursor: pointer;
-            font-size: 13px; transition: background-color 0.3s;
+            font-size: 13px; transition: background-color 0.3s, transform 0.2s;
         }
-        .controls button:hover, .delete-year-btn:hover { background-color: #0d47a1; }
+        .controls button:hover, .delete-year-btn:hover { background-color: #0d47a1; transform: translateY(-2px); }
         .delete-year-btn { padding: 6px 12px; font-size: 11px; background-color: #c62828; }
         .delete-year-btn:hover { background-color: #b71c1c; }
         .save-indicator {
@@ -92,19 +92,16 @@
         .save-indicator.saved { background: #00b894; color: white; opacity: 1; }
         .percentage-cell { display: flex; align-items: center; justify-content: center; gap: 4px; }
         .percentage-cell .input-field { width: 50px; min-width: 50px; }
+
+        /* Estilos para Google Drive */
         .data-status {
-            background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
-            padding: 10px; border-radius: 8px; margin: 20px 0;
-            text-align: center; font-size: 14px;
+            padding: 10px; border-radius: 6px; margin: 15px auto; max-width: 800px;
+            text-align: center; font-size: 0.9em; font-weight: bold; display: none;
+            transition: background-color 0.3s, color 0.3s;
         }
-        .btn-drive {
-            background: linear-gradient(135deg, #4285F4, #357ae8); color: white;
-            padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer;
-            font-size: 14px; transition: all 0.3s ease; margin: 5px;
-        }
-        .btn-drive:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4); }
-        .btn-drive-success { background: linear-gradient(135deg, #34A853, #2e964a); }
-        .btn-drive-warning { background: linear-gradient(135deg, #FBBC05, #f2a600); }
+        .status-success { background-color: #d1e7dd; border: 1px solid #0f5132; color: #0f5132; }
+        .status-warning { background-color: #fff3cd; border: 1px solid #664d03; color: #664d03; }
+
         @media (max-width: 768px) {
             .container { padding: 10px; } h1 { font-size: 1.5em; }
             table { font-size: 12px; min-width: 650px; }
@@ -129,12 +126,12 @@
             <button id="clearDataBtn" style="background-color: #e74c3c;">Limpiar Datos Locales</button>
         </div>
         
-        <div id="driveStatus" class="data-status" style="display: none;"></div>
-        <section style="text-align: center; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-            <button id="connectDriveBtn" class="btn-drive">🔗 Conectar a Drive</button>
-            <button id="saveToDriveBtn" class="btn-drive btn-drive-success" style="display:none;">📤 Guardar en Drive</button>
-            <button id="loadFromDriveBtn" class="btn-drive btn-drive-warning" style="display:none;">📥 Cargar de Drive</button>
-        </section>
+        <div class="controls" style="margin-top:25px; padding-top:15px; border-top: 1px solid #ddd;">
+             <button id="connectDriveBtn" style="background-color:#16a085;">🔗 Conectar a Google Drive</button>
+             <button id="saveToDriveBtn" style="display:none; background-color:#27ae60;">📤 Guardar en Drive</button>
+             <button id="loadFromDriveBtn" style="display:none; background-color:#f39c12;">📥 Cargar de Drive</button>
+        </div>
+        <div id="driveStatus" class="data-status"></div>
 
     </div>
 
@@ -159,8 +156,11 @@
                     let abonosSynced = false;
                     let egresosSynced = false;
 
+                    // --- 1. Sincronizar Ingresos desde Abonos ---
                     const abonosDataRaw = localStorage.getItem('abonosData');
-                    if (abonosDataRaw) {
+                    if (!abonosDataRaw) {
+                        console.warn('No se encontraron datos de Abonos para sincronizar los Ingresos.');
+                    } else {
                         const abonosData = JSON.parse(abonosDataRaw);
                         const monthlyHonorarios = {};
                         abonosData.forEach(abono => {
@@ -191,8 +191,11 @@
                         abonosSynced = true;
                     }
 
+                    // --- 2. Sincronizar Gastos desde Egresos ---
                     const egresosDataRaw = localStorage.getItem('ingresosEgresosData');
-                     if (egresosDataRaw) {
+                     if (!egresosDataRaw) {
+                        console.warn('No se encontraron datos de Egresos para sincronizar los Gastos.');
+                    } else {
                         const egresosData = JSON.parse(egresosDataRaw);
                         const monthlyGastos = {};
                         Object.keys(egresosData).forEach(monthKey => {
@@ -215,17 +218,19 @@
                         egresosSynced = true;
                     }
 
+                    // --- 3. Recalcular, guardar y renderizar todo ---
                     if(abonosSynced || egresosSynced) {
                         recalculateAll();
                         renderTables();
                         saveToLocalStorage();
-                        alert('✅ Sincronización completada.');
+                        alert('✅ Sincronización completada. Los datos de Ingresos y Gastos han sido actualizados.');
                     } else {
-                        alert('No se encontraron datos en las otras planillas para sincronizar.');
+                        alert('No se encontraron datos en las otras planillas para sincronizar. Asegúrese de haberlas usado al menos una vez.');
                     }
 
                 } catch (error) {
                     alert('Ocurrió un error durante la sincronización: ' + error.message);
+                    console.error("Error en syncAllData:", error);
                 }
             }
             
@@ -253,6 +258,7 @@
                         yearsData = [{ year: new Date().getFullYear(), months: meses.map(m => ({ mes: m, ingreso: 0, gasto: 0, porcentaje: 7 })) }];
                     }
                 } catch (error) {
+                    console.error('Error al cargar:', error);
                     yearsData = [{ year: new Date().getFullYear(), months: meses.map(m => ({ mes: m, ingreso: 0, gasto: 0, porcentaje: 7 })) }];
                 }
             }
@@ -278,7 +284,7 @@
             function calculateRetenido(ingreso, porcentaje) { return (parseFloat(ingreso) || 0) * (parseFloat(porcentaje) || 0) / 100; }
             function calculateFondoAcumulado(prevFondo, retenido, gasto) { return (parseFloat(prevFondo) || 0) + (parseFloat(retenido) || 0) - (parseFloat(gasto) || 0); }
             function getFondoClass(fondo) { return fondo < 0 ? 'no-liberable' : 'liberable'; }
-            function deleteYear(yearIndex) {
+            window.deleteYear = function(yearIndex) {
                 if (yearsData.length <= 1) { alert('Debe mantener al menos un año.'); return; }
                 if (confirm(`¿Eliminar el año ${yearsData[yearIndex].year}?`)) {
                     yearsData.splice(yearIndex, 1);
@@ -323,7 +329,7 @@
                     </tr>`;
             }
 
-            function updatePorcentaje(yearIndex, monthIndex, value) {
+            window.updatePorcentaje = function(yearIndex, monthIndex, value) {
                 yearsData[yearIndex].months[monthIndex].porcentaje = parseFloat(value) || 7;
                 recalculateAll(); renderTables(); saveToLocalStorage();
             }
@@ -371,10 +377,21 @@
             }
             function exportData() {
                 recalculateAll();
-                const csvContent = [
-                    ['Año', 'Mes', 'Ingreso', '% Retención', 'Retenido', 'Gasto', 'Fondo Acumulado'],
-                    ...allData.map(item => [item.year, item.mes, item.ingreso, item.porcentaje, item.retenido, item.gasto, item.fondoAcumulado].map(v=>String(v).replace('.',',')).join(';'))
-                ].join('\n');
+                const csvRows = [
+                    ['Año', 'Mes', 'Ingreso', '% Retención', 'Retenido', 'Gasto', 'Fondo Acumulado']
+                ];
+                allData.forEach(item => {
+                    csvRows.push([
+                        item.year, item.mes, 
+                        String(item.ingreso).replace('.', ','), 
+                        String(item.porcentaje).replace('.', ','), 
+                        String(item.retenido).replace('.', ','), 
+                        String(item.gasto).replace('.', ','), 
+                        String(item.fondoAcumulado).replace('.', ',')
+                    ]);
+                });
+
+                const csvContent = csvRows.map(e => e.join(";")).join("\n");
                 const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -382,126 +399,190 @@
                 link.click();
             }
             
+            // --- Interfaz para el script de Google Drive ---
+            window.getAppYearsData = () => yearsData;
+            window.loadAppYearsData = (data) => {
+                if (data && Array.isArray(data)) {
+                    yearsData = data;
+                    recalculateAll();
+                    renderTables();
+                    saveToLocalStorage(); // Sincroniza el almacenamiento local con los datos de Drive
+                } else {
+                    console.error("Los datos de Drive son inválidos:", data);
+                    alert("Error: Los datos cargados desde Drive no tienen el formato correcto.");
+                }
+            };
+            
             initializeApp();
         });
     </script>
-
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded"></script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
-        // =================================================================================
-        // LÓGICA DE GOOGLE DRIVE
-        // =================================================================================
+        // --- Configuración de la API de Google Drive ---
         const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-        const API_KEY = 'YOUR_API_KEY'; // Reemplazar si es necesario
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // REEMPLAZAR CON TU API KEY
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        const DATA_FILE_NAME = 'datos_fondo_reparo.json';
-
-        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
         
+        const FOLDER_NAME = 'Fondo de Reparo - App';
+        const METADATA_FILE_NAME = 'fondo_reparo_backup.json';
+
+        let tokenClient, gapiInited = false, gisInited = false;
+        let driveFolderId = null, metadataFileId = null;
+        
+        const driveStatusEl = document.getElementById('driveStatus');
+
+        // --- Inicialización de Clientes de Google ---
         function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-        async function initializeGapiClient() { 
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }).catch(err => console.error("Error initializing GAPI client", err)); 
-            gapiInited = true; 
-            maybeEnableButtons(); 
-        }
-        function gisLoaded() { 
-            tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); 
-            gisInited = true; 
-            maybeEnableButtons(); 
-        }
-        function maybeEnableButtons() { 
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+        
+        function maybeEnableButtons() {
             if (gapiInited && gisInited) {
                 document.getElementById('connectDriveBtn').onclick = handleAuthClick;
             }
         }
-        function updateDriveStatus(message, isSuccess = false) {
-            const driveStatusEl = document.getElementById('driveStatus');
+
+        function updateDriveStatus(message, isSuccess, duration = 0) {
             driveStatusEl.style.display = 'block';
             driveStatusEl.textContent = message;
-            driveStatusEl.style.background = isSuccess ? '#d1e7dd' : '#fff3cd';
-            driveStatusEl.style.color = isSuccess ? '#0f5132' : '#664d03';
+            driveStatusEl.className = 'data-status';
+            if (isSuccess === true) driveStatusEl.classList.add('status-success');
+            else if (isSuccess === false) driveStatusEl.classList.add('status-warning');
+            
+            if(duration > 0) {
+                setTimeout(() => { driveStatusEl.style.display = 'none'; }, duration);
+            }
         }
 
+        // --- Flujo de Autenticación y Operaciones ---
         function handleAuthClick() {
             tokenClient.callback = async (resp) => {
                 if (resp.error) {
-                    console.error(resp.error);
+                    console.error('Error de autenticación:', resp);
                     updateDriveStatus('❌ Error de autenticación.', false);
                     return;
-                };
-                updateDriveStatus('✅ Conectado a Google Drive.', true);
-                document.getElementById('connectDriveBtn').style.display = 'none'; 
-                document.getElementById('saveToDriveBtn').style.display = 'inline-block'; 
-                document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-                document.getElementById('saveToDriveBtn').onclick = saveDataToDrive; 
-                document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
-                await findDataFile();
-            };
-            if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'}); 
-            else tokenClient.requestAccessToken({prompt: ''});
-        }
-        async function findDataFile() {
-            updateDriveStatus('Buscando archivo de datos en Drive...', false);
-            try {
-                const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
-                if (response.result.files.length > 0) { 
-                    dataFileId = response.result.files[0].id; 
-                    updateDriveStatus('✅ Archivo de datos encontrado. Puede cargar los datos.', true); 
-                } else { 
-                    updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); 
-                    dataFileId = null; 
                 }
-            } catch (err) { console.error(err); alert('Error al buscar el archivo de datos en Drive.'); }
+                gapi.client.setToken({ access_token: resp.access_token });
+                updateDriveStatus('✅ Conectado a Google Drive. Buscando carpeta...', null);
+                document.getElementById('connectDriveBtn').style.display = 'none';
+                document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+                document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+                document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
+                document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+                await findOrCreateFolder();
+            };
+            if (!gapi.client.getToken()) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
         }
-        async function saveDataToDrive() {
-            if (!confirm('¿Guardar los datos actuales en Google Drive?')) return;
-            updateDriveStatus('Guardando datos en Drive...', false);
+
+        async function findOrCreateFolder() {
+            updateDriveStatus('Buscando carpeta en Google Drive...', null);
             try {
-                const content = JSON.stringify(window.yearsData, null, 2);
+                const response = await gapi.client.drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                });
+                if (response.result.files.length > 0) {
+                    driveFolderId = response.result.files[0].id;
+                    updateDriveStatus('✅ Carpeta encontrada.', true, 3000);
+                } else {
+                    updateDriveStatus('Carpeta no encontrada, creando una nueva...', null);
+                    const folderResponse = await gapi.client.drive.files.create({
+                        resource: { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' },
+                        fields: 'id',
+                    });
+                    driveFolderId = folderResponse.result.id;
+                    updateDriveStatus('✅ Carpeta creada con éxito.', true, 3000);
+                }
+            } catch (err) {
+                console.error("Error al buscar/crear carpeta:", err);
+                updateDriveStatus('❌ Error al buscar o crear la carpeta en Drive.', false);
+                driveFolderId = null;
+            }
+        }
+        
+        async function saveDataToDrive() {
+            if (!driveFolderId) {
+                alert("Error: La carpeta de destino en Drive no está lista. Intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('Se respaldarán los datos del Fondo de Reparo en Google Drive. ¿Continuar?')) return;
+            
+            updateDriveStatus('Preparando y guardando el archivo de respaldo...', null);
+            try {
+                const dataToSave = window.getAppYearsData();
+                const dataString = JSON.stringify(dataToSave, null, 2);
+                const dataBase64 = btoa(unescape(encodeURIComponent(dataString)));
+                
+                await findOrCreateMetadataFile();
+                
                 const boundary = '-------314159265358979323846';
-                const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
-                const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+                const metadata = { name: METADATA_FILE_NAME, mimeType: 'application/json', ...(metadataFileId ? {} : { parents: [driveFolderId] }) };
+                const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\nContent-Transfer-Encoding: base64\r\n\r\n${dataBase64}\r\n--${boundary}--`;
                 
                 const request = gapi.client.request({
-                    path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files',
-                    method: dataFileId ? 'PATCH' : 'POST',
+                    path: metadataFileId ? `/upload/drive/v3/files/${metadataFileId}` : '/upload/drive/v3/files',
+                    method: metadataFileId ? 'PATCH' : 'POST',
                     params: { uploadType: 'multipart' },
                     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
                     body: requestBody
                 });
-
-                const response = await request;
-                dataFileId = response.result.id;
-                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al guardar en Drive.', false); 
+                
+                await request;
+                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true, 5000);
+            } catch(err) {
+                console.error("Error guardando el respaldo:", err);
+                updateDriveStatus('❌ Error al guardar el archivo de respaldo.', false);
             }
         }
 
         async function loadDataFromDrive() {
-            if (!dataFileId) { alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno."); return; }
-            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
+            if (!driveFolderId) {
+                alert("Error: No se ha encontrado la carpeta de Drive. Intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('Se reemplazarán los datos locales con la copia de seguridad de Google Drive. ¿Continuar?')) return;
             
-            updateDriveStatus('Cargando datos desde Drive...', false);
+            updateDriveStatus('Buscando archivo de respaldo en Drive...', null);
             try {
-                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                const importedData = JSON.parse(response.body);
-                
-                if (!Array.isArray(importedData)) { throw new Error('El formato de los datos de Drive no es válido.'); }
-                
-                window.yearsData = importedData;
-                window.recalculateAll();
-                window.renderTables();
-                window.saveToLocalStorage();
-                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+                await findOrCreateMetadataFile();
+                if (!metadataFileId) {
+                    updateDriveStatus('No se encontró un archivo de respaldo en Drive. Puede guardar uno primero.', false, 5000);
+                    return;
+                }
 
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al cargar desde Drive.', false); 
-                alert('Error al cargar desde Drive: ' + err.message); 
+                updateDriveStatus('Descargando datos...', null);
+                const response = await gapi.client.drive.files.get({
+                    fileId: metadataFileId,
+                    alt: 'media',
+                });
+                
+                const driveData = response.result;
+                window.loadAppYearsData(driveData); // Esta función actualizará los datos, la tabla y el localStorage.
+                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true, 5000);
+
+            } catch (err) {
+                console.error("Error al cargar datos desde Drive:", err);
+                updateDriveStatus('❌ Error al cargar los datos desde Drive.', false);
+            }
+        }
+        
+        async function findOrCreateMetadataFile() {
+             try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${METADATA_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`,
+                    fields: 'files(id)',
+                });
+                metadataFileId = response.result.files.length > 0 ? response.result.files[0].id : null;
+            } catch (err) {
+                 console.error("Error buscando archivo de metadata:", err);
+                 metadataFileId = null;
             }
         }
     </script>
