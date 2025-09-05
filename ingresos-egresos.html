@@ -329,10 +329,7 @@
                 document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
                 document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
                 document.getElementById('jsonFileInput').addEventListener('change', importBackup);
-                
-                // === LISTENER PARA EL NUEVO BOTÓN DE SINCRONIZACIÓN ===
                 document.getElementById('syncAbonosBtn').addEventListener('click', syncWithAbonos);
-
                 document.body.addEventListener('change', handleTableChange);
                 document.body.addEventListener('focusout', handleTableFocusOut);
                 document.body.addEventListener('click', handleTableClick);
@@ -436,47 +433,49 @@
             }
             
             // =================================================================================
-            // LÓGICA DE SINCRONIZACIÓN DIRECTA CON LOCALSTORAGE
+            // FUNCIÓN DE SINCRONIZACIÓN CORREGIDA
             // =================================================================================
             function syncWithAbonos() {
                 try {
-                    console.log("Iniciando sincronización con Abonos...");
                     const abonosDataRaw = localStorage.getItem('abonosData');
                     if (!abonosDataRaw) {
-                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez en este navegador.');
+                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez.');
                         return;
                     }
 
                     const abonosData = JSON.parse(abonosDataRaw);
-                    if (!Array.isArray(abonosData)) {
-                        throw new Error("Los datos de Abonos no tienen el formato esperado.");
-                    }
+                    if (!Array.isArray(abonosData)) throw new Error("Formato de datos de Abonos incorrecto.");
                     
                     const monthlyHonorarios = {};
                     abonosData.forEach(abono => {
+                        let monthKey = null;
+                        if (abono.mesServicio) {
+                            monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
+                        } else if (abono.fechaPago) {
+                            const d = new Date(abono.fechaPago + 'T00:00:00');
+                            monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        }
+                        if (!monthKey) return;
+
                         const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
                         const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
                         
-                        if (esHonorario && esCobrado && abono.mesServicio) {
-                            const monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
-                            if (!monthlyHonorarios[monthKey]) {
-                                monthlyHonorarios[monthKey] = 0;
-                            }
-                            const monto = abono.estado === 'Pago Parcial' 
-                                ? (parseFloat(abono.montoPagado) || 0) 
-                                : (parseFloat(abono.monto) || 0);
+                        if (esHonorario && esCobrado) {
+                            if (!monthlyHonorarios[monthKey]) monthlyHonorarios[monthKey] = 0;
+                            const monto = abono.estado === 'Pago Parcial' ? (parseFloat(abono.montoPagado) || 0) : (parseFloat(abono.monto) || 0);
                             monthlyHonorarios[monthKey] += monto;
                         }
                     });
 
                     let updatedCount = 0;
+                    const searchString = "Honorarios Profesionales".toLowerCase();
+
                     Object.keys(monthlyHonorarios).forEach(monthKey => {
                         const totalHonorarios = monthlyHonorarios[monthKey];
-                        if (!allData[monthKey]) {
-                            allData[monthKey] = { transactions: [] };
-                        }
+                        if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
+                        
                         const transactions = allData[monthKey].transactions;
-                        const entryIndex = transactions.findIndex(t => t.descripcion === 'Honorarios Profesionales');
+                        const entryIndex = transactions.findIndex(t => (t.descripcion || '').trim().toLowerCase() === searchString);
                         
                         if (entryIndex > -1) {
                             transactions[entryIndex].monto = totalHonorarios;
@@ -508,8 +507,8 @@
                 }
             }
 
-            // (El resto de funciones como exportación, utilidades, etc., se mantienen sin cambios)
-            function exportAllToExcel() {
+            // --- El resto de las funciones de utilidad no necesitan cambios ---
+            function exportAllToExcel(){
                 let allTransactions = [];
                 Object.keys(allData).sort().forEach(monthKey => {
                     allTransactions.push(...allData[monthKey].transactions);
@@ -541,7 +540,7 @@
                 event.target.value = null;
             }
             function calculateTotals(transactions) {
-                const totals = { ingresos: 0, egresos: 0, balance: 0 };
+                 const totals = { ingresos: 0, egresos: 0, balance: 0 };
                 transactions.forEach(row => {
                     const monto = parseFloat(row.monto) || 0;
                     if (row.categoria === 'ingreso') totals.ingresos += monto; else totals.egresos += monto;
