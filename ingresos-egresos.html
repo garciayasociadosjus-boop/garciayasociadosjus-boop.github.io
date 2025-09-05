@@ -11,6 +11,10 @@
             --gradient-end: #34495e;
             --light-gray: #f8f9fa;
             --border-color: #dee2e6;
+            --success-bg: #d1e7dd;
+            --success-color: #0f5132;
+            --warning-bg: #fff3cd;
+            --warning-color: #664d03;
         }
         body {
             font-family: Arial, sans-serif;
@@ -29,7 +33,6 @@
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { color: var(--primary-color); margin-bottom: 10px; font-size: 2.2em; }
         .header h2 { color: #666; margin: 5px 0; font-size: 1.1em; font-weight: normal; }
-        
         .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
         .btn {
             background: linear-gradient(135deg, var(--primary-color) 0%, #0d47a1 100%);
@@ -42,7 +45,6 @@
         .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
         .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
         .btn.btn-sm { padding: 6px 12px; font-size: 12px; }
-
         .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; min-width: 900px; background: white; }
         th {
@@ -62,13 +64,11 @@
         .category-egreso { background-color: #ffebee; }
         .delete-row-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #c0392b; }
         .delete-row-btn:hover { color: #e74c3c; transform: scale(1.2); }
-
         .month-section { margin-bottom: 25px; }
         .month-title {
             font-size: 1.5em; color: var(--primary-color); padding-bottom: 10px;
             border-bottom: 2px solid var(--primary-color); margin-bottom: 15px;
         }
-
         #archive-container h2 { font-size: 1.3em; color: #444; margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
         .archive-item { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
         .archive-item summary {
@@ -86,7 +86,6 @@
         .total-egreso { color: #dc3545; }
         .total-balance { color: #007bff; }
         .archive-controls { padding: 0 15px 10px 15px; text-align: right; background: #fdfdfd; display: flex; justify-content: flex-end; gap: 8px; }
-
         .summary-box {
             background: linear-gradient(135deg, var(--light-gray) 0%, #e9ecef 100%);
             border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;
@@ -98,7 +97,6 @@
         .summary-ingreso { color: #28a745; }
         .summary-egreso { color: #dc3545; }
         .summary-balance { color: #007bff; }
-
         .obs-btn {
             background: #3498db; color: white; border: none; padding: 8px 14px;
             border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;
@@ -137,6 +135,24 @@
         .modal-btn-save { background: #27ae60; color: white; }
         .modal-btn-clear { background: #f39c12; color: white; }
         .modal-btn-cancel { background: #95a5a6; color: white; }
+
+        /* Estilos para el estado de Google Drive */
+        .data-status {
+            padding: 12px; border-radius: 8px; margin: 20px 0;
+            text-align: center; font-size: 1em; font-weight: bold;
+            display: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .status-success {
+            background-color: var(--success-bg);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+        .status-warning {
+            background-color: var(--warning-bg);
+            border: 1px solid var(--warning-color);
+            color: var(--warning-color);
+        }
     </style>
 </head>
 <body>
@@ -145,7 +161,7 @@
             <h1>GARCÍA & ASOCIADOS</h1>
             <h2>Planilla de Ingresos y Egresos</h2>
         </div>
-        
+
         <div class="controls">
             <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila (Mes Actual)</button>
             <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
@@ -157,12 +173,18 @@
         </div>
         <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
 
+        <section style="text-align: center; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 20px;">
+             <h3 style="color: #444; margin-top: 0; margin-bottom: 15px;">Sincronización con Google Drive</h3>
+            <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Google Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" type="button">📤 Guardar Respaldo en Drive</button>
+            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" type="button">📥 Cargar Respaldo de Drive</button>
+        </section>
+        <div id="driveStatus" class="data-status"></div>
         <div class="month-section" id="current-month-container">
         </div>
 
         <div id="archive-container">
         </div>
-
     </div>
 
     <div id="obsModal" class="modal">
@@ -181,15 +203,17 @@
     </div>
 
     <script>
+        // Se declara allData en el scope global para que sea accesible por el script de Drive
+        let allData = {};
+
         document.addEventListener('DOMContentLoaded', () => {
-            let allData = {}; 
             let currentMonthKey = '';
             let currentObsRowIndex = -1;
             let currentObsMonthKey = '';
             const categorias = ['ingreso', 'egreso'];
             const mediosPago = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'otro'];
             const personas = ['CAMILA', 'SEBA', 'ESTUDIO', 'CLIENTE'];
-            
+
             function initializeApp() {
                 const now = new Date();
                 const nowInArgentina = new Date(now.toLocaleString("en-US", {timeZone: "America/Argentina/Buenos_Aires"}));
@@ -208,11 +232,13 @@
                     allData = {};
                 }
             }
-            
+
             function saveData() {
                 localStorage.setItem('ingresosEgresosData', JSON.stringify(allData));
             }
-            
+             // Exponer funciones al scope global para ser llamadas por el script de Drive
+            window.saveData = saveData;
+
             function renderApp() {
                 const openArchiveKeys = new Set(Array.from(document.querySelectorAll('#archive-container .archive-item[open]')).map(el => el.dataset.monthKey));
                 renderCurrentMonth();
@@ -222,6 +248,9 @@
                     if (detailsElement) detailsElement.open = true;
                 });
             }
+            // Exponer funciones al scope global para ser llamadas por el script de Drive
+            window.renderApp = renderApp;
+
 
             function renderCurrentMonth() {
                 const container = document.getElementById('current-month-container');
@@ -355,7 +384,7 @@
                     target.value = formatCurrency(parseCurrency(target.value), false);
                 }
             }
-            
+
             function handleTableClick(e) {
                 const target = e.target;
                 if (target.classList.contains('add-row-archive-btn')) {
@@ -431,10 +460,7 @@
             function sortTransactions(transactions) {
                 transactions.sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' }));
             }
-            
-            // =================================================================================
-            // FUNCIÓN DE SINCRONIZACIÓN CORREGIDA
-            // =================================================================================
+
             function syncWithAbonos() {
                 try {
                     const abonosDataRaw = localStorage.getItem('abonosData');
@@ -445,7 +471,7 @@
 
                     const abonosData = JSON.parse(abonosDataRaw);
                     if (!Array.isArray(abonosData)) throw new Error("Formato de datos de Abonos incorrecto.");
-                    
+
                     const monthlyHonorarios = {};
                     abonosData.forEach(abono => {
                         let monthKey = null;
@@ -459,7 +485,7 @@
 
                         const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
                         const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
-                        
+
                         if (esHonorario && esCobrado) {
                             if (!monthlyHonorarios[monthKey]) monthlyHonorarios[monthKey] = 0;
                             const monto = abono.estado === 'Pago Parcial' ? (parseFloat(abono.montoPagado) || 0) : (parseFloat(abono.monto) || 0);
@@ -473,10 +499,10 @@
                     Object.keys(monthlyHonorarios).forEach(monthKey => {
                         const totalHonorarios = monthlyHonorarios[monthKey];
                         if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
-                        
+
                         const transactions = allData[monthKey].transactions;
                         const entryIndex = transactions.findIndex(t => (t.descripcion || '').trim().toLowerCase() === searchString);
-                        
+
                         if (entryIndex > -1) {
                             transactions[entryIndex].monto = totalHonorarios;
                         } else {
@@ -500,14 +526,12 @@
                     } else {
                         alert("No se encontraron honorarios cobrados en la planilla de Abonos para sincronizar.");
                     }
-
                 } catch (err) {
                     alert(`Ocurrió un error durante la sincronización: ${err.message}`);
                     console.error("Error en syncWithAbonos:", err);
                 }
             }
-
-            // --- El resto de las funciones de utilidad no necesitan cambios ---
+           
             function exportAllToExcel(){
                 let allTransactions = [];
                 Object.keys(allData).sort().forEach(monthKey => {
@@ -568,9 +592,205 @@
             }
             function parseCurrency(str) { return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0; }
             function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
-            
+
             initializeApp();
         });
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        const FOLDER_NAME = 'Planilla Ingresos y Egresos - García & Asociados';
+        const METADATA_FILE_NAME = 'backup_contable.json';
+
+        let tokenClient, gapiInited = false, gisInited = false;
+        let driveFolderId = null, metadataFileId = null;
+
+        const driveStatusEl = document.getElementById('driveStatus');
+
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
+        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('connectDriveBtn').onclick = handleAuthClick;
+            }
+        }
+
+        function updateDriveStatus(message, isSuccess, duration = 0) {
+            driveStatusEl.style.display = 'block';
+            driveStatusEl.textContent = message;
+            driveStatusEl.className = 'data-status';
+            if (isSuccess === true) {
+                driveStatusEl.classList.add('status-success');
+            } else if (isSuccess === false) {
+                driveStatusEl.classList.add('status-warning');
+            }
+            if(duration > 0) {
+                setTimeout(() => { driveStatusEl.style.display = 'none'; }, duration);
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    console.error('Auth Error:', resp);
+                    updateDriveStatus('❌ Error de autenticación.', false);
+                    return;
+                }
+                gapi.client.setToken({ access_token: resp.access_token });
+                updateDriveStatus('✅ Conectado a Google Drive. Buscando carpeta...', null);
+                document.getElementById('connectDriveBtn').style.display = 'none';
+                document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+                document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+                document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
+                document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+                await findOrCreateFolder();
+            };
+            if (!gapi.client.getToken()) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        async function findOrCreateFolder() {
+            updateDriveStatus('Buscando carpeta en Google Drive...', null);
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                });
+                if (response.result.files.length > 0) {
+                    driveFolderId = response.result.files[0].id;
+                    updateDriveStatus('✅ Carpeta encontrada.', true, 3000);
+                } else {
+                    updateDriveStatus('Carpeta no encontrada, creando una nueva...', null);
+                    const folderMetadata = {
+                        name: FOLDER_NAME,
+                        mimeType: 'application/vnd.google-apps.folder',
+                    };
+                    const folderResponse = await gapi.client.drive.files.create({
+                        resource: folderMetadata,
+                        fields: 'id',
+                    });
+                    driveFolderId = folderResponse.result.id;
+                    updateDriveStatus('✅ Carpeta creada con éxito.', true, 3000);
+                }
+            } catch (err) {
+                console.error("Error finding or creating folder:", err);
+                updateDriveStatus('❌ Error al buscar o crear la carpeta en Drive.', false);
+                driveFolderId = null;
+            }
+        }
+
+        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+            const boundary = '-------314159265358979323846';
+            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
+
+            const requestBody = `--${boundary}\r\n` +
+                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+                `${JSON.stringify(metadata)}\r\n` +
+                `--${boundary}\r\n` +
+                `Content-Type: ${mimeType}\r\n` +
+                `Content-Transfer-Encoding: base64\r\n\r\n` +
+                `${content}\r\n` +
+                `--${boundary}--`;
+
+            const request = gapi.client.request({
+                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+                method: fileIdToUpdate ? 'PATCH' : 'POST',
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: requestBody
+            });
+
+            return await request;
+        }
+
+        async function saveDataToDrive() {
+            if (!driveFolderId) {
+                alert("Error: La carpeta de destino en Drive no está lista. Por favor, intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('Se guardará una copia de seguridad de todos los datos actuales en Google Drive. ¿Continuar?')) return;
+
+            updateDriveStatus('Actualizando archivo de respaldo...', null);
+            try {
+                const dataString = JSON.stringify(window.allData, null, 2);
+                // Usar btoa con un paso intermedio para manejar caracteres UTF-8 correctamente
+                const dataBase64 = btoa(unescape(encodeURIComponent(dataString)));
+
+                await findOrCreateMetadataFile();
+                await uploadContent(dataBase64, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
+
+                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true, 5000);
+            } catch(err) {
+                console.error("Error guardando el respaldo:", err);
+                updateDriveStatus('❌ Error al guardar la copia de seguridad.', false);
+            }
+        }
+
+        async function findOrCreateMetadataFile() {
+             try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${METADATA_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`,
+                    fields: 'files(id)',
+                });
+                if (response.result.files.length > 0) {
+                    metadataFileId = response.result.files[0].id;
+                } else {
+                    metadataFileId = null;
+                }
+            } catch (err) {
+                 console.error("Error finding metadata file:", err);
+                 metadataFileId = null;
+            }
+        }
+
+        async function loadDataFromDrive() {
+            if (!driveFolderId) {
+                alert("Error: No se ha encontrado la carpeta de Drive. Intente conectar de nuevo.");
+                return;
+            }
+            if (!confirm('⚠️ Se reemplazarán todos los datos locales con la copia de seguridad de Google Drive. ¿Continuar?')) return;
+
+            updateDriveStatus('Buscando archivo de respaldo en Drive...', null);
+            try {
+                await findOrCreateMetadataFile();
+                if (!metadataFileId) {
+                    updateDriveStatus('No se encontró un archivo de respaldo en Drive. Puede guardar uno primero.', false, 5000);
+                    return;
+                }
+
+                updateDriveStatus('Descargando datos...', null);
+                const response = await gapi.client.drive.files.get({
+                    fileId: metadataFileId,
+                    alt: 'media',
+                });
+
+                const driveData = response.result;
+                if (typeof driveData === 'object' && !Array.isArray(driveData) && driveData !== null) {
+                    // Usar las funciones globales del script principal
+                    window.allData = driveData;
+                    window.saveData(); // Guarda los datos nuevos en localStorage
+                    window.renderApp(); // Vuelve a renderizar la aplicación con los datos cargados
+                    updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true, 5000);
+                } else {
+                    throw new Error("El archivo de respaldo no tiene el formato correcto.");
+                }
+
+            } catch (err) {
+                console.error("Error al cargar datos desde Drive:", err);
+                updateDriveStatus(`❌ Error al cargar los datos desde Drive: ${err.message}`, false);
+            }
+        }
     </script>
 </body>
 </html>
