@@ -437,6 +437,7 @@
             // =================================================================================
             function syncWithAbonos() {
                 try {
+                    console.log("Iniciando sincronización directa con Abonos...");
                     const abonosDataRaw = localStorage.getItem('abonosData');
                     if (!abonosDataRaw) {
                         alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez.');
@@ -448,7 +449,6 @@
                     
                     const monthlyHonorarios = {};
                     abonosData.forEach(abono => {
-                        // Lógica para determinar el mes del registro
                         let monthKey = null;
                         if (abono.mesServicio) {
                             monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
@@ -456,29 +456,27 @@
                             const d = new Date(abono.fechaPago + 'T00:00:00');
                             monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                         }
-
-                        if (!monthKey) return; // Si no tiene mes, se saltea
+                        if (!monthKey) return;
 
                         const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
                         const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
                         
                         if (esHonorario && esCobrado) {
                             if (!monthlyHonorarios[monthKey]) monthlyHonorarios[monthKey] = 0;
-                            
                             const monto = abono.estado === 'Pago Parcial' ? (parseFloat(abono.montoPagado) || 0) : (parseFloat(abono.monto) || 0);
                             monthlyHonorarios[monthKey] += monto;
                         }
                     });
 
                     let updatedCount = 0;
-                    const searchString = "Honorarios Profesionales";
+                    const searchString = "Honorarios Profesionales".toLowerCase();
 
                     Object.keys(monthlyHonorarios).forEach(monthKey => {
                         const totalHonorarios = monthlyHonorarios[monthKey];
                         if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
                         
                         const transactions = allData[monthKey].transactions;
-                        const entryIndex = transactions.findIndex(t => t.descripcion.trim().toLowerCase() === searchString.toLowerCase());
+                        const entryIndex = transactions.findIndex(t => (t.descripcion || '').trim().toLowerCase() === searchString);
                         
                         if (entryIndex > -1) {
                             transactions[entryIndex].monto = totalHonorarios;
