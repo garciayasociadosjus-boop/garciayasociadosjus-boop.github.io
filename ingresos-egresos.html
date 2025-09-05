@@ -329,7 +329,10 @@
                 document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
                 document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
                 document.getElementById('jsonFileInput').addEventListener('change', importBackup);
+                
+                // === LISTENER PARA EL NUEVO BOTÓN DE SINCRONIZACIÓN ===
                 document.getElementById('syncAbonosBtn').addEventListener('click', syncWithAbonos);
+
                 document.body.addEventListener('change', handleTableChange);
                 document.body.addEventListener('focusout', handleTableFocusOut);
                 document.body.addEventListener('click', handleTableClick);
@@ -433,50 +436,47 @@
             }
             
             // =================================================================================
-            // FUNCIÓN DE SINCRONIZACIÓN CORREGIDA
+            // LÓGICA DE SINCRONIZACIÓN DIRECTA CON LOCALSTORAGE
             // =================================================================================
             function syncWithAbonos() {
                 try {
-                    console.log("Iniciando sincronización directa con Abonos...");
+                    console.log("Iniciando sincronización con Abonos...");
                     const abonosDataRaw = localStorage.getItem('abonosData');
                     if (!abonosDataRaw) {
-                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez.');
+                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez en este navegador.');
                         return;
                     }
 
                     const abonosData = JSON.parse(abonosDataRaw);
-                    if (!Array.isArray(abonosData)) throw new Error("Formato de datos de Abonos incorrecto.");
+                    if (!Array.isArray(abonosData)) {
+                        throw new Error("Los datos de Abonos no tienen el formato esperado.");
+                    }
                     
                     const monthlyHonorarios = {};
                     abonosData.forEach(abono => {
-                        let monthKey = null;
-                        if (abono.mesServicio) {
-                            monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
-                        } else if (abono.fechaPago) {
-                            const d = new Date(abono.fechaPago + 'T00:00:00');
-                            monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        }
-                        if (!monthKey) return;
-
                         const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
                         const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
                         
-                        if (esHonorario && esCobrado) {
-                            if (!monthlyHonorarios[monthKey]) monthlyHonorarios[monthKey] = 0;
-                            const monto = abono.estado === 'Pago Parcial' ? (parseFloat(abono.montoPagado) || 0) : (parseFloat(abono.monto) || 0);
+                        if (esHonorario && esCobrado && abono.mesServicio) {
+                            const monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
+                            if (!monthlyHonorarios[monthKey]) {
+                                monthlyHonorarios[monthKey] = 0;
+                            }
+                            const monto = abono.estado === 'Pago Parcial' 
+                                ? (parseFloat(abono.montoPagado) || 0) 
+                                : (parseFloat(abono.monto) || 0);
                             monthlyHonorarios[monthKey] += monto;
                         }
                     });
 
                     let updatedCount = 0;
-                    const searchString = "Honorarios Profesionales".toLowerCase();
-
                     Object.keys(monthlyHonorarios).forEach(monthKey => {
                         const totalHonorarios = monthlyHonorarios[monthKey];
-                        if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
-                        
+                        if (!allData[monthKey]) {
+                            allData[monthKey] = { transactions: [] };
+                        }
                         const transactions = allData[monthKey].transactions;
-                        const entryIndex = transactions.findIndex(t => (t.descripcion || '').trim().toLowerCase() === searchString);
+                        const entryIndex = transactions.findIndex(t => t.descripcion === 'Honorarios Profesionales');
                         
                         if (entryIndex > -1) {
                             transactions[entryIndex].monto = totalHonorarios;
@@ -508,15 +508,67 @@
                 }
             }
 
-            function exportAllToExcel() { /* ... sin cambios ... */ }
-            function exportBackup() { /* ... sin cambios ... */ }
-            function importBackup(event) { /* ... sin cambios ... */ }
-            function calculateTotals(transactions) { /* ... sin cambios ... */ }
-            function formatMonthKey(monthKey) { /* ... sin cambios ... */ }
-            function downloadFile(content, fileName, mimeType) { /* ... sin cambios ... */ }
-            function formatCurrency(num, withSymbol = true) { /* ... sin cambios ... */ }
-            function parseCurrency(str) { /* ... sin cambios ... */ }
-            function capitalize(str) { /* ... sin cambios ... */ }
+            // (El resto de funciones como exportación, utilidades, etc., se mantienen sin cambios)
+            function exportAllToExcel() {
+                let allTransactions = [];
+                Object.keys(allData).sort().forEach(monthKey => {
+                    allTransactions.push(...allData[monthKey].transactions);
+                });
+                const headers = ['Fecha', 'Descripción', 'Categoría', 'Ingreso', 'Egreso', 'Medio de pago', 'Quien', 'Observaciones'];
+                const rows = allTransactions.map(row => {
+                    const ingreso = row.categoria === 'ingreso' ? row.monto || 0 : 0;
+                    const egreso = row.categoria === 'egreso' ? row.monto || 0 : 0;
+                    return [row.fecha, row.descripcion, row.categoria, ingreso, egreso, row.medioPago, row.quien, row.observaciones || ''].join(',');
+                });
+                downloadFile([headers.join(','), ...rows].join('\n'), 'Reporte_Contable_Completo.csv', 'text/csv;charset=utf-8;');
+            }
+            function exportBackup() { downloadFile(JSON.stringify(allData, null, 2), 'backup-ingresos-egresos.json', 'application/json'); }
+            function importBackup(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (typeof imported === 'object' && !Array.isArray(imported) && imported !== null) {
+                             if (confirm('Se reemplazarán todos los datos actuales. ¿Continuar?')) {
+                                allData = imported; saveData(); renderApp(); alert('Datos importados.');
+                             }
+                        } else { alert('Error: Formato de archivo incorrecto.'); }
+                    } catch (err) { alert(`Error al leer archivo: ${err.message}`); }
+                };
+                reader.readAsText(file);
+                event.target.value = null;
+            }
+            function calculateTotals(transactions) {
+                const totals = { ingresos: 0, egresos: 0, balance: 0 };
+                transactions.forEach(row => {
+                    const monto = parseFloat(row.monto) || 0;
+                    if (row.categoria === 'ingreso') totals.ingresos += monto; else totals.egresos += monto;
+                });
+                totals.balance = totals.ingresos - totals.egresos;
+                return totals;
+            }
+            function formatMonthKey(monthKey) {
+                if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "Mes Inválido";
+                const [year, month] = monthKey.split('-');
+                const date = new Date(year, month - 1, 1);
+                return capitalize(date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' }));
+            }
+            function downloadFile(content, fileName, mimeType) {
+                const blob = new Blob(['\ufeff' + content], { type: mimeType });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = fileName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            }
+            function formatCurrency(num, withSymbol = true) {
+                const number = parseFloat(num) || 0;
+                const options = { style: 'currency', currency: 'ARS' };
+                let formatted = new Intl.NumberFormat('es-AR', options).format(number);
+                return withSymbol ? formatted : formatted.replace(/\$\s?/g, '').trim();
+            }
+            function parseCurrency(str) { return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0; }
+            function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
             
             initializeApp();
         });
