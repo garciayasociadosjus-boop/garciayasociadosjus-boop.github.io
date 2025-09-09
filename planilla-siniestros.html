@@ -641,8 +641,15 @@ async function tokenResponseCallback(resp) {
         document.getElementById('connectDriveBtn').style.display = 'none';
         const saveBtn = document.getElementById('saveToDriveBtn');
         const loadBtn = document.getElementById('loadFromDriveBtn');
-        if (saveBtn) saveBtn.style.display = 'inline-block';
-        if (loadBtn) loadBtn.style.display = 'inline-block';
+        
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-block';
+            saveBtn.onclick = saveDataToDrive;
+        }
+        if (loadBtn) {
+            loadBtn.style.display = 'inline-block';
+            loadBtn.onclick = loadDataFromDrive;
+        }
 
         // Segundo, configurar token y realizar operaciones
         gapi.client.setToken({ access_token: resp.access_token });
