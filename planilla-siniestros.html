@@ -569,20 +569,23 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded"></script>
 <script>
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // CLAVE CORREGIDA
+const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
 const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
 const GD_DATA_FILE='datos_planilla_siniestros.json';
 const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
 
-let gdTokenClient;
+let tokenClient;
 let gapiReady = false, gisReady = false;
 let gdDataFileId = null, gdDocsFolderId = null;
 
-function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+function gapiLoaded() {
+    gapi.load('client', initializeGapiClient);
+}
+
 async function initializeGapiClient() {
     try {
         await gapi.client.init({
@@ -593,61 +596,55 @@ async function initializeGapiClient() {
             ]
         });
         gapiReady = true;
-        maybeEnableDriveButton();
-    } catch(e) {
-        console.error("Error GAPI Init:", e);
-        updateDriveStatus('❌ Error inicializando APIs de Google.', false);
+        maybeEnableButtons();
+    } catch (e) {
+        console.error("Error inicializando GAPI client", e);
+        updateDriveStatus('❌ Error al inicializar APIs de Google.', false);
     }
 }
-function gisLoaded(){
+
+function gisLoaded() {
     try {
-        gdTokenClient = google.accounts.oauth2.initTokenClient({
+        tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: GD_CLIENT_ID,
             scope: GD_SCOPES,
-            callback: '' 
+            callback: tokenResponseCallback,
         });
         gisReady = true;
-        maybeEnableDriveButton();
+        maybeEnableButtons();
     } catch(e) {
-        console.error("Error GIS Init:", e);
-        updateDriveStatus('❌ Error inicializando autenticación de Google.', false);
+        console.error("Error inicializando GIS client", e);
+        updateDriveStatus('❌ Error al inicializar autenticación de Google.', false);
     }
 }
 
-function maybeEnableDriveButton(){
+function maybeEnableButtons() {
     if (gapiReady && gisReady) {
-        document.getElementById('connectDriveBtn').onclick = handleAuth;
+        document.getElementById('connectDriveBtn').onclick = handleAuthClick;
     }
 }
 
-function updateDriveStatus(message, isSuccess) {
-    const el = document.getElementById('driveStatus');
-    el.style.display = 'block';
-    el.textContent = message;
-    el.style.background = isSuccess ? '#d4edda' : '#f8d7da';
-    el.style.color = isSuccess ? '#155724' : '#721c24';
-}
-
-function handleAuth() {
-    gdTokenClient.callback = async (resp) => {
-        if (resp.error) {
-            updateDriveStatus('❌ Error de autenticación.', false);
-            return;
-        }
-        gapi.client.setToken({ access_token: resp.access_token });
-        updateDriveStatus('✅ Conectado a Drive & Calendar. Buscando archivo...', true);
-        document.getElementById('connectDriveBtn').style.display = 'none';
-        document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-        await findDataFile();
-    };
-
+function handleAuthClick() {
     if (gapi.client.getToken() === null) {
-        gdTokenClient.requestAccessToken({ prompt: 'consent' });
+        tokenClient.requestAccessToken({ prompt: 'consent' });
     } else {
-        gdTokenClient.requestAccessToken({ prompt: '' });
+        tokenClient.requestAccessToken({ prompt: '' });
     }
 }
+
+async function tokenResponseCallback(resp) {
+    if (resp.error) {
+        updateDriveStatus('❌ Error de autenticación.', false);
+        throw resp;
+    }
+    gapi.client.setToken({ access_token: resp.access_token });
+    updateDriveStatus('✅ Conectado a Drive & Calendar. Buscando archivo...', true);
+    document.getElementById('connectDriveBtn').style.display = 'none';
+    document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+    document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+    await findDataFile();
+}
+
 
 // ---- Funciones de Google Calendar ----
 async function addEventToGoogleCalendar(siniestro, mediacion) {
