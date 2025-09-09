@@ -249,6 +249,8 @@
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
+        // --- TODO EL JAVASCRIPT PRINCIPAL DE LA APLICACIÓN VA AQUÍ (SIN CAMBIOS) ---
+        // Se omite por brevedad, es el mismo que usted proveyó.
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
 
@@ -704,7 +706,6 @@
             }).join('');
         }
         
-        // NUEVA FUNCIÓN DE ALERTA COMBINADA
         function checkAlertsDelDia() {
             const vencimientosHoy = clientsData.flatMap(client => 
                 (client.vencimientos_list || [])
@@ -783,8 +784,8 @@
         const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
-        const GD_DATA_FILE = 'datos_planilla_juridica.json'; // Adaptado para Familia
-        const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos'; // Adaptado para Familia
+        const GD_DATA_FILE = 'datos_planilla_juridica.json';
+        const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos';
 
         let gdTokenClient;
         let gapiReady = false, gisReady = false;
@@ -803,7 +804,7 @@
                 });
                 gapiReady = true;
                 maybeEnableGoogleButtons();
-            } catch (e) { console.error("Error GAPI client init:", e); updateDriveStatus('❌ Error al inicializar APIs de Google.', true); }
+            } catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }
         }
 
         function gisLoaded() {
@@ -815,11 +816,11 @@
                 });
                 gisReady = true;
                 maybeEnableGoogleButtons();
-            } catch(e) { console.error("Error GIS client init:", e); updateDriveStatus('❌ Error al inicializar autenticación de Google.', true); }
+            } catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }
         }
 
         function maybeEnableGoogleButtons() {
-            if (gapiReady && gisInited) {
+            if (gapiReady && gisReady) {
                 document.getElementById('connectDriveBtn').onclick = handleAuthClick;
             }
         }
@@ -832,7 +833,7 @@
 
         async function tokenResponseCallback(resp) {
             if (resp.error) {
-                updateDriveStatus('❌ Error de autenticación.', true);
+                updateDataStatus('❌ Error de autenticación.', true);
                 return;
             }
             try {
@@ -843,37 +844,36 @@
                 if(connectBtn) connectBtn.style.display = 'none';
                 if (saveBtn) { saveBtn.style.display = 'inline-block'; saveBtn.onclick = saveDataToDrive; }
                 if (loadBtn) { loadBtn.style.display = 'inline-block'; loadBtn.onclick = loadDataFromDrive; }
-                updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...', false);
+                updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false);
                 await findDataFile();
             } catch (e) {
                 console.error("Error en callback:", e);
-                updateDriveStatus('❌ Ocurrió un error después de conectar.', true);
+                updateDataStatus('❌ Ocurrió un error después de conectar.', true);
             }
         }
         
-        // --- ADAPTED GOOGLE FUNCTIONS ---
         async function findDataFile(){
-          updateDriveStatus('🔎 Buscando archivo de Drive...', false);
+          updateDataStatus('🔎 Buscando archivo de Drive...', false);
           try {
             const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
             if (response.result.files && response.result.files.length > 0) {
                 gdDataFileId = response.result.files[0].id;
-                updateDriveStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);
+                updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);
             } else {
-                updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);
+                updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);
             }
           } catch(e) {
               console.error("Error buscando archivo:", e);
-              updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);
+              updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);
           }
         }
 
         async function saveDataToDrive() {
             if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
             if (!confirm('¿Guardar datos en Drive?')) return;
-            updateDriveStatus('💾 Guardando en Drive...', false);
+            updateDataStatus('💾 Guardando en Drive...', false);
             
-            const content = JSON.stringify(clientsData, null, 2); // ADAPTED: clientsData
+            const content = JSON.stringify(clientsData, null, 2); // ADAPTADO
             const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
 
             try {
@@ -895,12 +895,12 @@
                 
                 const response = await request;
                 if (response.result.id) gdDataFileId = response.result.id;
-                updateDriveStatus('✅ Guardado en Drive con éxito.', false);
+                updateDataStatus('✅ Guardado en Drive con éxito.', false);
 
             } catch (e) {
                 console.error('Error en saveDataToDrive:', e);
                 const errorMsg = e.result?.error?.message || e.message || "Error desconocido.";
-                updateDriveStatus(`❌ Error al guardar: ${errorMsg}`, true);
+                updateDataStatus(`❌ Error al guardar: ${errorMsg}`, true);
             }
         }
 
@@ -908,21 +908,143 @@
           if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
           if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; }
           if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
-          updateDriveStatus('📥 Cargando desde Drive...', false);
+          updateDataStatus('📥 Cargando desde Drive...', false);
           try {
             const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
             const imported = JSON.parse(response.body);
             if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
-            clientsData = imported; // ADAPTED: clientsData
-            saveData(); // Guarda en local
-            loadData(); // Recarga desde local para sanitizar y aplicar lógica
+            clientsData = imported; // ADAPTADO
+            saveData();
+            loadData();
             renderAll();
-            updateDriveStatus('✅ Datos cargados desde Drive.', false);
+            updateDataStatus('✅ Datos cargados desde Drive.', false);
           } catch(e) {
             console.error("Error cargando datos:", e);
-            updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);
+            updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);
           }
         }
+
+        // El resto de las funciones de Google para documentos, adaptadas
+        async function showDocumentModal(clientId) {
+            if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.');
+            currentClientIdForDocs = clientId; // ADAPTADO
+            localFilesForUpload = []; 
+            const client = clientsData.find(c => c.id === clientId); // ADAPTADO
+            if (!client) return;
+            document.getElementById('documentModalTitle').innerText = `Documentos de: ${getDisplayName(client)}`;
+            document.getElementById('documentModal').classList.add('active');
+            renderLocalFileList();
+            await renderDriveFileList();
+            setupDragAndDrop();
+        }
+
+        function setupDragAndDrop() {
+            const area = document.getElementById('uploadArea');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => area.addEventListener(eName, e => { e.preventDefault(); e.stopPropagation(); }, false));
+            ['dragenter', 'dragover'].forEach(eName => area.addEventListener(eName, () => area.classList.add('drag-over'), false));
+            ['dragleave', 'drop'].forEach(eName => area.addEventListener(eName, () => area.classList.remove('drag-over'), false));
+            area.addEventListener('drop', e => processFiles(e.dataTransfer.files), false);
+        }
+
+        function processFiles(files) {
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const newFile = { id: 'local_' + Date.now(), name: file.name, type: file.type, size: file.size, dataUrl: e.target.result };
+                    localFilesForUpload.push(newFile);
+                    renderLocalFileList();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function renderLocalFileList() {
+            const listEl = document.getElementById('localDocumentList');
+            if (localFilesForUpload.length === 0) { listEl.innerHTML = '<p style="font-style: italic; color: #666; text-align:center; padding:10px;">No hay archivos nuevos para subir.</p>'; return; }
+            listEl.innerHTML = '<p style="font-style: italic; color: #666;">Archivos listos para subir:</p>';
+            listEl.innerHTML += localFilesForUpload.map(file => `<li><span>${file.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${file.id}')">X</button></li>`).join('');
+        }
+        
+        function removeLocalFile(fileId) {
+            localFilesForUpload = localFilesForUpload.filter(f => f.id !== fileId);
+            renderLocalFileList();
+        }
+
+        function triggerLocalFileUpload() {
+            const uploader = document.getElementById('documentUploadInput');
+            uploader.onchange = (e) => processFiles(e.target.files);
+            uploader.value = '';
+            uploader.click();
+        }
+
+        async function saveDocumentsToDrive() {
+            if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar.");
+            updateDataStatus('Subiendo documentos...', false);
+            const client = clientsData.find(c => c.id === currentClientIdForDocs); // ADAPTADO
+            const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`; // ADAPTADO
+            try {
+                if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
+                const clientFolderId = await getOrCreateFolder(clientFolderName, gdDocsFolderId);
+                for (const file of localFilesForUpload) {
+                    await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolderId);
+                }
+                localFilesForUpload = [];
+                renderLocalFileList();
+                await renderDriveFileList();
+            } catch (err) { console.error(err); alert("Error al subir los archivos."); await renderDriveFileList(); }
+        }
+        
+        async function renderDriveFileList() {
+            const listEl = document.getElementById('driveDocumentList');
+            listEl.innerHTML = '<div class="spinner"></div>';
+            try {
+                const client = clientsData.find(c => c.id === currentClientIdForDocs); // ADAPTADO
+                if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
+                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`; // ADAPTADO
+                const clientFolderId = await getOrCreateFolder(clientFolderName, gdDocsFolderId);
+                const response = await gapi.client.drive.files.list({ q: `'${clientFolderId}' in parents and trashed=false`, fields: 'files(id, name, webViewLink)' });
+                if (response.result.files.length === 0) {
+                    listEl.innerHTML = '<li>No hay documentos guardados en Drive para este caso.</li>';
+                } else {
+                    listEl.innerHTML = response.result.files.map(file => `<li><a href="${file.webViewLink}" target="_blank">${file.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${file.id}')">X</button></li>`).join('');
+                }
+            } catch (err) { console.error(err); listEl.innerHTML = '<li>Error al cargar documentos de Drive.</li>'; }
+        }
+
+        async function deleteDocument(fileId) {
+            if (confirm('¿Eliminar este documento permanentemente de Google Drive?')) {
+                try {
+                    await gapi.client.drive.files.delete({ fileId });
+                    await renderDriveFileList();
+                } catch (err) { alert('Error al eliminar el documento.'); }
+            }
+        }
+
+        async function getOrCreateFolder(name, parentId = null) {
+            let query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;
+            if (parentId) query += ` and '${parentId}' in parents`;
+            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
+            if (response.result.files && response.result.files.length > 0) return response.result.files[0].id;
+            const fileMetadata = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && {parents: [parentId]}) };
+            const newFolder = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
+            return newFolder.result.id;
+        }
+
+        async function uploadDocumentContent(content, fileName, mimeType, parentId){
+            const boundary = '-------314159265358979323846';
+            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
+            const base64Data = content.split(',')[1];
+            const requestBody = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n');
+            const request = await gapi.client.request({
+                path: '/upload/drive/v3/files',
+                method: 'POST',
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` },
+                body: requestBody
+            });
+            return request.result.id;
+        }
+
     </script>
 </body>
 </html>
