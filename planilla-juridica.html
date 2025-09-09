@@ -321,6 +321,10 @@
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
         function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        
+        // *** FUNCIÓN AGREGADA ***
+        function formatTime(timeString) { if (!timeString) return ''; return timeString; }
+
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
@@ -875,7 +879,7 @@
             updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
             try {
                 const eventStartTime = new Date(`${audience.fecha}T${audience.hora}:00`);
-                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); // 1-hour duration default
+                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
 
                 const event = {
                     'summary': `Audiencia: ${client.nombre} | ${client.caratula || 'S/C'}`,
@@ -916,7 +920,7 @@
             if (!confirm('¿Guardar datos en Drive?')) return;
             updateDataStatus('💾 Guardando en Drive...', false);
             
-            const content = JSON.stringify(clientsData, null, 2);
+            const content = JSON.stringify(clientsData);
             const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
 
             try {
