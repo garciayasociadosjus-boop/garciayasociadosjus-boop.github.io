@@ -625,10 +625,8 @@ function maybeEnableButtons() {
 }
 
 function handleAuthClick() {
-    if (gapi.client.getToken() === null) {
+    if (tokenClient) {
         tokenClient.requestAccessToken({ prompt: 'consent' });
-    } else {
-        tokenClient.requestAccessToken({ prompt: '' });
     }
 }
 
@@ -637,12 +635,24 @@ async function tokenResponseCallback(resp) {
         updateDriveStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', false);
         return;
     }
-    gapi.client.setToken({ access_token: resp.access_token });
-    updateDriveStatus('✅ Conectado a Drive & Calendar. Buscando archivo...', true);
-    document.getElementById('connectDriveBtn').style.display = 'none';
-    document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-    document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-    await findDataFile();
+    
+    try {
+        // Primero, actualizar UI para feedback inmediato
+        document.getElementById('connectDriveBtn').style.display = 'none';
+        const saveBtn = document.getElementById('saveToDriveBtn');
+        const loadBtn = document.getElementById('loadFromDriveBtn');
+        if (saveBtn) saveBtn.style.display = 'inline-block';
+        if (loadBtn) loadBtn.style.display = 'inline-block';
+
+        // Segundo, configurar token y realizar operaciones
+        gapi.client.setToken({ access_token: resp.access_token });
+        updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...', true);
+        
+        await findDataFile();
+    } catch (e) {
+        console.error("Error en el callback del token:", e);
+        updateDriveStatus('❌ Ocurrió un error después de conectar. Intente recargar la página.', false);
+    }
 }
 
 
@@ -686,11 +696,10 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
     };
 
     try {
-        const request = gapi.client.calendar.events.insert({
+        await gapi.client.calendar.events.insert({
             'calendarId': 'primary',
             'resource': event,
         });
-        await request;
         updateDataStatus('✅ Evento de mediación creado en Google Calendar.');
     } catch(e) {
         console.error("Error creando evento en Calendar:", e);
