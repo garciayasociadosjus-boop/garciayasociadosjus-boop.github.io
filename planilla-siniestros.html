@@ -488,42 +488,116 @@ let gdTokenClient, gdGapiReady=false, gdGisReady=false;
 let gdDataFileId=null, gdDocsFolderId=null;
 
 // ========= INICIO SCRIPT DE GOOGLE DRIVE (CORREGIDO Y COMPLETO) =========
-function gapiLoaded(){gapi.load('client',async()=>{try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:[GD_DISCOVERY]});gdGapiReady=true;maybeEnableDriveButton();}catch(e){updateDriveStatus('❌ Error inicializando Drive',false);}});}
-function gisLoaded(){gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,
-    callback:(resp)=>{
-      if(resp.error){updateDriveStatus('❌ Error autenticación',false);return;}
-      updateDriveStatus('✅ Conectado a Drive',true);
-      document.getElementById('connectDriveBtn').style.display='none';
-      document.getElementById('saveToDriveBtn').style.display='inline-block';
-      document.getElementById('loadFromDriveBtn').style.display='inline-block';
-      document.getElementById('saveToDriveBtn').onclick=saveDataToDrive;
-      document.getElementById('loadFromDriveBtn').onclick=loadDataFromDrive;
-      findDataFile();
-    }});
-  gdGisReady=true;maybeEnableDriveButton();
+
+function gapiLoaded(){ gapi.load('client', initializeGapiClient); }
+async function initializeGapiClient() {
+    try {
+        await gapi.client.init({ apiKey: GD_API_KEY, discoveryDocs: [GD_DISCOVERY] });
+        gdGapiReady = true;
+        maybeEnableDriveButton();
+    } catch(e) {
+        updateDriveStatus('❌ Error inicializando Drive', false);
+    }
 }
-function maybeEnableDriveButton(){if(gdGapiReady&&gdGisReady){document.getElementById('connectDriveBtn').onclick=handleDriveAuth;}}
-function handleDriveAuth(){if(gapi.client.getToken()==null){gdTokenClient.requestAccessToken({prompt:'consent'});}else{gdTokenClient.requestAccessToken({prompt:''});}}
+function gisLoaded(){
+    gdTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GD_CLIENT_ID,
+        scope: GD_SCOPES,
+        callback: '' // El callback se asignará dinámicamente en handleDriveAuth
+    });
+    gdGisReady = true;
+    maybeEnableDriveButton();
+}
+
+function maybeEnableDriveButton(){
+    if (gdGapiReady && gdGisReady) {
+        document.getElementById('connectDriveBtn').onclick = handleDriveAuth;
+    }
+}
+
+function updateDriveStatus(message, isSuccess) {
+    const el = document.getElementById('driveStatus');
+    el.style.display = 'block';
+    el.textContent = message;
+    if (isSuccess) {
+        el.style.background = '#d4edda';
+        el.style.color = '#155724';
+    } else {
+        el.style.background = '#f8d7da';
+        el.style.color = '#721c24';
+    }
+}
+
+function handleDriveAuth() {
+    gdTokenClient.callback = async (resp) => {
+        if (resp.error) {
+            updateDriveStatus('❌ Error de autenticación.', false);
+            return;
+        }
+        gapi.client.setToken({ access_token: resp.access_token });
+        updateDriveStatus('✅ Conectado a Drive. Buscando archivo...', true);
+        document.getElementById('connectDriveBtn').style.display = 'none';
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
+        document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+        await findDataFile();
+    };
+
+    if (gapi.client.getToken() === null) {
+        gdTokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+        gdTokenClient.requestAccessToken({ prompt: '' });
+    }
+}
+
 async function findDataFile(){
-  updateDriveStatus('🔎 Buscando archivo...',false);
-  try{const r=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id,name)',spaces:'drive'});
-    if(r.result.files.length){gdDataFileId=r.result.files[0].id;updateDriveStatus('✅ Archivo encontrado',true);}
-    else{updateDriveStatus('⚠️ No existe archivo (se creará al guardar)',false);}}
-  catch(e){updateDriveStatus('❌ Error buscando archivo',false);}
+  updateDriveStatus('🔎 Buscando archivo...', false);
+  try {
+    const r = await gapi.client.drive.files.list({q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id,name)', spaces: 'drive'});
+    if (r.result.files.length) {
+        gdDataFileId = r.result.files[0].id;
+        updateDriveStatus('✅ Archivo de respaldo encontrado.', true);
+    } else {
+        updateDriveStatus('⚠️ No existe archivo (se creará al guardar).', false);
+    }
+  } catch(e) {
+      updateDriveStatus('❌ Error buscando archivo.', false);
+  }
 }
+
 async function saveDataToDrive(){
-  if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('💾 Guardando...',false);
-  try{const content=JSON.stringify(siniestrosData,null,2);gdDataFileId=await uploadContent(content,GD_DATA_FILE,'application/json',null,gdDataFileId);updateDriveStatus('✅ Guardado en Drive',true);}
-  catch(e){updateDriveStatus('❌ Error guardando',false);}
+  if(!confirm('¿Guardar datos en Drive? Esto sobreescribirá el respaldo anterior.')) return;
+  updateDriveStatus('💾 Guardando...', false);
+  try {
+    const content = JSON.stringify(siniestrosData, null, 2);
+    const fileId = await uploadContent(content, GD_DATA_FILE, 'application/json', null, gdDataFileId);
+    if (fileId) gdDataFileId = fileId;
+    updateDriveStatus('✅ Guardado en Drive con éxito.', true);
+  } catch(e) {
+    updateDriveStatus('❌ Error al guardar en Drive.', false);
+  }
 }
+
 async function loadDataFromDrive(){
-  if(!gdDataFileId){alert('No existe archivo remoto. Guardá primero.');return;}
-  if(!confirm('¿Reemplazar datos locales con los de Drive?'))return;updateDriveStatus('📥 Cargando...',false);
-  try{const r=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});
-    const imported=JSON.parse(r.body);if(!Array.isArray(imported))throw new Error('Formato inválido');
-    siniestrosData=sanitizeData(imported);saveData();renderAll();updateDriveStatus('✅ Datos cargados',true);}
-  catch(e){updateDriveStatus('❌ Error al cargar',false);}
+  if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo en Drive. Guardá una copia primero.'); return; }
+  if(!confirm('¿Reemplazar los datos locales con la copia de seguridad de Drive?')) return;
+  updateDriveStatus('📥 Cargando desde Drive...', false);
+  try {
+    const r = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
+    const imported = r.result; // r.result ya es el JSON parseado
+    if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
+    siniestrosData = sanitizeData(imported);
+    saveData();
+    renderAll();
+    updateDriveStatus('✅ Datos cargados desde Drive.', true);
+  } catch(e) {
+    console.error(e);
+    updateDriveStatus('❌ Error al cargar los datos desde Drive.', false);
+  }
 }
+
+// ---- Funciones de documentos (sin cambios) ----
 let localFilesForUpload = [];
 async function showDocumentModal(sid) {
     if (!gapi.client.getToken()) return alert('Conecta con Google Drive primero.');
@@ -588,10 +662,11 @@ async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
     const meta={name:fileName,mimeType, ...(parentId&&!fileIdToUpdate&&{parents:[parentId]})};
     let base64Data;
     if(typeof content==='string'&&content.startsWith('data:')){base64Data=content.split(',')[1];}else{base64Data=btoa(unescape(encodeURIComponent(content)));}
-    const body=`${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n${boundary}--`;
-    const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary.substring(2)}`},body});
+    const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n--${boundary}--`;
+    const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary}`},body});
     return (await req).result.id;
 }
+
 </script>
 </body>
 </html>
