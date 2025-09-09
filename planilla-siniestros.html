@@ -573,7 +573,7 @@ window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))clos
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-const GD_API_KEY='API_KEY'; // Reemplazar con tu API Key si es necesario, aunque con OAuth2 no siempre se requiere para estas operaciones.
+const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; // CLAVE CORREGIDA
 const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
 const GD_DATA_FILE='datos_planilla_siniestros.json';
 const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
@@ -595,17 +595,23 @@ async function initializeGapiClient() {
         gapiReady = true;
         maybeEnableDriveButton();
     } catch(e) {
+        console.error("Error GAPI Init:", e);
         updateDriveStatus('❌ Error inicializando APIs de Google.', false);
     }
 }
 function gisLoaded(){
-    gdTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GD_CLIENT_ID,
-        scope: GD_SCOPES,
-        callback: '' 
-    });
-    gisReady = true;
-    maybeEnableDriveButton();
+    try {
+        gdTokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GD_CLIENT_ID,
+            scope: GD_SCOPES,
+            callback: '' 
+        });
+        gisReady = true;
+        maybeEnableDriveButton();
+    } catch(e) {
+        console.error("Error GIS Init:", e);
+        updateDriveStatus('❌ Error inicializando autenticación de Google.', false);
+    }
 }
 
 function maybeEnableDriveButton(){
@@ -649,10 +655,17 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
         console.log("No autenticado con Google. No se puede crear el evento.");
         return;
     }
+    if (!mediacion.fecha || !mediacion.hora) {
+        console.log("Fecha u hora de mediación inválida. No se creará el evento.");
+        return;
+    }
 
     const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
+    if (isNaN(eventStartTime.getTime())) {
+        console.error("La fecha/hora de la mediación no es válida.");
+        return;
+    }
     const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); // Duración de 1 hora por defecto
-
     const timeZone = 'America/Argentina/Buenos_Aires';
 
     const event = {
@@ -669,8 +682,8 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
         'reminders': {
             'useDefault': false,
             'overrides': [
-                {'method': 'popup', 'minutes': 60},
                 {'method': 'popup', 'minutes': 120},
+                {'method': 'popup', 'minutes': 60},
             ],
         },
     };
