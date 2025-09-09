@@ -597,7 +597,7 @@ async function initializeGapiClient() {
         maybeEnableButtons();
     } catch (e) {
         console.error("Error GAPI client init:", e);
-        updateDriveStatus('❌ Error al inicializar APIs de Google.', false);
+        updateDataStatus('❌ Error al inicializar APIs de Google.', true);
     }
 }
 
@@ -612,7 +612,7 @@ function gisLoaded() {
         maybeEnableButtons();
     } catch(e) {
         console.error("Error GIS client init:", e);
-        updateDriveStatus('❌ Error al inicializar autenticación de Google.', false);
+        updateDataStatus('❌ Error al inicializar autenticación de Google.', true);
     }
 }
 
@@ -630,7 +630,7 @@ function handleAuthClick() {
 
 async function tokenResponseCallback(resp) {
     if (resp.error) {
-        updateDriveStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', false);
+        updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true);
         return;
     }
     try {
@@ -646,20 +646,20 @@ async function tokenResponseCallback(resp) {
             loadBtn.style.display = 'inline-block';
             loadBtn.onclick = loadDataFromDrive;
         }
-        updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...', true);
+        updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false);
         await findDataFile();
     } catch (e) {
         console.error("Error en callback:", e);
-        updateDriveStatus('❌ Ocurrió un error después de conectar.', false);
+        updateDataStatus('❌ Ocurrió un error después de conectar.', true);
     }
 }
 
 async function addEventToGoogleCalendar(siniestro, mediacion) {
-    if (!gapi.client.getToken()) {
-        updateDriveStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
+    if (!gapi.client.getToken()?.access_token) {
+        updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
         return;
     }
-    updateDriveStatus('🗓️ Creando evento en Google Calendar...', false);
+    updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
     try {
         const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
         const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
@@ -670,15 +670,15 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
             'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
         };
         await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
-        updateDriveStatus('✅ Evento creado en Google Calendar.', true);
+        updateDataStatus('✅ Evento creado en Google Calendar.', false);
     } catch(e) {
         console.error("Error creando evento en Calendar:", e);
-        updateDriveStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
+        updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
     }
 }
 
 async function findDataFile(){
-  updateDriveStatus('🔎 Buscando archivo de Drive...', false);
+  updateDataStatus('🔎 Buscando archivo de Drive...', false);
   try {
     const response = await gapi.client.drive.files.list({
         q: `name='${GD_DATA_FILE}' and trashed=false`,
@@ -687,27 +687,27 @@ async function findDataFile(){
     });
     if (response.result.files && response.result.files.length > 0) {
         gdDataFileId = response.result.files[0].id;
-        updateDriveStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', true);
+        updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);
     } else {
-        updateDriveStatus('⚠️ Conexión exitosa. No existe archivo de respaldo (se creará al guardar).', false);
+        updateDataStatus('⚠️ Conexión exitosa. No existe archivo de respaldo (se creará al guardar).', false);
     }
   } catch(e) {
       console.error("Error buscando archivo:", e);
-      updateDriveStatus(`❌ Error buscando archivo en Drive: ${e.result?.error?.message}`, true);
+      updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);
   }
 }
 
 async function saveDataToDrive() {
-    if (!gapi.client.getToken()) return alert('No está conectado a Google.');
+    if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
     if (!confirm('¿Guardar datos en Drive?')) return;
-    updateDriveStatus('💾 Guardando en Drive...', false);
+    updateDataStatus('💾 Guardando en Drive...', false);
     
     const content = JSON.stringify(siniestrosData, null, 2);
-    
+    const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+
     try {
         let request;
         if (gdDataFileId) {
-            // MÉTODO SIMPLE PARA ACTUALIZAR
             request = gapi.client.request({
                 path: `/upload/drive/v3/files/${gdDataFileId}`,
                 method: 'PATCH',
@@ -715,9 +715,7 @@ async function saveDataToDrive() {
                 body: content
             });
         } else {
-            // MÉTODO SIMPLE PARA CREAR
-            const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
-            request = gapi.client.drive.files.create({
+             request = gapi.client.drive.files.create({
                 resource: metadata,
                 media: { mimeType: 'application/json', body: content },
                 fields: 'id'
@@ -728,36 +726,37 @@ async function saveDataToDrive() {
         if (response.result.id) {
             gdDataFileId = response.result.id;
         }
-        updateDriveStatus('✅ Guardado en Drive con éxito.', true);
+        updateDataStatus('✅ Guardado en Drive con éxito.', false);
 
     } catch (e) {
         console.error('Error en saveDataToDrive:', e);
         const errorMsg = e.result?.error?.message || e.message || "Error desconocido.";
-        updateDriveStatus(`❌ Error al guardar: ${errorMsg}`, true);
+        updateDataStatus(`❌ Error al guardar: ${errorMsg}`, true);
     }
 }
 
 async function loadDataFromDrive(){
-  if (!gapi.client.getToken()) return alert('No está conectado a Google.');
+  if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
   if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; }
   if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
-  updateDriveStatus('📥 Cargando desde Drive...', false);
+  updateDataStatus('📥 Cargando desde Drive...', false);
   try {
     const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
-    const imported = (typeof response.body === 'string') ? JSON.parse(response.body) : response.result;
+    // En alt='media', la respuesta está en 'body', no en 'result'.
+    const imported = JSON.parse(response.body);
     if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
     siniestrosData = sanitizeData(imported);
     saveData();
     renderAll();
-    updateDriveStatus('✅ Datos cargados desde Drive.', true);
+    updateDataStatus('✅ Datos cargados desde Drive.', false);
   } catch(e) {
     console.error("Error cargando datos:", e);
-    updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, false);
+    updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);
   }
 }
 
 async function showDocumentModal(sid) {
-    if (!gapi.client.getToken()) return alert('Conecta con Google Drive primero.');
+    if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.');
     currentSiniestroIdForDocs = sid;
     localFilesForUpload = [];
     const s = siniestrosData.find(x => x.id === sid); if (!s) return;
