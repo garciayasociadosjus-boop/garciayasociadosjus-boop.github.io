@@ -639,6 +639,7 @@ async function tokenResponseCallback(resp) {
     
     try {
         googleAccessToken = resp.access_token; // Guardar el token globalmente
+        gapi.client.setToken({ access_token: googleAccessToken }); // Configurar el cliente GAPI
         
         document.getElementById('connectDriveBtn').style.display = 'none';
         const saveBtn = document.getElementById('saveToDriveBtn');
@@ -653,9 +654,7 @@ async function tokenResponseCallback(resp) {
             loadBtn.onclick = loadDataFromDrive;
         }
 
-        gapi.client.setToken({ access_token: googleAccessToken });
         updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...', true);
-        
         await findDataFile();
     } catch (e) {
         console.error("Error en el callback del token:", e);
@@ -663,11 +662,10 @@ async function tokenResponseCallback(resp) {
     }
 }
 
-
 // ---- Funciones de Google Calendar ----
 async function addEventToGoogleCalendar(siniestro, mediacion) {
     if (!googleAccessToken) {
-        updateDriveStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
+        updateDriveStatus('⚠️ No conectado a Google. No se puede crear el evento en Calendar.', true);
         return;
     }
     if (!mediacion.fecha || !mediacion.hora) {
@@ -700,7 +698,8 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
         updateDriveStatus('✅ Evento de mediación creado en Google Calendar.', true);
     } catch(e) {
         console.error("Error creando evento en Calendar:", e);
-        updateDriveStatus('❌ Error al crear evento en Calendar.', true);
+        const errorMsg = e.result?.error?.message || 'Error desconocido.';
+        updateDriveStatus(`❌ Error al crear evento en Calendar: ${errorMsg}`, true);
     }
 }
 
@@ -725,37 +724,17 @@ async function saveDataToDrive() {
     if (!googleAccessToken) return alert('No está conectado a Google.');
     if (!confirm('¿Guardar datos en Drive? Esto sobreescribirá el respaldo anterior.')) return;
     updateDriveStatus('💾 Guardando en Drive...', false);
-
-    const content = new Blob([JSON.stringify(siniestrosData, null, 2)], { type: 'application/json' });
-    const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
-    const formData = new FormData();
-    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    formData.append('file', content);
-
-    let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-    let method = 'POST';
-    if (gdDataFileId) {
-        url = `https://www.googleapis.com/upload/drive/v3/files/${gdDataFileId}?uploadType=multipart`;
-        method = 'PATCH';
-    }
-
+    
     try {
-        const response = await fetch(url, {
-            method: method,
-            headers: new Headers({ 'Authorization': `Bearer ${googleAccessToken}` }),
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.json();
-            throw new Error(`Falló la subida del archivo: ${errorBody.error.message}`);
-        }
-        const result = await response.json();
-        gdDataFileId = result.id;
+        const content = JSON.stringify(siniestrosData, null, 2);
+        // Usaremos la función uploadContent unificada y corregida
+        const fileId = await uploadContent(content, GD_DATA_FILE, 'application/json', null, gdDataFileId);
+        gdDataFileId = fileId; // Actualiza el ID del archivo
         updateDriveStatus('✅ Guardado en Drive con éxito.', true);
     } catch (e) {
         console.error('Error en saveDataToDrive:', e);
-        updateDriveStatus(`❌ Error al guardar: ${e.message}`, true);
+        const errorMsg = e.result?.error?.message || e.message || "Error desconocido.";
+        updateDriveStatus(`❌ Error al guardar en Drive: ${errorMsg}`, true);
     }
 }
 
@@ -767,7 +746,7 @@ async function loadDataFromDrive(){
   updateDriveStatus('📥 Cargando desde Drive...', false);
   try {
     const r = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
-    const imported = (typeof r.result === 'string') ? JSON.parse(r.result) : r.result;
+    const imported = (typeof r.body === 'string') ? JSON.parse(r.body) : r.result;
     if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
     siniestrosData = sanitizeData(imported);
     saveData();
@@ -781,7 +760,6 @@ async function loadDataFromDrive(){
 
 async function showDocumentModal(sid) {
     if (!googleAccessToken) return alert('Conecta con Google Drive primero.');
-    // ...el resto de la función se mantiene igual...
     currentSiniestroIdForDocs = sid; localFilesForUpload = [];
     const s = siniestrosData.find(x => x.id === sid); if (!s) return;
     document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`;
@@ -793,16 +771,57 @@ async function showDocumentModal(sid) {
     ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false));
     area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);
 }
+
+// ---- Función de subida de contenido, unificada y corregida ----
+async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
+    const boundary = '-------314159265358979323846';
+    const metadata = {
+        name: fileName,
+        mimeType: mimeType,
+        ...(parentId && !fileIdToUpdate && { parents: [parentId] })
+    };
+
+    let base64Data;
+    if (typeof content === 'string' && content.startsWith('data:')) {
+        base64Data = content.split(',')[1];
+    } else {
+        base64Data = btoa(unescape(encodeURIComponent(content)));
+    }
+
+    const body = [
+        `--${boundary}`,
+        'Content-Type: application/json; charset=UTF-8',
+        '',
+        JSON.stringify(metadata),
+        `--${boundary}`,
+        `Content-Type: ${mimeType}`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        base64Data,
+        `--${boundary}--`
+    ].join('\r\n');
+
+    const request = await gapi.client.request({
+        path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
+        method: fileIdToUpdate ? 'PATCH' : 'POST',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` },
+        body: body
+    });
+    
+    return request.result.id;
+}
+
+
 // El resto de las funciones de documentos se mantienen sin cambios
 function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
 function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
 function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
 function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
-async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder, null); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
+async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadContent(file.dataUrl, file.name, file.type, clientFolder, null); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
 async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
 async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
 async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
-async function uploadDocumentContent(content,fileName,mimeType,parentId,fileIdToUpdate){ const boundary='--314159265358979323846'; const meta={name:fileName,mimeType, ...(parentId&&!fileIdToUpdate&&{parents:[parentId]})}; let base64Data; if(typeof content==='string'&&content.startsWith('data:')){base64Data=content.split(',')[1];}else{base64Data=btoa(unescape(encodeURIComponent(content)));} const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n--${boundary}--`; const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary.substring(2)}`},body}); return (await req).result.id; }
 
 </script>
 </body>
