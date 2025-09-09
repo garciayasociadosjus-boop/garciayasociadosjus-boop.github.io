@@ -249,8 +249,6 @@
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
-        // --- TODO EL JAVASCRIPT PRINCIPAL DE LA APLICACIÓN VA AQUÍ (SIN CAMBIOS) ---
-        // Se omite por brevedad, es el mismo que usted proveyó.
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
 
@@ -366,7 +364,7 @@
             }
             client.audiencias = client.audiencias_list
                 .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
-                .map(aud => `[${formatDate(aud.fecha)}]: ${aud.texto}`)
+                .map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`)
                 .join('; ');
         }
 
@@ -407,7 +405,10 @@
         }
 
         function renderAll() {
-            clientsData.forEach(updateClientNextRevision);
+            clientsData.forEach(c => {
+                updateClientNextRevision(c);
+                updateAudienciasSummary(c);
+            });
             renderDashboardLists();
             renderAllClientsList();
         }
@@ -415,7 +416,7 @@
         function renderDashboardLists() {
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client: client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed }));
-                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client: client, reviewDate: aud.fecha, reviewText: `AUDIENCIA: ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed }));
+                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client: client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client: client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO: ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
@@ -509,6 +510,7 @@
                             <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
                                 <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
                                 <div class="form-group"><label>Fecha de Audiencia</label><input type="date" id="newAudienceDate" required></div>
+                                <div class="form-group"><label>Hora de Audiencia</label><input type="time" id="newAudienceTime" required></div>
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
@@ -545,7 +547,7 @@
                 if (item.type === 'task') {
                     return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}"><div class="history-date">Revisar el: ${formatDate(item.proximaRevision)}${item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''}<span class="history-tag tag-task" style="margin-left: auto;">TAREA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 } else if (item.type === 'audience') {
-                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button></div>`;
+                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 } else {
                      return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 }
@@ -583,7 +585,7 @@
             if (!confirm('¿Estás seguro de que quieres eliminar esta audiencia?')) return;
             const client = clientsData.find(c => c.id === clientId);
             client.audiencias_list = client.audiencias_list.filter(a => a.id !== audId);
-            updateAudienciasSummary(client); // Actualiza el campo resumen
+            updateAudienciasSummary(client);
             saveData();
             renderAll();
             showClientModal(clientId);
@@ -630,11 +632,19 @@
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             if (!client.audiencias_list) client.audiencias_list = [];
-            client.audiencias_list.push({ id: generateId({}), fecha: document.getElementById('newAudienceDate').value, texto: document.getElementById('newAudienceText').value, completed: false });
-            updateAudienciasSummary(client); // Actualiza el campo resumen
+            const newAudience = {
+                id: generateId({}),
+                fecha: document.getElementById('newAudienceDate').value,
+                hora: document.getElementById('newAudienceTime').value,
+                texto: document.getElementById('newAudienceText').value,
+                completed: false
+            };
+            client.audiencias_list.push(newAudience);
+            updateAudienciasSummary(client);
             saveData(); 
             renderAll(); 
             showClientModal(clientId);
+            addEventToGoogleCalendar(client, newAudience);
         }
 
         function addVencimiento(event, clientId) {
@@ -649,7 +659,7 @@
         function exportToExcel() {
             const excelData = clientsData.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}]: ${obs.texto}`).join(' \n ');
-                const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - Fecha: ${formatDate(aud.fecha)}]: ${aud.texto}`).join(' \n ');
+                const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - Fecha: ${formatDate(venc.fecha)}]: ${venc.texto}`).join(' \n ');
                 return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
@@ -699,7 +709,7 @@
                 if (item.type === 'task') {
                     return `<div class="history-item history-item-task ${item.completed ? 'completed' : ''}"><div class="history-date">Revisar el: ${formatDate(item.proximaRevision)}${item.fecha ? `(Trabajado el: ${formatDate(item.fecha)})` : ''}<span class="history-tag tag-task">TAREA</span></div><div class="history-text">${item.texto}</div></div>`;
                 } else if (item.type === 'audience'){
-                    return `<div class="history-item history-item-audience"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-audience">AUDIENCIA</span></div><div class="history-text">${item.texto}</div></div>`;
+                    return `<div class="history-item history-item-audience"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-audience">AUDIENCIA</span></div><div class="history-text">${item.texto}</div></div>`;
                 } else {
                     return `<div class="history-item history-item-vencimiento"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div></div>`;
                 }
@@ -852,6 +862,39 @@
             }
         }
         
+        async function addEventToGoogleCalendar(client, audience) {
+            if (!gapi.client.getToken()?.access_token) {
+                updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
+                return;
+            }
+            if (!audience.fecha || !audience.hora) {
+                console.log("Fecha u hora de audiencia inválida.");
+                return;
+            }
+
+            updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
+            try {
+                const eventStartTime = new Date(`${audience.fecha}T${audience.hora}:00`);
+                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); // 1-hour duration default
+
+                const event = {
+                    'summary': `Audiencia: ${client.nombre} | ${client.caratula || 'S/C'}`,
+                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${audience.texto}`,
+                    'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
+                    'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
+                };
+
+                await gapi.client.calendar.events.insert({
+                    'calendarId': 'primary',
+                    'resource': event
+                });
+                updateDataStatus('✅ Evento de Audiencia creado en Google Calendar.', false);
+            } catch (e) {
+                console.error("Error creando evento en Calendar:", e);
+                updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
+            }
+        }
+
         async function findDataFile(){
           updateDataStatus('🔎 Buscando archivo de Drive...', false);
           try {
@@ -873,7 +916,7 @@
             if (!confirm('¿Guardar datos en Drive?')) return;
             updateDataStatus('💾 Guardando en Drive...', false);
             
-            const content = JSON.stringify(clientsData, null, 2); // ADAPTADO
+            const content = JSON.stringify(clientsData, null, 2);
             const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
 
             try {
@@ -913,7 +956,7 @@
             const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
             const imported = JSON.parse(response.body);
             if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
-            clientsData = imported; // ADAPTADO
+            clientsData = imported;
             saveData();
             loadData();
             renderAll();
@@ -923,13 +966,12 @@
             updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);
           }
         }
-
-        // El resto de las funciones de Google para documentos, adaptadas
+        
         async function showDocumentModal(clientId) {
             if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.');
-            currentClientIdForDocs = clientId; // ADAPTADO
+            currentClientIdForDocs = clientId;
             localFilesForUpload = []; 
-            const client = clientsData.find(c => c.id === clientId); // ADAPTADO
+            const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             document.getElementById('documentModalTitle').innerText = `Documentos de: ${getDisplayName(client)}`;
             document.getElementById('documentModal').classList.add('active');
@@ -980,8 +1022,8 @@
         async function saveDocumentsToDrive() {
             if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar.");
             updateDataStatus('Subiendo documentos...', false);
-            const client = clientsData.find(c => c.id === currentClientIdForDocs); // ADAPTADO
-            const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`; // ADAPTADO
+            const client = clientsData.find(c => c.id === currentClientIdForDocs);
+            const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
             try {
                 if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
                 const clientFolderId = await getOrCreateFolder(clientFolderName, gdDocsFolderId);
@@ -998,9 +1040,9 @@
             const listEl = document.getElementById('driveDocumentList');
             listEl.innerHTML = '<div class="spinner"></div>';
             try {
-                const client = clientsData.find(c => c.id === currentClientIdForDocs); // ADAPTADO
+                const client = clientsData.find(c => c.id === currentClientIdForDocs);
                 if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT);
-                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`; // ADAPTADO
+                const clientFolderName = `${client.nombre.replace(/[\/\\?%*:|"<>]/g, '-')} - Exp ${client.expediente || client.id.slice(-4)}`;
                 const clientFolderId = await getOrCreateFolder(clientFolderName, gdDocsFolderId);
                 const response = await gapi.client.drive.files.list({ q: `'${clientFolderId}' in parents and trashed=false`, fields: 'files(id, name, webViewLink)' });
                 if (response.result.files.length === 0) {
@@ -1044,7 +1086,6 @@
             });
             return request.result.id;
         }
-
     </script>
 </body>
 </html>
