@@ -569,8 +569,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
@@ -634,8 +634,8 @@ function handleAuthClick() {
 
 async function tokenResponseCallback(resp) {
     if (resp.error) {
-        updateDriveStatus('❌ Error de autenticación.', false);
-        throw resp;
+        updateDriveStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', false);
+        return;
     }
     gapi.client.setToken({ access_token: resp.access_token });
     updateDriveStatus('✅ Conectado a Drive & Calendar. Buscando archivo...', true);
