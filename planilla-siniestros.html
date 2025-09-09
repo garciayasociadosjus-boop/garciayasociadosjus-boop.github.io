@@ -205,7 +205,11 @@ function sanitizeData(data){
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[];
     s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[];
     s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;});
-    s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;});
+    s.mediaciones_list.forEach(m=>{
+        m.id=m.id||generateId({});
+        m.completed=typeof m.completed==='boolean'?m.completed:false;
+        m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false; // Asegurar que la propiedad exista
+    });
     updateSiniestroNextRevision(s);
   });
   return data;
@@ -419,7 +423,8 @@ function addMediacion(e,sid){
         fecha:document.getElementById('newMediacionDate').value,
         hora:document.getElementById('newMediacionTime').value,
         texto:document.getElementById('newMediacionText').value, 
-        completed:false
+        completed:false,
+        alertaMostrada: false
     };
     s.mediaciones_list.push(newMediacion);
     saveData();
@@ -464,28 +469,65 @@ function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new Fi
 function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
 function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
 
-// ========= NUEVAS FUNCIONES DE ALERTA DE MEDIACIÓN =========
-function checkMediacionesDelDia() {
-    const mediacionesHoy = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&!m.completed).map(m=>({siniestro:s,item:m,type:'Mediación'})));
-    if (mediacionesHoy.length > 0) {
-        const modal = document.getElementById('alertModal');
-        const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">
-            ${mediacionesHoy.map(alert => `<div class="review-item today">
-                <div class="review-item-content" style="width:100%;">
-                    <div class="review-date" style="font-size: 1.1em; color: var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div>
-                    <div class="review-client">${getDisplayName(alert.siniestro)}</div>
-                    <div class="review-obs"><strong>${alert.type}:</strong> ${alert.item.texto}</div>
-                    <div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
-                        <button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}', '${alert.item.id}')">✅ Hecho</button>
-                        <button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}', '${alert.item.id}')">🗓️ Posponer (Fecha)</button>
-                        <button class="btn btn-info btn-sm" onclick="snoozeMediacion(30)">🕒 30 min</button>
-                        <button class="btn btn-info btn-sm" onclick="snoozeMediacion(60)">🕒 1 hs</button>
-                    </div>
+
+// ========= GESTIÓN DE ALERTAS DE MEDIACIÓN (NUEVO) =========
+function mostrarAlertaDeMediaciones(mediacionesPorAlertar) {
+    if (mediacionesPorAlertar.length === 0) return;
+
+    const modal = document.getElementById('alertModal');
+    // Previene mostrar una alerta si ya hay otra abierta (por ejemplo la de reprogramar)
+    if (modal.classList.contains('active')) return;
+
+    const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">
+        ${mediacionesPorAlertar.map(alert => `<div class="review-item today">
+            <div class="review-item-content" style="width:100%;">
+                <div class="review-date" style="font-size: 1.1em; color: var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div>
+                <div class="review-client">${getDisplayName(alert.siniestro)}</div>
+                <div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div>
+                <div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+                    <button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}', '${alert.item.id}')">✅ Hecho</button>
+                    <button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}', '${alert.item.id}')">🗓️ Posponer (Fecha)</button>
+                    <button class="btn btn-info btn-sm" onclick="snoozeMediacion(30)">🕒 30 min</button>
+                    <button class="btn btn-info btn-sm" onclick="snoozeMediacion(60)">🕒 1 hs</button>
                 </div>
-            </div>`).join('')}</div>`;
-        modal.querySelector('.modal-content').innerHTML = content;
-        modal.classList.add('active');
-    }
+            </div>
+        </div>`).join('')}</div>`;
+    modal.querySelector('.modal-content').innerHTML = content;
+    modal.classList.add('active');
+
+    // Marcar como notificadas para que no vuelvan a aparecer
+    mediacionesPorAlertar.forEach(alerta => {
+        const s = siniestrosData.find(s => s.id === alerta.siniestro.id);
+        const m = s.mediaciones_list.find(m => m.id === alerta.item.id);
+        if (m) m.alertaMostrada = true;
+    });
+    saveData();
+}
+
+function revisarMediacionesVencidasAlCargar() {
+    const ahora = new Date();
+    const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+    const mediacionesVencidas = siniestrosData.flatMap(s => 
+        (s.mediaciones_list || [])
+        .filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada)
+        .map(m => ({ siniestro: s, item: m }))
+    );
+    mostrarAlertaDeMediaciones(mediacionesVencidas);
+}
+
+function iniciarVigilanteDeMediaciones() {
+    setInterval(() => {
+        const ahora = new Date();
+        const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+        const mediacionesPorAlertar = siniestrosData.flatMap(s => 
+            (s.mediaciones_list || [])
+            .filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada)
+            .map(m => ({ siniestro: s, item: m }))
+        );
+        if (mediacionesPorAlertar.length > 0) {
+            mostrarAlertaDeMediaciones(mediacionesPorAlertar);
+        }
+    }, 60000); // Se ejecuta cada 60 segundos
 }
 
 function marcarMediacionCompleta(siniestroId, mediacionId) {
@@ -508,17 +550,9 @@ function showRescheduleModal(siniestroId, mediacionId) {
         <span class="close" onclick="closeModal('rescheduleModal')">&times;</span>
         <h3>Reprogramar Mediación</h3>
         <p><b>Caso:</b> ${s.cliente}</p>
-        <div class="form-group" style="margin-top:15px;">
-            <label for="rescheduleDate">Nueva Fecha</label>
-            <input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control">
-        </div>
-        <div class="form-group">
-            <label for="rescheduleTime">Nueva Hora</label>
-            <input type="time" id="rescheduleTime" value="${m.hora}" class="form-control">
-        </div>
-        <div style="text-align:center; margin-top:20px;">
-            <button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button>
-        </div>`;
+        <div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div>
+        <div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div>
+        <div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button></div>`;
     
     modal.querySelector('.modal-content').innerHTML = content;
     closeModal('alertModal');
@@ -532,6 +566,7 @@ function confirmReschedule(siniestroId, mediacionId) {
         if(m) {
             m.fecha = document.getElementById('rescheduleDate').value;
             m.hora = document.getElementById('rescheduleTime').value;
+            m.alertaMostrada = false; // Permitir que la nueva fecha genere una nueva alerta
         }
     }
     saveData();
@@ -540,12 +575,11 @@ function confirmReschedule(siniestroId, mediacionId) {
     updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
 }
 
-
 function snoozeMediacion(minutos) {
     closeModal('alertModal');
     updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);
     setTimeout(() => {
-        checkMediacionesDelDia();
+        revisarMediacionesVencidasAlCargar(); // Re-chequea por si acaso
     }, minutos * 60 * 1000);
 }
 
@@ -564,7 +598,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     updateSiniestroNextRevision(n);siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
   });
 
-  loadData();renderAll();checkMediacionesDelDia();
+  loadData();
+  renderAll();
+  revisarMediacionesVencidasAlCargar();
+  iniciarVigilanteDeMediaciones();
 });
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
@@ -595,10 +632,7 @@ async function initializeGapiClient() {
         });
         gapiReady = true;
         maybeEnableButtons();
-    } catch (e) {
-        console.error("Error GAPI client init:", e);
-        updateDataStatus('❌ Error al inicializar APIs de Google.', true);
-    }
+    } catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }
 }
 
 function gisLoaded() {
@@ -610,10 +644,7 @@ function gisLoaded() {
         });
         gisReady = true;
         maybeEnableButtons();
-    } catch(e) {
-        console.error("Error GIS client init:", e);
-        updateDataStatus('❌ Error al inicializar autenticación de Google.', true);
-    }
+    } catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }
 }
 
 function maybeEnableButtons() {
@@ -655,10 +686,7 @@ async function tokenResponseCallback(resp) {
 }
 
 async function addEventToGoogleCalendar(siniestro, mediacion) {
-    if (!gapi.client.getToken()?.access_token) {
-        updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
-        return;
-    }
+    if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
     updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
     try {
         const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
@@ -672,7 +700,7 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
         await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
         updateDataStatus('✅ Evento creado en Google Calendar.', false);
     } catch(e) {
-        console.error("Error creando evento en Calendar:", e);
+        console.error("Error creando evento:", e);
         updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
     }
 }
@@ -680,16 +708,12 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
 async function findDataFile(){
   updateDataStatus('🔎 Buscando archivo de Drive...', false);
   try {
-    const response = await gapi.client.drive.files.list({
-        q: `name='${GD_DATA_FILE}' and trashed=false`,
-        fields: 'files(id, name)',
-        spaces: 'drive'
-    });
+    const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
     if (response.result.files && response.result.files.length > 0) {
         gdDataFileId = response.result.files[0].id;
         updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);
     } else {
-        updateDataStatus('⚠️ Conexión exitosa. No existe archivo de respaldo (se creará al guardar).', false);
+        updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);
     }
   } catch(e) {
       console.error("Error buscando archivo:", e);
@@ -721,17 +745,12 @@ async function saveDataToDrive() {
                 fields: 'id'
             });
         }
-        
         const response = await request;
-        if (response.result.id) {
-            gdDataFileId = response.result.id;
-        }
+        if (response.result.id) gdDataFileId = response.result.id;
         updateDataStatus('✅ Guardado en Drive con éxito.', false);
-
     } catch (e) {
         console.error('Error en saveDataToDrive:', e);
-        const errorMsg = e.result?.error?.message || e.message || "Error desconocido.";
-        updateDataStatus(`❌ Error al guardar: ${errorMsg}`, true);
+        updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);
     }
 }
 
@@ -742,7 +761,6 @@ async function loadDataFromDrive(){
   updateDataStatus('📥 Cargando desde Drive...', false);
   try {
     const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
-    // En alt='media', la respuesta está en 'body', no en 'result'.
     const imported = JSON.parse(response.body);
     if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
     siniestrosData = sanitizeData(imported);
@@ -770,7 +788,6 @@ async function showDocumentModal(sid) {
     area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);
 }
 
-// El resto de las funciones de documentos se mantienen sin cambios
 function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
 function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
 function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
