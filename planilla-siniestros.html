@@ -674,9 +674,11 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
         return;
     }
 
+    updateDriveStatus('🗓️ Creando evento en Google Calendar...', false);
     const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
     if (isNaN(eventStartTime.getTime())) {
         console.error("La fecha/hora de la mediación no es válida.");
+        updateDriveStatus('❌ La fecha/hora de la mediación no es válida.', true);
         return;
     }
     const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); // Duración de 1 hora por defecto
@@ -707,15 +709,15 @@ async function addEventToGoogleCalendar(siniestro, mediacion) {
             'calendarId': 'primary',
             'resource': event,
         });
-        updateDataStatus('✅ Evento de mediación creado en Google Calendar.');
+        updateDriveStatus('✅ Evento de mediación creado en Google Calendar.', true);
     } catch(e) {
         console.error("Error creando evento en Calendar:", e);
-        updateDriveStatus('❌ Error al crear evento en Calendar.', false);
+        updateDriveStatus('❌ Error al crear evento en Calendar.', true);
     }
 }
 
 
-// ---- Funciones de Google Drive (existentes y revisadas) ----
+// ---- Funciones de Google Drive (CORREGIDAS) ----
 async function findDataFile(){
   updateDriveStatus('🔎 Buscando archivo de Drive...', false);
   try {
@@ -731,18 +733,45 @@ async function findDataFile(){
   }
 }
 
-async function saveDataToDrive(){
-  if(!confirm('¿Guardar datos en Drive? Esto sobreescribirá el respaldo anterior.')) return;
-  updateDriveStatus('💾 Guardando en Drive...', false);
-  try {
-    const content = JSON.stringify(siniestrosData, null, 2);
-    const fileId = await uploadContent(content, GD_DATA_FILE, 'application/json', null, gdDataFileId);
-    if (fileId) gdDataFileId = fileId;
-    updateDriveStatus('✅ Guardado en Drive con éxito.', true);
-  } catch(e) {
-    updateDriveStatus('❌ Error al guardar en Drive.', false);
-  }
+async function saveDataToDrive() {
+    if (!confirm('¿Guardar datos en Drive? Esto sobreescribirá el respaldo anterior.')) return;
+    updateDriveStatus('💾 Guardando en Drive...', false);
+
+    const content = new Blob([JSON.stringify(siniestrosData, null, 2)], { type: 'application/json' });
+    const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+    
+    const formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    formData.append('file', content);
+
+    let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+    let method = 'POST';
+    if (gdDataFileId) {
+        url = `https://www.googleapis.com/upload/drive/v3/files/${gdDataFileId}?uploadType=multipart`;
+        method = 'PATCH';
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: new Headers({ 'Authorization': `Bearer ${gapi.client.getToken().access_token}` }),
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(`Falló la subida del archivo: ${errorBody.error.message}`);
+        }
+
+        const result = await response.json();
+        gdDataFileId = result.id; // Actualiza el ID del archivo
+        updateDriveStatus('✅ Guardado en Drive con éxito.', true);
+    } catch (e) {
+        console.error('Error en saveDataToDrive:', e);
+        updateDriveStatus(`❌ Error al guardar en Drive: ${e.message}`, true);
+    }
 }
+
 
 async function loadDataFromDrive(){
   if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo en Drive. Guardá una copia primero.'); return; }
@@ -761,6 +790,18 @@ async function loadDataFromDrive(){
     updateDriveStatus('❌ Error al cargar los datos desde Drive.', false);
   }
 }
+
+// --- La función uploadContent se mantiene solo para los documentos ---
+async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
+    const boundary='--314159265358979323846';
+    const meta={name:fileName,mimeType, ...(parentId&&!fileIdToUpdate&&{parents:[parentId]})};
+    let base64Data;
+    if(typeof content==='string'&&content.startsWith('data:')){base64Data=content.split(',')[1];}else{base64Data=btoa(unescape(encodeURIComponent(content)));}
+    const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n--${boundary}--`;
+    const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary.substring(2)}`},body});
+    return (await req).result.id;
+}
+
 
 let localFilesForUpload = [];
 async function showDocumentModal(sid) {
@@ -820,15 +861,6 @@ async function getOrCreateFolder(name, parentId = null) {
     const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) };
     const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' });
     return newF.result.id;
-}
-async function uploadContent(content,fileName,mimeType,parentId,fileIdToUpdate){
-    const boundary='--314159265358979323846';
-    const meta={name:fileName,mimeType, ...(parentId&&!fileIdToUpdate&&{parents:[parentId]})};
-    let base64Data;
-    if(typeof content==='string'&&content.startsWith('data:')){base64Data=content.split(',')[1];}else{base64Data=btoa(unescape(encodeURIComponent(content)));}
-    const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n--${boundary}--`;
-    const req=gapi.client.request({path:fileIdToUpdate?`/upload/drive/v3/files/${fileIdToUpdate}`:'/upload/drive/v3/files',method:fileIdToUpdate?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${boundary}`},body});
-    return (await req).result.id;
 }
 
 </script>
