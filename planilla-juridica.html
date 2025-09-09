@@ -195,7 +195,7 @@
                 <button class="btn btn-success" onclick="showNewClientModal()">➕ Agregar Caso</button>
                 <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
                 <button class="btn" onclick="exportToExcel()">📊 Exportar a Excel</button>
-                <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
+                <button class="btn" onclick="exportData()">💾 Exportar JSON</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
             </section>
             
@@ -232,13 +232,9 @@
             <div id="uploadArea" class="upload-area" style="border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 15px 0; background: #f9f9f9;">
                 <p>Arrastra y suelta tus archivos aquí</p>
             </div>
-            <ul id="localDocumentList" class="document-list" style="margin-top:10px;">
-                <p style="font-style: italic; color: #666;">Archivos listos para subir:</p>
-            </ul>
-
+            <ul id="localDocumentList" class="document-list" style="margin-top:10px;"></ul>
             <h4>Documentos ya guardados en Drive:</h4>
             <ul id="driveDocumentList" class="document-list"></ul>
-
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-info" onclick="triggerLocalFileUpload()">➕ Agregar Archivo</button>
                 <button class="btn btn-success" onclick="saveDocumentsToDrive()">📤 Guardar Documentos en Drive</button>
@@ -260,7 +256,6 @@
         function loadData() {
             const savedData = localStorage.getItem('planilla_juridica_data');
             let data = savedData ? JSON.parse(savedData) : [];
-
             const uniqueClients = new Map();
             data.forEach(client => {
                 const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
@@ -269,21 +264,14 @@
                 }
             });
             const deduplicatedData = Array.from(uniqueClients.values());
-
             let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista';
             let needsSave = false;
-            
             if (deduplicatedData.length < data.length) {
                 statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
                 needsSave = true;
             }
-
             clientsData = sanitizeData(deduplicatedData);
-            
-            if (needsSave) {
-                saveData();
-            }
-            
+            if (needsSave) { saveData(); }
             updateDataStatus(statusMessage, needsSave);
         }
 
@@ -293,7 +281,6 @@
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
                 c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
-
                 c.observaciones.forEach(obs => {
                     obs.id = obs.id || generateId({});
                     obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
@@ -301,10 +288,12 @@
                 c.audiencias_list.forEach(aud => {
                     aud.id = aud.id || generateId({});
                     aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
+                    aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false;
                 });
                 c.vencimientos_list.forEach(venc => {
                     venc.id = venc.id || generateId({});
                     venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
+                    venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false;
                 });
                 updateClientNextRevision(c);
             });
@@ -321,21 +310,16 @@
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
         function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
-        
-        // *** FUNCIÓN AGREGADA ***
         function formatTime(timeString) { if (!timeString) return ''; return timeString; }
-
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
-        
         function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
         
         function toggleFormVisibility(formId) {
             const formElement = document.getElementById(formId);
             const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
-
             if (formElement.style.display === 'none' || formElement.style.display === '') {
                 formElement.style.display = 'block';
                 if(iconElement) iconElement.textContent = '➖';
@@ -346,10 +330,7 @@
         }
 
         function updateClientNextRevision(client) {
-            const futureObs = (client.observaciones || [])
-                .filter(obs => !obs.completed && obs.proximaRevision)
-                .sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision));
-            
+            const futureObs = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision));
             if (futureObs.length > 0) {
                 client.proximaRevision = futureObs[0].proximaRevision;
                 client.observacion = futureObs[0].texto;
@@ -362,14 +343,8 @@
         }
         
         function updateAudienciasSummary(client) {
-            if (!client.audiencias_list) {
-                client.audiencias = '';
-                return;
-            }
-            client.audiencias = client.audiencias_list
-                .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
-                .map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`)
-                .join('; ');
+            if (!client.audiencias_list) { client.audiencias = ''; return; }
+            client.audiencias = client.audiencias_list.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join('; ');
         }
 
         function toggleCompleted(event, clientId, obsId) {
@@ -525,6 +500,7 @@
                             <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
                                 <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
                                 <div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="newVencimientoDate" required></div>
+                                <div class="form-group"><label>Hora de Vencimiento</label><input type="time" id="newVencimientoTime" required></div>
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
@@ -553,7 +529,7 @@
                 } else if (item.type === 'audience') {
                     return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 } else {
-                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button></div>`;
+                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button></div>`;
                 }
             }).join('');
         }
@@ -636,13 +612,7 @@
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             if (!client.audiencias_list) client.audiencias_list = [];
-            const newAudience = {
-                id: generateId({}),
-                fecha: document.getElementById('newAudienceDate').value,
-                hora: document.getElementById('newAudienceTime').value,
-                texto: document.getElementById('newAudienceText').value,
-                completed: false
-            };
+            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false, alertaMostrada: false };
             client.audiencias_list.push(newAudience);
             updateAudienciasSummary(client);
             saveData(); 
@@ -656,7 +626,7 @@
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             if (!client.vencimientos_list) client.vencimientos_list = [];
-            client.vencimientos_list.push({ id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, texto: document.getElementById('newVencimientoText').value, completed: false });
+            client.vencimientos_list.push({ id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false });
             saveData(); renderAll(); showClientModal(clientId);
         }
 
@@ -664,7 +634,7 @@
             const excelData = clientsData.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}]: ${obs.texto}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
-                const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - Fecha: ${formatDate(venc.fecha)}]: ${venc.texto}`).join(' \n ');
+                const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');
                 return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
             const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -715,50 +685,75 @@
                 } else if (item.type === 'audience'){
                     return `<div class="history-item history-item-audience"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-audience">AUDIENCIA</span></div><div class="history-text">${item.texto}</div></div>`;
                 } else {
-                    return `<div class="history-item history-item-vencimiento"><div class="history-date">Fecha: ${formatDate(item.fecha)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div></div>`;
+                    return `<div class="history-item history-item-vencimiento"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-vencimiento">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div></div>`;
                 }
             }).join('');
         }
         
-        function checkAlertsDelDia() {
-            const vencimientosHoy = clientsData.flatMap(client => 
+        // --- CÓDIGO DEL VIGILANTE DE ALERTAS ---
+        function mostrarAlertaDeEventos(eventosPorAlertar) {
+            if (eventosPorAlertar.length === 0) return;
+            const modal = document.getElementById('alertModal');
+            if (modal.classList.contains('active')) return;
+
+            const content = `
+                <span class="close" onclick="closeModal('alertModal')">&times;</span>
+                <h2>⚠️ ¡Alertas para Hoy!</h2>
+                <div class="reviews-list" style="max-height: 60vh;">
+                    ${eventosPorAlertar.map(alert => `
+                        <div class="review-item today">
+                            <div class="review-item-content" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">
+                                <div class="review-client">${getDisplayName(alert.client)}</div>
+                                <div class="review-obs"><strong>${alert.type} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="text-align:center; margin-top: 20px;">
+                    <button class="btn btn-warning" onclick="closeModal('alertModal')">Entendido</button>
+                </div>`;
+            modal.querySelector('.modal-content').innerHTML = content;
+            modal.classList.add('active');
+
+            eventosPorAlertar.forEach(alerta => {
+                const client = clientsData.find(c => c.id === alerta.client.id);
+                if(client) {
+                    let eventItem;
+                    if(alerta.type === 'Audiencia') eventItem = client.audiencias_list.find(item => item.id === alerta.item.id);
+                    if(alerta.type === 'Vencimiento') eventItem = client.vencimientos_list.find(item => item.id === alerta.item.id);
+                    if (eventItem) eventItem.alertaMostrada = true;
+                }
+            });
+            saveData();
+        }
+
+        function revisarAlertas() {
+            const ahora = new Date();
+            const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+            
+            const audienciasPorAlertar = clientsData.flatMap(client => 
+                (client.audiencias_list || [])
+                .filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada)
+                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
+            );
+            
+            const vencimientosPorAlertar = clientsData.flatMap(client => 
                 (client.vencimientos_list || [])
-                .filter(venc => isToday(venc.fecha) && !venc.completed)
+                .filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada)
                 .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
             );
 
-            const audienciasHoy = clientsData.flatMap(client => 
-                (client.audiencias_list || [])
-                .filter(aud => isToday(aud.fecha) && !aud.completed)
-                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
-            );
-
-            const alertsToday = [...vencimientosHoy, ...audienciasHoy];
-
-            if (alertsToday.length > 0) {
-                const modal = document.getElementById('alertModal');
-                const content = `
-                    <span class="close" onclick="closeModal('alertModal')">&times;</span>
-                    <h2>⚠️ ¡Alertas para Hoy!</h2>
-                    <div class="reviews-list" style="max-height: 60vh;">
-                        ${alertsToday.map(alert => `
-                            <div class="review-item today">
-                                <div class="review-item-content" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">
-                                    <div class="review-client">${getDisplayName(alert.client)}</div>
-                                    <div class="review-obs"><strong>${alert.type}:</strong> ${alert.item.texto}</div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div style="text-align:center; margin-top: 20px;">
-                        <button class="btn btn-warning" onclick="closeModal('alertModal')">Entendido</button>
-                    </div>
-                `;
-                modal.querySelector('.modal-content').innerHTML = content;
-                modal.classList.add('active');
+            const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
+            if (eventosHoy.length > 0) {
+                mostrarAlertaDeEventos(eventosHoy);
             }
         }
-        
+
+        function iniciarVigilanteDeAlertas() {
+            revisarAlertas(); // Revisión inicial al cargar la página
+            setInterval(revisarAlertas, 60000); // Revisa cada 60 segundos
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div><div class="form-group"><label>Audiencias (se autocompleta)</label><input type="text" id="newAudiencias" disabled></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
@@ -787,7 +782,7 @@
 
             loadData();
             renderAll();
-            checkAlertsDelDia();
+            iniciarVigilanteDeAlertas(); // Inicia el vigilante de alertas
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
     </script>
