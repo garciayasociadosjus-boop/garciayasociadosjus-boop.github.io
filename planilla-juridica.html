@@ -195,7 +195,7 @@
                 <button class="btn btn-success" onclick="showNewClientModal()">➕ Agregar Caso</button>
                 <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
                 <button class="btn" onclick="exportToExcel()">📊 Exportar a Excel</button>
-                <button class="btn" onclick="exportData()">💾 Exportar JSON</button>
+                <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
             </section>
             
@@ -243,6 +243,7 @@
     </div>
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
+    <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
         let clientsData = [];
@@ -256,6 +257,7 @@
         function loadData() {
             const savedData = localStorage.getItem('planilla_juridica_data');
             let data = savedData ? JSON.parse(savedData) : [];
+
             const uniqueClients = new Map();
             data.forEach(client => {
                 const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
@@ -264,14 +266,21 @@
                 }
             });
             const deduplicatedData = Array.from(uniqueClients.values());
+
             let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista';
             let needsSave = false;
+            
             if (deduplicatedData.length < data.length) {
                 statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
                 needsSave = true;
             }
+
             clientsData = sanitizeData(deduplicatedData);
-            if (needsSave) { saveData(); }
+            
+            if (needsSave) {
+                saveData();
+            }
+            
             updateDataStatus(statusMessage, needsSave);
         }
 
@@ -320,6 +329,7 @@
         function toggleFormVisibility(formId) {
             const formElement = document.getElementById(formId);
             const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
+
             if (formElement.style.display === 'none' || formElement.style.display === '') {
                 formElement.style.display = 'block';
                 if(iconElement) iconElement.textContent = '➖';
@@ -359,30 +369,6 @@
             renderAll();
         }
 
-        function toggleAudienceCompleted(event, clientId, audId) {
-            event.stopPropagation();
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            const aud = client.audiencias_list.find(a => a.id === audId);
-            if (!aud) return;
-            aud.completed = !aud.completed;
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
-
-        function toggleVencimientoCompleted(event, clientId, vencId) {
-            event.stopPropagation();
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            const venc = client.vencimientos_list.find(v => v.id === vencId);
-            if (!venc) return;
-            venc.completed = !venc.completed;
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
-
         function renderAll() {
             clientsData.forEach(c => {
                 updateClientNextRevision(c);
@@ -395,8 +381,8 @@
         function renderDashboardLists() {
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client: client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed }));
-                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client: client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client: client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO: ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed }));
+                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client: client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client: client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
 
@@ -418,9 +404,15 @@
                 else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
                 else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
                 
-                const toggleFunc = item.type === 'task' ? 'toggleCompleted' : item.type === 'audience' ? 'toggleAudienceCompleted' : 'toggleVencimientoCompleted';
+                let toggleFunc;
+                switch(item.type) {
+                    case 'task': toggleFunc = `toggleCompleted(event, '${item.client.id}', '${item.id}')`; break;
+                    case 'audience': toggleFunc = `marcarEventoCompleto('${item.client.id}', '${item.id}', 'audiencia')`; break;
+                    case 'vencimiento': toggleFunc = `marcarEventoCompleto('${item.client.id}', '${item.id}', 'vencimiento')`; break;
+                }
+                
                 const completedClass = item.completed ? 'completed' : '';
-                const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}(event, '${item.client.id}', '${item.id}')">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
+                const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
                 
                 return `<div class="review-item ${completedClass}">${completeButton}<div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-date">${dateInfo}</div><div class="review-client">${item.client.nombre} | ${item.client.caratula || 'Sin Carátula'}</div><div class="review-obs">${item.reviewText}</div></div></div>`;
             }).join('');
@@ -524,13 +516,20 @@
             const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
-                if (item.type === 'task') {
-                    return `<div id="task-item-${item.id}" class="history-item history-item-task ${item.completed ? 'completed' : ''}"><div class="history-date">Revisar el: ${formatDate(item.proximaRevision)}${item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''}<span class="history-tag tag-task" style="margin-left: auto;">TAREA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteObs('${client.id}', '${item.id}')">Eliminar</button></div>`;
-                } else if (item.type === 'audience') {
-                    return `<div class="history-item history-item-audience ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-audience" style="margin-left: auto;">AUDIENCIA</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteAudience('${client.id}', '${item.id}')">Eliminar</button></div>`;
-                } else {
-                     return `<div class="history-item history-item-vencimiento ${item.completed ? 'completed' : ''}"><div class="history-date">Fecha: ${formatDate(item.fecha)} ${formatTime(item.hora)} <span class="history-tag tag-vencimiento" style="margin-left: auto;">VENCIMIENTO</span></div><div class="history-text">${item.texto}</div><button class="btn btn-danger btn-sm" onclick="deleteVencimiento('${client.id}', '${item.id}')">Eliminar</button></div>`;
-                }
+                const itemDate = item.type === 'task' ? `Revisar el: ${formatDate(item.proximaRevision)}` : `Fecha: ${formatDate(item.date)} ${formatTime(item.hora)}`;
+                const workedDate = item.type === 'task' && item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : '';
+                const tagType = item.type === 'task' ? 'task' : item.type === 'audience' ? 'audience' : 'vencimiento';
+                const tagText = item.type.toUpperCase();
+
+                return `
+                    <div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}">
+                        <div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div>
+                        <div class="history-text">${item.texto}</div>
+                        <div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">
+                            ${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}
+                            <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button>
+                        </div>
+                    </div>`;
             }).join('');
         }
         
@@ -551,30 +550,22 @@
             showClientModal(clientId);
         }
         
-        function deleteObs(clientId, obsId) {
-            if (!confirm('¿Estás seguro de que quieres eliminar esta tarea?')) return;
+        function deleteItem(clientId, itemId, itemType) {
             const client = clientsData.find(c => c.id === clientId);
-            client.observaciones = client.observaciones.filter(o => o.id !== obsId);
-            updateClientNextRevision(client);
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
-        
-        function deleteAudience(clientId, audId) {
-            if (!confirm('¿Estás seguro de que quieres eliminar esta audiencia?')) return;
-            const client = clientsData.find(c => c.id === clientId);
-            client.audiencias_list = client.audiencias_list.filter(a => a.id !== audId);
-            updateAudienciasSummary(client);
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
+            if(!client) return;
 
-        function deleteVencimiento(clientId, vencId) {
-            if (!confirm('¿Estás seguro de que quieres eliminar este vencimiento?')) return;
-            const client = clientsData.find(c => c.id === clientId);
-            client.vencimientos_list = client.vencimientos_list.filter(v => v.id !== vencId);
+            let listName, itemName;
+            if(itemType === 'task') { listName = 'observaciones'; itemName = 'tarea'; }
+            else if(itemType === 'audience') { listName = 'audiencias_list'; itemName = 'audiencia'; }
+            else if(itemType === 'vencimiento') { listName = 'vencimientos_list'; itemName = 'vencimiento'; }
+            
+            if (!confirm(`¿Estás seguro de que quieres eliminar esta ${itemName}?`)) return;
+
+            client[listName] = client[listName].filter(item => item.id !== itemId);
+            
+            if(itemType === 'task') updateClientNextRevision(client);
+            if(itemType === 'audience') updateAudienciasSummary(client);
+
             saveData();
             renderAll();
             showClientModal(clientId);
@@ -618,7 +609,7 @@
             saveData(); 
             renderAll(); 
             showClientModal(clientId);
-            addEventToGoogleCalendar(client, newAudience);
+            crearEventoEnCalendario(client, newAudience, 'Audiencia');
         }
 
         function addVencimiento(event, clientId) {
@@ -626,8 +617,10 @@
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             if (!client.vencimientos_list) client.vencimientos_list = [];
-            client.vencimientos_list.push({ id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false });
+            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false };
+            client.vencimientos_list.push(newVencimiento);
             saveData(); renderAll(); showClientModal(clientId);
+            crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
         }
 
         function exportToExcel() {
@@ -695,63 +688,102 @@
             if (eventosPorAlertar.length === 0) return;
             const modal = document.getElementById('alertModal');
             if (modal.classList.contains('active')) return;
-
             const content = `
                 <span class="close" onclick="closeModal('alertModal')">&times;</span>
                 <h2>⚠️ ¡Alertas para Hoy!</h2>
                 <div class="reviews-list" style="max-height: 60vh;">
                     ${eventosPorAlertar.map(alert => `
                         <div class="review-item today">
-                            <div class="review-item-content" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">
-                                <div class="review-client">${getDisplayName(alert.client)}</div>
+                            <div class="review-item-content" style="width:100%;">
+                                <div class="review-date" style="font-size: 1.1em; color: var(--danger-color); cursor: pointer;" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">
+                                    ${getDisplayName(alert.client)}
+                                </div>
                                 <div class="review-obs"><strong>${alert.type} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div>
+                                <div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+                                    <button class="btn btn-success btn-sm" onclick="marcarEventoCompleto('${alert.client.id}', '${alert.item.id}', '${alert.type}')">✅ Hecho</button>
+                                    <button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">🗓️ Posponer</button>
+                                    <button class="btn btn-info btn-sm" onclick="snoozeAlerta(30)">🕒 30 min</button>
+                                    <button class="btn btn-info btn-sm" onclick="snoozeAlerta(60)">🕒 1 hs</button>
+                                </div>
                             </div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div style="text-align:center; margin-top: 20px;">
-                    <button class="btn btn-warning" onclick="closeModal('alertModal')">Entendido</button>
+                        </div>`).join('')}
                 </div>`;
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
-
             eventosPorAlertar.forEach(alerta => {
                 const client = clientsData.find(c => c.id === alerta.client.id);
-                if(client) {
-                    let eventItem;
-                    if(alerta.type === 'Audiencia') eventItem = client.audiencias_list.find(item => item.id === alerta.item.id);
-                    if(alerta.type === 'Vencimiento') eventItem = client.vencimientos_list.find(item => item.id === alerta.item.id);
-                    if (eventItem) eventItem.alertaMostrada = true;
-                }
+                if(!client) return;
+                let eventItem = (alerta.type === 'Audiencia') ? client.audiencias_list.find(item => item.id === alerta.item.id) : client.vencimientos_list.find(item => item.id === alerta.item.id);
+                if (eventItem) eventItem.alertaMostrada = true;
             });
             saveData();
         }
-
+        
         function revisarAlertas() {
             const ahora = new Date();
             const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
-            
-            const audienciasPorAlertar = clientsData.flatMap(client => 
-                (client.audiencias_list || [])
-                .filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada)
-                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
-            );
-            
-            const vencimientosPorAlertar = clientsData.flatMap(client => 
-                (client.vencimientos_list || [])
-                .filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada)
-                .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
-            );
-
+            const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada).map(aud => ({ client, item: aud, type: 'Audiencia' })));
+            const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada).map(venc => ({ client, item: venc, type: 'Vencimiento' })));
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
-            if (eventosHoy.length > 0) {
-                mostrarAlertaDeEventos(eventosHoy);
-            }
+            if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
+        }
+        
+        function iniciarVigilanteDeAlertas() {
+            revisarAlertas();
+            setInterval(revisarAlertas, 60000);
         }
 
-        function iniciarVigilanteDeAlertas() {
-            revisarAlertas(); // Revisión inicial al cargar la página
-            setInterval(revisarAlertas, 60000); // Revisa cada 60 segundos
+        function marcarEventoCompleto(clientId, eventId, eventType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            let list = (eventType === 'Audiencia') ? client.audiencias_list : client.vencimientos_list;
+            let eventItem = list.find(item => item.id === eventId);
+            if(eventItem) eventItem.completed = true;
+            saveData();
+            renderAll();
+            closeModal('alertModal');
+        }
+
+        function showRescheduleModal(clientId, eventId, eventType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if(!client) return;
+            let list = (eventType === 'Audiencia') ? client.audiencias_list : client.vencimientos_list;
+            let eventItem = list.find(item => item.id === eventId);
+            if(!eventItem) return;
+
+            const modal = document.getElementById('rescheduleModal');
+            const content = `
+                <span class="close" onclick="closeModal('rescheduleModal')">&times;</span>
+                <h3>Reprogramar ${eventType}</h3>
+                <p><b>Caso:</b> ${client.nombre}</p>
+                <div class="form-group" style="margin-top:15px;"><label>Nueva Fecha</label><input type="date" id="rescheduleDate" value="${eventItem.fecha}"></div>
+                <div class="form-group"><label>Nueva Hora</label><input type="time" id="rescheduleTime" value="${eventItem.hora}"></div>
+                <div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${clientId}', '${eventId}', '${eventType}')">Confirmar</button></div>`;
+            modal.querySelector('.modal-content').innerHTML = content;
+            closeModal('alertModal');
+            modal.classList.add('active');
+        }
+
+        function confirmReschedule(clientId, eventId, eventType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if(!client) return;
+            let list = (eventType === 'Audiencia') ? client.audiencias_list : client.vencimientos_list;
+            let eventItem = list.find(item => item.id === eventId);
+            if(eventItem) {
+                eventItem.fecha = document.getElementById('rescheduleDate').value;
+                eventItem.hora = document.getElementById('rescheduleTime').value;
+                eventItem.alertaMostrada = false;
+            }
+            saveData();
+            renderAll();
+            closeModal('rescheduleModal');
+            updateDataStatus(`✅ ${eventType} reprogramada.`, false);
+        }
+
+        function snoozeAlerta(minutos) {
+            closeModal('alertModal');
+            updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);
+            setTimeout(revisarAlertas, minutos * 60 * 1000);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -782,7 +814,7 @@
 
             loadData();
             renderAll();
-            iniciarVigilanteDeAlertas(); // Inicia el vigilante de alertas
+            iniciarVigilanteDeAlertas();
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
     </script>
@@ -861,24 +893,24 @@
             }
         }
         
-        async function addEventToGoogleCalendar(client, audience) {
+        async function crearEventoEnCalendario(client, evento, tipoEvento) {
             if (!gapi.client.getToken()?.access_token) {
                 updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true);
                 return;
             }
-            if (!audience.fecha || !audience.hora) {
-                console.log("Fecha u hora de audiencia inválida.");
+            if (!evento.fecha || !evento.hora) {
+                console.log(`Fecha u hora de ${tipoEvento} inválida.`);
                 return;
             }
 
-            updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
+            updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
             try {
-                const eventStartTime = new Date(`${audience.fecha}T${audience.hora}:00`);
+                const eventStartTime = new Date(`${evento.fecha}T${evento.hora}:00`);
                 const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
 
                 const event = {
-                    'summary': `Audiencia: ${client.nombre} | ${client.caratula || 'S/C'}`,
-                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${audience.texto}`,
+                    'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`,
+                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,
                     'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
                     'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
                 };
@@ -887,9 +919,9 @@
                     'calendarId': 'primary',
                     'resource': event
                 });
-                updateDataStatus('✅ Evento de Audiencia creado en Google Calendar.', false);
+                updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
             } catch (e) {
-                console.error("Error creando evento en Calendar:", e);
+                console.error(`Error creando evento de ${tipoEvento}:`, e);
                 updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
             }
         }
