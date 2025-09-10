@@ -299,7 +299,7 @@ function renderAllSiniestrosList(){
   const sterm=document.getElementById('searchInput').value.toLowerCase();
   const estado=document.getElementById('estadoFilter').value;
   const filtrados=siniestrosData.filter(s=>{
-    const searchString = `${s.cliente} ${s.dni} ${s.numeroReclamo} ${s.estado}`.toLowerCase();
+    const searchString = [s.cliente, s.dni, s.celular, s.estado, s.aseguradoEn, s.contra, s.numeroReclamo, s.presupuesto, s.indemnizacion, s.honorarios, s.acuerdo, s.fechaPago, s.factura].filter(Boolean).join(' ').toLowerCase();
     const matchS=!sterm||searchString.includes(sterm);
     const matchE=!estado||s.estado===estado;
     return matchS&&matchE;
