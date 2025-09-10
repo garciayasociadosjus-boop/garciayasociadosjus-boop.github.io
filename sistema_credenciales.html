@@ -335,7 +335,8 @@
         </div>
     </div>
     
-    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         let domiciliosData = [];
         let clavesData = [];
@@ -438,24 +439,42 @@
         async function handleSaveToDrive() {
             saveDataToLocal();
             const fileId = await getFileId();
-            const fileMetadata = { 'name': FILE_NAME, 'mimeType': 'application/json' };
-            const media = { mimeType: 'application/json', body: JSON.stringify(appData, null, 2) };
-            
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const contentType = 'application/json';
+            const metadata = {
+                'name': FILE_NAME,
+                'mimeType': contentType
+            };
+
+            const multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: ' + contentType + '\r\n\r\n' +
+                JSON.stringify(appData, null, 2) +
+                close_delim;
+
             try {
                 let request;
                 if (fileId) {
                     request = gapi.client.request({
                         path: `/upload/drive/v3/files/${fileId}`,
                         method: 'PATCH',
-                        params: { uploadType: 'media' },
-                        body: media.body
+                        params: { 'uploadType': 'multipart' },
+                        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                        body: multipartRequestBody
                     });
                 } else {
-                     request = gapi.client.request({
+                    request = gapi.client.request({
                         path: '/upload/drive/v3/files',
                         method: 'POST',
-                        params: { uploadType: 'media' },
-                        body: JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }) + '\r\n' + media.body
+                        params: { 'uploadType': 'multipart' },
+                        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                        body: multipartRequestBody
                     });
                 }
                 
