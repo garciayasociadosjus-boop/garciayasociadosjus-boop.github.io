@@ -76,7 +76,7 @@
             transform: translateY(-2px);
         }
         
-        /* Estilos para la barra de búsqueda */
+        /* === INICIO CÓDIGO AÑADIDO === */
         .search-container {
             width: 100%;
             margin-bottom: 25px;
@@ -96,6 +96,7 @@
             border-color: var(--primary-color);
             box-shadow: 0 0 10px rgba(26, 35, 126, 0.2);
         }
+        /* === FIN CÓDIGO AÑADIDO === */
 
         .card {
             background: var(--light-text);
@@ -103,7 +104,7 @@
             padding: 25px;
             margin-bottom: 25px;
             box-shadow: var(--shadow);
-            transition: all 0.5s ease-in-out;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease, opacity 0.5s ease;
             overflow: hidden;
         }
         
@@ -236,11 +237,11 @@
             z-index: 10;
             width: max-content;
             max-width: 300px;
-            display: none; /* Oculto por defecto */
+            display: none;
         }
         
-        .obs-cell:hover .obs-popup {
-            display: block; /* Visible en hover */
+        .obs-cell.show .obs-popup {
+            display: block;
         }
     </style>
 </head>
@@ -260,7 +261,6 @@
         <div class="search-container">
             <input type="text" id="generalSearchInput" oninput="searchGeneral()" placeholder="🔍 Buscar en Domicilios, Credenciales, Usuarios...">
         </div>
-        
         <div id="verticalLayout" class="main-content">
             <div class="card" id="domiciliosCard">
                 <h2 class="card-title">Domicilios Electrónicos</h2>
@@ -353,10 +353,9 @@
                 domiciliosData = appData.domicilios || [];
                 clavesData = appData.claves || [];
             } else {
-                // Si no hay nada en localStorage, usar los datos iniciales
                 domiciliosData = initialJsonData.domicilios;
                 clavesData = initialJsonData.claves;
-                saveDataToLocal(); // Guardar los datos iniciales
+                saveDataToLocal();
             }
         }
 
@@ -382,13 +381,15 @@
             clavesTbody.innerHTML = '';
             filteredClaves.forEach(item => {
                 const row = clavesTbody.insertRow();
+                const obsContent = item.OBSERVACIONES || '---';
                 row.innerHTML = `
                     <td>${item.DETALLE}</td>
                     <td>${item.USUARIO}</td>
                     <td>********</td>
                     <td><a href="${item.LINK}" target="_blank">Ir al sitio</a></td>
                     <td class="obs-cell">
-                        ${item.OBSERVACIONES || '---'}
+                        ${obsContent}
+                        ${item.OBSERVACIONES ? `<div class="obs-popup">${obsContent}</div>` : ''}
                     </td>
                     <td class="actions">
                         <button class="btn-copy" onclick="copyToClipboard('${item.CONTRASEÑA}')">Copiar Pass</button>
@@ -399,33 +400,33 @@
             });
         }
         
-        // --- NUEVA FUNCIÓN DE BÚSQUEDA ---
+        // === INICIO CÓDIGO AÑADIDO ===
         function searchGeneral() {
             const searchTerm = document.getElementById('generalSearchInput').value.toLowerCase();
             const initialMessage = document.getElementById('initialMessage');
-            if (initialMessage) initialMessage.style.display = 'none';
-
-            // Si hay término de búsqueda, mostrar ambas tablas para que se vean los resultados
-            if (searchTerm) {
-                showAll();
+            if (initialMessage) {
+                initialMessage.style.display = 'none';
             }
 
-            // Filtrar Domicilios
-            const filteredDomicilios = domiciliosData.filter(item => {
-                return (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm) ||
-                       (item.DOMICILIOS_ELECTRONICOS?.toLowerCase() || '').includes(searchTerm) ||
-                       (item.LINK?.toLowerCase() || '').includes(searchTerm);
-            });
+            if (searchTerm) {
+                showAll(); 
+            }
 
-            // Filtrar Claves
-            const filteredClaves = clavesData.filter(item => {
-                return (item.DETALLE?.toLowerCase() || '').includes(searchTerm) ||
-                       (item.USUARIO?.toLowerCase() || '').includes(searchTerm) ||
-                       (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm);
-            });
+            const filteredDomicilios = domiciliosData.filter(item => 
+                Object.values(item).some(val => 
+                    String(val).toLowerCase().includes(searchTerm)
+                )
+            );
+
+            const filteredClaves = clavesData.filter(item => 
+                (item.DETALLE?.toLowerCase() || '').includes(searchTerm) ||
+                (item.USUARIO?.toLowerCase() || '').includes(searchTerm) ||
+                (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm)
+            );
             
             renderTables(filteredDomicilios, filteredClaves);
         }
+        // === FIN CÓDIGO AÑADIDO ===
 
         function showDomicilios() {
             const initialMessage = document.getElementById('initialMessage');
@@ -561,15 +562,26 @@
                 renderTables();
             }
         }
-
-        document.querySelectorAll('.obs-cell').forEach(cell => {
-            cell.onmouseover = function() {
-                const obs = this.querySelector('.obs-popup');
-                if(obs) obs.style.display = 'block';
+        
+        document.addEventListener('mouseover', function(e) {
+            if (e.target.closest('.obs-cell')) {
+                const cell = e.target.closest('.obs-cell');
+                const obs = cell.querySelector('.obs-popup');
+                if (obs) {
+                    obs.style.display = 'block';
+                    cell.classList.add('show');
+                }
             }
-            cell.onmouseout = function() {
-                const obs = this.querySelector('.obs-popup');
-                if(obs) obs.style.display = 'none';
+        });
+
+        document.addEventListener('mouseout', function(e) {
+            if (e.target.closest('.obs-cell')) {
+                 document.querySelectorAll('.obs-cell.show .obs-popup').forEach(obs => {
+                    obs.style.display = 'none';
+                });
+                document.querySelectorAll('.obs-cell.show').forEach(cell => {
+                    cell.classList.remove('show');
+                });
             }
         });
 
