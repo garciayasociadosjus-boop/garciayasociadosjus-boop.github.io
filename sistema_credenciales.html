@@ -239,7 +239,7 @@
             display: none; /* Oculto por defecto */
         }
         
-        .obs-cell.show .obs-popup {
+        .obs-cell:hover .obs-popup {
             display: block; /* Visible en hover */
         }
     </style>
@@ -251,11 +251,14 @@
             <div class="header-controls">
                 <button onclick="showDomicilios()">Ver Domicilios</button>
                 <button onclick="showClaves()">Ver Credenciales</button>
+                <button onclick="showAll()">Ver Todo</button>
+                <button onclick="openAddDomicilioModal()">+ Domicilio</button>
+                <button onclick="openAddClaveModal()">+ Clave</button>
             </div>
         </header>
 
         <div class="search-container">
-            <input type="text" id="generalSearchInput" placeholder="🔍 Buscar en Domicilios, Credenciales, Usuarios...">
+            <input type="text" id="generalSearchInput" oninput="searchGeneral()" placeholder="🔍 Buscar en Domicilios, Credenciales, Usuarios...">
         </div>
         
         <div id="verticalLayout" class="main-content">
@@ -297,16 +300,63 @@
         </div>
     </div>
 
+    <div id="domicilioModal" class="modal">
+        <div class="modal-content">
+            <h3 id="domicilioModalTitle">Agregar Domicilio</h3>
+            <input type="hidden" id="domicilioId">
+            <input type="text" id="domicilioObs" placeholder="Departamento/Observaciones">
+            <input type="text" id="domicilioOrg" placeholder="Organismo">
+            <input type="text" id="domicilioLink" placeholder="Domicilio Electrónico">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal('domicilioModal')">Cancelar</button>
+                <button class="btn-save" onclick="saveDomicilio()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="claveModal" class="modal">
+        <div class="modal-content">
+            <h3 id="claveModalTitle">Agregar Clave</h3>
+            <input type="hidden" id="claveId">
+            <input type="text" id="claveDetalle" placeholder="Detalle (ej: AFIP, Token)">
+            <input type="text" id="claveUsuario" placeholder="Usuario">
+            <input type="text" id="clavePass" placeholder="Contraseña">
+            <input type="text" id="claveLink" placeholder="Link del sitio">
+            <textarea id="claveObs" placeholder="Observaciones"></textarea>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal('claveModal')">Cancelar</button>
+                <button class="btn-save" onclick="saveClave()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let domiciliosData = [];
         let clavesData = [];
+        let appData = { domicilios: [], claves: [] };
+
+        const initialJsonData = {
+          "domicilios": [{"id":"dom_1755887938255_ogn73zidj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"DOMICILIOS ELECTRONICOS","LINK":"registrodomicilioselectronicos.scba.gov.ar/listados.aspx"}, {"id":"dom_1755888116626_vmhiy2vkj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIOS EXTRACCION DIRECTA QUILMES:","LINK":"bcoprovincia5087-familia@bapro.notificaciones"}, {"id":"dom_1755888133254_4bamv57wj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIOS ANSES QUILMES","LINK":"oficios_quilmes@anses.gov.ar"}, {"id":"dom_1755888155090_ahquwiu5h","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIO APERTURA DE CUENTA BERAZATEGUI","LINK":"bcoprovincia5032-berazategui@bapro.notificaciones"}],
+          "claves": [{"id":"cla_1755888200637_a0008581r","OBSERVACIONES":"","LINK":"https://www.anses.gob.ar/avanzar","DETALLE":"ANSES","USUARIO":"27388433618","CONTRASEÑA":"Delfina24081993"}, {"id":"cla_1755888325988_0i3l851w9","OBSERVACIONES":"","LINK":"https://www.afip.gob.ar/landing/default.asp","DETALLE":"AFIP","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888362624_k2454k655","OBSERVACIONES":"","LINK":"https://notificaciones.scba.gov.ar/loguin.aspx","DETALLE":"TOKEN","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888384918_lq3x1b1xw","OBSERVACIONES":"","LINK":"https://mev.scba.gov.ar/loguin.aspx","DETALLE":"MEV","USUARIO":"camilagarcia","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888478494_m0c411n9w","OBSERVACIONES":"","LINK":"https://www.ips.gba.gob.ar/tramites_remotos.html","DETALLE":"IPS","USUARIO":"38843361","CONTRASEÑA":"caflroga"}, {"id":"cla_1755888514574_x9g5g2q7c","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"GMAIL","USUARIO":"garciayasociadosjus","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755888569507_p8q31lpgs","OBSERVACIONES":"","LINK":"https://www.caq.org.ar/","DETALLE":"COLEGIO DE ABOGADOS DE QUILMES","USUARIO":"38843361","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888630040_qxwlaw1b1","OBSERVACIONES":"","LINK":"https://portal.colproba.org.ar/","DETALLE":"COLPROBA","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888725096_abwqiedkc","OBSERVACIONES":"","LINK":"https://hnet.laholando.com/holandonet/","DETALLE":"LA HOLANDO","USUARIO":"27388433618","CONTRASEÑA":"444318"}, {"id":"cla_1755888764592_7a43qyfz1","OBSERVACIONES":"","LINK":"","DETALLE":"WIFI","USUARIO":"teleCentro-ea1f","CONTRASEÑA":"dario2408"}, {"id":"cla_1755888783948_5ea8gokgk","OBSERVACIONES":"","LINK":"https://www.instagram.com/garciayasociadosjus/","DETALLE":"INSTAGRAM","USUARIO":"garciayasociadosjus","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755888998878_h8x169p5p","OBSERVACIONES":"","LINK":"https://www.ioma.gba.gob.ar/index.php/","DETALLE":"IOMA","USUARIO":"CFRODRIGUEZ","CONTRASEÑA":"delfina1"}, {"id":"cla_1755889078652_1s82m79f6","OBSERVACIONES":"","LINK":"https://www.pami.org.ar/credencial-provisoria","DETALLE":"PAMI","USUARIO":"","CONTRASEÑA":""}, {"id":"cla_1755889105494_m5p2v263e","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"CANVA","USUARIO":"garciayasociadosjus@gmail.com","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755889163276_o7p62d103","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"WORD PRESS","USUARIO":"garciayasociadosjus@gmail.com","CONTRASEÑA":"Bipolaridad1*"}]
+        };
+
+        function saveDataToLocal() {
+            appData.domicilios = domiciliosData;
+            appData.claves = clavesData;
+            localStorage.setItem('appData', JSON.stringify(appData));
+        }
 
         function loadDataFromLocal() {
             const storedData = localStorage.getItem('appData');
             if (storedData) {
-                const data = JSON.parse(storedData);
-                domiciliosData = data.domicilios || [];
-                clavesData = data.claves || [];
+                appData = JSON.parse(storedData);
+                domiciliosData = appData.domicilios || [];
+                clavesData = appData.claves || [];
+            } else {
+                // Si no hay nada en localStorage, usar los datos iniciales
+                domiciliosData = initialJsonData.domicilios;
+                clavesData = initialJsonData.claves;
+                saveDataToLocal(); // Guardar los datos iniciales
             }
         }
 
@@ -323,6 +373,8 @@
                     <td><a href="mailto:${item.LINK}">${item.LINK}</a></td>
                     <td class="actions">
                         <button class="btn-copy" onclick="copyToClipboard('${item.LINK}')">Copiar</button>
+                        <button class="btn-edit" onclick="editDomicilio('${item.id}')">Editar</button>
+                        <button class="btn-delete" onclick="deleteDomicilio('${item.id}')">Borrar</button>
                     </td>
                 `;
             });
@@ -337,25 +389,25 @@
                     <td><a href="${item.LINK}" target="_blank">Ir al sitio</a></td>
                     <td class="obs-cell">
                         ${item.OBSERVACIONES || '---'}
-                        ${item.OBSERVACIONES ? `<div class="obs-popup">${item.OBSERVACIONES}</div>` : ''}
                     </td>
                     <td class="actions">
                         <button class="btn-copy" onclick="copyToClipboard('${item.CONTRASEÑA}')">Copiar Pass</button>
+                        <button class="btn-edit" onclick="editClave('${item.id}')">Editar</button>
+                        <button class="btn-delete" onclick="deleteClave('${item.id}')">Borrar</button>
                     </td>
                 `;
             });
         }
         
+        // --- NUEVA FUNCIÓN DE BÚSQUEDA ---
         function searchGeneral() {
             const searchTerm = document.getElementById('generalSearchInput').value.toLowerCase();
             const initialMessage = document.getElementById('initialMessage');
             if (initialMessage) initialMessage.style.display = 'none';
 
-            if (!searchTerm) {
-                document.getElementById('domiciliosCard').classList.add('hidden');
-                document.getElementById('clavesCard').classList.add('hidden');
-                if (initialMessage) initialMessage.style.display = 'block';
-                return;
+            // Si hay término de búsqueda, mostrar ambas tablas para que se vean los resultados
+            if (searchTerm) {
+                showAll();
             }
 
             // Filtrar Domicilios
@@ -373,20 +425,13 @@
             });
             
             renderTables(filteredDomicilios, filteredClaves);
-            
-            // Mostrar u ocultar tarjetas según si hay resultados
-            document.getElementById('domiciliosCard').classList.toggle('hidden', filteredDomicilios.length === 0);
-            document.getElementById('clavesCard').classList.toggle('hidden', filteredClaves.length === 0);
         }
-
 
         function showDomicilios() {
             const initialMessage = document.getElementById('initialMessage');
             if(initialMessage) initialMessage.style.display = 'none';
             document.getElementById('domiciliosCard').classList.remove('hidden');
             document.getElementById('clavesCard').classList.add('hidden');
-            document.getElementById('generalSearchInput').value = ''; // Limpiar búsqueda
-            renderTables();
         }
 
         function showClaves() {
@@ -394,8 +439,13 @@
             if(initialMessage) initialMessage.style.display = 'none';
             document.getElementById('clavesCard').classList.remove('hidden');
             document.getElementById('domiciliosCard').classList.add('hidden');
-            document.getElementById('generalSearchInput').value = ''; // Limpiar búsqueda
-            renderTables();
+        }
+        
+        function showAll() {
+            const initialMessage = document.getElementById('initialMessage');
+            if(initialMessage) initialMessage.style.display = 'none';
+            document.getElementById('domiciliosCard').classList.remove('hidden');
+            document.getElementById('clavesCard').classList.remove('hidden');
         }
 
         function copyToClipboard(text) {
@@ -406,49 +456,130 @@
             });
         }
         
-        document.addEventListener('mouseover', function(e) {
-            let target = e.target;
-            while (target && !target.classList.contains('obs-cell')) {
-                target = target.parentElement;
-            }
-            if (target) {
-                target.classList.add('show');
-            }
-        });
+        function openAddDomicilioModal() {
+            document.getElementById('domicilioModalTitle').innerText = 'Agregar Domicilio';
+            document.getElementById('domicilioId').value = '';
+            document.getElementById('domicilioObs').value = '';
+            document.getElementById('domicilioOrg').value = '';
+            document.getElementById('domicilioLink').value = '';
+            document.getElementById('domicilioModal').style.display = 'flex';
+        }
 
-        document.addEventListener('mouseout', function(e) {
-            let target = e.target;
-            while (target && !target.classList.contains('obs-cell')) {
-                target = target.parentElement;
+        function openAddClaveModal() {
+            document.getElementById('claveModalTitle').innerText = 'Agregar Clave';
+            document.getElementById('claveId').value = '';
+            document.getElementById('claveDetalle').value = '';
+            document.getElementById('claveUsuario').value = '';
+            document.getElementById('clavePass').value = '';
+            document.getElementById('claveLink').value = '';
+            document.getElementById('claveObs').value = '';
+            document.getElementById('claveModal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function saveDomicilio() {
+            const id = document.getElementById('domicilioId').value;
+            const newDomicilio = {
+                id: id || `dom_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+                OBSERVACIONES: document.getElementById('domicilioObs').value,
+                DOMICILIOS_ELECTRONICOS: document.getElementById('domicilioOrg').value,
+                LINK: document.getElementById('domicilioLink').value
+            };
+
+            if (id) {
+                const index = domiciliosData.findIndex(d => d.id === id);
+                domiciliosData[index] = newDomicilio;
+            } else {
+                domiciliosData.push(newDomicilio);
             }
-            if (target) {
-                target.classList.remove('show');
+            
+            saveDataToLocal();
+            renderTables();
+            closeModal('domicilioModal');
+        }
+
+        function saveClave() {
+            const id = document.getElementById('claveId').value;
+            const newClave = {
+                id: id || `cla_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+                DETALLE: document.getElementById('claveDetalle').value,
+                USUARIO: document.getElementById('claveUsuario').value,
+                CONTRASEÑA: document.getElementById('clavePass').value,
+                LINK: document.getElementById('claveLink').value,
+                OBSERVACIONES: document.getElementById('claveObs').value
+            };
+
+            if (id) {
+                const index = clavesData.findIndex(c => c.id === id);
+                clavesData[index] = newClave;
+            } else {
+                clavesData.push(newClave);
+            }
+
+            saveDataToLocal();
+            renderTables();
+            closeModal('claveModal');
+        }
+
+        function editDomicilio(id) {
+            const domicilio = domiciliosData.find(d => d.id === id);
+            document.getElementById('domicilioModalTitle').innerText = 'Editar Domicilio';
+            document.getElementById('domicilioId').value = domicilio.id;
+            document.getElementById('domicilioObs').value = domicilio.OBSERVACIONES;
+            document.getElementById('domicilioOrg').value = domicilio.DOMICILIOS_ELECTRONICOS;
+            document.getElementById('domicilioLink').value = domicilio.LINK;
+            document.getElementById('domicilioModal').style.display = 'flex';
+        }
+
+        function editClave(id) {
+            const clave = clavesData.find(c => c.id === id);
+            document.getElementById('claveModalTitle').innerText = 'Editar Clave';
+            document.getElementById('claveId').value = clave.id;
+            document.getElementById('claveDetalle').value = clave.DETALLE;
+            document.getElementById('claveUsuario').value = clave.USUARIO;
+            document.getElementById('clavePass').value = clave.CONTRASEÑA;
+            document.getElementById('claveLink').value = clave.LINK;
+            document.getElementById('claveObs').value = clave.OBSERVACIONES;
+            document.getElementById('claveModal').style.display = 'flex';
+        }
+
+        function deleteDomicilio(id) {
+            if (confirm('¿Estás segura de que querés borrar este domicilio?')) {
+                domiciliosData = domiciliosData.filter(d => d.id !== id);
+                saveDataToLocal();
+                renderTables();
+            }
+        }
+
+        function deleteClave(id) {
+            if (confirm('¿Estás segura de que querés borrar esta clave?')) {
+                clavesData = clavesData.filter(c => c.id !== id);
+                saveDataToLocal();
+                renderTables();
+            }
+        }
+
+        document.querySelectorAll('.obs-cell').forEach(cell => {
+            cell.onmouseover = function() {
+                const obs = this.querySelector('.obs-popup');
+                if(obs) obs.style.display = 'block';
+            }
+            cell.onmouseout = function() {
+                const obs = this.querySelector('.obs-popup');
+                if(obs) obs.style.display = 'none';
             }
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Carga de datos desde un archivo JSON local (credenciales_actualizadas.json)
-            fetch('credenciales_actualizadas.json')
-                .then(response => response.json())
-                .then(data => {
-                    domiciliosData = data.domicilios || [];
-                    clavesData = data.claves || [];
-                    // No renderizar tablas al inicio, solo cargar datos
-                })
-                .catch(error => {
-                    console.error('Error al cargar el archivo JSON:', error);
-                    // Cargar datos desde localStorage como fallback
-                    loadDataFromLocal();
-                });
+            loadDataFromLocal();
+            renderTables();
             
-            // Event listener para la búsqueda
-            document.getElementById('generalSearchInput').addEventListener('input', searchGeneral);
-            
-            // Ocultar tarjetas al inicio
             document.getElementById('domiciliosCard').classList.add('hidden');
             document.getElementById('clavesCard').classList.add('hidden');
             
-            // Mensaje inicial
             const mainContent = document.querySelector('.main-content');
             const initialMessage = document.createElement('div');
             initialMessage.id = 'initialMessage';
@@ -464,7 +595,7 @@
             `;
             initialMessage.innerHTML = `
                 <h3 style="color: var(--primary-color); margin-bottom: 15px;">Bienvenida, Dra. Camila Florencia Rodríguez García</h3>
-                <p>Seleccione "Ver Domicilios" o "Ver Credenciales" para comenzar.<br>También puede utilizar la barra de búsqueda para encontrar un registro específico.</p>
+                <p>Seleccione una opción para comenzar o utilice la barra de búsqueda general.</p>
             `;
             
             const verticalLayout = document.getElementById('verticalLayout');
