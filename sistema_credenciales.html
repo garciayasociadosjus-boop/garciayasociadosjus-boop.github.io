@@ -255,6 +255,11 @@
                 <button onclick="showAll()">Ver Todo</button>
                 <button onclick="openAddDomicilioModal()">+ Domicilio</button>
                 <button onclick="openAddClaveModal()">+ Clave</button>
+                <button onclick="exportToJson()">Exportar JSON</button>
+                <button onclick="document.getElementById('import-json').click()">Importar JSON</button>
+                <input type="file" id="import-json" style="display: none;" onchange="importFromJson(event)">
+                <button onclick="authenticateWithGoogle()">Acceder a Drive</button>
+                <button onclick="handleSaveToDrive()">Guardar en Drive</button>
             </div>
         </header>
 
@@ -329,7 +334,8 @@
             </div>
         </div>
     </div>
-
+    
+    <script src="https://apis.google.com/js/api.js"></script>
     <script>
         let domiciliosData = [];
         let clavesData = [];
@@ -339,6 +345,127 @@
           "domicilios": [{"id":"dom_1755887938255_ogn73zidj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"DOMICILIOS ELECTRONICOS","LINK":"registrodomicilioselectronicos.scba.gov.ar/listados.aspx"}, {"id":"dom_1755888116626_vmhiy2vkj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIOS EXTRACCION DIRECTA QUILMES:","LINK":"bcoprovincia5087-familia@bapro.notificaciones"}, {"id":"dom_1755888133254_4bamv57wj","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIOS ANSES QUILMES","LINK":"oficios_quilmes@anses.gov.ar"}, {"id":"dom_1755888155090_ahquwiu5h","OBSERVACIONES":"","DOMICILIOS_ELECTRONICOS":"OFICIO APERTURA DE CUENTA BERAZATEGUI","LINK":"bcoprovincia5032-berazategui@bapro.notificaciones"}],
           "claves": [{"id":"cla_1755888200637_a0008581r","OBSERVACIONES":"","LINK":"https://www.anses.gob.ar/avanzar","DETALLE":"ANSES","USUARIO":"27388433618","CONTRASEÑA":"Delfina24081993"}, {"id":"cla_1755888325988_0i3l851w9","OBSERVACIONES":"","LINK":"https://www.afip.gob.ar/landing/default.asp","DETALLE":"AFIP","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888362624_k2454k655","OBSERVACIONES":"","LINK":"https://notificaciones.scba.gov.ar/loguin.aspx","DETALLE":"TOKEN","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888384918_lq3x1b1xw","OBSERVACIONES":"","LINK":"https://mev.scba.gov.ar/loguin.aspx","DETALLE":"MEV","USUARIO":"camilagarcia","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888478494_m0c411n9w","OBSERVACIONES":"","LINK":"https://www.ips.gba.gob.ar/tramites_remotos.html","DETALLE":"IPS","USUARIO":"38843361","CONTRASEÑA":"caflroga"}, {"id":"cla_1755888514574_x9g5g2q7c","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"GMAIL","USUARIO":"garciayasociadosjus","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755888569507_p8q31lpgs","OBSERVACIONES":"","LINK":"https://www.caq.org.ar/","DETALLE":"COLEGIO DE ABOGADOS DE QUILMES","USUARIO":"38843361","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888630040_qxwlaw1b1","OBSERVACIONES":"","LINK":"https://portal.colproba.org.ar/","DETALLE":"COLPROBA","USUARIO":"27388433618","CONTRASEÑA":"Delfina1"}, {"id":"cla_1755888725096_abwqiedkc","OBSERVACIONES":"","LINK":"https://hnet.laholando.com/holandonet/","DETALLE":"LA HOLANDO","USUARIO":"27388433618","CONTRASEÑA":"444318"}, {"id":"cla_1755888764592_7a43qyfz1","OBSERVACIONES":"","LINK":"","DETALLE":"WIFI","USUARIO":"teleCentro-ea1f","CONTRASEÑA":"dario2408"}, {"id":"cla_1755888783948_5ea8gokgk","OBSERVACIONES":"","LINK":"https://www.instagram.com/garciayasociadosjus/","DETALLE":"INSTAGRAM","USUARIO":"garciayasociadosjus","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755888998878_h8x169p5p","OBSERVACIONES":"","LINK":"https://www.ioma.gba.gob.ar/index.php/","DETALLE":"IOMA","USUARIO":"CFRODRIGUEZ","CONTRASEÑA":"delfina1"}, {"id":"cla_1755889078652_1s82m79f6","OBSERVACIONES":"","LINK":"https://www.pami.org.ar/credencial-provisoria","DETALLE":"PAMI","USUARIO":"","CONTRASEÑA":""}, {"id":"cla_1755889105494_m5p2v263e","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"CANVA","USUARIO":"garciayasociadosjus@gmail.com","CONTRASEÑA":"Bipolaridad1*"}, {"id":"cla_1755889163276_o7p62d103","OBSERVACIONES":"","LINK":"https://garciayasociadosjus-boop.github.io/","DETALLE":"WORD PRESS","USUARIO":"garciayasociadosjus@gmail.com","CONTRASEÑA":"Bipolaridad1*"}]
         };
+
+        const API_KEY = 'TU_API_KEY'; // REEMPLAZAR
+        const CLIENT_ID = 'TU_CLIENT_ID.apps.googleusercontent.com'; // REEMPLAZAR
+        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const FILE_NAME = 'credenciales_bd.json';
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: DISCOVERY_DOCS,
+            });
+            gapiInited = true;
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '',
+            });
+            gisInited = true;
+        }
+
+        function authenticateWithGoogle() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                alert('Autenticación con Google Drive exitosa!');
+                await handleLoadFromDrive();
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+        
+        async function getFileId() {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${FILE_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+                if (response.result.files.length > 0) {
+                    return response.result.files[0].id;
+                } else {
+                    return null;
+                }
+            } catch (err) {
+                console.error("Error buscando el archivo:", err);
+                return null;
+            }
+        }
+
+        async function handleLoadFromDrive() {
+            const fileId = await getFileId();
+            if (fileId) {
+                try {
+                    const response = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    const data = JSON.parse(response.body);
+                    appData = data;
+                    domiciliosData = data.domicilios || [];
+                    clavesData = data.claves || [];
+                    saveDataToLocal();
+                    renderTables();
+                    alert('Datos cargados desde Google Drive.');
+                } catch (err) {
+                    console.error("Error cargando el archivo:", err);
+                    alert('Error al cargar datos desde Drive.');
+                }
+            } else {
+                alert('No se encontró el archivo en Drive. Se usará la data local.');
+                loadDataFromLocal();
+            }
+        }
+        
+        async function handleSaveToDrive() {
+            saveDataToLocal();
+            const fileId = await getFileId();
+            const fileMetadata = { 'name': FILE_NAME, 'mimeType': 'application/json' };
+            const media = { mimeType: 'application/json', body: JSON.stringify(appData, null, 2) };
+            
+            try {
+                let request;
+                if (fileId) {
+                    request = gapi.client.request({
+                        path: `/upload/drive/v3/files/${fileId}`,
+                        method: 'PATCH',
+                        params: { uploadType: 'media' },
+                        body: media.body
+                    });
+                } else {
+                     request = gapi.client.request({
+                        path: '/upload/drive/v3/files',
+                        method: 'POST',
+                        params: { uploadType: 'media' },
+                        body: JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }) + '\r\n' + media.body
+                    });
+                }
+                
+                await request;
+                alert('¡Datos guardados en Google Drive exitosamente!');
+            } catch (err) {
+                 console.error("Error guardando el archivo:", err);
+                 alert('Error al guardar en Drive.');
+            }
+        }
 
         function saveDataToLocal() {
             appData.domicilios = domiciliosData;
@@ -413,9 +540,9 @@
             }
 
             const filteredDomicilios = domiciliosData.filter(item => 
-                Object.values(item).some(val => 
-                    String(val).toLowerCase().includes(searchTerm)
-                )
+                (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm) ||
+                (item.DOMICILIOS_ELECTRONICOS?.toLowerCase() || '').includes(searchTerm) ||
+                (item.LINK?.toLowerCase() || '').includes(searchTerm)
             );
 
             const filteredClaves = clavesData.filter(item => 
@@ -563,24 +690,57 @@
             }
         }
         
+        function exportToJson() {
+            saveDataToLocal();
+            const jsonData = JSON.stringify(appData, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'credenciales_export.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importFromJson(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (importedData.domicilios && importedData.claves) {
+                            appData = importedData;
+                            domiciliosData = appData.domicilios;
+                            clavesData = appData.claves;
+                            saveDataToLocal();
+                            renderTables();
+                            alert('Datos importados correctamente.');
+                        } else {
+                            alert('El archivo JSON no tiene el formato esperado.');
+                        }
+                    } catch (error) {
+                        alert('Error al leer el archivo JSON.');
+                        console.error(error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+        
         document.addEventListener('mouseover', function(e) {
             if (e.target.closest('.obs-cell')) {
                 const cell = e.target.closest('.obs-cell');
-                const obs = cell.querySelector('.obs-popup');
-                if (obs) {
-                    obs.style.display = 'block';
-                    cell.classList.add('show');
-                }
+                cell.classList.add('show');
             }
         });
 
         document.addEventListener('mouseout', function(e) {
             if (e.target.closest('.obs-cell')) {
-                 document.querySelectorAll('.obs-cell.show .obs-popup').forEach(obs => {
-                    obs.style.display = 'none';
-                });
-                document.querySelectorAll('.obs-cell.show').forEach(cell => {
-                    cell.classList.remove('show');
+                 document.querySelectorAll('.obs-cell.show').forEach(obs => {
+                    obs.classList.remove('show');
                 });
             }
         });
@@ -600,14 +760,13 @@
                 padding: 50px; 
                 color: var(--dark-text); 
                 font-size: 1.2em;
-                background: var(--light-text);
-                border-radius: var(--border-radius);
+                background: #f8f9fa;
+                border-radius: 12px;
                 margin: 20px 0;
-                box-shadow: var(--shadow);
             `;
             initialMessage.innerHTML = `
-                <h3 style="color: var(--primary-color); margin-bottom: 15px;">Bienvenida, Dra. Camila Florencia Rodríguez García</h3>
-                <p>Seleccione una opción para comenzar o utilice la barra de búsqueda general.</p>
+                <h3 style="color: var(--primary-color); margin-bottom: 15px;">🔒 Acceso Restringido</h3>
+                <p>Seleccione una opción de visualización para acceder a los datos.</p>
             `;
             
             const verticalLayout = document.getElementById('verticalLayout');
