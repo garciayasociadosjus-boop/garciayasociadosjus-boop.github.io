@@ -31,1082 +31,424 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background: var(--light-text);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            overflow: hidden;
+            padding: 15px;
         }
 
         .header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #283593 100%);
-            color: var(--light-text);
-            padding: 25px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.2em;
-            margin-bottom: 5px;
-            letter-spacing: 1px;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-            color: var(--secondary-color);
-            font-weight: 500;
-        }
-
-        .controls-section {
-            text-align: center;
-            padding: 20px;
-            background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .data-status {
-            background: #fff3cd; 
-            color: #664d03;
-            padding: 10px; 
-            border-radius: 8px; 
-            margin-top: 15px; 
-            text-align: center;
-        }
-        
-        .btn {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #3949ab 100%);
-            color: var(--light-text); 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 8px;
-            cursor: pointer; 
-            font-size: 1em; 
-            transition: all 0.3s ease; 
-            margin: 5px;
-            text-transform: uppercase; 
-            font-weight: 600;
-        }
-
-        .btn:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 15px rgba(40, 53, 147, 0.3); 
-        }
-        
-        .btn-success { 
-            background: linear-gradient(135deg, var(--success-color), #1abc9c); 
-        }
-        
-        .btn-warning { 
-            background: linear-gradient(135deg, var(--warning-color), #f1c40f); 
-        }
-        
-        .btn-danger { 
-            background: linear-gradient(135deg, var(--danger-color), #e74c3c); 
-        }
-        
-        .btn-sm { 
-            padding: 6px 12px; 
-            font-size: 0.8em; 
-            text-transform: none;
-            font-weight: 500;
-        }
-        
-        .btn-add { 
-            background: var(--secondary-color); 
-            color: var(--primary-color); 
-        }
-        
-        .btn-add:hover { 
-            box-shadow: 0 6px 15px rgba(188, 160, 91, 0.4); 
-        }
-
-        .main-content {
-            padding: 20px;
-        }
-
-        .section-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
+            background: var(--light-text);
+            padding: 20px 30px;
             border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
         }
 
-        .tab-btn {
-            background: #e9ecef;
-            color: var(--dark-text);
-            border: none;
-            padding: 12px 24px;
+        .header .logo {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .header .logo span {
+            color: var(--secondary-color);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .header-controls button {
+            padding: 10px 20px;
             border-radius: 8px;
+            border: none;
             cursor: pointer;
-            font-size: 1em;
             font-weight: 600;
             transition: all 0.3s ease;
-        }
-
-        .tab-btn.active {
             background: var(--primary-color);
             color: var(--light-text);
         }
 
-        .tab-btn:hover:not(.active) {
-            background: #ced4da;
+        .header-controls button:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+        
+        /* Estilos para la barra de búsqueda */
+        .search-container {
+            width: 100%;
+            margin-bottom: 25px;
         }
 
-        .vertical-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
+        #generalSearchInput {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+        
+        #generalSearchInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(26, 35, 126, 0.2);
         }
 
         .card {
-            background: #ffffff;
+            background: var(--light-text);
             border-radius: var(--border-radius);
             padding: 25px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+            transition: all 0.5s ease-in-out;
+            overflow: hidden;
         }
-
+        
         .card.hidden {
-            display: none;
+            max-height: 0;
+            padding: 0 25px;
+            opacity: 0;
+            margin-bottom: 0;
+            border: none;
         }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid var(--background-color);
-            padding-bottom: 15px;
-        }
-
-        .card-header h2 {
-            color: var(--primary-color);
+        .card-title {
             font-size: 1.6em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary-color);
         }
 
-        .table-wrapper {
+        .table-container {
             overflow-x: auto;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
         }
 
         th, td {
             padding: 12px 15px;
-            border-bottom: 1px solid #e0e0e0;
             text-align: left;
-            vertical-align: middle;
-            word-wrap: break-word;
-            font-size: 0.9em;
+            border-bottom: 1px solid #e0e0e0;
         }
-        
+
         th {
             background-color: #f8f9fa;
-            color: var(--dark-text);
             font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            border-bottom: 2px solid #dee2e6;
-            white-space: nowrap;
+            color: var(--primary-color);
         }
         
-        tr:nth-child(even) { 
-            background-color: #fdfdfd; 
-        }
-        
-        tr:hover { 
-            background-color: #f1f8ff; 
-        }
-        
-        .editable-cell { 
-            cursor: pointer; 
-            min-height: 20px;
-            position: relative;
-            max-width: 250px;
-            padding: 12px 15px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-        
-        .editable-cell:hover { 
-            background-color: rgba(188, 160, 91, 0.1);
-            border-color: var(--secondary-color);
-        }
-        
-        .editable-cell.editing {
-            background-color: #fff;
-            border-color: var(--primary-color);
-            outline: none;
+        tr:last-child td {
+            border-bottom: none;
         }
 
-        .actions-cell { 
-            text-align: center; 
-            white-space: nowrap;
-            width: 180px;
+        tr:hover {
+            background-color: #f1f1f1;
         }
 
-        .observation-cell {
-            position: relative;
+        .actions {
+            display: flex;
+            gap: 10px;
         }
 
-        .observation-toggle {
-            background: var(--warning-color);
-            color: white;
+        .actions button {
+            padding: 5px 10px;
             border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.8em;
-        }
-        
-        .observation-toggle.has-observation {
-            background: var(--success-color);
-            font-weight: 600;
-        }
-
-        .observation-content {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border: 2px solid var(--primary-color);
-            border-radius: 8px;
-            padding: 15px;
-            z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            min-width: 300px;
-            width: max-content;
-        }
-
-        .observation-content.show {
-            display: block;
-        }
-
-        .observation-text {
-            min-height: 80px;
-            width: 280px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 8px;
-            font-family: inherit;
-            resize: vertical;
+            color: var(--light-text);
             font-size: 0.9em;
         }
 
-        .observation-buttons {
+        .btn-edit { background-color: var(--warning-color); }
+        .btn-delete { background-color: var(--danger-color); }
+        .btn-copy { background-color: var(--success-color); }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: var(--light-text);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+        
+        .modal-content input, .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        .modal-buttons {
             display: flex;
-            gap: 4px;
-            margin-top: 10px;
-            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
         }
 
-        .observation-buttons .btn-sm {
-            padding: 4px 8px;
-            font-size: 0.7em;
-            min-width: 60px;
+        .modal-buttons button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
         }
-
-        .link-cell {
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        
+        .btn-save { background: var(--success-color); color: white; }
+        .btn-cancel { background: #ccc; }
+        
+        .obs-cell {
+            position: relative;
         }
-
-        .link-cell a {
-            color: var(--primary-color);
-            text-decoration: none;
+        
+        .obs-popup {
+            position: absolute;
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            bottom: 100%; 
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
+            z-index: 10;
+            width: max-content;
+            max-width: 300px;
+            display: none; /* Oculto por defecto */
         }
-
-        .link-cell a:hover {
-            text-decoration: underline;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            .header { padding: 15px; }
-            .header h1 { font-size: 1.8em; }
-            .main-content { padding: 15px; }
-            .card { padding: 15px; }
-            
-            table { font-size: 0.9em; min-width: 600px; }
-            th, td { padding: 8px 10px; }
-            
-            .btn { padding: 8px 15px; font-size: 0.9em; }
-            .btn-sm { padding: 4px 8px; font-size: 0.7em; }
-            
-            .section-tabs {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .tab-btn {
-                width: 200px;
-            }
+        
+        .obs-cell.show .obs-popup {
+            display: block; /* Visible en hover */
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1>Gestión de Credenciales</h1>
-            <p>Estudio García & Asociados</p>
+            <div class="logo">Estudio<span>G&A</span></div>
+            <div class="header-controls">
+                <button onclick="showDomicilios()">Ver Domicilios</button>
+                <button onclick="showClaves()">Ver Credenciales</button>
+            </div>
         </header>
 
-        <section class="controls-section">
-            <button id="connectDriveBtn" class="btn" onclick="handleConnectDrive()">🔗 Conectar a Drive</button>
-            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">💾 Guardar en Drive</button>
-            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
-            <div id="driveStatus" class="data-status" style="display: none;"></div>
-            
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                <button class="btn btn-success" onclick="exportToExcel()">📊 Exportar a Excel</button>
-                <button class="btn btn-warning" onclick="authenticatedExportToJSON()">📤 Exportar JSON</button>
-                <label for="importFile" class="btn" style="cursor: pointer;" onclick="return authenticateForImport()">📥 Importar JSON</label>
-                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importFromJSON(event)">
-            </div>
-        </section>
-
-        <main class="main-content">
-            <div class="section-tabs">
-                <button class="tab-btn active" onclick="authenticatedSetViewMode('vertical', event)">📋 Ver Todo</button>
-                <button class="tab-btn" onclick="authenticatedSetViewMode('domicilios', event)">🏠 Solo Domicilios</button>
-                <button class="tab-btn" onclick="authenticatedSetViewMode('claves', event)">🔑 Solo Claves</button>
-            </div>
-            
-            <div id="verticalLayout" class="vertical-layout">
-                <div class="card" id="domiciliosCard">
-                    <div class="card-header">
-                        <h2>Domicilios Electrónicos</h2>
-                        <button class="btn btn-add" onclick="addNewRow('domicilio')">➕ Agregar</button>
-                    </div>
-                    <div class="table-wrapper">
-                        <table id="domiciliosTable">
-                            <thead>
-                                <tr>
-                                    <th>Domicilios Electrónicos</th>
-                                    <th>Link</th>
-                                    <th>Observaciones</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card" id="clavesCard">
-                    <div class="card-header">
-                        <h2>Claves y Accesos</h2>
-                        <button class="btn btn-add" onclick="addNewRow('clave')">➕ Agregar</button>
-                    </div>
-                    <div class="table-wrapper">
-                        <table id="clavesTable">
-                            <thead>
-                                <tr>
-                                    <th>Link</th>
-                                    <th>Detalle</th>
-                                    <th>Usuario</th>
-                                    <th>Contraseña</th>
-                                    <th>Observaciones</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
+        <div class="search-container">
+            <input type="text" id="generalSearchInput" placeholder="🔍 Buscar en Domicilios, Credenciales, Usuarios...">
+        </div>
+        
+        <div id="verticalLayout" class="main-content">
+            <div class="card" id="domiciliosCard">
+                <h2 class="card-title">Domicilios Electrónicos</h2>
+                <div class="table-container">
+                    <table id="domiciliosTable">
+                        <thead>
+                            <tr>
+                                <th>DEPARTAMENTO</th>
+                                <th>ORGANISMO</th>
+                                <th>DOMICILIO</th>
+                                <th>ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
-        </main>
+
+            <div class="card" id="clavesCard">
+                <h2 class="card-title">Credenciales</h2>
+                <div class="table-container">
+                    <table id="clavesTable">
+                        <thead>
+                            <tr>
+                                <th>DETALLE</th>
+                                <th>USUARIO</th>
+                                <th>CONTRASEÑA</th>
+                                <th>LINK</th>
+                                <th>OBSERVACIONES</th>
+                                <th>ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    
     <script>
-        // Configuración de autenticación
-        const MASTER_PASSWORD = 'Bipolaridad1';
-        let isAuthenticated = false;
-        
-        // Credenciales de Google Drive
-        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        const DATA_FILE_NAME = 'datos_credenciales_estudio.json';
-
-        // Datos iniciales (se reemplazarán por datos locales si existen)
-        let domiciliosData = [
-            {
-                "id": "dom_1724307332308",
-                "DOMICILIOS_ELECTRONICOS": "20123456789@notificaciones.scba.gov.ar",
-                "LINK": "https://notificaciones.scba.gov.ar",
-                "OBSERVACIONES": "Usuario principal del estudio"
-            },
-            {
-                "id": "dom_1724307332309",
-                "DOMICILIOS_ELECTRONICOS": "27876543210@notificaciones.scba.gov.ar",
-                "LINK": "https://notificaciones.scba.gov.ar",
-                "OBSERVACIONES": "Usuario secundario"
-            }
-        ];
-
-        let clavesData = [
-            {
-                "id": "cla_1724307332310",
-                "LINK": "https://mev.scba.gov.ar",
-                "DETALLE": "MEV SCBA - Sistema principal",
-                "USUARIO": "jperez_legal",
-                "CONTRASEÑA": "MiClaveSegura#2025",
-                "OBSERVACIONES": "Usuario principal del estudio"
-            },
-            {
-                "id": "cla_1724307332311",
-                "LINK": "https://auth.afip.gob.ar",
-                "DETALLE": "AFIP - Clave Fiscal",
-                "USUARIO": "mgomez_afip",
-                "CONTRASEÑA": "AFIP_Maria_2024*",
-                "OBSERVACIONES": "Clave fiscal nivel 3"
-            }
-        ];
-
-        let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
-        let currentViewMode = 'vertical';
-
-        const driveStatusEl = document.getElementById('driveStatus');
-        const connectDriveBtn = document.getElementById('connectDriveBtn');
-        const saveToDriveBtn = document.getElementById('saveToDriveBtn');
-        const loadFromDriveBtn = document.getElementById('loadFromDriveBtn');
-
-        // --- INICIO: FUNCIONES PARA GUARDADO LOCAL ---
-        function saveDataToLocal() {
-            try {
-                const dataToSave = {
-                    domicilios: domiciliosData,
-                    claves: clavesData
-                };
-                localStorage.setItem('estudioCredencialesData', JSON.stringify(dataToSave));
-            } catch (error) {
-                console.error("Error al guardar datos en el almacenamiento local:", error);
-            }
-        }
+        let domiciliosData = [];
+        let clavesData = [];
 
         function loadDataFromLocal() {
-            try {
-                const savedData = localStorage.getItem('estudioCredencialesData');
-                if (savedData) {
-                    const loadedData = JSON.parse(savedData);
-                    domiciliosData = loadedData.domicilios || [];
-                    clavesData = loadedData.claves || [];
-                }
-            } catch (error) {
-                console.error("Error al cargar datos del almacenamiento local:", error);
+            const storedData = localStorage.getItem('appData');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                domiciliosData = data.domicilios || [];
+                clavesData = data.claves || [];
             }
         }
-        // --- FIN: FUNCIONES PARA GUARDADO LOCAL ---
 
-        // Funciones de autenticación
-        function authenticateUser(action) {
-            if (isAuthenticated) {
-                return true;
-            }
+        function renderTables(filteredDomicilios = domiciliosData, filteredClaves = clavesData) {
+            const domiciliosTbody = document.getElementById('domiciliosTable').querySelector('tbody');
+            const clavesTbody = document.getElementById('clavesTable').querySelector('tbody');
             
-            const password = prompt('Ingrese la clave de acceso:');
-            if (password === MASTER_PASSWORD) {
-                isAuthenticated = true;
-                return true;
-            } else if (password !== null) {
-                alert('Clave incorrecta');
-            }
-            return false;
-        }
+            domiciliosTbody.innerHTML = '';
+            filteredDomicilios.forEach(item => {
+                const row = domiciliosTbody.insertRow();
+                row.innerHTML = `
+                    <td>${item.OBSERVACIONES || '---'}</td>
+                    <td>${item.DOMICILIOS_ELECTRONICOS}</td>
+                    <td><a href="mailto:${item.LINK}">${item.LINK}</a></td>
+                    <td class="actions">
+                        <button class="btn-copy" onclick="copyToClipboard('${item.LINK}')">Copiar</button>
+                    </td>
+                `;
+            });
 
-        // Funciones de vista con autenticación
-        function authenticatedSetViewMode(mode, event) {
-            if (!authenticateUser()) return;
-            setViewMode(mode, event);
+            clavesTbody.innerHTML = '';
+            filteredClaves.forEach(item => {
+                const row = clavesTbody.insertRow();
+                row.innerHTML = `
+                    <td>${item.DETALLE}</td>
+                    <td>${item.USUARIO}</td>
+                    <td>********</td>
+                    <td><a href="${item.LINK}" target="_blank">Ir al sitio</a></td>
+                    <td class="obs-cell">
+                        ${item.OBSERVACIONES || '---'}
+                        ${item.OBSERVACIONES ? `<div class="obs-popup">${item.OBSERVACIONES}</div>` : ''}
+                    </td>
+                    <td class="actions">
+                        <button class="btn-copy" onclick="copyToClipboard('${item.CONTRASEÑA}')">Copiar Pass</button>
+                    </td>
+                `;
+            });
         }
-
-        function setViewMode(mode, event) {
+        
+        function searchGeneral() {
+            const searchTerm = document.getElementById('generalSearchInput').value.toLowerCase();
             const initialMessage = document.getElementById('initialMessage');
-            if (initialMessage) {
-                initialMessage.remove();
-            }
-            
-            currentViewMode = mode;
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            if (event && event.target) {
-                event.target.classList.add('active');
-            }
-            
-            const domiciliosCard = document.getElementById('domiciliosCard');
-            const clavesCard = document.getElementById('clavesCard');
-            
-            switch(mode) {
-                case 'vertical':
-                    domiciliosCard.classList.remove('hidden');
-                    clavesCard.classList.remove('hidden');
-                    break;
-                case 'domicilios':
-                    domiciliosCard.classList.remove('hidden');
-                    clavesCard.classList.add('hidden');
-                    break;
-                case 'claves':
-                    domiciliosCard.classList.add('hidden');
-                    clavesCard.classList.remove('hidden');
-                    break;
-            }
-        }
+            if (initialMessage) initialMessage.style.display = 'none';
 
-        // Funciones de renderizado
-        function renderTables() {
-            renderDomiciliosTable();
-            renderClavesTable();
-        }
+            if (!searchTerm) {
+                document.getElementById('domiciliosCard').classList.add('hidden');
+                document.getElementById('clavesCard').classList.add('hidden');
+                if (initialMessage) initialMessage.style.display = 'block';
+                return;
+            }
 
-        function renderDomiciliosTable() {
-            const tableBody = document.getElementById('domiciliosTable').querySelector('tbody');
-            tableBody.innerHTML = domiciliosData.map(item => {
-                const hasObservation = item.OBSERVACIONES && item.OBSERVACIONES.trim() !== '';
-                return `
-                <tr data-id="${item.id}">
-                    <td class="editable-cell" contenteditable="true" data-field="DOMICILIOS_ELECTRONICOS">${item.DOMICILIOS_ELECTRONICOS}</td>
-                    <td class="editable-cell link-cell" contenteditable="true" data-field="LINK">
-                        ${item.LINK ? `<a href="${item.LINK}" target="_blank">${item.LINK}</a>` : item.LINK || ''}
-                    </td>
-                    <td class="observation-cell">
-                        <button class="observation-toggle ${hasObservation ? 'has-observation' : ''}" onclick="toggleObservation('${item.id}', 'domicilio')">📝 Obs</button>
-                        <div class="observation-content" id="obs-${item.id}">
-                            <textarea class="observation-text" placeholder="Escriba sus observaciones aquí...">${item.OBSERVACIONES || ''}</textarea>
-                            <div class="observation-buttons">
-                                <button class="btn btn-sm btn-success" onclick="saveObservation('${item.id}', 'domicilio')">💾 Guardar</button>
-                                <button class="btn btn-sm btn-warning" onclick="editObservation('${item.id}')">✏️ Editar</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteObservation('${item.id}', 'domicilio')">🗑️ Borrar</button>
-                                <button class="btn btn-sm" onclick="closeObservation('${item.id}')">❌ Cerrar</button>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="actions-cell">
-                        <button class="btn btn-sm btn-warning" onclick="editRow('${item.id}', 'domicilio')" title="Editar">✏️</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteRow('${item.id}', 'domicilio')" title="Eliminar">🗑️</button>
-                    </td>
-                </tr>
-            `}).join('');
-            
-            addEditListeners('domicilio');
-        }
-        
-        function renderClavesTable() {
-            const tableBody = document.getElementById('clavesTable').querySelector('tbody');
-            tableBody.innerHTML = clavesData.map(item => {
-                const hasObservation = item.OBSERVACIONES && item.OBSERVACIONES.trim() !== '';
-                return `
-                <tr data-id="${item.id}">
-                    <td class="editable-cell link-cell" contenteditable="true" data-field="LINK">
-                        ${item.LINK ? `<a href="${item.LINK}" target="_blank">${item.LINK}</a>` : item.LINK || ''}
-                    </td>
-                    <td class="editable-cell" contenteditable="true" data-field="DETALLE">${item.DETALLE}</td>
-                    <td class="editable-cell" contenteditable="true" data-field="USUARIO">${item.USUARIO}</td>
-                    <td class="editable-cell" contenteditable="true" data-field="CONTRASEÑA" style="font-family: monospace;">${item.CONTRASEÑA}</td>
-                    <td class="observation-cell">
-                        <button class="observation-toggle ${hasObservation ? 'has-observation' : ''}" onclick="toggleObservation('${item.id}', 'clave')">📝 Obs</button>
-                        <div class="observation-content" id="obs-${item.id}">
-                            <textarea class="observation-text" placeholder="Escriba sus observaciones aquí...">${item.OBSERVACIONES || ''}</textarea>
-                            <div class="observation-buttons">
-                                <button class="btn btn-sm btn-success" onclick="saveObservation('${item.id}', 'clave')">💾 Guardar</button>
-                                <button class="btn btn-sm btn-warning" onclick="editObservation('${item.id}')">✏️ Editar</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteObservation('${item.id}', 'clave')">🗑️ Borrar</button>
-                                <button class="btn btn-sm" onclick="closeObservation('${item.id}')">❌ Cerrar</button>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="actions-cell">
-                        <button class="btn btn-sm btn-warning" onclick="editRow('${item.id}', 'clave')" title="Editar">✏️</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteRow('${item.id}', 'clave')" title="Eliminar">🗑️</button>
-                    </td>
-                </tr>
-            `}).join('');
-            
-            addEditListeners('clave');
-        }
-
-        // Funciones de edición directa en celda
-        function addEditListeners(type) {
-            const tableId = type === 'domicilio' ? 'domiciliosTable' : 'clavesTable';
-            const table = document.getElementById(tableId);
-            
-            table.querySelectorAll('.editable-cell[contenteditable="true"]').forEach(cell => {
-                cell.addEventListener('focus', function() {
-                    this.classList.add('editing');
-                    if (this.querySelector('a')) {
-                        this.innerHTML = this.querySelector('a').href;
-                    }
-                });
-                
-                cell.addEventListener('blur', function() {
-                    this.classList.remove('editing');
-                    saveCell(this, type);
-                });
-                
-                cell.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.blur();
-                    }
-                    if (e.key === 'Escape') {
-                        this.innerHTML = this.dataset.originalValue || this.innerHTML;
-                        this.blur();
-                    }
-                });
-                
-                cell.addEventListener('input', function() {
-                    if (!this.dataset.originalValue) {
-                        this.dataset.originalValue = this.innerHTML;
-                    }
-                });
+            // Filtrar Domicilios
+            const filteredDomicilios = domiciliosData.filter(item => {
+                return (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm) ||
+                       (item.DOMICILIOS_ELECTRONICOS?.toLowerCase() || '').includes(searchTerm) ||
+                       (item.LINK?.toLowerCase() || '').includes(searchTerm);
             });
+
+            // Filtrar Claves
+            const filteredClaves = clavesData.filter(item => {
+                return (item.DETALLE?.toLowerCase() || '').includes(searchTerm) ||
+                       (item.USUARIO?.toLowerCase() || '').includes(searchTerm) ||
+                       (item.OBSERVACIONES?.toLowerCase() || '').includes(searchTerm);
+            });
+            
+            renderTables(filteredDomicilios, filteredClaves);
+            
+            // Mostrar u ocultar tarjetas según si hay resultados
+            document.getElementById('domiciliosCard').classList.toggle('hidden', filteredDomicilios.length === 0);
+            document.getElementById('clavesCard').classList.toggle('hidden', filteredClaves.length === 0);
         }
 
-        function saveCell(cellElement, type) {
-            const row = cellElement.closest('tr');
-            const id = row.dataset.id;
-            const field = cellElement.dataset.field;
-            const newValue = cellElement.textContent.trim();
-            
-            const dataArray = type === 'domicilio' ? domiciliosData : clavesData;
-            const item = dataArray.find(d => d.id === id);
-            
-            if (item) {
-                item[field] = newValue;
-                
-                if (field === 'LINK' && newValue) {
-                    cellElement.innerHTML = `<a href="${newValue}" target="_blank">${newValue}</a>`;
-                }
-                saveDataToLocal(); // Guarda en local
-            }
-            
-            delete cellElement.dataset.originalValue;
-        }
 
-        // Funciones CRUD
-        function generateId(prefix) { 
-            return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; 
-        }
-
-        function addNewRow(type) {
-            const newItem = {
-                id: generateId(type.slice(0, 3)),
-                OBSERVACIONES: ''
-            };
-            
-            if (type === 'domicilio') {
-                newItem.DOMICILIOS_ELECTRONICOS = '';
-                newItem.LINK = '';
-                domiciliosData.push(newItem);
-            } else {
-                newItem.LINK = '';
-                newItem.DETALLE = '';
-                newItem.USUARIO = '';
-                newItem.CONTRASEÑA = '';
-                clavesData.push(newItem);
-            }
-            
+        function showDomicilios() {
+            const initialMessage = document.getElementById('initialMessage');
+            if(initialMessage) initialMessage.style.display = 'none';
+            document.getElementById('domiciliosCard').classList.remove('hidden');
+            document.getElementById('clavesCard').classList.add('hidden');
+            document.getElementById('generalSearchInput').value = ''; // Limpiar búsqueda
             renderTables();
-            saveDataToLocal(); // Guarda en local
-            
-            setTimeout(() => {
-                const tableId = type === 'domicilio' ? 'domiciliosTable' : 'clavesTable';
-                const table = document.getElementById(tableId);
-                const newRow = table.querySelector(`tr[data-id="${newItem.id}"]`);
-                const firstCell = newRow.querySelector('.editable-cell[contenteditable="true"]');
-                if (firstCell) {
-                    firstCell.focus();
-                }
-            }, 100);
         }
 
-        function editRow(id, type) {
-            const tableId = type === 'domicilio' ? 'domiciliosTable' : 'clavesTable';
-            const table = document.getElementById(tableId);
-            const row = table.querySelector(`tr[data-id="${id}"]`);
-            const firstCell = row.querySelector('.editable-cell[contenteditable="true"]');
-            if (firstCell) {
-                firstCell.focus();
-            }
-        }
-        
-        function deleteRow(id, type) {
-            const itemName = type === 'domicilio' ? 'domicilio electrónico' : 'clave de acceso';
-            if (confirm(`¿Está seguro de que desea eliminar este ${itemName}?`)) {
-                if (type === 'domicilio') {
-                    domiciliosData = domiciliosData.filter(d => d.id !== id);
-                } else {
-                    clavesData = clavesData.filter(c => c.id !== id);
-                }
-                renderTables();
-                saveDataToLocal(); // Guarda en local
-            }
+        function showClaves() {
+            const initialMessage = document.getElementById('initialMessage');
+            if(initialMessage) initialMessage.style.display = 'none';
+            document.getElementById('clavesCard').classList.remove('hidden');
+            document.getElementById('domiciliosCard').classList.add('hidden');
+            document.getElementById('generalSearchInput').value = ''; // Limpiar búsqueda
+            renderTables();
         }
 
-        // Funciones de observaciones
-        function toggleObservation(id, type) {
-            const obsContent = document.getElementById(`obs-${id}`);
-            const isVisible = obsContent.classList.contains('show');
-            
-            document.querySelectorAll('.observation-content').forEach(obs => {
-                obs.classList.remove('show');
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('¡Copiado al portapapeles!');
+            }).catch(err => {
+                console.error('Error al copiar: ', err);
             });
-            
-            if (!isVisible) {
-                obsContent.classList.add('show');
-            }
-        }
-
-        function saveObservation(id, type) {
-            const obsContent = document.getElementById(`obs-${id}`);
-            const textarea = obsContent.querySelector('.observation-text');
-            const newValue = textarea.value;
-            
-            const dataArray = type === 'domicilio' ? domiciliosData : clavesData;
-            const item = dataArray.find(d => d.id === id);
-            
-            if (item) {
-                item.OBSERVACIONES = newValue;
-                alert('Observación guardada correctamente');
-                saveDataToLocal(); // Guarda en local
-                renderTables();    // Re-renderiza para actualizar el color del botón
-            }
-        }
-
-        function editObservation(id) {
-            const obsContent = document.getElementById(`obs-${id}`);
-            const textarea = obsContent.querySelector('.observation-text');
-            textarea.focus();
-            textarea.select();
-        }
-
-        function deleteObservation(id, type) {
-            if (confirm('¿Está seguro de que desea borrar la observación?')) {
-                const dataArray = type === 'domicilio' ? domiciliosData : clavesData;
-                const item = dataArray.find(d => d.id === id);
-                
-                if (item) {
-                    item.OBSERVACIONES = '';
-                    const obsContent = document.getElementById(`obs-${id}`);
-                    const textarea = obsContent.querySelector('.observation-text');
-                    textarea.value = '';
-                    alert('Observación borrada');
-                    saveDataToLocal(); // Guarda en local
-                    renderTables();    // Re-renderiza para actualizar el color del botón
-                }
-            }
-        }
-
-        function closeObservation(id) {
-            const obsContent = document.getElementById(`obs-${id}`);
-            obsContent.classList.remove('show');
-        }
-
-        // Integración con Google Drive
-        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-        
-        async function initializeGapiClient() { 
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); 
-            gapiInited = true; 
-            maybeEnableButtons(); 
         }
         
-        function gisLoaded() { 
-            tokenClient = google.accounts.oauth2.initTokenClient({ 
-                client_id: CLIENT_ID, 
-                scope: SCOPES, 
-                callback: '' 
-            }); 
-            gisInited = true; 
-            maybeEnableButtons(); 
-        }
-        
-        function maybeEnableButtons() { 
-            if (gapiInited && gisInited) {}
-        }
-        
-        function updateDriveStatus(message, isConnected = false) { 
-            driveStatusEl.style.display = 'block'; 
-            driveStatusEl.textContent = message; 
-            driveStatusEl.style.background = isConnected ? '#d1e7dd' : '#fff3cd'; 
-            driveStatusEl.style.color = isConnected ? '#0f5132' : '#664d03';
-        }
-
-        function handleConnectDrive() {
-            if (!authenticateUser()) return;
-            handleAuthClick();
-        }
-
-        function handleAuthClick() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error) throw (resp);
-                updateDriveStatus('✅ Conectado a Google Drive', true);
-                connectDriveBtn.style.display = 'none'; 
-                saveToDriveBtn.style.display = 'inline-block'; 
-                loadFromDriveBtn.style.display = 'inline-block';
-                saveToDriveBtn.onclick = saveDataToDrive; 
-                loadFromDriveBtn.onclick = loadDataFromDrive;
-                await findDataFile();
-            };
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            } else {
-                tokenClient.requestAccessToken({prompt: ''});
+        document.addEventListener('mouseover', function(e) {
+            let target = e.target;
+            while (target && !target.classList.contains('obs-cell')) {
+                target = target.parentElement;
             }
-        }
-
-        async function findDataFile() {
-            updateDriveStatus('Buscando archivo de datos en Drive...', false);
-            try {
-                const response = await gapi.client.drive.files.list({ 
-                    q: `name='${DATA_FILE_NAME}' and trashed=false`, 
-                    fields: 'files(id, name)', 
-                    spaces: 'drive' 
-                });
-                if (response.result.files.length > 0) { 
-                    dataFileId = response.result.files[0].id; 
-                    updateDriveStatus('✅ Archivo de datos encontrado en Drive.', true); 
-                } else { 
-                    updateDriveStatus('⚠️ Archivo no encontrado. Se creará uno nuevo al guardar.', false); 
-                    dataFileId = null; 
-                }
-            } catch (err) { 
-                console.error(err); 
-                alert('Error al buscar el archivo de datos en Drive.'); 
-            }
-        }
-        
-        async function saveDataToDrive() {
-            if (!authenticateUser()) return;
-            if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobrescribirá la versión anterior en la nube.')) return;
-            updateDriveStatus('Guardando datos en Drive...', false);
-            try {
-                const dataToSave = {
-                    domicilios: domiciliosData,
-                    claves: clavesData
-                };
-                const content = JSON.stringify(dataToSave, null, 2);
-                dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
-                updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al guardar en Drive.', false); 
-            }
-        }
-
-        async function loadDataFromDrive() {
-            if (!authenticateUser()) return;
-            if (!dataFileId) return alert("No se ha encontrado un archivo de datos. Guarda primero para crear uno.");
-            if (!confirm("¿Seguro? Se reemplazarán los datos locales con los de Drive.")) return;
-            updateDriveStatus('Cargando datos desde Drive...', false);
-            try {
-                const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                const loadedData = JSON.parse(response.body);
-                
-                domiciliosData = loadedData.domicilios || [];
-                clavesData = loadedData.claves || [];
-                
-                renderTables();
-                saveDataToLocal(); // Guarda en local los datos recién cargados de Drive
-                updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
-            } catch (err) { 
-                console.error(err); 
-                updateDriveStatus('❌ Error al cargar desde Drive.', false); 
-                alert('Error al cargar desde Drive: ' + err.message); 
-            }
-        }
-        
-        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-            const boundary = '-------314159265358979323846';
-            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) };
-            const base64Data = btoa(unescape(encodeURIComponent(content)));
-            const requestBody =
-                `--${boundary}\r\n` +
-                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-                JSON.stringify(metadata) +
-                `\r\n--${boundary}\r\n` +
-                `Content-Type: ${mimeType}\r\n` +
-                `Content-Transfer-Encoding: base64\r\n\r\n` +
-                base64Data +
-                `\r\n--${boundary}--`;
-            
-            const request = gapi.client.request({
-                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
-                method: fileIdToUpdate ? 'PATCH' : 'POST',
-                params: { uploadType: 'multipart' },
-                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                body: requestBody
-            });
-            const response = await request;
-            return response.result.id;
-        }
-
-        // Utilidades adicionales con autenticación
-        function authenticatedExportToJSON() {
-            if (!authenticateUser()) return;
-            exportToJSON();
-        }
-
-        function authenticateForImport() {
-            if (!authenticateUser()) return false;
-            document.getElementById('importFile').click();
-            return false;
-        }
-
-        function exportToExcel() {
-            if (!authenticateUser()) return;
-            
-            const wb = XLSX.utils.book_new();
-            
-            const domiciliosForExcel = domiciliosData.map(item => ({
-                'Domicilios Electrónicos': item.DOMICILIOS_ELECTRONICOS || '',
-                'Link': item.LINK || '',
-                'Observaciones': item.OBSERVACIONES || ''
-            }));
-            
-            const clavesForExcel = clavesData.map(item => ({
-                'Link': item.LINK || '',
-                'Detalle': item.DETALLE || '',
-                'Usuario': item.USUARIO || '',
-                'Contraseña': item.CONTRASEÑA || '',
-                'Observaciones': item.OBSERVACIONES || ''
-            }));
-            
-            const wsDomicilios = XLSX.utils.json_to_sheet(domiciliosForExcel);
-            const wsClaves = XLSX.utils.json_to_sheet(clavesForExcel);
-            
-            XLSX.utils.book_append_sheet(wb, wsDomicilios, "Domicilios Electrónicos");
-            XLSX.utils.book_append_sheet(wb, wsClaves, "Claves y Accesos");
-            
-            const colWidths = [ {wch: 40}, {wch: 30}, {wch: 20}, {wch: 20}, {wch: 30} ];
-            
-            wsDomicilios['!cols'] = colWidths.slice(0, 3);
-            wsClaves['!cols'] = colWidths;
-            
-            const fileName = `credenciales_estudio_${new Date().toISOString().split('T')[0]}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-        }
-
-        function exportToJSON() {
-            const dataToExport = {
-                domicilios: domiciliosData,
-                claves: clavesData,
-                timestamp: new Date().toISOString(),
-                version: '2.0'
-            };
-            
-            const dataStr = JSON.stringify(dataToExport, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `credenciales_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-        function importFromJSON(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    if (confirm('¿Importar datos? Esto reemplazará todos los datos actuales.')) {
-                        domiciliosData = importedData.domicilios || [];
-                        clavesData = importedData.claves || [];
-                        renderTables();
-                        saveDataToLocal(); // Guarda en local los datos recién importados
-                        alert('Datos importados correctamente');
-                    }
-                } catch (error) {
-                    alert('Error al importar el archivo: formato inválido');
-                    console.error('Error de importación:', error);
-                }
-            };
-            reader.readAsText(file);
-            
-            event.target.value = '';
-        }
-
-        // Eventos y atajos de teclado
-        document.addEventListener('keydown', function(event) {
-            if (event.ctrlKey && event.key === 's') {
-                event.preventDefault();
-                if (saveToDriveBtn.style.display !== 'none') {
-                    saveDataToDrive();
-                }
-            }
-            
-            if (event.key === 'Escape') {
-                const activeElement = document.activeElement;
-                if (activeElement && activeElement.classList.contains('editable-cell')) {
-                    activeElement.blur();
-                }
-                
-                document.querySelectorAll('.observation-content.show').forEach(obs => {
-                    obs.classList.remove('show');
-                });
-            }
-            
-            if (event.ctrlKey) {
-                switch(event.key) {
-                    case '1':
-                        event.preventDefault();
-                        authenticatedSetViewMode('vertical', {target: document.querySelector('.tab-btn')});
-                        break;
-                    case '2':
-                        event.preventDefault();
-                        authenticatedSetViewMode('domicilios', {target: document.querySelectorAll('.tab-btn')[1]});
-                        break;
-                    case '3':
-                        event.preventDefault();
-                        authenticatedSetViewMode('claves', {target: document.querySelectorAll('.tab-btn')[2]});
-                        break;
-                }
+            if (target) {
+                target.classList.add('show');
             }
         });
 
-        // Cerrar observaciones al hacer clic fuera
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.observation-cell')) {
-                document.querySelectorAll('.observation-content.show').forEach(obs => {
-                    obs.classList.remove('show');
-                });
+        document.addEventListener('mouseout', function(e) {
+            let target = e.target;
+            while (target && !target.classList.contains('obs-cell')) {
+                target = target.parentElement;
+            }
+            if (target) {
+                target.classList.remove('show');
             }
         });
 
-        // Inicialización al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            loadDataFromLocal(); // Carga datos locales en las variables
-            renderTables(); // Renderiza las tablas (estarán ocultas al inicio)
+            // Carga de datos desde un archivo JSON local (credenciales_actualizadas.json)
+            fetch('credenciales_actualizadas.json')
+                .then(response => response.json())
+                .then(data => {
+                    domiciliosData = data.domicilios || [];
+                    clavesData = data.claves || [];
+                    // No renderizar tablas al inicio, solo cargar datos
+                })
+                .catch(error => {
+                    console.error('Error al cargar el archivo JSON:', error);
+                    // Cargar datos desde localStorage como fallback
+                    loadDataFromLocal();
+                });
             
+            // Event listener para la búsqueda
+            document.getElementById('generalSearchInput').addEventListener('input', searchGeneral);
+            
+            // Ocultar tarjetas al inicio
             document.getElementById('domiciliosCard').classList.add('hidden');
             document.getElementById('clavesCard').classList.add('hidden');
             
+            // Mensaje inicial
             const mainContent = document.querySelector('.main-content');
             const initialMessage = document.createElement('div');
             initialMessage.id = 'initialMessage';
@@ -1115,13 +457,14 @@
                 padding: 50px; 
                 color: var(--dark-text); 
                 font-size: 1.2em;
-                background: #f8f9fa;
-                border-radius: 12px;
+                background: var(--light-text);
+                border-radius: var(--border-radius);
                 margin: 20px 0;
+                box-shadow: var(--shadow);
             `;
             initialMessage.innerHTML = `
-                <h3 style="color: var(--primary-color); margin-bottom: 15px;">🔒 Acceso Restringido</h3>
-                <p>Seleccione una opción de visualización para acceder a los datos.</p>
+                <h3 style="color: var(--primary-color); margin-bottom: 15px;">Bienvenida, Dra. Camila Florencia Rodríguez García</h3>
+                <p>Seleccione "Ver Domicilios" o "Ver Credenciales" para comenzar.<br>También puede utilizar la barra de búsqueda para encontrar un registro específico.</p>
             `;
             
             const verticalLayout = document.getElementById('verticalLayout');
