@@ -212,8 +212,8 @@ function sanitizeData(data){
     s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[];
     s.observaciones.forEach(o=>{
         o.id=o.id||generateId({});
-        o.texto = o.texto || ''; // Asegurar que texto existe
-        o.textoPrivado = o.textoPrivado || ''; // **NUEVO:** Asegurar que textoPrivado existe
+        o.texto = o.texto || '';
+        o.textoPrivado = o.textoPrivado || '';
         o.completed=typeof o.completed==='boolean'?o.completed:false;
     });
     s.mediaciones_list.forEach(m=>{
@@ -401,7 +401,7 @@ function renderHistoryList(s){
             tagClass = 'tag-task'; tagText = 'TAREA'; itemClass = '';
             dateLabel = 'Creación'; dateValue = item.fecha;
             deleteFunc = `deleteObs('${s.id}','${item.id}')`;
-        } else { // Mediacion
+        } else {
             tagClass = 'tag-mediacion'; tagText = 'MEDIACIÓN'; itemClass = 'history-item-mediacion';
             dateLabel = 'Fecha'; dateValue = item.fecha;
             timeValue = formatTime(item.hora);
@@ -512,7 +512,86 @@ function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new Fi
 function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div>`).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
 function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
 
-// ... (resto del script de Google Drive y Alertas) ...
+function mostrarAlertaDeMediaciones(mediacionesPorAlertar) {
+    if (mediacionesPorAlertar.length === 0) return;
+    const modal = document.getElementById('alertModal');
+    if (modal.classList.contains('active')) return;
+    const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">
+        ${mediacionesPorAlertar.map(alert => `<div class="review-item today">
+            <div class="review-item-content" style="width:100%;">
+                <div class="review-date" style="font-size: 1.1em; color: var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div>
+                <div class="review-client">${getDisplayName(alert.siniestro)}</div>
+                <div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div>
+                <div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+                    <button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}', '${alert.item.id}')">✅ Hecho</button>
+                    <button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}', '${alert.item.id}')">🗓️ Posponer (Fecha)</button>
+                    <button class="btn btn-info btn-sm" onclick="snoozeMediacion(30)">🕒 30 min</button>
+                    <button class="btn btn-info btn-sm" onclick="snoozeMediacion(60)">🕒 1 hs</button>
+                </div>
+            </div>
+        </div>`).join('')}</div>`;
+    modal.querySelector('.modal-content').innerHTML = content;
+    modal.classList.add('active');
+    mediacionesPorAlertar.forEach(alerta => {
+        const s = siniestrosData.find(s => s.id === alerta.siniestro.id);
+        const m = s.mediaciones_list.find(m => m.id === alerta.item.id);
+        if (m) m.alertaMostrada = true;
+    });
+    saveData();
+}
+
+function revisarMediacionesVencidasAlCargar() {
+    const ahora = new Date();
+    const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+    const mediacionesVencidas = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));
+    mostrarAlertaDeMediaciones(mediacionesVencidas);
+}
+
+function iniciarVigilanteDeMediaciones() {
+    setInterval(() => {
+        const ahora = new Date();
+        const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+        const mediacionesPorAlertar = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));
+        if (mediacionesPorAlertar.length > 0) { mostrarAlertaDeMediaciones(mediacionesPorAlertar); }
+    }, 60000);
+}
+
+function marcarMediacionCompleta(siniestroId, mediacionId) {
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    if(s) { const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) m.completed = true; }
+    saveData(); renderAll(); closeModal('alertModal');
+}
+
+function showRescheduleModal(siniestroId, mediacionId) {
+    const modal = document.getElementById('rescheduleModal');
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    const m = s.mediaciones_list.find(y => y.id === mediacionId);
+    const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar Mediación</h3><p><b>Caso:</b> ${s.cliente}</p><div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div><div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div><div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button></div>`;
+    modal.querySelector('.modal-content').innerHTML = content;
+    closeModal('alertModal');
+    modal.classList.add('active');
+}
+
+function confirmReschedule(siniestroId, mediacionId) {
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    if(s) {
+        const m = s.mediaciones_list.find(y => y.id === mediacionId);
+        if(m) {
+            m.fecha = document.getElementById('rescheduleDate').value;
+            m.hora = document.getElementById('rescheduleTime').value;
+            m.alertaMostrada = false;
+        }
+    }
+    saveData(); renderAll(); closeModal('rescheduleModal');
+    updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
+}
+
+function snoozeMediacion(minutos) {
+    closeModal('alertModal');
+    updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);
+    setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);
+}
+
 
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
@@ -540,7 +619,194 @@ window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))clos
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
-// ... (script de Google Drive y Alertas sin cambios)
+const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+const GD_DATA_FILE='datos_planilla_siniestros.json';
+const GD_DOCS_ROOT='Planilla_Siniestros_Documentos';
+
+let tokenClient;
+let gapiReady = false, gisReady = false;
+let gdDataFileId = null, gdDocsFolderId = null;
+
+function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+
+async function initializeGapiClient() {
+    try {
+        await gapi.client.init({
+            apiKey: GD_API_KEY,
+            discoveryDocs: [
+                'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+                'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
+            ]
+        });
+        gapiReady = true;
+        maybeEnableButtons();
+    } catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }
+}
+
+function gisLoaded() {
+    try {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GD_CLIENT_ID,
+            scope: GD_SCOPES,
+            callback: tokenResponseCallback,
+        });
+        gisReady = true;
+        maybeEnableButtons();
+    } catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }
+}
+
+function maybeEnableButtons() {
+    if (gapiReady && gisReady) {
+        document.getElementById('connectDriveBtn').onclick = handleAuthClick;
+    }
+}
+
+function handleAuthClick() {
+    if (tokenClient) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+}
+
+async function tokenResponseCallback(resp) {
+    if (resp.error) {
+        updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true);
+        return;
+    }
+    try {
+        gapi.client.setToken({ access_token: resp.access_token });
+        document.getElementById('connectDriveBtn').style.display = 'none';
+        const saveBtn = document.getElementById('saveToDriveBtn');
+        const loadBtn = document.getElementById('loadFromDriveBtn');
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-block';
+            saveBtn.onclick = saveDataToDrive;
+        }
+        if (loadBtn) {
+            loadBtn.style.display = 'inline-block';
+            loadBtn.onclick = loadDataFromDrive;
+        }
+        updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false);
+        await findDataFile();
+    } catch (e) {
+        console.error("Error en callback:", e);
+        updateDataStatus('❌ Ocurrió un error después de conectar.', true);
+    }
+}
+
+async function addEventToGoogleCalendar(siniestro, mediacion) {
+    if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
+    updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
+    try {
+        const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
+        const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
+        const event = {
+            'summary': `Mediación: ${siniestro.cliente}`,
+            'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,
+            'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
+            'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },
+        };
+        await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
+        updateDataStatus('✅ Evento creado en Google Calendar.', false);
+    } catch(e) {
+        console.error("Error creando evento:", e);
+        updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);
+    }
+}
+
+async function findDataFile(){
+  updateDataStatus('🔎 Buscando archivo de Drive...', false);
+  try {
+    const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
+    if (response.result.files && response.result.files.length > 0) {
+        gdDataFileId = response.result.files[0].id;
+        updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);
+    } else {
+        updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);
+    }
+  } catch(e) {
+      console.error("Error buscando archivo:", e);
+      updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);
+  }
+}
+
+async function saveDataToDrive() {
+    if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
+    if (!confirm('¿Guardar datos en Drive?')) return;
+    updateDataStatus('💾 Guardando en Drive...', false);
+    
+    const content = JSON.stringify(siniestrosData, null, 2);
+    const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+
+    try {
+        let request;
+        if (gdDataFileId) {
+            request = gapi.client.request({
+                path: `/upload/drive/v3/files/${gdDataFileId}`,
+                method: 'PATCH',
+                params: { uploadType: 'media' },
+                body: content
+            });
+        } else {
+             request = gapi.client.drive.files.create({
+                resource: metadata,
+                media: { mimeType: 'application/json', body: content },
+                fields: 'id'
+            });
+        }
+        const response = await request;
+        if (response.result.id) gdDataFileId = response.result.id;
+        updateDataStatus('✅ Guardado en Drive con éxito.', false);
+    } catch (e) {
+        console.error('Error en saveDataToDrive:', e);
+        updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);
+    }
+}
+
+async function loadDataFromDrive(){
+  if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.');
+  if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; }
+  if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
+  updateDataStatus('📥 Cargando desde Drive...', false);
+  try {
+    const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
+    const imported = JSON.parse(response.body);
+    if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
+    siniestrosData = sanitizeData(imported);
+    saveData();
+    renderAll();
+    updateDataStatus('✅ Datos cargados desde Drive.', false);
+  } catch(e) {
+    console.error("Error cargando datos:", e);
+    updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);
+  }
+}
+
+async function showDocumentModal(sid) {
+    if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.');
+    currentSiniestroIdForDocs = sid;
+    localFilesForUpload = [];
+    const s = siniestrosData.find(x => x.id === sid); if (!s) return;
+    document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`;
+    document.getElementById('documentModal').classList.add('active');
+    renderLocalFileList(); await renderDriveFileList();
+    const area = document.getElementById('uploadArea');
+    ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false));
+    ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false));
+    ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false));
+    area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);
+}
+
+function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
+function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
+function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
+function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
+async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
+async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
+async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
+async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
+async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
 </script>
 </body>
 </html>
