@@ -116,7 +116,7 @@
         .info-grid.full-width > .info-item { grid-column: 1 / -1; }
         .info-item { background: var(--light-text); padding: 12px; border-radius: 5px; border-left: 3px solid var(--primary-color); }
         .info-label { font-size: 0.8em; color: #666; text-transform: uppercase; font-weight: 600; }
-        .info-value { font-size: 1em; color: var(--dark-text); margin-top: 2px; font-weight: 500; }
+        .info-value { font-size: 1em; color: var(--dark-text); margin-top: 2px; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
         .editable-field { cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s ease; min-height: 20px; }
         .editable-field:hover { background-color: #e8f4fd; color: #2980b9; }
         .history-section { margin-top: 20px; }
@@ -477,8 +477,8 @@
                 <div class="client-info">
                     <h4>📋 Información del Caso</h4>
                     <div class="info-grid">
-                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias'}).map(([key, label]) => `
-                        <div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}', '${String(client[key] || '').replace(/'/g, '&#39;')}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
+                        ${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias', notas: '📌 Notas'}).map(([key, label]) => `
+                        <div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}', '${String(client[key] || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;')}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
                         <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                     </div>
                 </div>
@@ -606,22 +606,62 @@
         }
 
         function editField(clientId, fieldName, currentValue) {
-            editingClientId = clientId; editingField = fieldName;
+            if (editingClientId) { // Si ya hay un campo en edición, lo guarda primero.
+                saveField();
+            }
+            editingClientId = clientId;
+            editingField = fieldName;
             const fieldElement = document.getElementById(`field-${fieldName}`);
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = currentValue;
-            fieldElement.innerHTML = ''; fieldElement.appendChild(input); input.focus();
-            input.addEventListener('blur', saveField);
-            input.addEventListener('keypress', e => { if (e.key === 'Enter') saveField(); });
+            
+            let inputElement;
+            if (fieldName === 'notas') {
+                inputElement = document.createElement('textarea');
+                inputElement.style.width = '100%';
+                inputElement.style.height = '120px';
+                inputElement.style.fontFamily = 'inherit';
+                inputElement.style.fontSize = 'inherit';
+                inputElement.className = 'form-group textarea'; // Para consistencia de estilos
+            } else {
+                inputElement = document.createElement('input');
+                inputElement.type = 'text';
+                inputElement.className = 'form-group input'; // Para consistencia de estilos
+                inputElement.addEventListener('keypress', e => { if (e.key === 'Enter') e.target.blur(); });
+            }
+            
+            inputElement.value = currentValue;
+            fieldElement.innerHTML = ''; 
+            fieldElement.appendChild(inputElement); 
+            inputElement.focus();
+            inputElement.addEventListener('blur', saveField);
         }
+
         function saveField() {
             if (!editingClientId || !editingField) return;
             const client = clientsData.find(c => c.id === editingClientId);
-            const input = document.getElementById(`field-${editingField}`).querySelector('input');
-            if (client && input) { client[editingField] = input.value; saveData(); renderAll(); showClientModal(editingClientId); }
-            editingClientId = null; editingField = null;
+            const fieldElement = document.getElementById(`field-${editingField}`);
+            if (!fieldElement) return;
+
+            const input = fieldElement.querySelector('input, textarea');
+            if (client && input) { 
+                client[editingField] = input.value; 
+                saveData(); 
+                
+                // Preparamos los valores para la restauración de la vista
+                const tempClientId = editingClientId;
+                
+                // Limpiamos el estado de edición ANTES de redibujar
+                editingClientId = null; 
+                editingField = null;
+
+                renderAll(); 
+                showClientModal(tempClientId);
+            } else {
+                 // Si no se encuentra input, igual reseteamos estado
+                editingClientId = null; 
+                editingField = null;
+            }
         }
+
         function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial? Esta acción no se puede deshacer.')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
         
         function addObservation(event, clientId) {
@@ -670,7 +710,7 @@
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado || ''}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');
-                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
+                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs };
             });
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
@@ -689,7 +729,7 @@
         function printClientSheet(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const printContent = `<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias'}).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key] || 'S/D'}</div></div>`).join('')}</div></div>`;
+            const printContent = `<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', audiencias: 'Resumen de Audiencias', notas: 'Notas'}).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key] || 'S/D'}</div></div>`).join('')}</div></div>`;
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);
             printWindow.document.close();
@@ -839,7 +879,7 @@
                     alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".\nPor favor, verifique los datos.`);
                     return;
                 }
-                const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', observaciones: [], audiencias_list: [], vencimientos_list: [] };
+                const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [] };
                 const obsText = document.getElementById('newObservacion').value;
                 const revDate = document.getElementById('newFechaRevision').value;
                 if (obsText && revDate) {
@@ -1161,13 +1201,3 @@
     </script>
 </body>
 </html>
-}
-HOLA GENIA, COMO ESTAS? ESPERO QUE BIEN. YA QUE ESTA TODO FUNCIONANDO OK. VAMOS A HACER EL ULTIMO PASO, QUE ES MEJORAR EL PROMT. TE PASO EL HTML QUE TIENE QUE LEVANTAR PARA QUE NO HAYA ERRORES Y LAS PREGUNTAS QUE TIENEN QUE CONTESTAR LA IA.
-1. QUE SIGNIFICA SCVA
-2. QUE SIGNIFICA EXPEDIENTE A DESPACHO
-3. QUE ES UN OFICIO
-4. QUE ES UN PROVEIDO
-5. QUE ES UNA MEDIACION
-
-ESO LO TENES QUE PASAR AL SERVER JS PARA QUE LA IA LO LEVANTE Y LO PUEDA CONTESTAR, Y QUE EL CLIENTE TENGA ACCESO A ESA INFORMACION.
-Y OTRA COSA. CUANDO EL CLIENTE ME QUIERA HACER UNA CONSULTA, DEBEMOS PONER UN BOTON PARA QUE CONSULTE A LA IA DE GARCIA Y ASOCIADOS Y NO A MI WSP. SE ENTIENDE?
