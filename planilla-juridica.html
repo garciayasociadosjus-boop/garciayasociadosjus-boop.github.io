@@ -154,6 +154,52 @@
         .document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
+        /* --- ESTILOS NUEVOS PARA EL RESUMEN SEMANAL --- */
+        .weekly-glance {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0 5px 0;
+            gap: 10px;
+            flex-wrap: wrap;
+            transition: all 0.4s ease-in-out;
+        }
+        .day-circle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #f0f4f7;
+            border: 2px solid #e1e8ed;
+            transition: all 0.3s ease;
+        }
+        .day-circle.has-tasks {
+            background: #fff9e6;
+            border-color: var(--warning-color);
+            font-weight: bold;
+        }
+        .day-circle.is-today {
+             background: #e8f2ff;
+             border-color: var(--primary-color);
+        }
+        .day-circle .day-name {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: var(--dark-text);
+        }
+        .day-circle .day-count {
+            font-size: 1.4em;
+            color: var(--primary-color);
+            margin-top: 2px;
+        }
+        .day-circle.has-tasks .day-count {
+            color: #d35400;
+        }
+        .toggle-icon { display: inline-block; margin-left: 8px; }
+        /* --- FIN DE ESTILOS NUEVOS --- */
+
         @media print {
             body * { visibility: hidden; }
             .print-area, .print-area * { visibility: visible; }
@@ -177,6 +223,14 @@
             <div id="dataStatus" class="data-status">Cargando datos...</div>
             <div id="driveStatus" class="data-status" style="display: none;"></div>
 
+            <section class="card" style="margin-bottom: 30px;">
+                <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
+                    🗓️ Resumen de la Próxima Semana
+                    <span class="toggle-icon">➖</span>
+                </h3>
+                <div id="weeklyGlanceContainer" class="weekly-glance">
+                    </div>
+            </section>
             <section class="dashboard">
                 <div class="card today-reviews">
                     <h3><i class="icon"></i>Revisiones de Hoy</h3>
@@ -317,6 +371,21 @@
         function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
         
+        // --- FUNCIÓN NUEVA PARA OCULTAR/MOSTRAR PANELES ---
+        function toggleVisibility(elementId) {
+            const element = document.getElementById(elementId);
+            const icon = element.previousElementSibling.querySelector('.toggle-icon');
+            if (!element || !icon) return;
+            
+            if (element.style.display === 'none') {
+                element.style.display = 'flex'; // Usamos flex para el contenedor de círculos
+                icon.textContent = '➖';
+            } else {
+                element.style.display = 'none';
+                icon.textContent = '➕';
+            }
+        }
+
         function toggleFormVisibility(formId) {
             const formElement = document.getElementById(formId);
             const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
@@ -354,8 +423,60 @@
                 updateClientNextRevision(c);
                 updateAudienciasSummary(c);
             });
+            renderWeeklyGlance(); // <--- Llamada a la nueva función
             renderDashboardLists();
             renderAllClientsList();
+        }
+
+        // --- FUNCIÓN NUEVA PARA RENDERIZAR EL RESUMEN SEMANAL ---
+        function renderWeeklyGlance() {
+            const container = document.getElementById('weeklyGlanceContainer');
+            if (!container) return;
+
+            const counts = Array(7).fill(0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const allSchedulableItems = clientsData.flatMap(client => {
+                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
+                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
+                return [...tasks, ...audiences, ...vencimientos];
+            });
+
+            allSchedulableItems.forEach(item => {
+                if (!item.reviewDate) return;
+                // Usar T00:00:00 para evitar problemas de zona horaria al crear el objeto Date
+                const itemDate = new Date(item.reviewDate + 'T00:00:00');
+                const diffTime = itemDate - today;
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays >= 0 && diffDays < 7) {
+                    counts[diffDays]++;
+                }
+            });
+
+            const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+            let html = '';
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const dayOfWeek = date.getDay();
+                const dayName = dayNames[dayOfWeek];
+                const dateNumber = date.getDate();
+
+                const hasTasksClass = counts[i] > 0 ? 'has-tasks' : '';
+                const isTodayClass = i === 0 ? 'is-today' : '';
+                const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+                html += `
+                    <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}">
+                        <span class="day-name">${dayName} ${dateNumber}</span>
+                        <span class="day-count">${counts[i]}</span>
+                    </div>
+                `;
+            }
+            container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
         }
 
         function renderDashboardLists() {
