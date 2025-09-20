@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+    <meta charset="UTF-8">
+    <title>Estadísticas - García & Asociados</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #1e3a8a; --secondary-color: #1e293b; --success-color: #059669; --danger-color: #dc2626; --warning-color: #f59e0b; --info-color: #6366f1; --light-bg: #f8fafc; --text-dark: #1e293b; --text-light: #f1f5f9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; min-height: 100vh; padding: 20px; color: var(--text-dark); }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); color: var(--text-light); padding: 30px; text-align: center; border-bottom: 5px solid var(--primary-color); }
+        .header h1 { font-size: 2.2em; margin-bottom: 8px; }
+        .main-content { padding: 30px; }
+        .controls { background: var(--light-bg); padding: 20px; border-radius: 10px; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-weight: 600; font-size: .85em; }
+        .form-group select { padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: .9em; }
+        .btn { background: var(--primary-color); color: var(--text-light); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: .9em; transition: .25s; font-weight: 600; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(30,58,138,.3); }
+        .btn-success { background: var(--success-color); }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; }
+        .chart-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,.07); border: 1px solid #e2e8f0; }
+        .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
+        .data-status { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+        .status-success { background: #d1e7dd; color: #0f5132; }
+        .status-warning { background: #fff3cd; color: #664d03; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📊 Estadísticas y Gráficos</h1>
+            <p>Portal de Visualización de Datos del Estudio</p>
+        </header>
+
+        <main class="main-content">
+            <div id="dataStatus" class="data-status" style="display:none;"></div>
+
+            <div class="controls">
+                <button class="btn btn-success" id="syncButton">🔄 Sincronizar Datos</button>
+                <div class="form-group">
+                    <label for="yearFilter">Seleccionar Año:</label>
+                    <select id="yearFilter"></select>
+                </div>
+                 <div class="form-group">
+                    <label for="chartTypeSelector">Tipo de Gráfico Principal:</label>
+                    <select id="chartTypeSelector">
+                        <option value="bar">Barras</option>
+                        <option value="line">Líneas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>Ingresos vs. Egresos Mensuales</h3>
+                    <canvas id="ingresosEgresosChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Distribución de Ingresos</h3>
+                    <canvas id="distribucionIngresosChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Volumen de Casos (Actividad Mensual)</h3>
+                    <canvas id="casosChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Objeto para almacenar todos los datos sincronizados
+            const allData = {
+                siniestros: [],
+                juridica: [],
+                abonos: [],
+                egresos: {}
+            };
+
+            // Objeto para mantener las instancias de los gráficos
+            const charts = {};
+
+            const statusEl = document.getElementById('dataStatus');
+            const yearFilterEl = document.getElementById('yearFilter');
+            const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
+
+            /**
+             * Función principal de sincronización. Lee los datos de localStorage.
+             */
+            function sincronizarDatos() {
+                try {
+                    allData.siniestros = JSON.parse(localStorage.getItem('planilla_siniestros_data')) || [];
+                    allData.juridica = JSON.parse(localStorage.getItem('planilla_juridica_data')) || [];
+                    allData.abonos = JSON.parse(localStorage.getItem('abonosData')) || [];
+                    allData.egresos = JSON.parse(localStorage.getItem('ingresosEgresosData')) || {};
+                    
+                    statusEl.textContent = '✅ Datos sincronizados correctamente.';
+                    statusEl.className = 'data-status status-success';
+                    statusEl.style.display = 'block';
+
+                    poblarSelectorDeAnio();
+                    renderizarGraficos();
+
+                } catch (error) {
+                    console.error("Error al sincronizar:", error);
+                    statusEl.textContent = '❌ Error al sincronizar los datos. Verifique la consola.';
+                    statusEl.className = 'data-status status-warning';
+                    statusEl.style.display = 'block';
+                }
+            }
+            
+            /**
+             * Extrae todos los años únicos de los datos para poblar el filtro.
+             */
+            function poblarSelectorDeAnio() {
+                const years = new Set();
+                
+                // Extraer años de todas las fuentes de datos
+                [...allData.siniestros, ...allData.juridica, ...allData.abonos].forEach(item => {
+                    const date = item.fechaRevision || item.proximaRevision || item.fechaPago || (item.mesServicio ? `${item.mesServicio.year}-${item.mesServicio.month + 1}-01` : null);
+                    if (date) years.add(new Date(date + 'T00:00:00').getFullYear());
+                });
+
+                Object.keys(allData.egresos).forEach(monthKey => {
+                    years.add(parseInt(monthKey.split('-')[0]));
+                });
+
+                yearFilterEl.innerHTML = '';
+                const sortedYears = Array.from(years).sort((a, b) => b - a);
+                sortedYears.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilterEl.appendChild(option);
+                });
+            }
+
+            /**
+             * Procesa los datos crudos para un año específico y los prepara para los gráficos.
+             */
+            function procesarDatos(year) {
+                // Plantilla de datos para los 12 meses
+                const dataTemplate = () => ({
+                    ingresos: { total: 0, abonos: 0, siniestros: 0 },
+                    egresos: 0,
+                    casos: { juridica: 0, siniestros: 0 }
+                });
+                const monthlyData = Array.from({ length: 12 }, dataTemplate);
+
+                // 1. Procesar Abonos (Ingresos)
+                allData.abonos.forEach(abono => {
+                    if (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial') {
+                        const fecha = abono.fechaPago;
+                        if (fecha && new Date(fecha + 'T00:00:00').getFullYear() === year) {
+                            const month = new Date(fecha + 'T00:00:00').getMonth();
+                            const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
+                            if (abono.tipo !== 'Pago de Bonos y AP') {
+                                monthlyData[month].ingresos.abonos += monto;
+                            }
+                        }
+                    }
+                });
+
+                // 2. Procesar Siniestros (Ingresos y Casos)
+                allData.siniestros.forEach(siniestro => {
+                    const honorarios = parseFloat(siniestro.honorarios) || 0;
+                    if (honorarios > 0 && siniestro.fechaPago && new Date(siniestro.fechaPago + 'T00:00:00').getFullYear() === year) {
+                         const month = new Date(siniestro.fechaPago + 'T00:00:00').getMonth();
+                         monthlyData[month].ingresos.siniestros += honorarios;
+                    }
+                     // Contar actividad de casos
+                    if (siniestro.fechaRevision && new Date(siniestro.fechaRevision + 'T00:00:00').getFullYear() === year) {
+                        const month = new Date(siniestro.fechaRevision + 'T00:00:00').getMonth();
+                        monthlyData[month].casos.siniestros++;
+                    }
+                });
+                
+                // 3. Procesar Jurídica (Casos)
+                 allData.juridica.forEach(caso => {
+                    if (caso.proximaRevision && new Date(caso.proximaRevision + 'T00:00:00').getFullYear() === year) {
+                        const month = new Date(caso.proximaRevision + 'T00:00:00').getMonth();
+                        monthlyData[month].casos.juridica++;
+                    }
+                });
+
+
+                // 4. Procesar Egresos
+                for (const monthKey in allData.egresos) {
+                    const [dataYear, dataMonth] = monthKey.split('-').map(Number);
+                    if (dataYear === year) {
+                        const monthIndex = dataMonth - 1;
+                        const monthTransactions = allData.egresos[monthKey].transactions || [];
+                        monthTransactions.forEach(t => {
+                            if (t.categoria === 'egreso') {
+                                monthlyData[monthIndex].egresos += parseFloat(t.monto) || 0;
+                            }
+                        });
+                    }
+                }
+                
+                // Calcular totales de ingresos
+                monthlyData.forEach(data => {
+                    data.ingresos.total = data.ingresos.abonos + data.ingresos.siniestros;
+                });
+
+                return monthlyData;
+            }
+
+            /**
+             * Dibuja o actualiza todos los gráficos en la pantalla.
+             */
+            function renderizarGraficos() {
+                const selectedYear = parseInt(yearFilterEl.value);
+                if (isNaN(selectedYear)) {
+                    // Ocultar gráficos y mostrar mensaje si no hay datos/año
+                    document.querySelector('.charts-grid').style.display = 'none';
+                    statusEl.textContent = 'No hay datos para mostrar. Sincroniza o utiliza las otras planillas primero.';
+                    statusEl.className = 'data-status status-warning';
+                    statusEl.style.display = 'block';
+                    return;
+                }
+                 document.querySelector('.charts-grid').style.display = 'grid';
+
+                const processedData = procesarDatos(selectedYear);
+                const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+                // Destruir gráficos anteriores para evitar solapamiento
+                Object.values(charts).forEach(chart => chart.destroy());
+
+                // Gráfico 1: Ingresos vs Egresos
+                const ingresosData = processedData.map(d => d.ingresos.total);
+                const egresosData = processedData.map(d => d.egresos);
+                const ctx1 = document.getElementById('ingresosEgresosChart').getContext('2d');
+                charts.ingresosEgresos = new Chart(ctx1, {
+                    type: chartTypeSelectorEl.value, // bar o line
+                    data: {
+                        labels: mesesLabels,
+                        datasets: [
+                            {
+                                label: 'Ingresos Totales',
+                                data: ingresosData,
+                                backgroundColor: 'rgba(5, 150, 105, 0.7)',
+                                borderColor: 'rgba(5, 150, 105, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Egresos Totales',
+                                data: egresosData,
+                                backgroundColor: 'rgba(220, 38, 38, 0.7)',
+                                borderColor: 'rgba(220, 38, 38, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: { scales: { y: { beginAtZero: true } }, responsive: true }
+                });
+                
+                // Gráfico 2: Distribución de Ingresos
+                const totalAbonos = processedData.reduce((sum, d) => sum + d.ingresos.abonos, 0);
+                const totalSiniestros = processedData.reduce((sum, d) => sum + d.ingresos.siniestros, 0);
+                const ctx2 = document.getElementById('distribucionIngresosChart').getContext('2d');
+                charts.distribucion = new Chart(ctx2, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Abonos', 'Honorarios Siniestros'],
+                        datasets: [{
+                            data: [totalAbonos, totalSiniestros],
+                            backgroundColor: ['rgba(99, 102, 241, 0.8)', 'rgba(245, 158, 11, 0.8)'],
+                            borderColor: ['#fff'],
+                            borderWidth: 2
+                        }]
+                    },
+                     options: { responsive: true }
+                });
+
+                // Gráfico 3: Volumen de Casos
+                const casosJuridicaData = processedData.map(d => d.casos.juridica);
+                const casosSiniestrosData = processedData.map(d => d.casos.siniestros);
+                const ctx3 = document.getElementById('casosChart').getContext('2d');
+                charts.casos = new Chart(ctx3, {
+                    type: 'line',
+                     data: {
+                        labels: mesesLabels,
+                        datasets: [
+                             {
+                                label: 'Casos Jurídicos (Actividad)',
+                                data: casosJuridicaData,
+                                borderColor: 'rgba(30, 58, 138, 1)',
+                                backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                             {
+                                label: 'Siniestros (Actividad)',
+                                data: casosSiniestrosData,
+                                borderColor: 'rgba(29, 78, 216, 1)',
+                                backgroundColor: 'rgba(29, 78, 216, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                     options: { scales: { y: { beginAtZero: true } }, responsive: true }
+                });
+            }
+
+            // --- Event Listeners ---
+            document.getElementById('syncButton').addEventListener('click', sincronizarDatos);
+            yearFilterEl.addEventListener('change', renderizarGraficos);
+            chartTypeSelectorEl.addEventListener('change', renderizarGraficos);
+
+            // Carga inicial
+            sincronizarDatos();
+        });
+    </script>
+</body>
+</html>
