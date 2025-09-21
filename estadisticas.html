@@ -57,6 +57,7 @@
             <div class="controls">
                 <button class="btn btn-success" id="syncButton">🔄 Sincronizar Datos (Local)</button>
                 <div class="form-group"><label for="yearFilter">Año:</label><select id="yearFilter"></select></div>
+                <div class="form-group"><label for="monthFilter">Mes:</label><select id="monthFilter"></select></div>
             </div>
              <div style="text-align:center;margin-bottom:30px;border-top:1px solid #ddd;padding-top:20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
@@ -65,10 +66,11 @@
             </div>
             
             <div id="dashboard" class="dashboard">
-                 <div class="card"><h3>Total Ingresos (Año)</h3><div class="value positive" id="kpiIngresos"></div></div>
-                 <div class="card"><h3>Total Egresos (Año)</h3><div class="value negative" id="kpiEgresos"></div></div>
-                 <div class="card"><h3>Balance Anual</h3><div class="value" id="kpiBalance"></div></div>
-                 <div class="card"><h3>Promedio Casos Activos</h3><div class="value" id="kpiCasos"></div></div>
+                 <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
+                 <div class="card"><h3>Ingresos</h3><div class="value positive" id="kpiIngresos"></div></div>
+                 <div class="card"><h3>Egresos</h3><div class="value negative" id="kpiEgresos"></div></div>
+                 <div class="card"><h3>Balance</h3><div class="value" id="kpiBalance"></div></div>
+                 <div class="card"><h3>Casos Activos</h3><div class="value" id="kpiCasos"></div></div>
                  <div class="card"><h3>Ingreso Prom./Caso Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
             </div>
 
@@ -88,7 +90,7 @@
                     <div class="control-group">
                         <label>2. Elige las métricas a comparar:</label>
                         <div class="metrics-list" id="metricsSelector">
-                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="custom-chart-container">
@@ -106,6 +108,7 @@
 
             const statusEl = document.getElementById('dataStatus');
             const yearFilterEl = document.getElementById('yearFilter');
+            const monthFilterEl = document.getElementById('monthFilter');
             const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
             const metricsSelectorEl = document.getElementById('metricsSelector');
             const mesesLabels = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -151,10 +154,13 @@
                 const currentYear = yearFilterEl.value;
                 yearFilterEl.innerHTML = '';
                 const sortedYears = Array.from(years).sort((a, b) => b - a);
+                if (sortedYears.length === 0) { sortedYears.push(new Date().getFullYear()); }
                 sortedYears.forEach(y => yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`);
                 if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
 
-                // Poblar checkboxes de métricas
+                monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
+                mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index}">${mes}</option>`);
+                
                 metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `
                     <label>
                         <input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 3 ? 'checked' : ''}>
@@ -164,9 +170,9 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // =========================================================================================================
-            //  NUEVA LÓGICA DE PROCESAMIENTO DE DATOS
-            // =========================================================================================================
+            // ==================================================================================
+            //  NUEVA LÓGICA DE PROCESAMIENTO DE DATOS (CORREGIDA)
+            // ==================================================================================
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
                     ingresos_totales: 0, ingresos_abonos: 0, ingresos_siniestros: 0,
@@ -176,10 +182,10 @@
 
                 const parseDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z') : null;
 
-                // --- INGRESOS ---
+                // --- INGRESOS Y EGRESOS ---
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
-                    if (fecha?.getFullYear() === year && (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial')) {
+                    if (fecha?.getFullYear() === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
                         if (abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.getMonth()].ingresos_abonos += monto;
                     }
@@ -193,7 +199,6 @@
                     }
                 });
                 
-                // --- EGRESOS ---
                 Object.keys(allData.egresos).forEach(monthKey => {
                     if (parseInt(monthKey.split('-')[0]) === year) {
                         const monthIndex = parseInt(monthKey.split('-')[1]) - 1;
@@ -203,12 +208,20 @@
                     }
                 });
 
-                // --- CASOS ACTIVOS (Lógica Mejorada) ---
+                // --- CASOS ACTIVOS (LÓGICA CORREGIDA Y ROBUSTA) ---
                 const getCaseLifeCycle = (caso) => {
-                    const dates = (caso.observaciones || []).map(o => parseDate(o.fecha || o.proximaRevision)).filter(Boolean);
-                    if (dates.length === 0) return { start: null, end: null };
-                    const start = new Date(Math.min.apply(null, dates));
-                    const end = (caso.estado === 'FINALIZADA' || caso.estado === 'Terminado') ? new Date(Math.max.apply(null, dates)) : null;
+                    let allDates = [];
+                    // Recolectar todas las fechas posibles de un caso
+                    (caso.observaciones || []).forEach(o => { allDates.push(parseDate(o.fecha)); allDates.push(parseDate(o.proximaRevision)); });
+                    (caso.audiencias_list || []).forEach(a => allDates.push(parseDate(a.fecha)));
+                    (caso.mediaciones_list || []).forEach(m => allDates.push(parseDate(m.fecha)));
+                    (caso.vencimientos_list || []).forEach(v => allDates.push(parseDate(v.fecha)));
+                    allDates = allDates.filter(Boolean); // Filtrar fechas nulas
+
+                    if (allDates.length === 0) return { start: null, end: null };
+                    
+                    const start = new Date(Math.min.apply(null, allDates));
+                    const end = ['FINALIZADA', 'Finalizada', 'Terminado'].includes(caso.estado) ? new Date(Math.max.apply(null, allDates)) : null;
                     return { start, end };
                 };
                 
@@ -230,7 +243,6 @@
                     });
                 }
                 
-                // --- CÁLCULOS FINALES ---
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos + data.ingresos_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
@@ -240,49 +252,63 @@
             }
 
             function renderizarDashboard(data) {
-                const kpis = data.reduce((acc, monthData) => {
-                    acc.ingresos += monthData.ingresos_totales;
-                    acc.egresos += monthData.egresos_totales;
-                    acc.casos.push(monthData.casos_activos_totales);
-                    return acc;
-                }, { ingresos: 0, egresos: 0, casos: [] });
-                
-                const balance = kpis.ingresos - kpis.egresos;
-                const avgCasos = kpis.casos.reduce((a, b) => a + b, 0) / kpis.casos.length;
+                const selectedMonth = monthFilterEl.value;
+                let kpis;
 
+                if (selectedMonth === 'todos') {
+                    document.getElementById('kpiTitle').textContent = 'Resumen Anual';
+                    document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
+                    const totalCasosActivos = data.reduce((sum, monthData) => sum + monthData.casos_activos_totales, 0);
+                    kpis = data.reduce((acc, monthData) => {
+                        acc.ingresos += monthData.ingresos_totales;
+                        acc.egresos += monthData.egresos_totales;
+                        return acc;
+                    }, { ingresos: 0, egresos: 0 });
+                    kpis.casos = totalCasosActivos / 12; // Promedio
+                } else {
+                    const monthIndex = parseInt(selectedMonth);
+                    document.getElementById('kpiTitle').textContent = 'Resumen Mensual';
+                    document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
+                    const monthKpis = data[monthIndex];
+                    kpis = {
+                        ingresos: monthKpis.ingresos_totales,
+                        egresos: monthKpis.egresos_totales,
+                        casos: monthKpis.casos_activos_totales
+                    };
+                }
+
+                const balance = kpis.ingresos - kpis.egresos;
                 document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = avgCasos.toFixed(1);
-                document.getElementById('kpiIngresoPorCaso').textContent = avgCasos > 0 ? formatCurrency(kpis.ingresos / avgCasos / 12) : formatCurrency(0);
+                document.getElementById('kpiCasos').textContent = kpis.casos.toFixed(1);
+                document.getElementById('kpiIngresoPorCaso').textContent = kpis.casos > 0 ? formatCurrency(kpis.ingresos / kpis.casos) : formatCurrency(0);
             }
-
+            
             function actualizarGraficoPersonalizado() {
                 if (customChartInstance) customChartInstance.destroy();
 
                 const selectedMetrics = Array.from(document.querySelectorAll('.metric-checkbox:checked')).map(cb => cb.value);
                 const chartType = chartTypeSelectorEl.value;
-
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
+
                 let datasets, labels;
 
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
-                    const annualTotals = selectedMetrics.map(key => processedDataForYear.reduce((sum, month) => sum + month[key], 0));
-                    datasets = [{
-                        data: annualTotals,
-                        backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), // Add alpha
-                        borderColor: '#fff',
-                        borderWidth: 2
-                    }];
+                    const annualTotals = selectedMetrics.map(key => {
+                        // Sumar solo valores positivos para gráficos de torta
+                        return Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0));
+                    });
+                    datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff', borderWidth: 2 }];
                 } else {
                     labels = mesesLabels;
                     datasets = selectedMetrics.map(key => ({
                         label: metricOptions[key].label,
                         data: processedDataForYear.map(month => month[key]),
                         borderColor: metricOptions[key].color,
-                        backgroundColor: metricOptions[key].color + '33', // Add alpha
+                        backgroundColor: metricOptions[key].color + '33',
                         tension: 0.1,
                         fill: chartType === 'line' || chartType === 'radar'
                     }));
@@ -306,30 +332,26 @@
                 }
                 document.querySelector('.dashboard').style.display = 'grid';
                 document.querySelector('.analysis-container').style.display = 'grid';
-
+                
                 processedDataForYear = procesarDatos(selectedYear);
                 renderizarDashboard(processedDataForYear);
                 actualizarGraficoPersonalizado();
             }
 
-            function formatCurrency(value) {
-                return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-            }
+            function formatCurrency(value) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value); }
 
-            // --- Event Listeners ---
             document.getElementById('syncButton').addEventListener('click', sincronizarDatos);
             yearFilterEl.addEventListener('change', render);
+            monthFilterEl.addEventListener('change', render); // <-- EVENTO CORREGIDO
             chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
 
             // --- Lógica de Google Drive ---
             const DATA_FILE_NAME = 'datos_estadisticas_snapshot.json';
             let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
-
             function gapiLoaded() { gapi.load('client', initializeGapiClient); }
             async function initializeGapiClient() { await gapi.client.init({ apiKey: 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM', discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']}); gapiInited = true; maybeEnableButtons(); }
             function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.file', callback: '' }); gisInited = true; maybeEnableButtons(); }
             window.gapiLoaded = gapiLoaded; window.gisLoaded = gisLoaded;
-
             function maybeEnableButtons() { if (gapiInited && gisInited) document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
             function handleAuthClick() {
                 tokenClient.callback = async (resp) => {
@@ -352,19 +374,12 @@
             async function saveDataToDrive() {
                 if (!confirm('¿Guardar una copia de seguridad de los datos sincronizados en Google Drive?')) return;
                 try {
-                    const content = JSON.stringify(allData);
-                    const boundary = 'b';
-                    const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
+                    const content = JSON.stringify(allData); const boundary = 'b'; const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
                     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
                     const req = await gapi.client.request({
-                        path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files',
-                        method: dataFileId ? 'PATCH' : 'POST',
-                        params: { uploadType: 'multipart' },
-                        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                        body: body
-                    });
-                    dataFileId = req.result.id;
-                    updateStatus('✅ Respaldo guardado en Drive con éxito.');
+                        path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files', method: dataFileId ? 'PATCH' : 'POST', params: { uploadType: 'multipart' },
+                        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: body });
+                    dataFileId = req.result.id; updateStatus('✅ Respaldo guardado en Drive con éxito.');
                 } catch (err) { updateStatus('❌ Error al guardar en Drive.', 'warning'); }
             }
             async function loadDataFromDrive() {
