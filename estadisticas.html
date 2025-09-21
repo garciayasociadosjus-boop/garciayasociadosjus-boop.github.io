@@ -182,23 +182,22 @@
 
                 const parseDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z') : null;
 
-                // --- INGRESOS Y EGRESOS ---
+                // --- INGRESOS (LÓGICA CORREGIDA) ---
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
                     if (fecha?.getFullYear() === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        if (abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.getMonth()].ingresos_abonos += monto;
-                    }
-                });
-
-                allData.siniestros.forEach(s => {
-                    const fecha = parseDate(s.fechaPago);
-                    const honorarios = parseFloat(s.honorarios) || 0;
-                    if (honorarios > 0 && fecha?.getFullYear() === year) {
-                        monthlyData[fecha.getMonth()].ingresos_siniestros += honorarios;
+                        
+                        // Derivar ingresos a la categoría correcta
+                        if (abono.tipo === 'Honorarios Siniestro') {
+                            monthlyData[fecha.getMonth()].ingresos_siniestros += monto;
+                        } else if (abono.tipo !== 'Pago de Bonos y AP') { // Otros abonos que no son siniestros
+                             monthlyData[fecha.getMonth()].ingresos_abonos += monto;
+                        }
                     }
                 });
                 
+                // --- EGRESOS ---
                 Object.keys(allData.egresos).forEach(monthKey => {
                     if (parseInt(monthKey.split('-')[0]) === year) {
                         const monthIndex = parseInt(monthKey.split('-')[1]) - 1;
@@ -208,41 +207,17 @@
                     }
                 });
 
-                // --- CASOS ACTIVOS (LÓGICA CORREGIDA Y ROBUSTA) ---
-                const getCaseLifeCycle = (caso) => {
-                    let allDates = [];
-                    // Recolectar todas las fechas posibles de un caso
-                    (caso.observaciones || []).forEach(o => { allDates.push(parseDate(o.fecha)); allDates.push(parseDate(o.proximaRevision)); });
-                    (caso.audiencias_list || []).forEach(a => allDates.push(parseDate(a.fecha)));
-                    (caso.mediaciones_list || []).forEach(m => allDates.push(parseDate(m.fecha)));
-                    (caso.vencimientos_list || []).forEach(v => allDates.push(parseDate(v.fecha)));
-                    allDates = allDates.filter(Boolean); // Filtrar fechas nulas
-
-                    if (allDates.length === 0) return { start: null, end: null };
-                    
-                    const start = new Date(Math.min.apply(null, allDates));
-                    const end = ['FINALIZADA', 'Finalizada', 'Terminado'].includes(caso.estado) ? new Date(Math.max.apply(null, allDates)) : null;
-                    return { start, end };
-                };
-                
-                const allCases = [
-                    ...allData.juridica.map(c => ({...c, type: 'juridica'})),
-                    ...allData.siniestros.map(s => ({...s, type: 'siniestros'}))
-                ];
+                // --- CASOS ACTIVOS (LÓGICA CORREGIDA SEGÚN REGLA DE NEGOCIO) ---
+                const juridicaActivos = allData.juridica.filter(c => c.estado !== 'FINALIZADA').length;
+                const siniestrosActivos = allData.siniestros.filter(s => s.estado !== 'FINALIZADA').length;
 
                 for (let i = 0; i < 12; i++) {
-                    const monthStart = new Date(year, i, 1);
-                    const monthEnd = new Date(year, i + 1, 0);
-                    allCases.forEach(caso => {
-                        const { start, end } = getCaseLifeCycle(caso);
-                        if (start && start <= monthEnd && (!end || end >= monthStart)) {
-                            monthlyData[i].casos_activos_totales++;
-                            if(caso.type === 'juridica') monthlyData[i].casos_activos_juridica++;
-                            else if(caso.type === 'siniestros') monthlyData[i].casos_activos_siniestros++;
-                        }
-                    });
+                    monthlyData[i].casos_activos_juridica = juridicaActivos;
+                    monthlyData[i].casos_activos_siniestros = siniestrosActivos;
+                    monthlyData[i].casos_activos_totales = juridicaActivos + siniestrosActivos;
                 }
                 
+                // --- CÁLCULOS FINALES ---
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos + data.ingresos_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
@@ -258,13 +233,13 @@
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Resumen Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
-                    const totalCasosActivos = data.reduce((sum, monthData) => sum + monthData.casos_activos_totales, 0);
+                    const totalCasosActivos = data[0].casos_activos_totales; // Es constante durante el año
                     kpis = data.reduce((acc, monthData) => {
                         acc.ingresos += monthData.ingresos_totales;
                         acc.egresos += monthData.egresos_totales;
                         return acc;
                     }, { ingresos: 0, egresos: 0 });
-                    kpis.casos = totalCasosActivos / 12; // Promedio
+                    kpis.casos = totalCasosActivos;
                 } else {
                     const monthIndex = parseInt(selectedMonth);
                     document.getElementById('kpiTitle').textContent = 'Resumen Mensual';
@@ -282,7 +257,7 @@
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = kpis.casos.toFixed(1);
+                document.getElementById('kpiCasos').textContent = kpis.casos;
                 document.getElementById('kpiIngresoPorCaso').textContent = kpis.casos > 0 ? formatCurrency(kpis.ingresos / kpis.casos) : formatCurrency(0);
             }
             
@@ -298,7 +273,6 @@
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
                     const annualTotals = selectedMetrics.map(key => {
-                        // Sumar solo valores positivos para gráficos de torta
                         return Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0));
                     });
                     datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff', borderWidth: 2 }];
@@ -342,7 +316,7 @@
 
             document.getElementById('syncButton').addEventListener('click', sincronizarDatos);
             yearFilterEl.addEventListener('change', render);
-            monthFilterEl.addEventListener('change', render); // <-- EVENTO CORREGIDO
+            monthFilterEl.addEventListener('change', render);
             chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
 
             // --- Lógica de Google Drive ---
