@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
     <meta charset="UTF-8">
-    <title>Estadísticas - García & Asociados</title>
+    <title>Análisis Interactivo - García & Asociados</title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -23,13 +23,6 @@
         .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(30,58,138,.3); }
         .btn-success { background: var(--success-color); }
         .btn-warning { background: var(--warning-color); }
-        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; }
-        .chart-container { 
-            background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,.07); border: 1px solid #e2e8f0;
-            position: relative; /* Clave para el tamaño del canvas */
-            height: 450px; /* Altura fija para consistencia */
-        }
-        .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
         .data-status { text-align: center; padding: 10px; border-radius: 8px; margin: 10px 0 20px 0; font-weight: bold; }
         .status-success { background: #d1e7dd; color: #0f5132; }
         .status-warning { background: #fff3cd; color: #664d03; }
@@ -39,63 +32,67 @@
         .card .value { font-size: 1.5em; font-weight: 700; color: var(--primary-color); }
         .card .value.positive { color: var(--success-color); }
         .card .value.negative { color: var(--danger-color); }
+        
+        .analysis-container { display: grid; grid-template-columns: 280px 1fr; gap: 30px; margin-top: 30px; }
+        .chart-controls { background-color: var(--light-bg); border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; }
+        .chart-controls h3 { margin-bottom: 15px; color: var(--secondary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .control-group { margin-bottom: 20px; }
+        .control-group label { font-weight: 600; display: block; margin-bottom: 10px; }
+        .control-group select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+        .metrics-list label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.95em; cursor: pointer; }
+        .custom-chart-container { position: relative; min-height: 500px; }
+        
+        @media (max-width: 900px) {
+            .analysis-container { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>📊 Estadísticas y Gráficos</h1>
-            <p>Portal de Visualización de Datos del Estudio</p>
-        </header>
+        <header class="header"><h1>🔬 Panel de Análisis Interactivo</h1><p>Visualización de Datos del Estudio</p></header>
 
         <main class="main-content">
             <div id="dataStatus" class="data-status" style="display:none;"></div>
 
             <div class="controls">
                 <button class="btn btn-success" id="syncButton">🔄 Sincronizar Datos (Local)</button>
-                <div class="form-group">
-                    <label for="yearFilter">Año:</label>
-                    <select id="yearFilter"></select>
-                </div>
-                <div class="form-group">
-                    <label for="monthFilter">Mes:</label>
-                    <select id="monthFilter"></select>
-                </div>
-                 <div class="form-group">
-                    <label for="chartTypeSelector">Tipo de Gráfico:</label>
-                    <select id="chartTypeSelector">
-                        <option value="bar">Barras</option>
-                        <option value="line">Líneas</option>
-                    </select>
-                </div>
+                <div class="form-group"><label for="yearFilter">Año:</label><select id="yearFilter"></select></div>
             </div>
              <div style="text-align:center;margin-bottom:30px;border-top:1px solid #ddd;padding-top:20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive</button>
-                <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar Respaldo en Drive</button>
-                <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar Respaldo de Drive</button>
+                <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar Respaldo</button>
+                <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar Respaldo</button>
             </div>
             
             <div id="dashboard" class="dashboard">
-                 <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
-                 <div class="card"><h3>Total Ingresos</h3><div class="value positive" id="kpiIngresos"></div></div>
-                 <div class="card"><h3>Total Egresos</h3><div class="value negative" id="kpiEgresos"></div></div>
-                 <div class="card"><h3>Balance</h3><div class="value" id="kpiBalance"></div></div>
-                 <div class="card"><h3>Casos Activos</h3><div class="value" id="kpiCasos"></div></div>
-                 <div class="card"><h3>Ingreso / Caso</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
+                 <div class="card"><h3>Total Ingresos (Año)</h3><div class="value positive" id="kpiIngresos"></div></div>
+                 <div class="card"><h3>Total Egresos (Año)</h3><div class="value negative" id="kpiEgresos"></div></div>
+                 <div class="card"><h3>Balance Anual</h3><div class="value" id="kpiBalance"></div></div>
+                 <div class="card"><h3>Promedio Casos Activos</h3><div class="value" id="kpiCasos"></div></div>
+                 <div class="card"><h3>Ingreso Prom./Caso Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
             </div>
 
-            <div class="charts-grid">
-                <div class="chart-container">
-                    <h3>Ingresos vs. Egresos Mensuales (Año Completo)</h3>
-                    <canvas id="ingresosEgresosChart"></canvas>
+            <div class="analysis-container">
+                <div class="chart-controls">
+                    <h3>Arma tu Gráfico</h3>
+                    <div class="control-group">
+                        <label for="chartTypeSelector">1. Elige un tipo de gráfico:</label>
+                        <select id="chartTypeSelector">
+                            <option value="bar">Barras</option>
+                            <option value="line">Líneas</option>
+                            <option value="pie">Torta</option>
+                            <option value="doughnut">Dona</option>
+                            <option value="radar">Radar</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>2. Elige las métricas a comparar:</label>
+                        <div class="metrics-list" id="metricsSelector">
+                            </div>
+                    </div>
                 </div>
-                <div class="chart-container">
-                    <h3>Distribución de Ingresos (Año Completo)</h3>
-                    <canvas id="distribucionIngresosChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Volumen de Casos (Actividad Mensual - Año Completo)</h3>
-                    <canvas id="casosChart"></canvas>
+                <div class="custom-chart-container">
+                    <canvas id="customChart"></canvas>
                 </div>
             </div>
         </main>
@@ -104,12 +101,25 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const allData = { siniestros: [], juridica: [], abonos: [], egresos: {} };
-            const charts = {};
+            let processedDataForYear = {};
+            let customChartInstance;
+
             const statusEl = document.getElementById('dataStatus');
             const yearFilterEl = document.getElementById('yearFilter');
-            const monthFilterEl = document.getElementById('monthFilter');
             const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
-            const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const metricsSelectorEl = document.getElementById('metricsSelector');
+            const mesesLabels = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+            const metricOptions = {
+                'ingresos_totales': { label: 'Ingresos Totales', color: '#059669' },
+                'ingresos_abonos': { label: 'Ingresos por Abonos', color: '#06b6d4' },
+                'ingresos_siniestros': { label: 'Ingresos por Siniestros', color: '#f59e0b' },
+                'egresos_totales': { label: 'Egresos Totales', color: '#dc2626' },
+                'balance': { label: 'Balance Mensual', color: '#6366f1' },
+                'casos_activos_totales': { label: 'Total Casos Activos', color: '#1e293b' },
+                'casos_activos_juridica': { label: 'Casos Jurídicos Activos', color: '#4f46e5' },
+                'casos_activos_siniestros': { label: 'Siniestros Activos', color: '#ea580c' },
+            };
 
             function updateStatus(message, type = 'success') {
                 statusEl.textContent = message;
@@ -127,297 +137,247 @@
                     updateStatus('✅ Datos locales sincronizados correctamente.');
                     poblarSelectores();
                     render();
-                } catch (error) {
-                    console.error("Error al sincronizar:", error);
-                    updateStatus('❌ Error al sincronizar los datos. Verifique la consola.', 'warning');
-                }
+                } catch (error) { console.error("Error al sincronizar:", error); updateStatus('❌ Error al sincronizar.', 'warning'); }
             }
 
             function poblarSelectores() {
                 const years = new Set();
-                [...allData.siniestros, ...allData.juridica, ...allData.abonos].forEach(item => {
-                    const date = item.fechaRevision || item.proximaRevision || item.fechaPago || (item.mesServicio ? `${item.mesServicio.year}-${item.mesServicio.month + 1}-01` : null);
-                    if (date) years.add(new Date(date + 'T00:00:00Z').getFullYear());
-                });
-                Object.keys(allData.egresos).forEach(monthKey => years.add(parseInt(monthKey.split('-')[0])));
+                const parseDateForYear = (dateStr) => { if(dateStr) years.add(new Date(dateStr + 'T00:00:00Z').getFullYear()); };
+                allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
+                allData.siniestros.forEach(s => { parseDateForYear(s.fechaPago); (s.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
+                allData.juridica.forEach(c => (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)));
+                Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
 
                 const currentYear = yearFilterEl.value;
                 yearFilterEl.innerHTML = '';
                 const sortedYears = Array.from(years).sort((a, b) => b - a);
-                sortedYears.forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
-                    yearFilterEl.appendChild(option);
-                });
-                if(sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
+                sortedYears.forEach(y => yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`);
+                if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
 
-                monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
-                mesesLabels.forEach((mes, index) => {
-                    const option = document.createElement('option');
-                    option.value = index;
-                    option.textContent = mes;
-                    monthFilterEl.appendChild(option);
-                });
+                // Poblar checkboxes de métricas
+                metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `
+                    <label>
+                        <input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 3 ? 'checked' : ''}>
+                        ${label}
+                    </label>
+                `).join('');
+                document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
+            // =========================================================================================================
+            //  NUEVA LÓGICA DE PROCESAMIENTO DE DATOS
+            // =========================================================================================================
             function procesarDatos(year) {
-                const dataTemplate = () => ({
-                    ingresos: { total: 0, abonos: 0, siniestros: 0 },
-                    egresos: 0,
-                    casos: { juridica: 0, siniestros: 0, total: 0 }
-                });
-                const monthlyData = Array.from({ length: 12 }, dataTemplate);
+                const monthlyData = Array.from({ length: 12 }, () => ({
+                    ingresos_totales: 0, ingresos_abonos: 0, ingresos_siniestros: 0,
+                    egresos_totales: 0, balance: 0,
+                    casos_activos_totales: 0, casos_activos_juridica: 0, casos_activos_siniestros: 0
+                }));
 
                 const parseDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z') : null;
 
+                // --- INGRESOS ---
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
-                    if (fecha && fecha.getFullYear() === year && (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial')) {
-                        const month = fecha.getMonth();
+                    if (fecha?.getFullYear() === year && (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial')) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        if (abono.tipo !== 'Pago de Bonos y AP') monthlyData[month].ingresos.abonos += monto;
+                        if (abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.getMonth()].ingresos_abonos += monto;
                     }
                 });
 
                 allData.siniestros.forEach(s => {
-                    const fechaPago = parseDate(s.fechaPago);
+                    const fecha = parseDate(s.fechaPago);
                     const honorarios = parseFloat(s.honorarios) || 0;
-                    if (honorarios > 0 && fechaPago && fechaPago.getFullYear() === year) {
-                        monthlyData[fechaPago.getMonth()].ingresos.siniestros += honorarios;
-                    }
-                    const fechaActividad = parseDate(s.fechaRevision) || parseDate(s.proximaRevision);
-                    if (fechaActividad && fechaActividad.getFullYear() === year) {
-                        monthlyData[fechaActividad.getMonth()].casos.siniestros++;
+                    if (honorarios > 0 && fecha?.getFullYear() === year) {
+                        monthlyData[fecha.getMonth()].ingresos_siniestros += honorarios;
                     }
                 });
-
-                allData.juridica.forEach(c => {
-                    const fechaActividad = parseDate(c.proximaRevision);
-                    if (fechaActividad && fechaActividad.getFullYear() === year) {
-                        monthlyData[fechaActividad.getMonth()].casos.juridica++;
-                    }
-                });
-
+                
+                // --- EGRESOS ---
                 Object.keys(allData.egresos).forEach(monthKey => {
-                    const [dataYear, dataMonth] = monthKey.split('-').map(Number);
-                    if (dataYear === year) {
-                        const monthIndex = dataMonth - 1;
+                    if (parseInt(monthKey.split('-')[0]) === year) {
+                        const monthIndex = parseInt(monthKey.split('-')[1]) - 1;
                         allData.egresos[monthKey].transactions?.forEach(t => {
-                            if (t.categoria === 'egreso') monthlyData[monthIndex].egresos += parseFloat(t.monto) || 0;
+                            if (t.categoria === 'egreso') monthlyData[monthIndex].egresos_totales += parseFloat(t.monto) || 0;
                         });
                     }
                 });
 
-                monthlyData.forEach(data => {
-                    data.ingresos.total = data.ingresos.abonos + data.ingresos.siniestros;
-                    data.casos.total = data.casos.juridica + data.casos.siniestros;
-                });
+                // --- CASOS ACTIVOS (Lógica Mejorada) ---
+                const getCaseLifeCycle = (caso) => {
+                    const dates = (caso.observaciones || []).map(o => parseDate(o.fecha || o.proximaRevision)).filter(Boolean);
+                    if (dates.length === 0) return { start: null, end: null };
+                    const start = new Date(Math.min.apply(null, dates));
+                    const end = (caso.estado === 'FINALIZADA' || caso.estado === 'Terminado') ? new Date(Math.max.apply(null, dates)) : null;
+                    return { start, end };
+                };
+                
+                const allCases = [
+                    ...allData.juridica.map(c => ({...c, type: 'juridica'})),
+                    ...allData.siniestros.map(s => ({...s, type: 'siniestros'}))
+                ];
 
+                for (let i = 0; i < 12; i++) {
+                    const monthStart = new Date(year, i, 1);
+                    const monthEnd = new Date(year, i + 1, 0);
+                    allCases.forEach(caso => {
+                        const { start, end } = getCaseLifeCycle(caso);
+                        if (start && start <= monthEnd && (!end || end >= monthStart)) {
+                            monthlyData[i].casos_activos_totales++;
+                            if(caso.type === 'juridica') monthlyData[i].casos_activos_juridica++;
+                            else if(caso.type === 'siniestros') monthlyData[i].casos_activos_siniestros++;
+                        }
+                    });
+                }
+                
+                // --- CÁLCULOS FINALES ---
+                monthlyData.forEach(data => {
+                    data.ingresos_totales = data.ingresos_abonos + data.ingresos_siniestros;
+                    data.balance = data.ingresos_totales - data.egresos_totales;
+                });
+                
                 return monthlyData;
-            }
-            
-            function formatCurrency(value) {
-                return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
             }
 
             function renderizarDashboard(data) {
-                const selectedMonth = monthFilterEl.value;
-                let kpis;
-
-                if (selectedMonth === 'todos') {
-                    document.getElementById('kpiTitle').textContent = 'Resumen Anual';
-                    document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
-                    kpis = data.reduce((acc, monthData) => {
-                        acc.ingresos += monthData.ingresos.total;
-                        acc.egresos += monthData.egresos;
-                        acc.casos += monthData.casos.total;
-                        return acc;
-                    }, { ingresos: 0, egresos: 0, casos: 0 });
-                } else {
-                    const monthIndex = parseInt(selectedMonth);
-                    document.getElementById('kpiTitle').textContent = 'Resumen Mensual';
-                    document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
-                    const monthKpis = data[monthIndex];
-                    kpis = {
-                        ingresos: monthKpis.ingresos.total,
-                        egresos: monthKpis.egresos,
-                        casos: monthKpis.casos.total
-                    };
-                }
-
+                const kpis = data.reduce((acc, monthData) => {
+                    acc.ingresos += monthData.ingresos_totales;
+                    acc.egresos += monthData.egresos_totales;
+                    acc.casos.push(monthData.casos_activos_totales);
+                    return acc;
+                }, { ingresos: 0, egresos: 0, casos: [] });
+                
                 const balance = kpis.ingresos - kpis.egresos;
+                const avgCasos = kpis.casos.reduce((a, b) => a + b, 0) / kpis.casos.length;
+
                 document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = kpis.casos;
-                document.getElementById('kpiIngresoPorCaso').textContent = kpis.casos > 0 ? formatCurrency(kpis.ingresos / kpis.casos) : formatCurrency(0);
+                document.getElementById('kpiCasos').textContent = avgCasos.toFixed(1);
+                document.getElementById('kpiIngresoPorCaso').textContent = avgCasos > 0 ? formatCurrency(kpis.ingresos / avgCasos / 12) : formatCurrency(0);
             }
 
-            function renderizarGraficos(processedData) {
-                Object.values(charts).forEach(chart => chart.destroy());
+            function actualizarGraficoPersonalizado() {
+                if (customChartInstance) customChartInstance.destroy();
 
-                const chartOptions = {
-                    responsive: true,
-                    maintainAspectRatio: false, //  <-- ESTA ES LA LÍNEA CLAVE
-                    scales: { y: { beginAtZero: true } }
-                };
+                const selectedMetrics = Array.from(document.querySelectorAll('.metric-checkbox:checked')).map(cb => cb.value);
+                const chartType = chartTypeSelectorEl.value;
 
-                const pieChartOptions = {
-                    responsive: true,
-                    maintainAspectRatio: false //  <-- Y TAMBIÉN AQUÍ
-                };
+                const isPieChart = ['pie', 'doughnut'].includes(chartType);
+                let datasets, labels;
 
-                const ctx1 = document.getElementById('ingresosEgresosChart').getContext('2d');
-                charts.ingresosEgresos = new Chart(ctx1, {
-                    type: chartTypeSelectorEl.value,
-                    data: {
-                        labels: mesesLabels,
-                        datasets: [
-                            { label: 'Ingresos', data: processedData.map(d => d.ingresos.total), backgroundColor: 'rgba(5, 150, 105, 0.7)', borderColor: 'rgba(5, 150, 105, 1)', borderWidth: 1 },
-                            { label: 'Egresos', data: processedData.map(d => d.egresos), backgroundColor: 'rgba(220, 38, 38, 0.7)', borderColor: 'rgba(220, 38, 38, 1)', borderWidth: 1 }
-                        ]
-                    },
-                    options: chartOptions
-                });
+                if(isPieChart) {
+                    labels = selectedMetrics.map(key => metricOptions[key].label);
+                    const annualTotals = selectedMetrics.map(key => processedDataForYear.reduce((sum, month) => sum + month[key], 0));
+                    datasets = [{
+                        data: annualTotals,
+                        backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), // Add alpha
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }];
+                } else {
+                    labels = mesesLabels;
+                    datasets = selectedMetrics.map(key => ({
+                        label: metricOptions[key].label,
+                        data: processedDataForYear.map(month => month[key]),
+                        borderColor: metricOptions[key].color,
+                        backgroundColor: metricOptions[key].color + '33', // Add alpha
+                        tension: 0.1,
+                        fill: chartType === 'line' || chartType === 'radar'
+                    }));
+                }
 
-                const totalAbonos = processedData.reduce((s, d) => s + d.ingresos.abonos, 0);
-                const totalSiniestros = processedData.reduce((s, d) => s + d.ingresos.siniestros, 0);
-                const ctx2 = document.getElementById('distribucionIngresosChart').getContext('2d');
-                charts.distribucion = new Chart(ctx2, {
-                    type: 'pie',
-                    data: {
-                        labels: ['Abonos', 'Honorarios Siniestros'],
-                        datasets: [{ data: [totalAbonos, totalSiniestros], backgroundColor: ['rgba(99, 102, 241, 0.8)', 'rgba(245, 158, 11, 0.8)'], borderColor: '#fff', borderWidth: 2 }]
-                    },
-                    options: pieChartOptions
-                });
-
-                const ctx3 = document.getElementById('casosChart').getContext('2d');
-                charts.casos = new Chart(ctx3, {
-                    type: 'line',
-                    data: {
-                        labels: mesesLabels,
-                        datasets: [
-                            { label: 'Casos Jurídicos', data: processedData.map(d => d.casos.juridica), borderColor: 'rgba(30, 58, 138, 1)', tension: 0.3 },
-                            { label: 'Siniestros', data: processedData.map(d => d.casos.siniestros), borderColor: 'rgba(29, 78, 216, 1)', tension: 0.3 }
-                        ]
-                    },
-                    options: chartOptions
+                const ctx = document.getElementById('customChart').getContext('2d');
+                customChartInstance = new Chart(ctx, {
+                    type: chartType,
+                    data: { labels, datasets },
+                    options: { responsive: true, maintainAspectRatio: false }
                 });
             }
 
             function render() {
                 const selectedYear = parseInt(yearFilterEl.value);
                 if (isNaN(selectedYear)) {
-                    document.getElementById('dashboard').style.display = 'none';
-                    document.querySelector('.charts-grid').style.display = 'none';
-                    updateStatus('No hay datos para mostrar. Sincroniza o utiliza las otras planillas primero.', 'warning');
+                    document.querySelector('.dashboard').style.display = 'none';
+                    document.querySelector('.analysis-container').style.display = 'none';
+                    updateStatus('Selecciona un año para ver los datos.', 'warning');
                     return;
                 }
-                document.getElementById('dashboard').style.display = 'grid';
-                document.querySelector('.charts-grid').style.display = 'grid';
+                document.querySelector('.dashboard').style.display = 'grid';
+                document.querySelector('.analysis-container').style.display = 'grid';
 
-                const processedData = procesarDatos(selectedYear);
-                renderizarDashboard(processedData);
-                renderizarGraficos(processedData);
+                processedDataForYear = procesarDatos(selectedYear);
+                renderizarDashboard(processedDataForYear);
+                actualizarGraficoPersonalizado();
             }
 
+            function formatCurrency(value) {
+                return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+            }
+
+            // --- Event Listeners ---
             document.getElementById('syncButton').addEventListener('click', sincronizarDatos);
             yearFilterEl.addEventListener('change', render);
-            monthFilterEl.addEventListener('change', render);
-            chartTypeSelectorEl.addEventListener('change', render);
+            chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
 
             // --- Lógica de Google Drive ---
             const DATA_FILE_NAME = 'datos_estadisticas_snapshot.json';
             let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
 
             function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-            async function initializeGapiClient() {
-                await gapi.client.init({
-                    apiKey: 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM',
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                });
-                gapiInited = true; maybeEnableButtons();
-            }
-            function gisLoaded() {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com',
-                    scope: 'https://www.googleapis.com/auth/drive.file',
-                    callback: '',
-                });
-                gisInited = true; maybeEnableButtons();
-            }
-            
-            window.gapiLoaded = gapiLoaded;
-            window.gisLoaded = gisLoaded;
+            async function initializeGapiClient() { await gapi.client.init({ apiKey: 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM', discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']}); gapiInited = true; maybeEnableButtons(); }
+            function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.file', callback: '' }); gisInited = true; maybeEnableButtons(); }
+            window.gapiLoaded = gapiLoaded; window.gisLoaded = gisLoaded;
 
-            function maybeEnableButtons() {
-                if (gapiInited && gisInited) {
-                    document.getElementById('connectDriveBtn').onclick = handleAuthClick;
-                }
-            }
-
+            function maybeEnableButtons() { if (gapiInited && gisInited) document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
             function handleAuthClick() {
                 tokenClient.callback = async (resp) => {
                     if (resp.error) { throw(resp); }
-                    updateStatus('✅ Conectado a Google Drive.', 'success');
+                    updateStatus('✅ Conectado a Google Drive.');
                     document.getElementById('connectDriveBtn').style.display = 'none';
                     document.getElementById('saveToDriveBtn').style.display = 'inline-block';
                     document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
                     await findDataFile();
                 };
-                if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'});
-                else tokenClient.requestAccessToken({prompt: ''});
+                if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
             }
-
             async function findDataFile() {
                 try {
-                    const response = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' });
-                    if (response.result.files.length > 0) {
-                        dataFileId = response.result.files[0].id;
-                        updateStatus('Archivo de respaldo encontrado en Drive.', 'success');
-                    } else {
-                        dataFileId = null;
-                        updateStatus('No se encontró respaldo. Se creará uno nuevo al guardar.', 'warning');
-                    }
-                } catch (err) { console.error(err); updateStatus('Error buscando archivo en Drive.', 'warning'); }
+                    const r = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id)', spaces: 'drive' });
+                    dataFileId = r.result.files.length > 0 ? r.result.files[0].id : null;
+                    updateStatus(dataFileId ? 'Archivo de respaldo encontrado.' : 'No se encontró respaldo.', dataFileId ? 'success' : 'warning');
+                } catch (err) { updateStatus('Error buscando archivo en Drive.', 'warning'); }
             }
-            
             async function saveDataToDrive() {
                 if (!confirm('¿Guardar una copia de seguridad de los datos sincronizados en Google Drive?')) return;
                 try {
-                    const content = JSON.stringify(allData, null, 2);
-                    const boundary = '-------314159265358979323846';
+                    const content = JSON.stringify(allData);
+                    const boundary = 'b';
                     const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
-                    const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-                    const request = gapi.client.request({
+                    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+                    const req = await gapi.client.request({
                         path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files',
                         method: dataFileId ? 'PATCH' : 'POST',
                         params: { uploadType: 'multipart' },
                         headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                        body: requestBody
+                        body: body
                     });
-                    const response = await request;
-                    dataFileId = response.result.id;
-                    updateStatus('✅ Respaldo guardado en Drive con éxito.', 'success');
-                } catch (err) { console.error(err); updateStatus('❌ Error al guardar en Drive.', 'warning'); }
+                    dataFileId = req.result.id;
+                    updateStatus('✅ Respaldo guardado en Drive con éxito.');
+                } catch (err) { updateStatus('❌ Error al guardar en Drive.', 'warning'); }
             }
-
             async function loadDataFromDrive() {
                 if (!dataFileId) return alert("No se encontró un archivo de respaldo en Drive para cargar.");
-                if (!confirm("¿Cargar el respaldo de Drive? Se reemplazarán los datos sincronizados localmente.")) return;
+                if (!confirm("¿Cargar el respaldo de Drive? Se combinará con los datos locales actuales.")) return;
                 try {
-                    const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                    const loaded = response.result;
-                    allData.siniestros = loaded.siniestros || [];
-                    allData.juridica = loaded.juridica || [];
-                    allData.abonos = loaded.abonos || [];
-                    allData.egresos = loaded.egresos || {};
-                    updateStatus('✅ Respaldo cargado desde Drive. Sincronizando con planillas locales...');
+                    const resp = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
+                    const loaded = resp.result;
+                    allData.siniestros = loaded.siniestros || []; allData.juridica = loaded.juridica || [];
+                    allData.abonos = loaded.abonos || []; allData.egresos = loaded.egresos || {};
+                    updateStatus('✅ Respaldo cargado. Sincronizando con datos locales...');
                     sincronizarDatos();
-                } catch (err) { console.error(err); updateStatus('❌ Error al cargar desde Drive.', 'warning'); }
+                } catch (err) { updateStatus('❌ Error al cargar desde Drive.', 'warning'); }
             }
             
             sincronizarDatos();
