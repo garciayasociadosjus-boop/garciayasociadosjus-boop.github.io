@@ -24,7 +24,11 @@
         .btn-success { background: var(--success-color); }
         .btn-warning { background: var(--warning-color); }
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; }
-        .chart-container { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,.07); border: 1px solid #e2e8f0; }
+        .chart-container { 
+            background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,.07); border: 1px solid #e2e8f0;
+            position: relative; /* Clave para el tamaño del canvas */
+            height: 450px; /* Altura fija para consistencia */
+        }
         .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
         .data-status { text-align: center; padding: 10px; border-radius: 8px; margin: 10px 0 20px 0; font-weight: bold; }
         .status-success { background: #d1e7dd; color: #0f5132; }
@@ -254,6 +258,17 @@
             function renderizarGraficos(processedData) {
                 Object.values(charts).forEach(chart => chart.destroy());
 
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false, //  <-- ESTA ES LA LÍNEA CLAVE
+                    scales: { y: { beginAtZero: true } }
+                };
+
+                const pieChartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false //  <-- Y TAMBIÉN AQUÍ
+                };
+
                 const ctx1 = document.getElementById('ingresosEgresosChart').getContext('2d');
                 charts.ingresosEgresos = new Chart(ctx1, {
                     type: chartTypeSelectorEl.value,
@@ -264,7 +279,7 @@
                             { label: 'Egresos', data: processedData.map(d => d.egresos), backgroundColor: 'rgba(220, 38, 38, 0.7)', borderColor: 'rgba(220, 38, 38, 1)', borderWidth: 1 }
                         ]
                     },
-                    options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false }
+                    options: chartOptions
                 });
 
                 const totalAbonos = processedData.reduce((s, d) => s + d.ingresos.abonos, 0);
@@ -276,7 +291,7 @@
                         labels: ['Abonos', 'Honorarios Siniestros'],
                         datasets: [{ data: [totalAbonos, totalSiniestros], backgroundColor: ['rgba(99, 102, 241, 0.8)', 'rgba(245, 158, 11, 0.8)'], borderColor: '#fff', borderWidth: 2 }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false }
+                    options: pieChartOptions
                 });
 
                 const ctx3 = document.getElementById('casosChart').getContext('2d');
@@ -289,7 +304,7 @@
                             { label: 'Siniestros', data: processedData.map(d => d.casos.siniestros), borderColor: 'rgba(29, 78, 216, 1)', tension: 0.3 }
                         ]
                     },
-                    options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false }
+                    options: chartOptions
                 });
             }
 
@@ -335,8 +350,8 @@
                 gisInited = true; maybeEnableButtons();
             }
             
-            window.gapiLoaded = gapiLoaded; // Expose to global scope for the script tag
-            window.gisLoaded = gisLoaded;   // Expose to global scope
+            window.gapiLoaded = gapiLoaded;
+            window.gisLoaded = gisLoaded;
 
             function maybeEnableButtons() {
                 if (gapiInited && gisInited) {
@@ -401,11 +416,10 @@
                     allData.abonos = loaded.abonos || [];
                     allData.egresos = loaded.egresos || {};
                     updateStatus('✅ Respaldo cargado desde Drive. Sincronizando con planillas locales...');
-                    sincronizarDatos(); // Volver a sincronizar para incorporar cambios locales recientes si los hay
+                    sincronizarDatos();
                 } catch (err) { console.error(err); updateStatus('❌ Error al cargar desde Drive.', 'warning'); }
             }
             
-            // Carga inicial
             sincronizarDatos();
         });
     </script>
