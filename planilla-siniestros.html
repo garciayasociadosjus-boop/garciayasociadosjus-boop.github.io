@@ -413,6 +413,7 @@ function confirmReschedule(siniestroId, mediacionId) {
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
+
 // --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (CORREGIDO) ---
 function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
@@ -437,7 +438,7 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>DNI del TERCERO (Opcional)</label><input type="text" id="letterDniTercero"></div>
             </div>
             <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
-
+            
             <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
                 <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
                     <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
@@ -465,7 +466,7 @@ async function processLetterData(event, siniestroId) {
     event.preventDefault();
     const s = siniestrosData.find(x => x.id === siniestroId);
     const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
-
+    
     modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
 
     const progressBar = document.getElementById('progressBar');
@@ -506,7 +507,7 @@ async function processLetterData(event, siniestroId) {
     };
 
     const generatedLetter = await callAIApi(data);
-    clearInterval(interval); // Detenemos la barra de progreso al recibir la respuesta
+    clearInterval(interval); 
 
     const resultHTML = `
         <div class="print-area">
@@ -555,7 +556,6 @@ function copyToClipboard(elementId) {
     document.execCommand('copy');
     updateDataStatus('✅ Texto copiado al portapapeles.');
 }
-
 // --- FIN DE NUEVAS FUNCIONES ---
 
 
