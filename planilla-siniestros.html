@@ -192,7 +192,7 @@ function sanitizeData(data){
     });
     s.mediaciones_list.forEach(m=>{
         m.id=m.id||generateId({});
-        m.completed=typeof m.completed==='boolean'?m.completed:false;
+        m.completed=typeof m.completed==='boolean'?o.completed:false;
         m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;
     });
     updateSiniestroNextRevision(s);
@@ -461,11 +461,7 @@ function downloadAsPDF() {
 
 function downloadAsWord() {
     const text = document.getElementById('generatedLetterText').value;
-    const content = `
-        <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>
-        <pre style="font-family: 'Courier New', monospace; white-space: pre-wrap;">${text}</pre>
-        </body></html>
-    `;
+    const content = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><pre style="font-family: 'Courier New', monospace; white-space: pre-wrap;">${text}</pre></body></html>`;
     const blob = htmlDocx.asBlob(content);
     saveAs(blob, 'CartaDePatrocinio.doc');
 }
