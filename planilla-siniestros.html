@@ -414,56 +414,31 @@ function confirmReschedule(siniestroId, mediacionId) {
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
 
-// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (CORREGIDO) ---
-function startLetterGeneration(siniestroId) {
-    const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
-    const modal = document.getElementById('letterGenerationModal'); const today = new Date().toISOString().split('T')[0];
-    const formHTML = `
-        <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span>
-        <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2>
-        <p style="font-size: 0.9em; margin-bottom: 20px;">Completa los datos que faltan. La IA se encargará de redactar la carta con un tono profesional.</p>
-        <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')">
-            <div class="info-grid">
-                <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div>
-                <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div>
-                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div>
-                <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" placeholder="Ej: 123456789" required></div>
-                <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div>
-                <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${today}" required></div>
-                <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" required></div>
-                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div>
-                <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" placeholder="Marca, Modelo, Año, Dominio" required></div>
-                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div>
-                <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" required></div>
-                <div class="form-group"><label>DNI del TERCERO (Opcional)</label><input type="text" id="letterDniTercero"></div>
-            </div>
-            <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
-            
-            <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
-                    <label for="checkLesiones" style="margin-bottom: 0; font-weight: 700;">¿Hubo Lesiones?</label>
-                </div>
-                <div id="lesionesFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
-                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos de las lesiones (todos opcionales).</p>
-                    <div class="form-group"><label>Descripción de las lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div>
-                    <div class="form-group"><label>Monto reclamado por Lesiones/Incapacidad</label><input type="number" id="letterLesionesMonto" placeholder="0"></div>
-                </div>
-            </div>
-
-            <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div>
-        </form>
-    `;
-    modal.querySelector('.modal-content').innerHTML = formHTML;
-    modal.classList.add('active');
-}
-
-function toggleLesiones(checked) {
-    document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
-}
-
+// --- PEGA ESTA FUNCIÓN DE DIAGNÓSTICO EN LUGAR DE LA ANTERIOR ---
 async function processLetterData(event, siniestroId) {
     event.preventDefault();
+    console.log("Iniciando processLetterData...");
+
+    // --- HERRAMIENTA DE DIAGNÓSTICO ---
+    const ids_a_verificar = [
+        'letterLugar', 'letterDestinatario', 'letterDestinatarioDom', 'letterPolizaCliente',
+        'letterAseguradoraCliente', 'letterFechaSiniestro', 'letterHoraSiniestro', 'letterLugarSiniestro',
+        'letterVehiculoCliente', 'letterPartesDanadas', 'letterNombreTercero', 'letterDniTercero',
+        'letterRelato', 'letterInfracciones', 'checkLesiones', 'letterLesionesMonto', 'letterLesionesDesc'
+    ];
+
+    for (const id of ids_a_verificar) {
+        const elemento = document.getElementById(id);
+        if (!elemento) {
+            console.error(`%cERROR DE DIAGNÓSTICO: No se encontró el elemento con ID: '${id}'`, 'color: red; font-size: 16px; font-weight: bold;');
+            alert(`ERROR DE DIAGNÓSTICO: El campo con ID '${id}' no se encontró. Revisa el código de la función 'startLetterGeneration'.`);
+            return; // Detenemos la ejecución aquí
+        }
+    }
+    console.log("Diagnóstico completo: Todos los elementos del formulario fueron encontrados.");
+    // --- FIN DE LA HERRAMIENTA DE DIAGNÓSTICO ---
+
+
     const s = siniestrosData.find(x => x.id === siniestroId);
     const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
     
@@ -480,11 +455,8 @@ async function processLetterData(event, siniestroId) {
         if (width >= 100) clearInterval(interval);
     }, 150);
 
-    // --- CÓDIGO SIMPLIFICADO ---
-    // Buscamos el checkbox de forma segura. Si no existe, asumimos que es 'false'.
     const checkLesionesEl = document.getElementById('checkLesiones');
     const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
-    // --- FIN DEL CÓDIGO SIMPLIFICADO ---
 
     const montoLesiones = parseFloat(document.getElementById('letterLesionesMonto').value) || 0;
     const montoMateriales = parseFloat(s.presupuesto) || 0;
@@ -526,40 +498,7 @@ async function processLetterData(event, siniestroId) {
         </div>
     `;
     modalContent.innerHTML = resultHTML;
-}
 
-async function callAIApi(data) {
-    console.log("Enviando datos al servidor para generar la carta:", data);
-    const API_URL = 'http://localhost:3001/api/generar-carta';
-
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(errorData || `Error del servidor: ${response.statusText}`);
-        }
-
-        const generatedLetter = await response.text();
-        return generatedLetter;
-
-    } catch (error) {
-        console.error("Error al llamar a la API del servidor:", error);
-        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor (server.js) esté encendido y funcionando.`;
-    }
-}
-
-function copyToClipboard(elementId) {
-    const textArea = document.getElementById(elementId);
-    textArea.select();
-    document.execCommand('copy');
-    updateDataStatus('✅ Texto copiado al portapapeles.');
 }
 // --- FIN DE NUEVAS FUNCIONES ---
 
