@@ -5,6 +5,9 @@
 <title>Planilla de Siniestros - García & Asociados</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
 <style>
 :root {
     --primary-color: #2980b9;
@@ -529,6 +532,8 @@ async function processLetterData(event, siniestroId) {
         <div class="action-buttons no-print" style="margin-top:15px;">
             <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
             <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+            <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button>
+            <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button>
         </div>
     `;
     modalContent.innerHTML = resultHTML;
@@ -567,7 +572,27 @@ function copyToClipboard(elementId) {
     document.execCommand('copy');
     updateDataStatus('✅ Texto copiado al portapapeles.');
 }
-// --- FIN DE NUEVAS FUNCIONES ---
+
+// --- **NUEVAS FUNCIONES DE DESCARGA** ---
+function downloadAsPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const text = document.getElementById('generatedLetterText').value;
+    
+    // Divide el texto en líneas y maneja el salto de página
+    const splitText = doc.splitTextToSize(text, 180); // 180 es el ancho del texto en la página
+    doc.text(splitText, 15, 20); // 15 margen izquierdo, 20 margen superior
+    
+    doc.save('CartaDePatrocinio.pdf');
+}
+
+function downloadAsWord() {
+    const text = document.getElementById('generatedLetterText').value;
+    // Usamos la etiqueta <pre> para que Word respete los saltos de línea y espacios
+    const content = `<pre>${text}</pre>`;
+    const blob = htmlDocx.asBlob(content);
+    saveAs(blob, 'CartaDePatrocinio.doc');
+}
 
 
 document.addEventListener('DOMContentLoaded',()=>{
