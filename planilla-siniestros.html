@@ -107,7 +107,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <body>
 <div class="container">
   <div class="header">
-    <h1>🚦 Planilla de Siniestros v2.1 (Diagnóstico)</h1>
+    <h1>🚦 Planilla de Siniestros</h1>
     <p>García & Asociados</p>
     <div class="header-clock-container">
         <div class="analog-clock">
@@ -414,7 +414,7 @@ function confirmReschedule(siniestroId, mediacionId) {
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
 
-// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (VERSIÓN FINAL CON DIAGNÓSTICO) ---
+// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (VERSIÓN FINAL) ---
 function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
     const modal = document.getElementById('letterGenerationModal'); const today = new Date().toISOString().split('T')[0];
@@ -464,43 +464,13 @@ function toggleLesiones(checked) {
 
 async function processLetterData(event, siniestroId) {
     event.preventDefault();
-    console.log("Iniciando processLetterData...");
-
-    // --- HERRAMIENTA DE DIAGNÓSTICO ---
-    const ids_a_verificar = [
-        'letterLugar', 'letterDestinatario', 'letterDestinatarioDom', 'letterPolizaCliente',
-        'letterAseguradoraCliente', 'letterFechaSiniestro', 'letterHoraSiniestro', 'letterLugarSiniestro',
-        'letterVehiculoCliente', 'letterPartesDanadas', 'letterNombreTercero', 'letterDniTercero',
-        'letterRelato', 'letterInfracciones', 'checkLesiones', 'letterLesionesMonto', 'letterLesionesDesc'
-    ];
-
-    for (const id of ids_a_verificar) {
-        if (!document.getElementById(id)) {
-            console.error(`%cERROR DE DIAGNÓSTICO: No se encontró el elemento con ID: '${id}'`, 'color: red; font-size: 16px; font-weight: bold;');
-            alert(`ERROR DE DIAGNÓSTICO: El campo con ID '${id}' no se encontró. Revisa el código de la función 'startLetterGeneration'.`);
-            return; 
-        }
-    }
-    console.log("Diagnóstico completo: Todos los elementos del formulario fueron encontrados.");
-    // --- FIN DE LA HERRAMIENTA DE DIAGNÓSTICO ---
-
     const s = siniestrosData.find(x => x.id === siniestroId);
-    if (!s) { alert("Error: No se pudo encontrar el siniestro para procesar."); return; }
-    
-    const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
-    modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
+    if (!s) {
+        alert("Error: No se pudo encontrar el siniestro para procesar.");
+        return;
+    }
 
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progress-text');
-    let width = 0;
-    const interval = setInterval(() => {
-        width += 5;
-        progressBar.style.width = width + '%';
-        if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
-        else if (width >= 70) progressText.textContent = "Dando formato legal...";
-        if (width >= 100) clearInterval(interval);
-    }, 150);
-
+    // --- CORRECCIÓN CLAVE: Primero leemos todos los datos del formulario ---
     const checkLesionesEl = document.getElementById('checkLesiones');
     const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
 
@@ -531,6 +501,22 @@ async function processLetterData(event, siniestroId) {
         montoTotal: montoMateriales + montoLesiones
     };
 
+    // --- Y AHORA SÍ, borramos el formulario para mostrar el mensaje de carga ---
+    const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
+    modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
+
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progress-text');
+    let width = 0;
+    const interval = setInterval(() => {
+        width += 5;
+        progressBar.style.width = width + '%';
+        if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
+        else if (width >= 70) progressText.textContent = "Dando formato legal...";
+        if (width >= 100) clearInterval(interval);
+    }, 150);
+
+    // Finalmente, llamamos a la IA con los datos que ya guardamos
     const generatedLetter = await callAIApi(data);
     clearInterval(interval); 
 
