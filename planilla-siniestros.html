@@ -60,14 +60,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .review-date{font-weight:600;color:#2c3e50}
 .review-client{color:#667eea;font-weight:500;margin:4px 0}
 .review-obs{font-style:italic;color:#555}
+.review-obs-private{font-size:.9em;color:#8e44ad;font-style:italic;margin-top:5px;border-top:1px dashed #ddd;padding-top:5px}
 .complete-btn{background:#e0e0e0;border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
 .complete-btn:hover{background:#c7c7c7}
 .review-item.completed .complete-btn{background:#2ecc71;color:#fff}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000}
 .modal.active{display:flex;align-items:center;justify-content:center}
 .modal-content{background:#fff;border-radius:14px;padding:28px;max-width:900px;width:95%;max-height:90vh;overflow:auto}
-#alertModal .modal-content { border-top: 10px solid var(--danger-color); }
-#alertModal h2 { color: var(--danger-color); text-align: center; margin-bottom: 20px; }
+#alertModal .modal-content{border-top:10px solid var(--danger-color)}
+#alertModal h2{color:var(--danger-color);text-align:center;margin-bottom:20px}
 .close{float:right;font-size:26px;font-weight:700;color:#999;cursor:pointer;margin-top:-8px}
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
 .info-item{background:#fff;padding:10px;border-left:3px solid #667eea;border-radius:6px}
@@ -79,17 +80,23 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .history-item.completed{opacity:.6}
 .history-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
 .history-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
-.history-item-mediacion { border-left-color: #1abc9c; }
-.history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-left: auto; font-weight: 500; display: inline-block; }
-.tag-task { background-color: var(--secondary-color); }
-.tag-mediacion { background-color: #1abc9c; }
+.private-note-details{margin-top:10px}
+.private-note-summary{cursor:pointer;font-weight:600;color:#8e44ad;-webkit-user-select:none;user-select:none;font-size:.9em}
+.private-note-summary::-webkit-details-marker{display:none}
+.private-note-summary:before{content:'➕';display:inline-block;margin-right:8px}
+.private-note-details[open] .private-note-summary:before{content:'➖'}
+.private-note-content{background:#fdf5e6;border-left:3px solid #f39c12;padding:10px;margin-top:8px;border-radius:5px;font-style:italic;color:#666}
+.history-item-mediacion{border-left-color:#1abc9c}
+.history-tag{font-size:.8em;color:#fff;padding:2px 8px;border-radius:10px;margin-left:auto;font-weight:500;display:inline-block}
+.tag-task{background-color:var(--secondary-color)}
+.tag-mediacion{background-color:#1abc9c}
 .form-section{background:#f8f9fa;padding:16px;border:1px solid #e0e0e0;border-radius:10px;margin-top:16px}
 .action-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
 .document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.9em}
 .document-list li{background:#f1f3f5;padding:8px 10px;border-radius:6px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .document-list a{color:#3498db;text-decoration:none;font-weight:500;flex:1;word-break:break-word}
 .document-list a:hover{text-decoration:underline}
-.document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+.document-list .spinner{display:block;margin:20px auto;width:30px;height:30px;border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;animation:spin 1s linear infinite}
 .progress-bar-container{width:80%;margin:20px auto;height:20px;background-color:#ecf0f1;border-radius:10px;overflow:hidden}
 .progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--secondary-color),var(--primary-color));transition:width .2s ease-out}
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
@@ -175,7 +182,12 @@ function sanitizeData(data){
     s.id=s.id||generateId(s);
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[];
     s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[];
-    s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;});
+    s.observaciones.forEach(o=>{
+        o.id=o.id||generateId({});
+        o.texto = o.texto || '';
+        o.textoPrivado = o.textoPrivado || '';
+        o.completed=typeof o.completed==='boolean'?o.completed:false;
+    });
     s.mediaciones_list.forEach(m=>{
         m.id=m.id||generateId({});
         m.completed=typeof m.completed==='boolean'?m.completed:false;
@@ -214,7 +226,11 @@ function toggleFormVisibility(formId) {
 }
 function updateSiniestroNextRevision(s){
   const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;}
+  if(future.length){
+      s.fechaRevision=future[0].proximaRevision;
+      s.observacion=future[0].texto;
+      if(future[0].textoPrivado) s.observacion += ` (Privado: ${future[0].textoPrivado})`;
+    }
   else {s.fechaRevision='';s.observacion='No hay tareas pendientes';}
 }
 function toggleCompleted(e,sid,oid, type='task'){
@@ -233,21 +249,38 @@ function renderDashboardLists(){
   const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o => !o.completed && o.proximaRevision).map(o => ({...o, siniestro: s, type: 'task'})));
   const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m => !m.completed && m.fecha).map(m => ({...m, siniestro: s, type: 'mediacion', proximaRevision: m.fecha})));
   const allItems = [...tasks, ...mediaciones];
+
   const today=allItems.filter(t=>isToday(t.proximaRevision));
   const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
   const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  renderReviewList('todayReviews',today,'No hay eventos para hoy');
-  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos');
-  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos');
+  renderReviewList('todayReviews',today,'No hay eventos para hoy', 'today');
+  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos', 'overdue');
+  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos', 'upcoming');
 }
-function renderReviewList(id,items,empty){
+function renderReviewList(id,items,empty, type){
   const c=document.getElementById(id);
-  if(!items.length){c.innerHTML=`<p style="opacity:.85;">${empty}</p>`;return;}
+  const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
+  if(!items.length){c.innerHTML=`<p style="color:${listColor};text-align:center;">${empty}</p>`;return;}
   c.innerHTML=items.map(item=>{
-    let label = ''; let timeLabel = item.type === 'mediacion' ? formatTime(item.hora) : '';
+    let dateInfo = '';
+    if (type === 'today') dateInfo = 'HOY';
+    else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.proximaRevision)}`;
+    else dateInfo = `En ${getDaysDifference(item.proximaRevision)} días - ${formatDate(item.proximaRevision)}`;
+    
+    let label = '';
+    let timeLabel = item.type === 'mediacion' ? formatTime(item.hora) : '';
     if(item.type === 'mediacion') label = 'MEDIACIÓN:';
     const toggleFunc = `toggleCompleted(event,'${item.siniestro.id}','${item.id}', '${item.type}')`;
-    return `<div class="review-item"><button class="complete-btn" onclick="${toggleFunc}">✔</button><div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"><div class="review-date">HOY - ${formatDate(item.proximaRevision)} ${timeLabel}</div><div class="review-client">${item.siniestro.cliente}</div><div class="review-obs"><b>${label}</b> ${item.texto}</div></div></div>`;
+    const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.textoPrivado}</div>` : '';
+    return `<div class="review-item">
+      <button class="complete-btn" onclick="${toggleFunc}">✔</button>
+      <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
+        <div class="review-date">${dateInfo} ${timeLabel}</div>
+        <div class="review-client">${item.siniestro.cliente}</div>
+        <div class="review-obs"><b>${label}</b> ${item.texto}</div>
+        ${privateNoteHtml}
+      </div>
+    </div>`;
   }).join('');
 }
 function renderAllSiniestrosList(){
@@ -264,7 +297,16 @@ function renderAllSiniestrosList(){
     const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
     const lastWorkedObs = (s.observaciones || []).filter(o => o.fechaTrabajado).sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
     const lastWorkedDate = lastWorkedObs ? lastWorkedObs.fechaTrabajado : null;
-    return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')"><div class="review-item-content"><div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;"><div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}</div><div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div><div class="review-obs">${s.observacion}</div></div></div>`;
+    return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
+      <div class="review-item-content">
+        <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>
+            ${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}
+        </div>
+        <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div>
+        <div class="review-obs">${s.observacion}</div>
+      </div>
+    </div>`;
   }).join(''):'<p>No se encontraron siniestros.</p>';
 }
 function showNewSiniestroModal(){document.getElementById('newSiniestroModal').classList.add('active')}
@@ -282,7 +324,15 @@ function showSiniestroModal(id){
   const aseguradoras = [...new Set(siniestrosData.map(s => s.aseguradoEn).filter(Boolean))];
   const contras = [...new Set(siniestrosData.map(s => s.contra).filter(Boolean))];
   const datalistsHTML = `<datalist id="aseguradorasList">${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
-  const html=`<span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2><div class="info-grid">${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div><div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div><div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;"><div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto</label><textarea id="newObsText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div><div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div></div><div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
+  const html=`
+    <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
+    <div class="info-grid">${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+    <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
+        <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto para el Cliente (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Internas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
+        <div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div>
+    </div>
+    <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
   const m=document.getElementById('siniestroInfoModal');m.querySelector('.modal-content').innerHTML=html;m.classList.add('active');
 }
 function renderHistoryList(s){
@@ -293,15 +343,22 @@ function renderHistoryList(s){
         let tagClass, tagText, itemClass, dateLabel, dateValue, deleteFunc, timeValue = '';
         if(item.type === 'task') {tagClass = 'tag-task'; tagText = 'TAREA'; itemClass = ''; dateLabel = 'Creación'; dateValue = item.fecha; deleteFunc = `deleteObs('${s.id}','${item.id}')`;} 
         else {tagClass = 'tag-mediacion'; tagText = 'MEDIACIÓN'; itemClass = 'history-item-mediacion'; dateLabel = 'Fecha'; dateValue = item.fecha; timeValue = formatTime(item.hora); deleteFunc = `deleteMediacion('${s.id}','${item.id}')`;}
-        return `<div class="history-item ${itemClass} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type === 'task' && item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}<div>${item.texto}</div>${item.type === 'task' ? `<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>` : ''}<div style="margin-top:6px;display:flex;gap:6px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`;
+        const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '';
+        return `<div class="history-item ${itemClass} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type === 'task' && item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}<div>${item.texto}</div>${privateNoteHtml}${item.type === 'task' ? `<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>` : ''}<div style="margin-top:6px;display:flex;gap:6px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`;
     }).join('') : '<p style="font-size:.8em;">Sin eventos.</p>';
 }
 function editObs(sid,oid){
   const s=siniestrosData.find(x=>x.id===sid); const o=s.observaciones.find(k=>k.id===oid);
   const el=document.getElementById(`task-item-${o.id}`);
-  el.innerHTML=`<div class="form-group"><label>Texto</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
+  el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
 }
-function saveObs(sid,oid){const s=siniestrosData.find(x=>x.id===sid); const o=s.observaciones.find(k=>k.id===oid); o.texto=document.getElementById(`edit-obs-text-${o.id}`).value; o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value; updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
+function saveObs(sid,oid){
+  const s=siniestrosData.find(x=>x.id===sid); const o=s.observaciones.find(k=>k.id===oid);
+  o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;
+  o.textoPrivado=document.getElementById(`edit-obs-private-${o.id}`).value;
+  o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value;
+  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
+}
 function deleteObs(sid,oid){if(!confirm('¿Eliminar tarea?'))return;const s=siniestrosData.find(x=>x.id===sid);s.observaciones=s.observaciones.filter(o=>o.id!==oid);updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
 function addMediacion(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);const newMediacion = { id:generateId({}), fecha:document.getElementById('newMediacionDate').value, hora:document.getElementById('newMediacionTime').value, texto:document.getElementById('newMediacionText').value, completed:false, alertaMostrada: false };s.mediaciones_list.push(newMediacion);saveData(); renderAll(); showSiniestroModal(sid);addEventToGoogleCalendar(s, newMediacion);}
 function deleteMediacion(sid,mid){if(!confirm('¿Eliminar mediación?'))return;const s=siniestrosData.find(x=>x.id===sid);s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);saveData();renderAll();showSiniestroModal(sid);}
@@ -318,10 +375,14 @@ function editField(sid, field, element) {
     element.innerHTML = ''; element.appendChild(input); input.focus(); const valLength = input.value.length; input.setSelectionRange(valLength, valLength);
 }
 function deleteSiniestro(id){if(!confirm('¿Eliminar siniestro y todo su historial?'))return;siniestrosData=siniestrosData.filter(s=>s.id!==id);saveData();renderAll();closeModal('siniestroInfoModal');}
-function addObservation(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false, fechaTrabajado: todayYMD});updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
+function addObservation(e,sid){
+    e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid);
+    s.observaciones.push({id:generateId({}), fecha:todayYMD, texto:document.getElementById('newObsText').value, textoPrivado:document.getElementById('newObsTextPrivate').value, proximaRevision:document.getElementById('newRevisionDate').value, completed:false, fechaTrabajado: todayYMD});
+    updateSiniestroNextRevision(s); saveData(); renderAll(); showSiniestroModal(sid);
+}
 function exportToExcel(){
   const rows=siniestrosData.map(s=>{
-    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}): ${o.texto}`).join(' | ');
+    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado || ''}`).join(' | ');
     const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');
     return {'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular,'Estado':s.estado,'Asegurado En':s.aseguradoEn,'Contra':s.contra,'N° Reclamo':s.numeroReclamo,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Historial Tareas':hist, 'Historial Mediaciones':med};
   });
@@ -351,27 +412,155 @@ function confirmReschedule(siniestroId, mediacionId) {
     saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
+
+// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (MEJORADAS) ---
+function startLetterGeneration(siniestroId) {
+    const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
+    const modal = document.getElementById('letterGenerationModal'); const today = new Date().toISOString().split('T')[0];
+    const formHTML = `
+        <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span>
+        <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2>
+        <p style="font-size: 0.9em; margin-bottom: 20px;">Completa los datos que faltan. La IA se encargará de redactar la carta con un tono profesional.</p>
+        <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')">
+            <div class="info-grid">
+                <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div>
+                <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div>
+                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div>
+                <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" placeholder="Ej: 123456789" required></div>
+                <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div>
+                <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${today}" required></div>
+                <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" required></div>
+                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div>
+                <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" placeholder="Marca, Modelo, Año, Dominio" required></div>
+                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div>
+                <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" required></div>
+                <div class="form-group"><label>DNI del TERCERO (Opcional)</label><input type="text" id="letterDniTercero"></div>
+            </div>
+            <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
+            
+            <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
+                    <label for="checkLesiones" style="margin-bottom: 0; font-weight: 700;">¿Hubo Lesiones?</label>
+                </div>
+                <div id="lesionesFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos de las lesiones (todos opcionales).</p>
+                    <div class="form-group"><label>Descripción de las lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div>
+                    <div class="form-group"><label>Monto reclamado por Lesiones/Incapacidad</label><input type="number" id="letterLesionesMonto" placeholder="0"></div>
+                </div>
+            </div>
+
+            <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div>
+        </form>
+    `;
+    modal.querySelector('.modal-content').innerHTML = formHTML;
+    modal.classList.add('active');
+}
+
+function toggleLesiones(checked) {
+    document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
+}
+
+async function processLetterData(event, siniestroId) {
+    event.preventDefault();
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
+    
+    modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
+
+    // Simulación de progreso
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progress-text');
+    let width = 0;
+    const interval = setInterval(() => {
+        width += 5;
+        progressBar.style.width = width + '%';
+        if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
+        else if (width >= 70) progressText.textContent = "Dando formato legal...";
+        if (width >= 100) clearInterval(interval);
+    }, 150);
+
+    const hayLesiones = document.getElementById('checkLesiones').checked;
+    const montoLesiones = parseFloat(document.getElementById('letterLesionesMonto').value) || 0;
+    const montoMateriales = parseFloat(s.presupuesto) || 0;
+
+    const data = {
+        siniestro: s,
+        lugarEmision: document.getElementById('letterLugar').value,
+        destinatario: document.getElementById('letterDestinatario').value,
+        destinatarioDomicilio: document.getElementById('letterDestinatarioDom').value,
+        polizaCliente: document.getElementById('letterPolizaCliente').value,
+        aseguradoraCliente: document.getElementById('letterAseguradoraCliente').value,
+        fechaSiniestro: formatDate(document.getElementById('letterFechaSiniestro').value),
+        horaSiniestro: document.getElementById('letterHoraSiniestro').value,
+        lugarSiniestro: document.getElementById('letterLugarSiniestro').value,
+        vehiculoCliente: document.getElementById('letterVehiculoCliente').value,
+        partesDanadas: document.getElementById('letterPartesDanadas').value,
+        nombreTercero: document.getElementById('letterNombreTercero').value,
+        dniTercero: document.getElementById('letterDniTercero').value,
+        relato: document.getElementById('letterRelato').value,
+        infracciones: document.getElementById('letterInfracciones').value,
+        hayLesiones: hayLesiones,
+        lesionesDesc: hayLesiones ? document.getElementById('letterLesionesDesc').value : '',
+        montoLesiones: montoLesiones,
+        montoTotal: montoMateriales + montoLesiones
+    };
+
+    const generatedLetter = await callAIApi(data);
+
+    const resultHTML = `
+        <div class="print-area">
+            <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
+            <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2>
+            <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${generatedLetter}</textarea>
+        </div>
+        <div class="action-buttons no-print" style="margin-top:15px;">
+            <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
+            <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+        </div>
+    `;
+    modalContent.innerHTML = resultHTML;
+}
+
+// REEMPLAZA LA FUNCIÓN ANTIGUA CON ESTA NUEVA VERSIÓN
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
+    
+    // CAMBIO IMPORTANTE: Apunta a tu servidor local.
+    // Si tu servidor corre en otro lado, cambia la URL.
+    const API_URL = 'http://localhost:3001/api/generar-carta';
+
     try {
-        const response = await fetch('https://portal-backend-v2.onrender.com/api/generar-carta', {
+        const response = await fetch(API_URL, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(data),
         });
+
         if (!response.ok) {
-            const errorResult = await response.json();
-            throw new Error(errorResult.error || 'El servidor devolvió un error.');
+            // Si el servidor responde con un error, lo mostramos.
+            const errorData = await response.json();
+            throw new Error(errorData.detalle || `Error del servidor: ${response.statusText}`);
         }
-        const result = await response.json();
-        return result.generatedLetter;
+
+        // El servidor devuelve texto plano, así que lo leemos como tal.
+        const generatedLetter = await response.text();
+        return generatedLetter;
+
     } catch (error) {
-        console.error("Error en la llamada al servidor de IA:", error);
-        return `Hubo un error al generar la carta: ${error.message}\n\nPor favor, intente de nuevo más tarde o verifique que el servidor esté funcionando.`;
+        console.error("Error al llamar a la API del servidor:", error);
+        // Devolvemos un mensaje de error para que el usuario sepa qué pasó.
+        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor (server.js) esté encendido y funcionando.`;
     }
 }
-function copyToClipboard(elementId) {const textArea = document.getElementById(elementId);textArea.select();document.execCommand('copy');updateDataStatus('✅ Texto copiado al portapapeles.');}
+
+// --- FIN DE NUEVAS FUNCIONES ---
+
+
 document.addEventListener('DOMContentLoaded',()=>{
+  // --- LÓGICA DEL RELOJ ---
   const digitalClockElement = document.getElementById('digital-clock'); const hourHand = document.querySelector('.hour-hand'); const minHand = document.querySelector('.min-hand'); const secondHand = document.querySelector('.second-hand');
   function updateClock() {
       const now = new Date();
@@ -382,7 +571,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
   }
   updateClock(); setInterval(updateClock, 1000);
-  document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2><form id="newSiniestroForm"><div class="info-grid"><div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div><div class="form-group"><label>DNI</label><input id="newDni" type="number"></div><div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div><div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div><div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div></div><div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div><div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div><div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
+
+  document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
+    <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
+    <form id="newSiniestroForm"><div class="info-grid"><div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div><div class="form-group"><label>DNI</label><input id="newDni" type="number"></div><div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div><div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div><div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div></div><div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div><div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div><div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
   document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
   
   document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
@@ -401,7 +593,46 @@ window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))clos
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
-// --- (script de Google Drive y Alertas sin cambios) ---
+// --- TODA LA LÓGICA DE GOOGLE DRIVE API PERMANECE IGUAL ---
+const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events'; const GD_DATA_FILE='datos_planilla_siniestros.json'; const GD_DOCS_ROOT='Planilla_Siniestros_Documentos'; let tokenClient; let gapiReady = false, gisReady = false; let gdDataFileId = null, gdDocsFolderId = null;
+function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+async function initializeGapiClient() {try {await gapi.client.init({apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']}); gapiReady = true; maybeEnableButtons();} catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }}
+function gisLoaded() {try {tokenClient = google.accounts.oauth2.initTokenClient({client_id: GD_CLIENT_ID, scope: GD_SCOPES, callback: tokenResponseCallback,}); gisReady = true; maybeEnableButtons();} catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }}
+function maybeEnableButtons() {if (gapiReady && gisReady) {document.getElementById('connectDriveBtn').onclick = handleAuthClick;}}
+function handleAuthClick() {if (tokenClient) {tokenClient.requestAccessToken({ prompt: 'consent' });}}
+async function tokenResponseCallback(resp) {
+    if (resp.error) {updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true); return;}
+    try {gapi.client.setToken({ access_token: resp.access_token }); document.getElementById('connectDriveBtn').style.display = 'none'; const saveBtn = document.getElementById('saveToDriveBtn'); const loadBtn = document.getElementById('loadFromDriveBtn'); if (saveBtn) {saveBtn.style.display = 'inline-block'; saveBtn.onclick = saveDataToDrive;} if (loadBtn) {loadBtn.style.display = 'inline-block'; loadBtn.onclick = loadDataFromDrive;} updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false); await findDataFile();} catch (e) {console.error("Error en callback:", e); updateDataStatus('❌ Ocurrió un error después de conectar.', true);}
+}
+async function addEventToGoogleCalendar(siniestro, mediacion) {
+    if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
+    updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
+    try {const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`); const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); const event = {'summary': `Mediación: ${siniestro.cliente}`,'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },}; await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event }); updateDataStatus('✅ Evento creado en Google Calendar.', false);} catch(e) {console.error("Error creando evento:", e); updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);}
+}
+async function findDataFile(){
+  updateDataStatus('🔎 Buscando archivo de Drive...', false);
+  try {const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' }); if (response.result.files && response.result.files.length > 0) {gdDataFileId = response.result.files[0].id; updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);} else {updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);}} catch(e) {console.error("Error buscando archivo:", e); updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);}
+}
+async function saveDataToDrive() {
+    if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if (!confirm('¿Guardar datos en Drive?')) return;
+    updateDataStatus('💾 Guardando en Drive...', false); const content = JSON.stringify(siniestrosData, null, 2); const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+    try {let request; if (gdDataFileId) {request = gapi.client.request({path: `/upload/drive/v3/files/${gdDataFileId}`, method: 'PATCH', params: { uploadType: 'media' }, body: content});} else { request = gapi.client.drive.files.create({resource: metadata, media: { mimeType: 'application/json', body: content }, fields: 'id'});} const response = await request; if (response.result.id) gdDataFileId = response.result.id; updateDataStatus('✅ Guardado en Drive con éxito.', false);} catch (e) {console.error('Error en saveDataToDrive:', e); updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);}
+}
+async function loadDataFromDrive(){
+  if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; } if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
+  updateDataStatus('📥 Cargando desde Drive...', false);
+  try {const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' }); const imported = JSON.parse(response.body); if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.'); siniestrosData = sanitizeData(imported); saveData(); renderAll(); updateDataStatus('✅ Datos cargados desde Drive.', false);} catch(e) {console.error("Error cargando datos:", e); updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);}
+}
+async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; localFilesForUpload = []; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`; document.getElementById('documentModal').classList.add('active'); renderLocalFileList(); await renderDriveFileList(); const area = document.getElementById('uploadArea'); ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false)); ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false)); ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false)); area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);}
+function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
+function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
+function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
+function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
+async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
+async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
+async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
+async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
+async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
 </script>
 </body>
 </html>
