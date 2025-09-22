@@ -107,7 +107,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <body>
 <div class="container">
   <div class="header">
-    <h1>🚦 Planilla de Siniestros</h1>
+    <h1>🚦 Planilla de Siniestros v2.0 (CORREGIDA)</h1>
     <p>García & Asociados</p>
     <div class="header-clock-container">
         <div class="analog-clock">
@@ -480,7 +480,12 @@ async function processLetterData(event, siniestroId) {
         if (width >= 100) clearInterval(interval);
     }, 150);
 
-    const hayLesiones = document.getElementById('checkLesiones').checked;
+    // --- CÓDIGO SIMPLIFICADO ---
+    // Buscamos el checkbox de forma segura. Si no existe, asumimos que es 'false'.
+    const checkLesionesEl = document.getElementById('checkLesiones');
+    const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
+    // --- FIN DEL CÓDIGO SIMPLIFICADO ---
+
     const montoLesiones = parseFloat(document.getElementById('letterLesionesMonto').value) || 0;
     const montoMateriales = parseFloat(s.presupuesto) || 0;
 
