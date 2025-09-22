@@ -413,7 +413,7 @@ function confirmReschedule(siniestroId, mediacionId) {
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
-// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (MEJORADAS) ---
+// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (CORREGIDO) ---
 function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
     const modal = document.getElementById('letterGenerationModal'); const today = new Date().toISOString().split('T')[0];
@@ -437,7 +437,7 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>DNI del TERCERO (Opcional)</label><input type="text" id="letterDniTercero"></div>
             </div>
             <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
-            
+
             <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
                 <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
                     <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
@@ -465,10 +465,9 @@ async function processLetterData(event, siniestroId) {
     event.preventDefault();
     const s = siniestrosData.find(x => x.id === siniestroId);
     const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
-    
+
     modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
 
-    // Simulación de progreso
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progress-text');
     let width = 0;
@@ -507,6 +506,7 @@ async function processLetterData(event, siniestroId) {
     };
 
     const generatedLetter = await callAIApi(data);
+    clearInterval(interval); // Detenemos la barra de progreso al recibir la respuesta
 
     const resultHTML = `
         <div class="print-area">
@@ -522,12 +522,8 @@ async function processLetterData(event, siniestroId) {
     modalContent.innerHTML = resultHTML;
 }
 
-// REEMPLAZA LA FUNCIÓN ANTIGUA CON ESTA NUEVA VERSIÓN
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
-    
-    // CAMBIO IMPORTANTE: Apunta a tu servidor local.
-    // Si tu servidor corre en otro lado, cambia la URL.
     const API_URL = 'http://localhost:3001/api/generar-carta';
 
     try {
@@ -540,20 +536,24 @@ async function callAIApi(data) {
         });
 
         if (!response.ok) {
-            // Si el servidor responde con un error, lo mostramos.
-            const errorData = await response.json();
-            throw new Error(errorData.detalle || `Error del servidor: ${response.statusText}`);
+            const errorData = await response.text();
+            throw new Error(errorData || `Error del servidor: ${response.statusText}`);
         }
 
-        // El servidor devuelve texto plano, así que lo leemos como tal.
         const generatedLetter = await response.text();
         return generatedLetter;
 
     } catch (error) {
         console.error("Error al llamar a la API del servidor:", error);
-        // Devolvemos un mensaje de error para que el usuario sepa qué pasó.
         return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor (server.js) esté encendido y funcionando.`;
     }
+}
+
+function copyToClipboard(elementId) {
+    const textArea = document.getElementById(elementId);
+    textArea.select();
+    document.execCommand('copy');
+    updateDataStatus('✅ Texto copiado al portapapeles.');
 }
 
 // --- FIN DE NUEVAS FUNCIONES ---
