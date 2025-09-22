@@ -477,7 +477,6 @@ async function processLetterData(event, siniestroId) {
         return;
     }
 
-    // --- CORRECCIÓN CLAVE: Primero leemos todos los datos del formulario ---
     const checkLesionesEl = document.getElementById('checkLesiones');
     const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
 
@@ -508,7 +507,6 @@ async function processLetterData(event, siniestroId) {
         montoTotal: montoMateriales + montoLesiones
     };
 
-    // --- Y AHORA SÍ, borramos el formulario para mostrar el mensaje de carga ---
     const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
     modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
 
@@ -523,7 +521,6 @@ async function processLetterData(event, siniestroId) {
         if (width >= 100) clearInterval(interval);
     }, 150);
 
-    // Finalmente, llamamos a la IA con los datos que ya guardamos
     const generatedLetter = await callAIApi(data);
     clearInterval(interval); 
 
@@ -545,7 +542,8 @@ async function processLetterData(event, siniestroId) {
 
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
-    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta';
+    // IMPORTANTE: Esta URL debe ser la de tu servidor en Render
+    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta'; 
 
     try {
         const response = await fetch(API_URL, {
@@ -566,7 +564,7 @@ async function callAIApi(data) {
 
     } catch (error) {
         console.error("Error al llamar a la API del servidor:", error);
-        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor (server.js) esté encendido y funcionando.`;
+        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor esté encendido y funcionando.`;
     }
 }
 
@@ -577,30 +575,24 @@ function copyToClipboard(elementId) {
     updateDataStatus('✅ Texto copiado al portapapeles.');
 }
 
-// --- **NUEVAS FUNCIONES DE DESCARGA** ---
 function downloadAsPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const text = document.getElementById('generatedLetterText').value;
-    
-    // Divide el texto en líneas y maneja el salto de página
-    const splitText = doc.splitTextToSize(text, 180); // 180 es el ancho del texto en la página
-    doc.text(splitText, 15, 20); // 15 margen izquierdo, 20 margen superior
-    
+    const splitText = doc.splitTextToSize(text, 180);
+    doc.text(splitText, 15, 20);
     doc.save('CartaDePatrocinio.pdf');
 }
 
 function downloadAsWord() {
     const text = document.getElementById('generatedLetterText').value;
-    // Usamos la etiqueta <pre> para que Word respete los saltos de línea y espacios
-    const content = `<pre>${text}</pre>`;
+    const content = `<pre style="font-family: 'Courier New', monospace;">${text}</pre>`;
     const blob = htmlDocx.asBlob(content);
     saveAs(blob, 'CartaDePatrocinio.doc');
 }
 
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // --- LÓGICA DEL RELOJ ---
   const digitalClockElement = document.getElementById('digital-clock'); const hourHand = document.querySelector('.hour-hand'); const minHand = document.querySelector('.min-hand'); const secondHand = document.querySelector('.second-hand');
   function updateClock() {
       const now = new Date();
@@ -672,7 +664,7 @@ async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) re
 async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
 async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
 async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
-async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: 'base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
+async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
 </script>
 </body>
 </html>
