@@ -95,6 +95,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .tag-mediacion{background-color:#1abc9c}
 .form-section{background:#f8f9fa;padding:16px;border:1px solid #e0e0e0;border-radius:10px;margin-top:16px}
 .action-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+.document-list{list-style:none;padding:0;margin:0;max-height:250px;overflow:auto;font-size:.9em}
+.document-list li{background:#f1f3f5;padding:8px 10px;border-radius:6px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.document-list a{color:#3498db;text-decoration:none;font-weight:500;flex:1;word-break:break-word}
+.document-list a:hover{text-decoration:underline}
+.document-list .spinner{display:block;margin:20px auto;width:30px;height:30px;border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;animation:spin 1s linear infinite}
 .progress-bar-container{width:80%;margin:20px auto;height:20px;background-color:#ecf0f1;border-radius:10px;overflow:hidden}
 .progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--secondary-color),var(--primary-color));transition:width .2s ease-out}
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
@@ -169,7 +174,7 @@ let siniestrosData=[];
 let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
 
 // --- URL DEL SERVIDOR EN RENDER ---
-const API_BASE_URL = 'https://portal-backend-v2.onrender.com';
+const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta';
 // ------------------------------------
 
 function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados localmente');}
@@ -207,7 +212,7 @@ function updateDataStatus(msg,err=false){
 }
 function getTodayYMD(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const todayYMD=getTodayYMD();
-function formatDate(d){if(!d) return 'No definida';const [y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+function formatDate(d){if(!d) return 'No definida'; const date = new Date(d); const userTimezoneOffset = date.getTimezoneOffset() * 60000; const adjustedDate = new Date(date.getTime() + userTimezoneOffset); const [y,m,day]=adjustedDate.toISOString().split('T')[0].split('-'); return `${day}/${m}/${y}`;}
 function formatTime(t){if(!t) return ''; return t;}
 function isToday(d){return d&&d===todayYMD}
 function isPastDue(d){return d&&d<todayYMD}
@@ -328,7 +333,17 @@ function showSiniestroModal(id){
   const datalistsHTML = `<datalist id="aseguradorasList">${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
   const html=`
     <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
-    <div class="info-grid">${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'N° Reclamo',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(s[k]):(s[k]||'S/D')}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+    <div class="info-grid">${Object.entries({
+        cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',
+        aseguradoEn:'Aseguradora Cliente', polizaCliente: 'Póliza Cliente', vehiculoCliente: 'Vehículo Cliente',
+        contra:'Aseguradora Tercero', numeroReclamo:'N° Reclamo',
+        fechaSiniestro: 'Fecha Siniestro', horaSiniestro: 'Hora Siniestro', lugarSiniestro: 'Lugar Siniestro',
+        nombreTercero: 'Nombre Tercero', vehiculoTercero: 'Vehículo Tercero',
+        presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',
+        acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'
+    }).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${
+        /presupuesto|indemnizacion|honorarios/.test(k) ? formatCurrency(s[k]) : (k === 'fechaSiniestro' ? formatDate(s[k]) : (s[k] || 'S/D'))
+    }</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
     <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
     <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
         <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto para el Cliente (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Internas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
@@ -367,8 +382,13 @@ function deleteMediacion(sid,mid){if(!confirm('¿Eliminar mediación?'))return;c
 function editField(sid, field, element) {
     if (editingField) return; editingSiniestroId = sid; editingField = field;
     const s = siniestrosData.find(x => x.id === sid); const currentValue = s[field] || '';
+    let inputType = 'text';
+    if (/presupuesto|indemnizacion|honorarios|dni|celular/.test(field)) inputType = 'number';
+    else if (field === 'fechaSiniestro') inputType = 'date';
+    else if (field === 'horaSiniestro') inputType = 'time';
+
     const input = document.createElement('input');
-    input.type = /presupuesto|indemnizacion|honorarios|dni|celular/.test(field) ? 'number' : 'text';
+    input.type = inputType;
     input.value = currentValue; input.style.cssText='width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
     if (field === 'aseguradoEn') input.setAttribute('list', 'aseguradorasList');
     if (field === 'contra') input.setAttribute('list', 'contrasList');
@@ -415,7 +435,54 @@ function confirmReschedule(siniestroId, mediacionId) {
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
-// --- CÓDIGO CORREGIDO PARA LA CARTA ---
+
+// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (VERSIÓN FINAL) ---
+function startLetterGeneration(siniestroId) {
+    const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
+    const modal = document.getElementById('letterGenerationModal');
+    const formHTML = `
+        <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span>
+        <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2>
+        <p style="font-size: 0.9em; margin-bottom: 20px;">Verifica y completa los datos. La IA se encargará de redactar la carta con un tono profesional.</p>
+        <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')">
+            <div class="info-grid">
+                <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div>
+                <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div>
+                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div>
+                <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div>
+                <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div>
+                <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div>
+                <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div>
+                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div>
+                <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${s.vehiculoCliente || ''}" placeholder="Marca, Modelo, Año, Dominio" required></div>
+                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div>
+                <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div>
+                <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${s.vehiculoTercero || ''}" placeholder="Marca, Modelo, Año, Dominio"></div>
+            </div>
+            <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
+            
+            <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
+                    <label for="checkLesiones" style="margin-bottom: 0; font-weight: 700;">¿Hubo Lesiones?</label>
+                </div>
+                <div id="lesionesFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos de las lesiones (todos opcionales).</p>
+                    <div class="form-group"><label>Descripción de las lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div>
+                    <div class="form-group"><label>Monto reclamado por Lesiones/Incapacidad</label><input type="number" id="letterLesionesMonto" placeholder="0"></div>
+                </div>
+            </div>
+
+            <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div>
+        </form>
+    `;
+    modal.querySelector('.modal-content').innerHTML = formHTML;
+    modal.classList.add('active');
+}
+
+function toggleLesiones(checked) {
+    document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
+}
 
 async function processLetterData(event, siniestroId) {
     event.preventDefault();
@@ -427,8 +494,10 @@ async function processLetterData(event, siniestroId) {
 
     const checkLesionesEl = document.getElementById('checkLesiones');
     const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
+
     const montoLesionesEl = document.getElementById('letterLesionesMonto');
     const montoLesiones = montoLesionesEl ? parseFloat(montoLesionesEl.value) || 0 : 0;
+    
     const montoMateriales = parseFloat(s.presupuesto) || 0;
 
     const data = {
@@ -444,7 +513,7 @@ async function processLetterData(event, siniestroId) {
         vehiculoCliente: document.getElementById('letterVehiculoCliente').value,
         partesDanadas: document.getElementById('letterPartesDanadas').value,
         nombreTercero: document.getElementById('letterNombreTercero').value,
-        dniTercero: document.getElementById('letterDniTercero').value,
+        vehiculoTercero: document.getElementById('letterVehiculoTercero').value,
         relato: document.getElementById('letterRelato').value,
         infracciones: document.getElementById('letterInfracciones').value,
         hayLesiones: hayLesiones,
@@ -488,6 +557,9 @@ async function processLetterData(event, siniestroId) {
 
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
+    // IMPORTANTE: Esta URL debe ser la de tu servidor en Render
+    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta'; 
+
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -496,15 +568,18 @@ async function callAIApi(data) {
             },
             body: JSON.stringify(data),
         });
+
         if (!response.ok) {
             const errorData = await response.text();
             throw new Error(errorData || `Error del servidor: ${response.statusText}`);
         }
+
         const generatedLetter = await response.text();
         return generatedLetter;
+
     } catch (error) {
         console.error("Error al llamar a la API del servidor:", error);
-        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor (server.js) esté encendido y funcionando.`;
+        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor esté encendido y funcionando.`;
     }
 }
 
@@ -526,7 +601,7 @@ function downloadAsPDF() {
 
 function downloadAsWord() {
     const text = document.getElementById('generatedLetterText').value;
-    const content = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><pre style="font-family: 'Courier New', monospace; white-space: pre-wrap;">${text}</pre></body></html>`;
+    const content = `<pre style="font-family: 'Courier New', monospace;">${text}</pre>`;
     const blob = htmlDocx.asBlob(content);
     saveAs(blob, 'CartaDePatrocinio.doc');
 }
@@ -546,12 +621,65 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
     <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
-    <form id="newSiniestroForm"><div class="info-grid"><div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div><div class="form-group"><label>DNI</label><input id="newDni" type="number"></div><div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div><div class="form-group"><label>Asegurado En</label><input id="newAseguradoEn"></div><div class="form-group"><label>Contra</label><input id="newContra"></div><div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div><div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div></div><div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div><div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div><div style="text-align:center;margin-top:6px;"><button class="btn btn-success" type="submit">Guardar</button></div></form>`;
+    <form id="newSiniestroForm">
+        <div class="form-section">
+            <h4>Datos del Cliente</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div>
+                <div class="form-group"><label>DNI</label><input id="newDni" type="number"></div>
+                <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
+                <div class="form-group"><label>Aseguradora Cliente</label><input id="newAseguradoEn"></div>
+                <div class="form-group"><label>Póliza Cliente</label><input id="newPolizaCliente"></div>
+                <div class="form-group"><label>Vehículo Cliente</label><input id="newVehiculoCliente" placeholder="Marca, Modelo, Año, Dominio"></div>
+            </div>
+        </div>
+        <div class="form-section">
+            <h4>Datos del Siniestro y Tercero</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Fecha Siniestro</label><input id="newFechaSiniestro" type="date"></div>
+                <div class="form-group"><label>Hora Siniestro</label><input id="newHoraSiniestro" type="time"></div>
+                <div class="form-group"><label>Lugar Siniestro</label><input id="newLugarSiniestro"></div>
+                <div class="form-group"><label>Aseguradora Tercero</label><input id="newContra"></div>
+                <div class="form-group"><label>Nombre Tercero</label><input id="newNombreTercero"></div>
+                <div class="form-group"><label>Vehículo Tercero</label><input id="newVehiculoTercero" placeholder="Marca, Modelo, Año, Dominio"></div>
+            </div>
+        </div>
+        <div class="form-section">
+            <h4>Gestión Interna</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div>
+                <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div>
+                <div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
+            </div>
+            <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
+            <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
+        </div>
+        <div style="text-align:center;margin-top:12px;"><button class="btn btn-success" type="submit">Guardar</button></div>
+    </form>`;
   document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
   
   document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
     e.preventDefault();
-    const n={id:generateId({}),cliente:document.getElementById('newCliente').value.toUpperCase(),dni:document.getElementById('newDni').value,celular:document.getElementById('newCelular').value,estado:document.getElementById('newEstado').value,aseguradoEn:document.getElementById('newAseguradoEn').value.toUpperCase(),contra:document.getElementById('newContra').value.toUpperCase(),numeroReclamo:document.getElementById('newNumeroReclamo').value,presupuesto:document.getElementById('newPresupuesto').value,observaciones:[], mediaciones_list:[]};
+    const n = {
+        id: generateId({}),
+        cliente: document.getElementById('newCliente').value.toUpperCase(),
+        dni: document.getElementById('newDni').value,
+        celular: document.getElementById('newCelular').value,
+        estado: document.getElementById('newEstado').value,
+        aseguradoEn: document.getElementById('newAseguradoEn').value.toUpperCase(),
+        polizaCliente: document.getElementById('newPolizaCliente').value,
+        vehiculoCliente: document.getElementById('newVehiculoCliente').value,
+        contra: document.getElementById('newContra').value.toUpperCase(),
+        numeroReclamo: document.getElementById('newNumeroReclamo').value,
+        presupuesto: document.getElementById('newPresupuesto').value,
+        fechaSiniestro: document.getElementById('newFechaSiniestro').value,
+        horaSiniestro: document.getElementById('newHoraSiniestro').value,
+        lugarSiniestro: document.getElementById('newLugarSiniestro').value,
+        nombreTercero: document.getElementById('newNombreTercero').value,
+        vehiculoTercero: document.getElementById('newVehiculoTercero').value,
+        observaciones: [],
+        mediaciones_list: []
+    };
     const txt=document.getElementById('newObservacion').value; const rev=document.getElementById('newFechaRevision').value;
     if(txt&&rev){n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false, fechaTrabajado: todayYMD});}
     updateSiniestroNextRevision(n);siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
@@ -565,7 +693,7 @@ window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))clos
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
-// --- TODA LA LÓGICA DE GOOGLE DRIVE API PERMANECE IGUAL (CON CORRECCIÓN DE SINTAXIS) ---
+// --- TODA LA LÓGICA DE GOOGLE DRIVE API PERMANECE IGUAL ---
 const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events'; const GD_DATA_FILE='datos_planilla_siniestros.json'; const GD_DOCS_ROOT='Planilla_Siniestros_Documentos'; let tokenClient; let gapiReady = false, gisReady = false; let gdDataFileId = null, gdDocsFolderId = null;
 function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 async function initializeGapiClient() {try {await gapi.client.init({apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']}); gapiReady = true; maybeEnableButtons();} catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }}
@@ -595,9 +723,14 @@ async function loadDataFromDrive(){
   updateDataStatus('📥 Cargando desde Drive...', false);
   try {const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' }); const imported = JSON.parse(response.body); if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.'); siniestrosData = sanitizeData(imported); saveData(); renderAll(); updateDataStatus('✅ Datos cargados desde Drive.', false);} catch(e) {console.error("Error cargando datos:", e); updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);}
 }
-async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModal').innerHTML = `<div class="modal-content"><span class="close" onclick="closeModal('documentModal')">&times;</span><h3 id="documentModalTitle">Documentos: ${getDisplayName(s)}</h3><div id="driveDocumentList" class="document-list"></div></div>`; document.getElementById('documentModal').classList.add('active'); await renderDriveFileList(sid); }
-async function renderDriveFileList(sid) { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===sid); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const rootFolder = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, rootFolder); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}', '${sid}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
-async function deleteDocument(fid, sid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(sid); } catch (e) { alert('Error al eliminar'); } }
+async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; localFilesForUpload = []; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`; document.getElementById('documentModal').classList.add('active'); renderLocalFileList(); await renderDriveFileList(); const area = document.getElementById('uploadArea'); ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false)); ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false)); ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false)); area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);}
+function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
+function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
+function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
+function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
+async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
+async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
+async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
 async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
 async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
 </script>
