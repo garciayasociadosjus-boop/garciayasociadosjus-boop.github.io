@@ -747,38 +747,19 @@
         
         // ========= INICIALIZACIÓN DE LA APLICACIÓN =========
         document.addEventListener('DOMContentLoaded', () => {
-            // --- INICIO: LÓGICA DEL RELOJ COMBINADO ---
             const digitalClockElement = document.getElementById('digital-clock');
             const hourHand = document.querySelector('.hour-hand');
             const minHand = document.querySelector('.min-hand');
             const secondHand = document.querySelector('.second-hand');
-
             function updateClock() {
                 const now = new Date();
-                
-                // Lógica para el reloj digital
                 const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                const date = now.toLocaleDateString('es-AR', dateOptions);
-                const time = now.toLocaleTimeString('es-AR', { hour12: false });
-                digitalClockElement.innerHTML = `${date}<br>${time}`;
-
-                // Lógica para el reloj analógico
-                const seconds = now.getSeconds();
-                const secondsDegrees = ((seconds / 60) * 360) + 90;
-                secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
-
-                const mins = now.getMinutes();
-                const minsDegrees = ((mins / 60) * 360) + ((seconds/60)*6) + 90;
-                minHand.style.transform = `rotate(${minsDegrees}deg)`;
-
-                const hour = now.getHours();
-                const hourDegrees = ((hour / 12) * 360) + ((mins/60)*30) + 90;
-                hourHand.style.transform = `rotate(${hourDegrees}deg)`;
+                digitalClockElement.innerHTML = `${now.toLocaleDateString('es-AR', dateOptions)}<br>${now.toLocaleTimeString('es-AR', { hour12: false })}`;
+                const seconds = now.getSeconds(); secondHand.style.transform = `rotate(${((seconds / 60) * 360) + 90}deg)`;
+                const mins = now.getMinutes(); minHand.style.transform = `rotate(${((mins / 60) * 360) + ((seconds/60)*6) + 90}deg)`;
+                const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
             }
-
-            updateClock();
-            setInterval(updateClock, 1000);
-            // --- FIN: LÓGICA DEL RELOJ ---
+            updateClock(); setInterval(updateClock, 1000);
 
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
@@ -805,7 +786,45 @@
         function maybeEnableGoogleButtons(){if(gapiReady&&gisReady){document.getElementById('connectDriveBtn').onclick=handleAuthClick}}
         function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
         async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
-        async function crearEventoEnCalendario(client,evento,tipoEvento){if(!gapi.client.getToken()?.access_token){alert('Debe conectar su cuenta de Google para agendar en el calendario.');return}if(!evento.fecha||!evento.hora){console.log(`Fecha u hora de ${tipoEvento} inválida.`);return}updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`,false);try{const eventStartTime=new Date(`${evento.fecha}T${evento.hora}:00`);const eventEndTime=new Date(eventStartTime.getTime()+60*60*1000);const event={'summary':`${tipoEvento}: ${client.nombre} | ${client.caratula||'S/C'}`,'description':`Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,'start':{'dateTime':eventStartTime.toISOString(),'timeZone':'America/Argentina/Buenos_ Aires'},'end':{'dateTime':eventEndTime.toISOString(),'timeZone':'America/Argentina/Buenos_Aires'}};await gapi.client.calendar.events.insert({'calendarId':'primary','resource':event});updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`,false)}catch(e){console.error(`Error creando evento de ${tipoEvento}:`,e);updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message||'Error desconocido.'}`,true)}}
+        
+        async function crearEventoEnCalendario(client, evento, tipoEvento) {
+            if (!gapi.client.getToken()?.access_token) {
+                alert('Debe conectar su cuenta de Google para agendar en el calendario.');
+                return;
+            }
+            if (!evento.fecha || !evento.hora) {
+                console.error(`Fecha u hora de ${tipoEvento} inválida.`);
+                return;
+            }
+            updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
+            try {
+                const eventStartTime = new Date(`${evento.fecha}T${evento.hora}:00`);
+                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
+                const event = {
+                    'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`,
+                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,
+                    'start': {
+                        'dateTime': eventStartTime.toISOString(),
+                        'timeZone': 'America/Argentina/Buenos_Aires' // CORREGIDO: Sin espacio
+                    },
+                    'end': {
+                        'dateTime': eventEndTime.toISOString(),
+                        'timeZone': 'America/Argentina/Buenos_Aires'
+                    }
+                };
+                await gapi.client.calendar.events.insert({
+                    'calendarId': 'primary',
+                    'resource': event
+                });
+                updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
+            } catch (e) {
+                console.error(`Error creando evento de ${tipoEvento}:`, e);
+                const errorMessage = e.result?.error?.message || 'Error desconocido. Verifique la consola para más detalles.';
+                updateDataStatus(`❌ Error al crear evento: ${errorMessage}`, true);
+                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas.`);
+            }
+        }
+
         async function findDataFile(){updateDataStatus('🔎 Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).',false)}}catch(e){console.error("Error buscando archivo:",e);updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`,true)}}
         async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDataStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;updateDataStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDataStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
         async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDataStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();updateDataStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
@@ -823,4 +842,3 @@
     </script>
 </body>
 </html>
-}
