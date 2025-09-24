@@ -173,10 +173,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
 
-// --- URL DEL SERVIDOR EN RENDER ---
-const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta';
-// ------------------------------------
-
 function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados localmente');}
 function loadData(){
   const saved=localStorage.getItem('planilla_siniestros_data');
@@ -334,7 +330,8 @@ function showSiniestroModal(id){
   const html=`
     <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
     <div class="info-grid">${Object.entries({
-        cliente:'Cliente',dni:'DNI',celular:'Celular',estado:'Estado',
+        cliente:'Cliente (Titular)',dni:'DNI (Titular)',celular:'Celular',estado:'Estado',
+        conductorNombre: 'Nombre Conductor', conductorDni: 'DNI Conductor',
         aseguradoEn:'Aseguradora Cliente', polizaCliente: 'Póliza Cliente', vehiculoCliente: 'Vehículo Cliente',
         contra:'Aseguradora Tercero', numeroReclamo:'N° Reclamo',
         fechaSiniestro: 'Fecha Siniestro', horaSiniestro: 'Hora Siniestro', lugarSiniestro: 'Lugar Siniestro',
@@ -383,7 +380,7 @@ function editField(sid, field, element) {
     if (editingField) return; editingSiniestroId = sid; editingField = field;
     const s = siniestrosData.find(x => x.id === sid); const currentValue = s[field] || '';
     let inputType = 'text';
-    if (/presupuesto|indemnizacion|honorarios|dni|celular/.test(field)) inputType = 'number';
+    if (/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni/.test(field)) inputType = 'number';
     else if (field === 'fechaSiniestro') inputType = 'date';
     else if (field === 'horaSiniestro') inputType = 'time';
 
@@ -436,7 +433,7 @@ function confirmReschedule(siniestroId, mediacionId) {
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
 
-// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (VERSIÓN FINAL) ---
+// --- INICIO: NUEVAS FUNCIONES PARA GENERACIÓN DE CARTA (VERSIÓN FINAL CORREGIDA) ---
 function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
     const modal = document.getElementById('letterGenerationModal');
@@ -459,6 +456,21 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div>
                 <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${s.vehiculoTercero || ''}" placeholder="Marca, Modelo, Año, Dominio"></div>
             </div>
+
+            <div class="form-section" style="border-left: 4px solid var(--secondary-color); margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <input type="checkbox" id="conductorEsTitular" onchange="toggleConductorFields(!this.checked)" style="width: auto;" checked>
+                    <label for="conductorEsTitular" style="margin-bottom: 0; font-weight: 700;">¿El conductor es el mismo titular del vehículo?</label>
+                </div>
+                <div id="conductorFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos del conductor.</p>
+                    <div class="info-grid">
+                        <div class="form-group"><label>Nombre y Apellido del Conductor</label><input type="text" id="letterConductorNombre" value="${s.conductorNombre || ''}"></div>
+                        <div class="form-group"><label>DNI del Conductor (Opcional)</label><input type="text" id="letterConductorDni" value="${s.conductorDni || ''}"></div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
             
             <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
@@ -484,21 +496,35 @@ function toggleLesiones(checked) {
     document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
 }
 
+function toggleConductorFields(show) {
+    document.getElementById('conductorFields').style.display = show ? 'block' : 'none';
+}
+
 async function processLetterData(event, siniestroId) {
     event.preventDefault();
     const s = siniestrosData.find(x => x.id === siniestroId);
-    if (!s) {
-        alert("Error: No se pudo encontrar el siniestro para procesar.");
-        return;
-    }
+    if (!s) { alert("Error: No se pudo encontrar el siniestro para procesar."); return; }
 
     const checkLesionesEl = document.getElementById('checkLesiones');
     const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
-
     const montoLesionesEl = document.getElementById('letterLesionesMonto');
     const montoLesiones = montoLesionesEl ? parseFloat(montoLesionesEl.value) || 0 : 0;
-    
     const montoMateriales = parseFloat(s.presupuesto) || 0;
+
+    // Lógica para determinar el relato según el conductor
+    let relatoOriginal = document.getElementById('letterRelato').value;
+    const conductorEsTitular = document.getElementById('conductorEsTitular').checked;
+    if (!conductorEsTitular) {
+        const nombreConductor = document.getElementById('letterConductorNombre').value;
+        const dniConductor = document.getElementById('letterConductorDni').value;
+        let infoConductor = `Aclaración: El vehículo de mi mandante era conducido por el/la Sr./Sra. ${nombreConductor}`;
+        if (dniConductor) {
+            infoConductor += `, DNI N° ${dniConductor}`;
+        }
+        infoConductor += '. ';
+        relatoOriginal = infoConductor + relatoOriginal;
+    }
+
 
     const data = {
         siniestro: s,
@@ -514,7 +540,7 @@ async function processLetterData(event, siniestroId) {
         partesDanadas: document.getElementById('letterPartesDanadas').value,
         nombreTercero: document.getElementById('letterNombreTercero').value,
         vehiculoTercero: document.getElementById('letterVehiculoTercero').value,
-        relato: document.getElementById('letterRelato').value,
+        relato: relatoOriginal, // Usamos el relato modificado
         infracciones: document.getElementById('letterInfracciones').value,
         hayLesiones: hayLesiones,
         lesionesDesc: hayLesiones ? document.getElementById('letterLesionesDesc').value : '',
@@ -530,58 +556,93 @@ async function processLetterData(event, siniestroId) {
     let width = 0;
     const interval = setInterval(() => {
         width += 5;
+        if (width >= 95) return;
         progressBar.style.width = width + '%';
         if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
         else if (width >= 70) progressText.textContent = "Dando formato legal...";
-        if (width >= 100) clearInterval(interval);
     }, 150);
 
-    const generatedLetter = await callAIApi(data);
-    clearInterval(interval); 
+    const result = await callAIApi(data);
+    clearInterval(interval);
+    progressBar.style.width = '100%';
 
-    const resultHTML = `
-        <div class="print-area">
-            <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
-            <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2>
-            <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${generatedLetter}</textarea>
-        </div>
-        <div class="action-buttons no-print" style="margin-top:15px;">
-            <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
-            <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
-            <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button>
-            <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button>
-        </div>
-    `;
+    let resultHTML;
+    if (result.success) {
+        progressText.textContent = "¡Generado con éxito!";
+        resultHTML = `
+            <div class="print-area">
+                <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
+                <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2>
+                <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea>
+            </div>
+            <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
+                <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+                <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button>
+                <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button>
+            </div>
+        `;
+    } else {
+        progressText.textContent = "Error en la generación";
+        resultHTML = `
+             <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
+             <h2 style="color: var(--danger-color); text-align: center;">❌ Ocurrió un Error</h2>
+             <p style="margin-top: 15px; font-size: 1em; text-align: center;">No se pudo generar la carta. Motivo:</p>
+             <textarea readonly style="width:100%; height: 200px; margin-top: 10px; background-color: #f3f3f3; border: 1px solid #ccc; padding: 10px; font-family: monospace;">${result.error}</textarea>
+             <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-warning" onclick="closeModal('letterGenerationModal')">Cerrar</button>
+             </div>
+             <p style="font-size: 0.8em; text-align: center; margin-top: 20px; color: #555;"><b>Sugerencia:</b> Revisa los logs de tu servidor en Render.com para ver el error detallado. El problema suele ser una API Key de Gemini incorrecta o que el servidor tarda demasiado en responder.</p>
+        `;
+    }
     modalContent.innerHTML = resultHTML;
 }
 
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
-    // IMPORTANTE: Esta URL debe ser la de tu servidor en Render
-    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta'; 
+    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(errorData || `Error del servidor: ${response.statusText}`);
+            const errorText = await response.text();
+            let errorJson;
+            try {
+                errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.detalle || errorJson.error || 'Error desconocido del servidor.');
+            } catch (e) {
+                throw new Error(errorText || `Error del servidor: ${response.status}`);
+            }
         }
 
         const generatedLetter = await response.text();
-        return generatedLetter;
+        return { success: true, letter: generatedLetter };
 
     } catch (error) {
+        clearTimeout(timeoutId);
         console.error("Error al llamar a la API del servidor:", error);
-        return `ERROR: No se pudo conectar con el servidor para generar la carta.\n\nDetalles: ${error.message}\n\nAsegúrate de que el servidor esté encendido y funcionando.`;
+        
+        let errorMessage = `ERROR: No se pudo conectar con el servidor para generar la carta.`;
+        if (error.name === 'AbortError') {
+            errorMessage = `ERROR: La solicitud al servidor ha tardado demasiado (más de 60 segundos) y fue cancelada. Esto puede deberse a que el servidor está "despertando" (cold start). Por favor, intenta de nuevo en un momento.`;
+        } else {
+             errorMessage += `\n\nDetalles: ${error.message}`;
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
+
 
 function copyToClipboard(elementId) {
     const textArea = document.getElementById(elementId);
@@ -592,16 +653,55 @@ function copyToClipboard(elementId) {
 
 function downloadAsPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+    });
     const text = document.getElementById('generatedLetterText').value;
-    const splitText = doc.splitTextToSize(text, 180);
-    doc.text(splitText, 15, 20);
+    const splitText = doc.splitTextToSize(text, 180); // Ancho de línea de 180mm en A4
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = 15; // Posición Y inicial con margen
+    doc.setFontSize(11);
+
+    for (let i = 0; i < splitText.length; i++) {
+        if (y > pageHeight - 15) { // Si la línea va a quedar fuera de la página
+            doc.addPage();
+            y = 15; // Reiniciar Y en la nueva página
+        }
+        doc.text(splitText[i], 15, y);
+        y += 7; // Incrementar Y para la siguiente línea
+    }
     doc.save('CartaDePatrocinio.pdf');
 }
 
 function downloadAsWord() {
     const text = document.getElementById('generatedLetterText').value;
-    const content = `<pre style="font-family: 'Courier New', monospace;">${text}</pre>`;
+    // Se agrega una cabecera HTML con UTF-8 y estilos para fuente Arial 12
+    const content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 12pt;
+                }
+                pre {
+                    font-family: Arial, sans-serif;
+                    font-size: 12pt;
+                    white-space: pre-wrap; /* Mantiene saltos de línea y hace ajuste de línea */
+                    word-wrap: break-word;
+                }
+            </style>
+        </head>
+        <body>
+            <pre>${text}</pre>
+        </body>
+        </html>
+    `;
     const blob = htmlDocx.asBlob(content);
     saveAs(blob, 'CartaDePatrocinio.doc');
 }
@@ -623,11 +723,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
     <form id="newSiniestroForm">
         <div class="form-section">
-            <h4>Datos del Cliente</h4>
+            <h4>Datos del Cliente y Conductor</h4>
             <div class="info-grid">
-                <div class="form-group"><label>Cliente *</label><input required id="newCliente" type="text"></div>
-                <div class="form-group"><label>DNI</label><input id="newDni" type="number"></div>
+                <div class="form-group"><label>Cliente (Titular) *</label><input required id="newCliente" type="text"></div>
+                <div class="form-group"><label>DNI (Titular)</label><input id="newDni" type="number"></div>
                 <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
+                <div class="form-group"><label>Nombre Conductor</label><input id="newConductorNombre" placeholder="Dejar en blanco si es el titular"></div>
+                <div class="form-group"><label>DNI Conductor</label><input id="newConductorDni" type="number" placeholder="Opcional"></div>
+            </div>
+        </div>
+        <div class="form-section">
+            <h4>Datos del Vehículo y Póliza</h4>
+            <div class="info-grid">
                 <div class="form-group"><label>Aseguradora Cliente</label><input id="newAseguradoEn"></div>
                 <div class="form-group"><label>Póliza Cliente</label><input id="newPolizaCliente"></div>
                 <div class="form-group"><label>Vehículo Cliente</label><input id="newVehiculoCliente" placeholder="Marca, Modelo, Año, Dominio"></div>
@@ -665,6 +772,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         cliente: document.getElementById('newCliente').value.toUpperCase(),
         dni: document.getElementById('newDni').value,
         celular: document.getElementById('newCelular').value,
+        conductorNombre: document.getElementById('newConductorNombre').value,
+        conductorDni: document.getElementById('newConductorDni').value,
         estado: document.getElementById('newEstado').value,
         aseguradoEn: document.getElementById('newAseguradoEn').value.toUpperCase(),
         polizaCliente: document.getElementById('newPolizaCliente').value,
