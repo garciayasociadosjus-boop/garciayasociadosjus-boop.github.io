@@ -660,19 +660,52 @@
             }
             const tempId = editingClientId;
             editingClientId = null; editingField = null;
-            renderAll(); // Actualiza la lista principal por si cambió el nombre
-            showClientModal(tempId); // Redibuja el modal
+            renderAll();
+            showClientModal(tempId);
         }
 
-        function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
-        function addAudience(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false, alertaMostrada: false }; client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); crearEventoEnCalendario(client, newAudience, 'Audiencia'); }
-        function addVencimiento(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false }; client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); crearEventoEnCalendario(client, newVencimiento, 'Vencimiento'); }
+        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        
+        async function addAudience(event, clientId) {
+            event.preventDefault();
+            if (!gapi.client.getToken()?.access_token) {
+                alert('Debe conectar su cuenta de Google para poder agendar audiencias.');
+                return;
+            }
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false, alertaMostrada: false };
+            const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
+            if (success) {
+                client.audiencias_list.push(newAudience);
+                updateAudienciasSummary(client);
+                saveData();
+                renderAll();
+                showClientModal(clientId);
+            }
+        }
+        
+        async function addVencimiento(event, clientId) {
+            event.preventDefault();
+            if (!gapi.client.getToken()?.access_token) {
+                alert('Debe conectar su cuenta de Google para poder agendar vencimientos.');
+                return;
+            }
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false };
+            const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
+            if (success) {
+                client.vencimientos_list.push(newVencimiento);
+                saveData();
+                renderAll();
+                showClientModal(clientId);
+            }
+        }
+
         function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
         function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         function deleteItem(clientId, itemId, itemType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento'}[itemType]; if (!confirm(`¿Estás seguro de que quieres eliminar esta ${itemName}?`)) return; if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId); updateClientNextRevision(client); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
         function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
         
-        // ========= ALERTAS Y EVENTOS (CORREGIDO) =========
         function marcarEventoCompleto(event, clientId, eventId, eventType) {
             event?.stopPropagation();
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
@@ -745,7 +778,6 @@
         function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         
-        // ========= INICIALIZACIÓN DE LA APLICACIÓN =========
         document.addEventListener('DOMContentLoaded', () => {
             const digitalClockElement = document.getElementById('digital-clock');
             const hourHand = document.querySelector('.hour-hand');
@@ -788,24 +820,19 @@
         async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
         
         async function crearEventoEnCalendario(client, evento, tipoEvento) {
-            if (!gapi.client.getToken()?.access_token) {
-                alert('Debe conectar su cuenta de Google para agendar en el calendario.');
-                return;
-            }
-            if (!evento.fecha || !evento.hora) {
-                console.error(`Fecha u hora de ${tipoEvento} inválida.`);
-                return;
-            }
             updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
             try {
                 const eventStartTime = new Date(`${evento.fecha}T${evento.hora}:00`);
+                if (isNaN(eventStartTime.getTime())) {
+                    throw new Error("Fecha u hora inválida.");
+                }
                 const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
                 const event = {
                     'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`,
                     'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,
                     'start': {
                         'dateTime': eventStartTime.toISOString(),
-                        'timeZone': 'America/Argentina/Buenos_Aires' // CORREGIDO: Sin espacio
+                        'timeZone': 'America/Argentina/Buenos_Aires'
                     },
                     'end': {
                         'dateTime': eventEndTime.toISOString(),
@@ -816,12 +843,15 @@
                     'calendarId': 'primary',
                     'resource': event
                 });
+                alert(`✅ ¡Éxito!\n\nEl evento "${tipoEvento}" fue agendado correctamente en tu Google Calendar.`);
                 updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
+                return true; // Retorna éxito
             } catch (e) {
                 console.error(`Error creando evento de ${tipoEvento}:`, e);
-                const errorMessage = e.result?.error?.message || 'Error desconocido. Verifique la consola para más detalles.';
+                const errorMessage = e.result?.error?.message || e.message || 'Error desconocido. Verifique la consola para más detalles.';
                 updateDataStatus(`❌ Error al crear evento: ${errorMessage}`, true);
-                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas.`);
+                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas y que tenga permisos en su calendario.`);
+                return false; // Retorna fracaso
             }
         }
 
