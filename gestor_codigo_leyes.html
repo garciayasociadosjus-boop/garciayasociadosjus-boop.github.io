@@ -35,9 +35,10 @@
         .btn {
             color: white; padding: 12px 18px; border: none; border-radius: 5px; cursor: pointer;
             font-size: 14px; font-weight: bold; transition: all 0.3s; text-decoration: none;
-            display: inline-block;
+            display: inline-flex; align-items: center; gap: 8px;
         }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-default { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); }
         .btn-action { background: linear-gradient(135deg, #e74c3c, var(--action-color)); }
         .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
@@ -132,7 +133,12 @@
         .status-warning { background-color: var(--warning-bg); border: 1px solid var(--warning-color); color: var(--warning-color); }
         
         #jsonFileInput { display: none; }
-
+        #driveFileContainer {
+            background-color: #e8f1f2; padding: 15px; border-radius: 8px;
+            display: none; flex-direction: column; gap: 10px;
+        }
+        #driveFileContainer label { font-weight: bold; }
+        #driveFileSelector { padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); }
         .no-results { text-align: center; padding: 40px 20px; color: #666; }
         .no-results h3 { color: #999; margin-bottom: 10px; }
 
@@ -160,12 +166,20 @@
         
         <div class="centered-controls">
             <button id="connectDriveBtn" class="btn btn-default">🔗 Conectar a Google Drive</button>
-            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
-            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" disabled title="Guarde o cargue un único archivo para activar esta opción">📤 Guardar en Drive</button>
+            <button id="saveAsDriveBtn" class="btn btn-success" style="display:none;">💾 Guardar como Nueva Ley en Drive...</button>
         </div>
         
         <input type="file" id="jsonFileInput" accept=".json">
         <div id="driveStatus" class="data-status"></div>
+        
+        <div id="driveFileContainer">
+            <label for="driveFileSelector">Seleccionar Ley Cargada en Drive:</label>
+            <div style="display: flex; gap: 10px;">
+                <select id="driveFileSelector" style="flex-grow: 1;"></select>
+                <button id="loadFromDriveBtn" class="btn btn-default">Cargar</button>
+            </div>
+        </div>
         
         <div class="controls">
             <button class="btn btn-action" id="addArticleBtn">➕ Agregar Artículo</button>
@@ -284,9 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const textViewTitle = document.getElementById('textViewTitle');
     const textViewBody = document.getElementById('textViewBody');
     const searchStats = document.getElementById('searchStats');
+    const saveToDriveBtn = document.getElementById('saveToDriveBtn');
 
     let articles = [];
     let editIndex = null;
+    let currentLoadedFile = { id: null, name: null };
     
     function initializeApp() {
         loadArticles();
@@ -305,19 +321,17 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('estudioJuridicoPersonal', JSON.stringify(articles));
         window.driveArticles = articles;
     }
-
+    
     function highlightText(text, searchTerms, searchMode) {
         if (!text || !searchTerms || searchTerms.length === 0) return text;
-        
         let regex;
         if (searchMode === 'exact') {
-            const exactPhrase = searchTerms.join(' ');
-            regex = new RegExp(`(${exactPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const exactPhrase = searchTerms.join(' ').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            regex = new RegExp(`(${exactPhrase})`, 'gi');
         } else {
             const terms = searchTerms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
             regex = new RegExp(`(${terms.join('|')})`, 'gi');
         }
-        
         return text.replace(regex, '<span class="highlight">$1</span>');
     }
 
@@ -328,30 +342,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTable(data = []) {
         articlesTableBody.innerHTML = '';
-        
         if (data.length === 0) {
-            articlesTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="no-results">
-                        <h3>No se encontraron artículos</h3>
-                        <p>Intenta ajustar los criterios de búsqueda o filtros.</p>
-                    </td>
-                </tr>`;
+            articlesTableBody.innerHTML = `<tr><td colspan="6" class="no-results"><h3>No se encontraron artículos</h3><p>Intenta ajustar los criterios de búsqueda o filtros.</p></td></tr>`;
             updateSearchStats(0, articles.length);
             return;
         }
-
         const searchTerms = getSearchTerms();
         const searchMode = getSearchMode();
-        
         data.forEach(article => {
             const originalIndex = articles.findIndex(a => a.id === article.id);
             const row = document.createElement('tr');
-            
             const highlightedLey = highlightText(article.ley, searchTerms, searchMode);
             const highlightedTitulo = highlightText(article.titulo, searchTerms, searchMode);
             const highlightedResumen = highlightText(truncateText(article.resumen, 100), searchTerms, searchMode);
-            
             row.innerHTML = `
                 <td>${highlightedLey}</td>
                 <td>${article.articulo}</td>
@@ -368,37 +371,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>`;
             articlesTableBody.appendChild(row);
         });
-        
         updateSearchStats(data.length, articles.length);
     }
 
     function updateSearchStats(filtered, total) {
-        if (filtered === total) {
-            searchStats.textContent = `Mostrando ${total} artículos`;
-        } else {
-            searchStats.textContent = `Mostrando ${filtered} de ${total} artículos`;
-        }
+        searchStats.textContent = (filtered === total) ? `Mostrando ${total} artículos` : `Mostrando ${filtered} de ${total} artículos`;
     }
 
     function updateKeywordFilter(sourceArticles) {
         const currentKeyword = keywordFilter.value;
         const keywords = [...new Set(sourceArticles.map(a => a.palabraClave))].sort();
         keywordFilter.innerHTML = '<option value="">-- Todas las Palabras Clave --</option>';
-        keywords.forEach(kw => { 
-            if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; 
-        });
-        if (keywords.includes(currentKeyword)) {
-            keywordFilter.value = currentKeyword;
-        }
+        keywords.forEach(kw => { if (kw) keywordFilter.innerHTML += `<option value="${kw}">${kw}</option>`; });
+        if (keywords.includes(currentKeyword)) keywordFilter.value = currentKeyword;
     }
 
     function populateFilters() {
         const leyes = [...new Set(articles.map(a => a.ley))].sort();
         leyFilter.innerHTML = '<option value="">-- Todas las Leyes/Códigos --</option>';
-        leyes.forEach(ley => { 
-            if (ley) leyFilter.innerHTML += `<option value="${ley}">${ley}</option>`; 
-        });
-
+        leyes.forEach(ley => { if (ley) leyFilter.innerHTML += `<option value="${ley}">${ley}</option>`; });
         updateKeywordFilter(articles);
     }
     
@@ -407,103 +398,60 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchMode = getSearchMode();
         const keyword = keywordFilter.value;
         const ley = leyFilter.value;
-        
         let filtered = articles;
-
-        if (ley) {
-            filtered = articles.filter(art => art.ley === ley);
-        }
-
+        if (ley) filtered = articles.filter(art => art.ley === ley);
         filtered = filtered.filter(art => 
             (keyword === '' || art.palabraClave === keyword) &&
             matchesSearch(art, searchTerms, searchMode)
         );
-        
         renderTable(filtered);
     }
 
     function getSearchTerms() {
         const searchTerm = searchInput.value.trim().toLowerCase();
         if (!searchTerm) return [];
-        
-        const searchMode = getSearchMode();
-        return searchMode === 'exact' ? [searchTerm] : searchTerm.split(/\s+/).filter(Boolean);
+        return getSearchMode() === 'exact' ? [searchTerm] : searchTerm.split(/\s+/).filter(Boolean);
     }
 
-    function getSearchMode() {
-        return document.querySelector('input[name="searchMode"]:checked')?.value || 'all';
-    }
+    function getSearchMode() { return document.querySelector('input[name="searchMode"]:checked')?.value || 'all'; }
 
     function matchesSearch(article, searchTerms, searchMode) {
         if (searchTerms.length === 0) return true;
-        
         const searchableText = [article.ley, article.articulo, article.titulo, article.palabraClave, article.resumen, article.texto].join(' ').toLowerCase();
-
-        if (searchMode === 'exact') {
-            return searchableText.includes(searchTerms[0]);
-        }
-        if (searchMode === 'any') {
-            return searchTerms.some(term => searchableText.includes(term));
-        }
+        if (searchMode === 'exact') return searchableText.includes(searchTerms[0]);
+        if (searchMode === 'any') return searchTerms.some(term => searchableText.includes(term));
         return searchTerms.every(term => searchableText.includes(term));
     }
 
-    function clearSearch() {
-        searchInput.value = '';
-        document.getElementById('searchAll').checked = true;
-        filterAndRender();
-    }
-
-    function clearFilters() {
-        keywordFilter.value = '';
-        leyFilter.value = '';
-        updateKeywordFilter(articles);
-        filterAndRender();
-    }
+    function clearSearch() { searchInput.value = ''; document.getElementById('searchAll').checked = true; filterAndRender(); }
+    function clearFilters() { keywordFilter.value = ''; leyFilter.value = ''; updateKeywordFilter(articles); filterAndRender(); }
 
     function openEditModal(index = null) {
         articleForm.reset(); 
         editIndex = index;
         document.getElementById('modalTitle').textContent = index !== null ? 'Editar Artículo' : 'Agregar Nuevo Artículo';
-        
         if (index !== null) {
             const art = articles[index];
-            Object.keys(art).forEach(key => {
-                const el = document.getElementById(key);
-                if (el) el.value = art[key];
-            });
-        } else {
-            document.getElementById('articleId').value = '';
-        }
+            Object.keys(art).forEach(key => { if (document.getElementById(key)) document.getElementById(key).value = art[key]; });
+        } else { document.getElementById('articleId').value = ''; }
         articleModal.style.display = 'flex';
     }
 
-    function closeEditModal() { 
-        articleModal.style.display = 'none'; 
-    }
+    function closeEditModal() { articleModal.style.display = 'none'; }
     
     function openTextViewModal(index, type) {
         const article = articles[index];
-        const titlePrefix = type === 'resumen' ? 'Resumen de:' : 'Texto Completo de:';
-        textViewTitle.textContent = `${titlePrefix} ${article.ley} - ${article.articulo}`;
-        
-        const searchTerms = getSearchTerms();
-        const searchMode = getSearchMode();
-        const highlightedText = highlightText(article[type], searchTerms, searchMode);
-        textViewBody.innerHTML = highlightedText;
-        
+        textViewTitle.textContent = `${type === 'resumen' ? 'Resumen de:' : 'Texto Completo de:'} ${article.ley} - ${article.articulo}`;
+        textViewBody.innerHTML = highlightText(article[type], getSearchTerms(), getSearchMode());
         textViewModal.style.display = 'flex';
     }
 
-    function closeTextViewModal() { 
-        textViewModal.style.display = 'none'; 
-    }
+    function closeTextViewModal() { textViewModal.style.display = 'none'; }
 
     function handleFormSubmit(e) {
         e.preventDefault();
-        const existingId = document.getElementById('articleId').value;
         const data = {
-            id: existingId ? existingId : crypto.randomUUID(),
+            id: document.getElementById('articleId').value || crypto.randomUUID(),
             ley: document.getElementById('ley').value.trim(),
             articulo: document.getElementById('articulo').value.trim(),
             titulo: document.getElementById('titulo').value.trim(),
@@ -511,39 +459,21 @@ document.addEventListener('DOMContentLoaded', () => {
             resumen: document.getElementById('resumen').value.trim(),
             texto: document.getElementById('texto').value.trim()
         };
-        
-        if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { 
-            alert('Los campos Ley, Artículo, Título y Palabra Clave son obligatorios.'); 
-            return; 
-        }
-        
-        if (editIndex !== null) { 
-            articles[editIndex] = data; 
-        } else { 
-            articles.push(data); 
-        }
-        
-        saveArticles(); 
-        populateFilters(); 
-        filterAndRender(); 
-        closeEditModal();
+        if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { alert('Los campos Ley, Artículo, Título y Palabra Clave son obligatorios.'); return; }
+        if (editIndex !== null) articles[editIndex] = data; else articles.push(data);
+        saveArticles(); populateFilters(); filterAndRender(); closeEditModal();
+        updateSaveButtonState();
     }
     
     function exportData(type) {
-        const dataToExport = articles;
         if (type === 'json') {
-            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataStr = JSON.stringify(articles, null, 2);
             const blob = new Blob([dataStr], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); 
-            a.href = url; 
-            a.download = `backup_articulos_legales_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click(); 
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const a = document.createElement('a'); a.href = url; a.download = `backup_articulos_legales_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         } else if (type === 'excel') {
-            const sheetData = dataToExport.map(({id, ...rest}) => rest);
+            const sheetData = articles.map(({id, ...rest}) => rest);
             const worksheet = XLSX.utils.json_to_sheet(sheetData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
@@ -554,9 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function importFromJson() {
         const input = document.getElementById('jsonFileInput');
         input.onchange = e => {
-            const file = e.target.files[0]; 
-            if (!file) return;
-            
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = event => {
                 try {
@@ -564,10 +492,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (Array.isArray(imported)) {
                         if (confirm('Esto reemplazará todos los artículos actuales. ¿Continuar?')) {
                             articles = imported.map(item => ({...item, id: item.id || crypto.randomUUID()}));
-                            saveArticles(); 
-                            populateFilters(); 
-                            filterAndRender();
-                            alert('Artículos importados con éxito.');
+                            saveArticles(); populateFilters(); filterAndRender();
+                            currentLoadedFile = { id: null, name: null };
+                            updateSaveButtonState();
+                            alert('Artículos importados con éxito. Puede guardarlos en Drive usando el botón "Guardar como Nueva Ley".');
                         }
                     } else { throw new Error('Formato de archivo inválido.'); }
                 } catch (error) { alert(`Error al importar: ${error.message}`); }
@@ -576,6 +504,37 @@ document.addEventListener('DOMContentLoaded', () => {
             input.value = '';
         };
         input.click();
+    }
+    
+    function updateSaveButtonState() {
+        if (currentLoadedFile.id) {
+            saveToDriveBtn.disabled = false;
+            saveToDriveBtn.title = `Guardar cambios en ${currentLoadedFile.name}`;
+        } else {
+            saveToDriveBtn.disabled = true;
+            saveToDriveBtn.title = 'Cargue un único archivo de Drive para activar esta opción';
+        }
+    }
+    
+    function handleDataLoaded(loadedArticles, mode, file) {
+        if (!Array.isArray(loadedArticles)) return;
+        
+        const newArticles = loadedArticles.map(item => ({...item, id: item.id || crypto.randomUUID()}));
+        
+        if (mode === 'replace') {
+            articles = newArticles;
+            currentLoadedFile = file;
+        } else { // append
+            const currentIds = new Set(articles.map(a => a.id));
+            const articlesToAdd = newArticles.filter(a => !currentIds.has(a.id));
+            articles.push(...articlesToAdd);
+            currentLoadedFile = { id: null, name: null }; // Multiple files loaded, disable direct save
+        }
+        
+        saveArticles(); 
+        populateFilters(); 
+        filterAndRender();
+        updateSaveButtonState();
     }
 
     function setupEventListeners() {
@@ -597,37 +556,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target;
             const actionBtn = target.closest('.action-btn');
             const toggleBtn = target.closest('.toggle-link');
-
             if (actionBtn) {
                 const index = parseInt(actionBtn.dataset.index);
-                if (actionBtn.classList.contains('edit-btn')) {
-                    openEditModal(index);
-                } else if (actionBtn.classList.contains('delete-btn')) {
+                if (actionBtn.classList.contains('edit-btn')) openEditModal(index);
+                else if (actionBtn.classList.contains('delete-btn')) {
                     if (confirm('¿Seguro que desea eliminar este artículo?')) {
                         articles.splice(index, 1);
-                        saveArticles(); 
-                        populateFilters(); 
-                        filterAndRender();
+                        saveArticles(); populateFilters(); filterAndRender();
                     }
                 }
             } else if (toggleBtn) {
-                const index = parseInt(toggleBtn.dataset.index);
-                const type = toggleBtn.dataset.type;
-                openTextViewModal(index, type);
+                openTextViewModal(parseInt(toggleBtn.dataset.index), toggleBtn.dataset.type);
             }
         });
 
         searchInput.addEventListener('input', filterAndRender);
-        document.querySelectorAll('input[name="searchMode"]').forEach(radio => {
-            radio.addEventListener('change', filterAndRender);
-        });
-        
+        document.querySelectorAll('input[name="searchMode"]').forEach(radio => radio.addEventListener('change', filterAndRender));
         keywordFilter.addEventListener('change', filterAndRender);
-        
         leyFilter.addEventListener('change', () => {
-            const selectedLey = leyFilter.value;
-            const sourceForKeywords = selectedLey ? articles.filter(a => a.ley === selectedLey) : articles;
-            updateKeywordFilter(sourceForKeywords);
+            updateKeywordFilter(leyFilter.value ? articles.filter(a => a.ley === leyFilter.value) : articles);
             filterAndRender();
         });
         
@@ -636,40 +583,23 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('importJsonBtn').addEventListener('click', importFromJson);
     }
     
-    function getSampleData() {
-        return [
-            { id: crypto.randomUUID(), ley: 'Código Civil y Comercial', articulo: 'Art. 41', titulo: 'Menor de edad y adolescente', palabraClave: 'Capacidad', resumen: 'Define las categorías de menor de edad y adolescente.', texto: 'Menor de edad es la persona que no ha cumplido dieciocho años. Este Código denomina adolescente a la persona menor de edad que cumplió trece años.' },
-            { id: crypto.randomUUID(), ley: 'Ley 26.061', articulo: 'Art. 41', titulo: 'Organismo de Aplicación', palabraClave: 'Autoridad', resumen: 'Establece la creación de la Secretaría Nacional de Niñez.', texto: 'Créase en el ámbito del Poder Ejecutivo Nacional la Secretaría Nacional de Niñez, Adolescencia y Familia...' },
-            { id: crypto.randomUUID(), ley: 'Código Civil y Comercial', articulo: 'Art. 651', titulo: 'Reglas generales', palabraClave: 'Cuidado Personal', resumen: 'Regula el cuidado personal, priorizando el compartido indistinto.', texto: '"A pedido de uno o ambos progenitores o de oficio, el juez debe otorgar, como primera medida, el cuidado personal compartido indistinto..."' },
-            { id: crypto.randomUUID(), ley: 'Ley 26.061', articulo: 'Art. 3', titulo: 'Interés superior', palabraClave: 'Interés Superior del Niño', resumen: 'Define el interés superior del niño y su primacía.', texto: '"A los efectos de la presente ley se entiende por interés superior de la niña, niño y adolescente la máxima satisfacción, integral y simultánea de los derechos y garantías..."' }
-        ];
-    }
+    function getSampleData() { return []; }
     
-    function handleDataLoadedFromDrive(loadedArticles) {
-        if (Array.isArray(loadedArticles)) {
-            articles = loadedArticles.map(item => ({...item, id: item.id || crypto.randomUUID()}));
-            saveArticles(); 
-            populateFilters(); 
-            filterAndRender();
-        }
-    }
-    
-    window.handleDataLoadedFromDrive = handleDataLoadedFromDrive;
+    window.handleDataLoadedFromDrive = handleDataLoaded;
     initializeApp();
 });
 
-// ########## LÓGICA DE GOOGLE DRIVE - CORREGIDA ##########
+// ########## LÓGICA DE GOOGLE DRIVE - MODIFICADA ##########
 const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; 
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME = 'Gestor Artículos Jurídicos - Backup';
-const METADATA_FILE_NAME = 'backup_articulos.json';
 
 let driveArticles = [];
 let tokenClient;
 let gapiInited = false, gisInited = false;
-let driveFolderId = null, metadataFileId = null;
+let driveFolderId = null;
 const driveStatusEl = document.getElementById('driveStatus');
 
 function gapiLoaded() { gapi.load('client', initializeGapiClient); }
@@ -683,57 +613,103 @@ function gisLoaded() {
     gisInited = true; 
     maybeEnableButtons(); 
 }
-function maybeEnableButtons() { 
-    if (gapiInited && gisInited) { document.getElementById('connectDriveBtn').onclick = handleAuthClick; } 
-}
+function maybeEnableButtons() { if (gapiInited && gisInited) document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
 
 function updateDriveStatus(message, isSuccess) {
     driveStatusEl.style.display = 'block'; 
     driveStatusEl.textContent = message;
     driveStatusEl.className = 'data-status';
     driveStatusEl.classList.add(isSuccess ? 'status-success' : 'status-warning');
-    if (isSuccess) { setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000); }
+    if (isSuccess) setTimeout(() => { driveStatusEl.style.display = 'none'; }, 5000);
 }
 
 function handleAuthClick() {
     tokenClient.callback = async (resp) => {
         if (resp.error) return updateDriveStatus(`❌ Error de autenticación: ${resp.error}`, false); 
-        
         gapi.client.setToken({ access_token: resp.access_token });
         updateDriveStatus('✅ Conectado a Google Drive.', true);
         
         document.getElementById('connectDriveBtn').style.display = 'none';
-        document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-        
-        document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
-        document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
+        document.getElementById('saveToDriveBtn').style.display = 'inline-flex';
+        document.getElementById('saveAsDriveBtn').style.display = 'inline-flex';
+        document.getElementById('loadFromDriveBtn').addEventListener('click', loadSelectedFileFromDrive);
+        document.getElementById('saveAsDriveBtn').addEventListener('click', saveAsNewFileToDrive);
+
+        await listJsonFilesFromDrive();
     };
-    
     tokenClient.requestAccessToken({prompt: gapi.client.getToken() ? '' : 'consent'});
 }
 
 async function findOrCreateFolder() {
-    if (driveFolderId) return;
+    if (driveFolderId) return driveFolderId;
     const query = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
     const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id)' });
-    
     if (response.result.files.length > 0) { 
         driveFolderId = response.result.files[0].id; 
     } else {
         const folder = await gapi.client.drive.files.create({ resource: { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }, fields: 'id' });
         driveFolderId = folder.result.id;
     }
+    return driveFolderId;
+}
+
+async function listJsonFilesFromDrive() {
+    updateDriveStatus('Buscando archivos de leyes en Drive...', false);
+    try {
+        const folderId = await findOrCreateFolder();
+        const q = `'${folderId}' in parents and mimeType='application/json' and trashed=false`;
+        const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id, name)' });
+        
+        const selector = document.getElementById('driveFileSelector');
+        selector.innerHTML = '<option value="">-- Seleccione una ley --</option>';
+        if (res.result.files.length > 0) {
+            res.result.files.forEach(file => {
+                selector.innerHTML += `<option value="${file.id}">${file.name}</option>`;
+            });
+            document.getElementById('driveFileContainer').style.display = 'flex';
+            updateDriveStatus(`✅ Se encontraron ${res.result.files.length} archivos de leyes.`, true);
+        } else {
+            updateDriveStatus('⚠️ No se encontraron archivos de leyes en la carpeta de Drive. Puede crear uno con "Guardar como...".', false);
+        }
+    } catch (err) {
+        console.error("Error listando archivos:", err);
+        updateDriveStatus(`❌ Error al buscar archivos: ${err.message}`, false);
+    }
+}
+
+async function loadSelectedFileFromDrive() {
+    const selector = document.getElementById('driveFileSelector');
+    const fileId = selector.value;
+    const fileName = selector.options[selector.selectedIndex].text;
+    if (!fileId) return;
+
+    let mode = 'replace';
+    if (window.driveArticles.length > 0) {
+        if (confirm('¿Desea AGREGAR esta ley a la vista actual? (Cancelar para REEMPLAZAR)')) {
+            mode = 'append';
+        }
+    }
+
+    updateDriveStatus(`Cargando "${fileName}" desde Drive...`, false);
+    try {
+        const response = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+        const importedArticles = JSON.parse(response.body);
+        if (Array.isArray(importedArticles)) {
+            window.handleDataLoadedFromDrive(importedArticles, mode, { id: fileId, name: fileName }); 
+            updateDriveStatus(`✅ "${fileName}" cargado con éxito.`, true);
+        } else { 
+            throw new Error('El archivo no tiene el formato correcto.'); 
+        }
+    } catch (err) { 
+        console.error("Error cargando desde Drive:", err); 
+        updateDriveStatus(`❌ Error al cargar: ${err.message}`, false); 
+    }
 }
 
 async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
     const boundary = '-------314159265358979323846';
     const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
-    
-    const base64Content = btoa(unescape(encodeURIComponent(content)));
-    
-    const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Content}\r\n--${boundary}--`;
-    
+    const requestBody = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${btoa(unescape(encodeURIComponent(content)))}\r\n--${boundary}--`;
     const request = await gapi.client.request({
         path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
         method: fileIdToUpdate ? 'PATCH' : 'POST', 
@@ -744,59 +720,46 @@ async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpda
     return request.result;
 }
 
-async function findOrCreateMetadataFile() {
-    if (metadataFileId) return;
-    if (!driveFolderId) await findOrCreateFolder();
-    
-    const q = `'${driveFolderId}' in parents and name='${METADATA_FILE_NAME}' and trashed=false`;
-    const res = await gapi.client.drive.files.list({ q: q, fields: 'files(id)' });
-    
-    if (res.result.files.length > 0) {
-        metadataFileId = res.result.files[0].id;
-    }
-}
-
 async function saveDataToDrive() {
-    updateDriveStatus('Iniciando guardado en Drive...', false);
+    const fileId = window.handleDataLoadedFromDrive.currentLoadedFile?.id;
+    const fileName = window.handleDataLoadedFromDrive.currentLoadedFile?.name;
+    if (!fileId) {
+        alert("No hay un archivo único cargado para guardar. Use 'Guardar como...' para crear un archivo nuevo.");
+        return;
+    }
+    updateDriveStatus(`Guardando cambios en "${fileName}"...`, false);
     try {
-        await findOrCreateFolder(); 
-        await findOrCreateMetadataFile();
         const articlesData = JSON.stringify(window.driveArticles, null, 2); 
-        await uploadContent(articlesData, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
-        updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true);
+        await uploadContent(articlesData, fileName, 'application/json', null, fileId);
+        updateDriveStatus(`✅ ¡Cambios guardados en "${fileName}"!`, true);
     } catch (err) { 
-        console.error("Error guardando en Drive:", err); 
+        console.error("Error guardando:", err); 
         updateDriveStatus(`❌ Error al guardar: ${err.message}`, false); 
     }
 }
 
-async function loadDataFromDrive() {
-    if (!confirm('Esto reemplazará los datos locales con la versión de Google Drive. ¿Continuar?')) return;
-    
-    updateDriveStatus('Buscando respaldo en Drive...', false);
+async function saveAsNewFileToDrive() {
+    const fileName = prompt("Ingrese el nombre para el nuevo archivo de ley (ej: Codigo Penal.json):", "Nueva Ley.json");
+    if (!fileName) return;
+
+    updateDriveStatus(`Creando "${fileName}" en Drive...`, false);
     try {
-        await findOrCreateFolder(); 
-        await findOrCreateMetadataFile();
+        const folderId = await findOrCreateFolder();
+        const articlesData = JSON.stringify(window.driveArticles, null, 2);
+        const newFile = await uploadContent(articlesData, fileName, 'application/json', folderId, null);
         
-        if (!metadataFileId) return updateDriveStatus('⚠️ No se encontró un archivo de respaldo en Drive.', false);
+        // Actualizar la lista de archivos
+        await listJsonFilesFromDrive();
+        // Seleccionar el nuevo archivo
+        document.getElementById('driveFileSelector').value = newFile.id;
         
-        const response = await gapi.client.drive.files.get({ fileId: metadataFileId, alt: 'media' });
+        // Actualizar el estado del archivo cargado
+        window.handleDataLoadedFromDrive(window.driveArticles, 'replace', {id: newFile.id, name: fileName});
         
-        // --- CORRECCIÓN PARA EL ERROR DE CARGA ---
-        // El cuerpo de la respuesta (response.body) ya es el texto JSON decodificado.
-        // No es necesario usar atob(), lo que causaba el error con caracteres UTF-8.
-        const importedArticles = JSON.parse(response.body);
-        // --- FIN DE LA CORRECCIÓN ---
-        
-        if (Array.isArray(importedArticles)) {
-            window.handleDataLoadedFromDrive(importedArticles); 
-            updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
-        } else { 
-            throw new Error('El archivo de respaldo no tiene el formato correcto.'); 
-        }
-    } catch (err) { 
-        console.error("Error cargando desde Drive:", err); 
-        updateDriveStatus(`❌ Error al cargar: ${err.message}`, false); 
+        updateDriveStatus(`✅ Archivo "${fileName}" creado y guardado con éxito.`, true);
+    } catch (err) {
+        console.error("Error guardando como nuevo:", err);
+        updateDriveStatus(`❌ Error al crear el archivo: ${err.message}`, false);
     }
 }
 </script>
