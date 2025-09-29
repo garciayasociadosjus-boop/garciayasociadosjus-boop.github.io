@@ -450,13 +450,180 @@ function confirmReschedule(siniestroId, mediacionId) {
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
-// --- LÓGICA DE CARTA PATROCINIO - CORREGIDA Y APUNTANDO A RAILWAY ---
+// --- LÓGICA DE CARTA PATROCINIO (SIN MODIFICACIONES FUNCIONALES) ---
+function startLetterGeneration(siniestroId) {
+    const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
+
+    // Reconstruimos el string del vehículo para mantener la compatibilidad
+    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', ');
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', ');
+
+    const modal = document.getElementById('letterGenerationModal');
+    const formHTML = `
+        <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span>
+        <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2>
+        <p style="font-size: 0.9em; margin-bottom: 20px;">Verifica y completa los datos. La IA se encargará de redactar la carta con un tono profesional.</p>
+        <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')">
+            <div class="info-grid">
+                <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div>
+                <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div>
+                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div>
+                <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div>
+                <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div>
+                <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div>
+                <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div>
+                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div>
+                <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div>
+                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div>
+                <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div>
+                <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${vehiculoTerceroString}" placeholder="Marca, Modelo, Año, Dominio"></div>
+            </div>
+
+            <div class="form-section" style="border-left: 4px solid var(--secondary-color); margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <input type="checkbox" id="conductorEsTitular" onchange="toggleConductorFields(!this.checked)" style="width: auto;" checked>
+                    <label for="conductorEsTitular" style="margin-bottom: 0; font-weight: 700;">¿El conductor es el mismo titular del vehículo?</label>
+                </div>
+                <div id="conductorFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos del conductor.</p>
+                    <div class="info-grid">
+                        <div class="form-group"><label>Nombre y Apellido del Conductor</label><input type="text" id="letterConductorNombre" value="${s.conductorNombre || ''}"></div>
+                        <div class="form-group"><label>DNI del Conductor (Opcional)</label><input type="text" id="letterConductorDni" value="${s.conductorDni || ''}"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
+            
+            <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                    <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
+                    <label for="checkLesiones" style="margin-bottom: 0; font-weight: 700;">¿Hubo Lesiones?</label>
+                </div>
+                <div id="lesionesFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos de las lesiones (todos opcionales).</p>
+                    <div class="form-group"><label>Descripción de las lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div>
+                    <div class="form-group"><label>Monto reclamado por Lesiones/Incapacidad</label><input type="number" id="letterLesionesMonto" placeholder="0"></div>
+                </div>
+            </div>
+
+            <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div>
+        </form>
+    `;
+    modal.querySelector('.modal-content').innerHTML = formHTML;
+    modal.classList.add('active');
+}
+
+function toggleLesiones(checked) {
+    document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
+}
+
+function toggleConductorFields(show) {
+    document.getElementById('conductorFields').style.display = show ? 'block' : 'none';
+}
+
+async function processLetterData(event, siniestroId) {
+    event.preventDefault();
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    if (!s) { alert("Error: No se pudo encontrar el siniestro para procesar."); return; }
+
+    const checkLesionesEl = document.getElementById('checkLesiones');
+    const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
+    const montoLesionesEl = document.getElementById('letterLesionesMonto');
+    const montoLesiones = montoLesionesEl ? parseFloat(montoLesionesEl.value) || 0 : 0;
+    const montoMateriales = parseFloat(s.presupuesto) || 0;
+
+    let relatoOriginal = document.getElementById('letterRelato').value;
+    const conductorEsTitular = document.getElementById('conductorEsTitular').checked;
+    if (!conductorEsTitular) {
+        const nombreConductor = document.getElementById('letterConductorNombre').value;
+        const dniConductor = document.getElementById('letterConductorDni').value;
+        let infoConductor = `Aclaración: El vehículo de mi mandante era conducido por el/la Sr./Sra. ${nombreConductor}`;
+        if (dniConductor) {
+            infoConductor += `, DNI N° ${dniConductor}`;
+        }
+        infoConductor += '. ';
+        relatoOriginal = infoConductor + relatoOriginal;
+    }
+
+
+    const data = {
+        siniestro: s,
+        lugarEmision: document.getElementById('letterLugar').value,
+        destinatario: document.getElementById('letterDestinatario').value,
+        destinatarioDomicilio: document.getElementById('letterDestinatarioDom').value,
+        polizaCliente: document.getElementById('letterPolizaCliente').value,
+        aseguradoraCliente: document.getElementById('letterAseguradoraCliente').value,
+        fechaSiniestro: formatDate(document.getElementById('letterFechaSiniestro').value),
+        horaSiniestro: document.getElementById('letterHoraSiniestro').value,
+        lugarSiniestro: document.getElementById('letterLugarSiniestro').value,
+        vehiculoCliente: document.getElementById('letterVehiculoCliente').value,
+        partesDanadas: document.getElementById('letterPartesDanadas').value,
+        nombreTercero: document.getElementById('letterNombreTercero').value,
+        vehiculoTercero: document.getElementById('letterVehiculoTercero').value,
+        relato: relatoOriginal,
+        infracciones: document.getElementById('letterInfracciones').value,
+        hayLesiones: hayLesiones,
+        lesionesDesc: hayLesiones ? document.getElementById('letterLesionesDesc').value : '',
+        montoLesiones: montoLesiones,
+        montoTotal: montoMateriales + montoLesiones
+    };
+
+    const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
+    modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
+
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progress-text');
+    let width = 0;
+    const interval = setInterval(() => {
+        width += 5;
+        if (width >= 95) return;
+        progressBar.style.width = width + '%';
+        if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
+        else if (width >= 70) progressText.textContent = "Dando formato legal...";
+    }, 150);
+
+    const result = await callAIApi(data);
+    clearInterval(interval);
+    progressBar.style.width = '100%';
+
+    let resultHTML;
+    if (result.success) {
+        progressText.textContent = "¡Generado con éxito!";
+        resultHTML = `
+            <div class="print-area">
+                <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
+                <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2>
+                <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea>
+            </div>
+            <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
+                <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+                <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button>
+                <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button>
+            </div>
+        `;
+    } else {
+        progressText.textContent = "Error en la generación";
+        resultHTML = `
+             <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
+             <h2 style="color: var(--danger-color); text-align: center;">❌ Ocurrió un Error</h2>
+             <p style="margin-top: 15px; font-size: 1em; text-align: center;">No se pudo generar la carta. Motivo:</p>
+             <textarea readonly style="width:100%; height: 200px; margin-top: 10px; background-color: #f3f3f3; border: 1px solid #ccc; padding: 10px; font-family: monospace;">${result.error}</textarea>
+             <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-warning" onclick="closeModal('letterGenerationModal')">Cerrar</button>
+             </div>
+             <p style="font-size: 0.8em; text-align: center; margin-top: 20px; color: #555;"><b>Sugerencia:</b> Revisa los logs de tu servidor en Render.com para ver el error detallado. El problema suele ser una API Key de Gemini incorrecta o que el servidor tarda demasiado en responder.</p>
+        `;
+    }
+    modalContent.innerHTML = resultHTML;
+}
+
 async function callAIApi(data) {
     console.log("Enviando datos al servidor para generar la carta:", data);
-    // URL ACTUALIZADA PARA APUNTAR A RAILWAY
-    const API_URL = 'https://portal-backend-production-3ea3.up.railway.app/api/generar-carta';
+    const API_URL = 'https://portal-backend-v2.onrender.com/api/generar-carta';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // Timeout extendido a 90 segundos
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch(API_URL, {
@@ -488,7 +655,7 @@ async function callAIApi(data) {
         
         let errorMessage = `ERROR: No se pudo conectar con el servidor para generar la carta.`;
         if (error.name === 'AbortError') {
-            errorMessage = `ERROR: La solicitud al servidor ha tardado demasiado (más de 90 segundos) y fue cancelada. Esto puede deberse a que el servidor está "despertando" (cold start). Por favor, intenta de nuevo en un momento.`;
+            errorMessage = `ERROR: La solicitud al servidor ha tardado demasiado (más de 60 segundos) y fue cancelada. Esto puede deberse a que el servidor está "despertando" (cold start). Por favor, intenta de nuevo en un momento.`;
         } else {
              errorMessage += `\n\nDetalles: ${error.message}`;
         }
@@ -688,59 +855,51 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
 </script>
 
-<script>
-    // --- LÓGICA DE GOOGLE DRIVE API ---
-    const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; 
-    // CLAVE PÚBLICA INSERTADA AQUÍ:
-    const GD_API_KEY = 'AIzaSyC1PP4eF1iFk8_dVuzfL_OuDpqPb-ZyZv4'; 
-    const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events'; 
-    const GD_DATA_FILE='datos_planilla_siniestros.json'; 
-    const GD_DOCS_ROOT='Planilla_Siniestros_Documentos'; 
-    let tokenClient; 
-    let gapiReady = false, gisReady = false; 
-    let gdDataFileId = null, gdDocsFolderId = null;
-
-    function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-    async function initializeGapiClient() {try {await gapi.client.init({apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']}); gapiReady = true; maybeEnableButtons();} catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }}
-    function gisLoaded() {try {tokenClient = google.accounts.oauth2.initTokenClient({client_id: GD_CLIENT_ID, scope: GD_SCOPES, callback: tokenResponseCallback,}); gisReady = true; maybeEnableButtons();} catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }}
-    function maybeEnableButtons() {if (gapiReady && gisReady) {document.getElementById('connectDriveBtn').onclick = handleAuthClick;}}
-    function handleAuthClick() {if (tokenClient) {tokenClient.requestAccessToken({ prompt: 'consent' });}}
-    async function tokenResponseCallback(resp) {
-        if (resp.error) {updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true); return;}
-        try {gapi.client.setToken({ access_token: resp.access_token }); document.getElementById('connectDriveBtn').style.display = 'none'; const saveBtn = document.getElementById('saveToDriveBtn'); const loadBtn = document.getElementById('loadFromDriveBtn'); if (saveBtn) {saveBtn.style.display = 'inline-block'; saveBtn.onclick = saveDataToDrive;} if (loadBtn) {loadBtn.style.display = 'inline-block'; loadBtn.onclick = loadDataFromDrive;} updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false); await findDataFile();} catch (e) {console.error("Error en callback:", e); updateDataStatus('❌ Ocurrió un error después de conectar.', true);}
-    }
-    async function addEventToGoogleCalendar(siniestro, mediacion) {
-        if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
-        updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
-        try {const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`); const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); const event = {'summary': `Mediación: ${siniestro.cliente}`,'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },}; await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event }); updateDataStatus('✅ Evento creado en Google Calendar.', false);} catch(e) {console.error("Error creando evento:", e); updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);}
-    }
-    async function findDataFile(){
-      updateDataStatus('🔎 Buscando archivo de Drive...', false);
-      try {const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' }); if (response.result.files && response.result.files.length > 0) {gdDataFileId = response.result.files[0].id; updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);} else {updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);}} catch(e) {console.error("Error buscando archivo:", e); updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);}
-    }
-    async function saveDataToDrive() {
-        if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if (!confirm('¿Guardar datos en Drive?')) return;
-        updateDataStatus('💾 Guardando en Drive...', false); const content = JSON.stringify(siniestrosData, null, 2); const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
-        try {let request; if (gdDataFileId) {request = gapi.client.request({path: `/upload/drive/v3/files/${gdDataFileId}`, method: 'PATCH', params: { uploadType: 'media' }, body: content});} else { request = gapi.client.drive.files.create({resource: metadata, media: { mimeType: 'application/json', body: content }, fields: 'id'});} const response = await request; if (response.result.id) gdDataFileId = response.result.id; updateDataStatus('✅ Guardado en Drive con éxito.', false);} catch (e) {console.error('Error en saveDataToDrive:', e); updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);}
-    }
-    async function loadDataFromDrive(){
-      if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; } if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
-      updateDataStatus('📥 Cargando desde Drive...', false);
-      try {const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' }); const imported = JSON.parse(response.body); if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.'); siniestrosData = sanitizeData(imported); saveData(); renderAll(); updateDataStatus('✅ Datos cargados desde Drive.', false);} catch(e) {console.error("Error cargando datos:", e); updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);}
-    }
-    async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; localFilesForUpload = []; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`; const modal=document.getElementById('documentModal'); modal.classList.add('active'); if(!modal.querySelector('.upload-area')){modal.querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('documentModal')">&times;</span><h2 id="documentModalTitle">Documentos: ${getDisplayName(s)}</h2><div id="uploadArea" style="border:2px dashed #ccc;padding:20px;text-align:center;margin:15px 0;">Arrastra y suelta archivos</div><ul id="localDocumentList"></ul><h4>Documentos en Drive:</h4><ul id="driveDocumentList"></ul><button onclick="triggerLocalFileUpload()">Agregar Archivo</button><button onclick="saveDocumentsToDrive()">Guardar en Drive</button>`;} renderLocalFileList(); await renderDriveFileList(); const area = document.getElementById('uploadArea'); ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false)); ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false)); ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false)); area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);}
-    function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
-    function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
-    function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
-    function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
-    async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
-    async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
-    async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
-    async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
-    async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
-</script>
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
+<script>
+// --- TODA LA LÓGICA DE GOOGLE DRIVE API PERMANECE IGUAL ---
+const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events'; const GD_DATA_FILE='datos_planilla_siniestros.json'; const GD_DOCS_ROOT='Planilla_Siniestros_Documentos'; let tokenClient; let gapiReady = false, gisReady = false; let gdDataFileId = null, gdDocsFolderId = null;
+function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+async function initializeGapiClient() {try {await gapi.client.init({apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']}); gapiReady = true; maybeEnableButtons();} catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }}
+function gisLoaded() {try {tokenClient = google.accounts.oauth2.initTokenClient({client_id: GD_CLIENT_ID, scope: GD_SCOPES, callback: tokenResponseCallback,}); gisReady = true; maybeEnableButtons();} catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }}
+function maybeEnableButtons() {if (gapiReady && gisReady) {document.getElementById('connectDriveBtn').onclick = handleAuthClick;}}
+function handleAuthClick() {if (tokenClient) {tokenClient.requestAccessToken({ prompt: 'consent' });}}
+async function tokenResponseCallback(resp) {
+    if (resp.error) {updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true); return;}
+    try {gapi.client.setToken({ access_token: resp.access_token }); document.getElementById('connectDriveBtn').style.display = 'none'; const saveBtn = document.getElementById('saveToDriveBtn'); const loadBtn = document.getElementById('loadFromDriveBtn'); if (saveBtn) {saveBtn.style.display = 'inline-block'; saveBtn.onclick = saveDataToDrive;} if (loadBtn) {loadBtn.style.display = 'inline-block'; loadBtn.onclick = loadDataFromDrive;} updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false); await findDataFile();} catch (e) {console.error("Error en callback:", e); updateDataStatus('❌ Ocurrió un error después de conectar.', true);}
+}
+async function addEventToGoogleCalendar(siniestro, mediacion) {
+    if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
+    updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
+    try {const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`); const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); const event = {'summary': `Mediación: ${siniestro.cliente}`,'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },}; await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event }); updateDataStatus('✅ Evento creado en Google Calendar.', false);} catch(e) {console.error("Error creando evento:", e); updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);}
+}
+async function findDataFile(){
+  updateDataStatus('🔎 Buscando archivo de Drive...', false);
+  try {const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' }); if (response.result.files && response.result.files.length > 0) {gdDataFileId = response.result.files[0].id; updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);} else {updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);}} catch(e) {console.error("Error buscando archivo:", e); updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);}
+}
+async function saveDataToDrive() {
+    if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if (!confirm('¿Guardar datos en Drive?')) return;
+    updateDataStatus('💾 Guardando en Drive...', false); const content = JSON.stringify(siniestrosData, null, 2); const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+    try {let request; if (gdDataFileId) {request = gapi.client.request({path: `/upload/drive/v3/files/${gdDataFileId}`, method: 'PATCH', params: { uploadType: 'media' }, body: content});} else { request = gapi.client.drive.files.create({resource: metadata, media: { mimeType: 'application/json', body: content }, fields: 'id'});} const response = await request; if (response.result.id) gdDataFileId = response.result.id; updateDataStatus('✅ Guardado en Drive con éxito.', false);} catch (e) {console.error('Error en saveDataToDrive:', e); updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);}
+}
+async function loadDataFromDrive(){
+  if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; } if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
+  updateDataStatus('📥 Cargando desde Drive...', false);
+  try {const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' }); const imported = JSON.parse(response.body); if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.'); siniestrosData = sanitizeData(imported); saveData(); renderAll(); updateDataStatus('✅ Datos cargados desde Drive.', false);} catch(e) {console.error("Error cargando datos:", e); updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);}
+}
+async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; localFilesForUpload = []; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`; document.getElementById('documentModal').classList.add('active'); renderLocalFileList(); await renderDriveFileList(); const area = document.getElementById('uploadArea'); ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false)); ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false)); ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false)); area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);}
+function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
+function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
+function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
+function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
+async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
+async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
+async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
+async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
+async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
+</script>
 </body>
 </html>
+}
+pasame la clave publica para este y para el de familia
