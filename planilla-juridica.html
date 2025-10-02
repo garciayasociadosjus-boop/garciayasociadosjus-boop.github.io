@@ -23,7 +23,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
             min-height: 100vh;
-            padding: 20px 420px 20px 20px;
+            padding: 20px;
         }
         .container {
             max-width: 1400px; margin: 0 auto; background: var(--light-text); border-radius: var(--border-radius);
@@ -85,33 +85,46 @@
         .data-status { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
         .filter-bar { background: var(--light-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
 
-        .justina-chat-window { position: fixed; top: 20px; right: 20px; bottom: 20px; width: 380px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; z-index: 1000; }
-        .justina-chat-header { background: linear-gradient(135deg, #020c24 0%, #081e4b 100%); color: white; padding: 15px; font-size: 1.2em; font-weight: 600; }
-        .justina-messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #f4f7f9; display: flex; flex-direction: column;}
+        .justina-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, #081e4b 0%, #2980b9 100%); border-radius: 50%; border: none; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1001; transition: transform 0.3s ease; }
+        .justina-fab:hover { transform: scale(1.1); }
+        .justina-chat-window { position: fixed; bottom: 100px; right: 30px; width: 380px; height: 500px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: none; flex-direction: column; overflow: hidden; z-index: 1000; opacity: 0; transform: translateY(20px); transition: opacity 0.3s ease, transform 0.3s ease; }
+        .justina-chat-window.active { display: flex; opacity: 1; transform: translateY(0); }
+        .justina-chat-header { background: linear-gradient(135deg, #020c24 0%, #081e4b 100%); color: white; padding: 15px; font-size: 1.2em; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .justina-chat-header .close-chat { cursor: pointer; font-size: 1.5em; line-height: 1; }
+        .justina-messages { flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #f4f7f9; display: flex; flex-direction: column; }
         .justina-input-area { display: flex; padding: 10px; border-top: 1px solid #ddd; }
         .justina-input-area input { flex-grow: 1; border: 1px solid #ccc; border-radius: 20px; padding: 10px 15px; font-size: 1em; outline: none; }
         .justina-input-area button { background: var(--primary-color); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; margin-left: 10px; cursor: pointer; font-size: 1.2em; flex-shrink: 0; }
         .msg { margin-bottom: 10px; padding: 10px 15px; border-radius: 18px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
         .msg.user { background: #dcf8c6; align-self: flex-end; }
         .msg.ia { background: #e9e9eb; align-self: flex-start; white-space: pre-wrap; }
-        
-        @media (max-width: 900px) {
-            body { padding: 20px; }
-            .justina-chat-window { position: fixed; bottom: 0; right: 0; left: 0; top: auto; width: 100%; height: 60%; border-radius: 15px 15px 0 0; }
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <header class="header"><h1>⚖️ Planilla Jurídica - Familia</h1><p>Gestión de Casos y Expedientes</p><div class="header-clock-container"><div class="analog-clock"><div class="hand hour-hand"></div><div class="hand min-hand"></div><div class="hand second-hand"></div></div><div id="digital-clock"></div></div></header>
+        <header class="header">
+            <h1>⚖️ Planilla Jurídica - Familia</h1>
+            <p>Gestión de Casos y Expedientes</p>
+            <div class="header-clock-container">
+                <div class="analog-clock">
+                    <div class="hand hour-hand"></div>
+                    <div class="hand min-hand"></div>
+                    <div class="hand second-hand"></div>
+                </div>
+                <div id="digital-clock"></div>
+            </div>
+        </header>
+
         <main class="main-content">
             <div id="dataStatus" class="data-status">Cargando datos...</div>
             <div id="driveStatus" class="data-status" style="display: none;"></div>
+
             <section class="dashboard">
                 <div class="card today-reviews"><h3>Revisiones de Hoy</h3><div class="reviews-list" id="todayReviews"></div></div>
                 <div class="card overdue-reviews"><h3>Revisiones Vencidas</h3><div class="reviews-list" id="overdueReviews"></div></div>
                 <div class="card pending-reviews"><h3>Próximas Revisiones</h3><div class="reviews-list" id="upcomingReviews"></div></div>
             </section>
+
             <section style="text-align: center; margin-bottom: 30px;">
                 <button class="btn btn-success" onclick="showNewClientModal()">➕ Agregar Caso</button>
                 <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
@@ -119,15 +132,18 @@
                 <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
             </section>
+            
             <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive & Calendar</button>
                 <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
                 <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
             </section>
+
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
                 <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
             </section>
+
             <section class="card">
                 <h3>📋 Todos los Casos</h3>
                 <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
@@ -137,6 +153,7 @@
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
     <input type="file" id="documentUploadInput" style="display: none;" multiple>
+
     <div id="newClientModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
@@ -145,29 +162,30 @@
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
 
     <div id="justina-chat-window" class="justina-chat-window">
-        <div class="justina-chat-header"><span>Justina IA - Asistente Jurídica</span></div>
+        <div class="justina-chat-header">
+            <span>Justina IA</span>
+            <span id="close-justina-chat" class="close-chat">&times;</span>
+        </div>
         <div id="justina-messages" class="justina-messages"></div>
         <div class="justina-input-area">
             <input type="text" id="justina-input" placeholder="Escriba su consulta...">
             <button id="justina-send-btn">➤</button>
         </div>
     </div>
+    <button id="justina-fab" class="justina-fab" title="Consultar a Justina IA">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 2v2"/><path d="M9 2v2"/></svg>
+    </button>
     
     <script>
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
-        let conversationHistory = []; // Para guardar la conversación con la IA
+        let conversationHistory = [];
+        let summaryRequested = false;
 
-        // --- LÓGICA PRINCIPAL DE LA PLANILLA (Aquí va todo tu código JS anterior) ---
-        // ... (pega aquí todo el JS que ya tenías para la planilla)
-        // Por ejemplo: saveData, loadData, sanitizeData, updateDataStatus, formatDate, etc.
-        // Es importante que todo el código que hace funcionar tu planilla esté aquí.
-        function saveData() { localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData)); updateDataStatus('✅ Datos guardados localmente'); }
-        function loadData() { const d = localStorage.getItem('planilla_juridica_data'); clientsData = d ? sanitizeData(JSON.parse(d)) : []; updateDataStatus(d ? '✅ Datos cargados' : '📋 Planilla lista'); }
-        // Y así sucesivamente con todas tus funciones...
-
-
-        // ===== LÓGICA COMPLETA PARA JUSTINA IA =====
+        // ===== INICIO: LÓGICA COMPLETA PARA JUSTINA IA =====
+        const justinaFab = document.getElementById('justina-fab');
+        const justinaChatWindow = document.getElementById('justina-chat-window');
+        const closeJustinaChat = document.getElementById('close-justina-chat');
         const justinaSendBtn = document.getElementById('justina-send-btn');
         const justinaInput = document.getElementById('justina-input');
         const justinaMessagesContainer = document.getElementById('justina-messages');
@@ -176,12 +194,7 @@
         function addMessageToChat(sender, text) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `msg ${sender}`;
-            // Reemplazamos los saltos de línea del texto de la IA por <br> para que se visualicen
-            if (sender === 'ia') {
-                msgDiv.innerHTML = text.replace(/\n/g, '<br>');
-            } else {
-                msgDiv.textContent = text;
-            }
+            msgDiv.innerHTML = text.replace(/\n/g, '<br>');
             justinaMessagesContainer.appendChild(msgDiv);
             justinaMessagesContainer.scrollTop = justinaMessagesContainer.scrollHeight;
         }
@@ -189,7 +202,7 @@
         async function callJustina(isInitialSummary = false) {
             let userMessage = { role: 'user', content: justinaInput.value.trim() };
             
-            justinaSendBtn.disabled = true; // Deshabilitamos el botón para evitar envíos múltiples
+            justinaSendBtn.disabled = true;
             justinaInput.disabled = true;
 
             if (isInitialSummary) {
@@ -227,39 +240,331 @@
                 console.error('Error al llamar a Justina:', error);
                 addMessageToChat('ia', 'Lo siento, Dra. García, he encontrado un problema de conexión. Por favor, revise la consola o intente más tarde.');
             } finally {
-                justinaSendBtn.disabled = false; // Rehabilitamos el botón
+                justinaSendBtn.disabled = false;
                 justinaInput.disabled = false;
                 justinaInput.focus();
             }
         }
 
+        justinaFab.addEventListener('click', () => {
+            justinaChatWindow.classList.add('active');
+            if (!summaryRequested && clientsData.length > 0) {
+                summaryRequested = true;
+                setTimeout(() => callJustina(true), 300);
+            }
+        });
+
+        closeJustinaChat.addEventListener('click', () => {
+            justinaChatWindow.classList.remove('active');
+        });
+        
         justinaSendBtn.addEventListener('click', () => callJustina(false));
         justinaInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') callJustina(false);
         });
+        // ===== FIN: LÓGICA COMPLETA PARA JUSTINA IA =====
+
+
+        // --- A CONTINUACIÓN, TODO EL CÓDIGO ORIGINAL DE TU PLANILLA ---
         
-        // --- Modificación Clave en la Carga de la Página ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // ... (Pega aquí TODO el código que tenías dentro de tu DOMContentLoaded anterior) ...
+        function saveData() {
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            updateDataStatus('✅ Datos guardados localmente');
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem('planilla_juridica_data');
+            let data = savedData ? JSON.parse(savedData) : [];
+            const uniqueClients = new Map();
+            data.forEach(client => {
+                const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
+                if (!uniqueClients.has(key)) { uniqueClients.set(key, client); }
+            });
+            const deduplicatedData = Array.from(uniqueClients.values());
+            let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista';
+            if (deduplicatedData.length < data.length) {
+                statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
+                saveData();
+            }
+            clientsData = sanitizeData(deduplicatedData);
+            updateDataStatus(statusMessage, false);
+        }
+
+        function sanitizeData(data) {
+            (data || []).forEach(c => {
+                c.id = c.id || generateId(c);
+                c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
+                c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
+                c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
+                c.observaciones.forEach(obs => {
+                    obs.id = obs.id || generateId({});
+                    obs.texto = obs.texto || '';
+                    obs.textoPrivado = obs.textoPrivado || '';
+                    obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
+                });
+                c.audiencias_list.forEach(aud => {
+                    aud.id = aud.id || generateId({});
+                    aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
+                    aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false;
+                });
+                c.vencimientos_list.forEach(venc => {
+                    venc.id = venc.id || generateId({});
+                    venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
+                    venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false;
+                });
+                updateClientNextRevision(c);
+            });
+            return data;
+        }
+
+        function updateDataStatus(message, isWarning = false) {
+            const el = document.getElementById('dataStatus');
+            el.textContent = message;
+            el.style.background = isWarning ? '#fff3cd' : '#d4edda';
+            el.style.color = isWarning ? '#664d03' : '#155724';
+        }
+        
+        function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+        const todayYMD = getTodayYMD();
+        function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        function formatTime(timeString) { if (!timeString) return ''; return timeString; }
+        function isToday(dateString) { return dateString && dateString === todayYMD; }
+        function isPastDue(dateString) { return dateString && dateString < todayYMD; }
+        function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
+        function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; }
+        function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
+        
+        function toggleVisibility(elementId) {
+            const element = document.getElementById(elementId);
+            const icon = element.previousElementSibling.querySelector('.toggle-icon');
+            if (!element || !icon) return;
             
-            // Simplemente asegúrate de que al final de tu DOMContentLoaded, estén estas líneas:
+            if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                icon.textContent = '➖';
+            } else {
+                element.style.display = 'none';
+                icon.textContent = '➕';
+            }
+        }
+
+        function toggleFormVisibility(formId) {
+            const formElement = document.getElementById(formId);
+            const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
+            if (formElement.style.display === 'none' || formElement.style.display === '') {
+                formElement.style.display = 'block';
+                if(iconElement) iconElement.textContent = '➖';
+            } else {
+                formElement.style.display = 'none';
+                if(iconElement) iconElement.textContent = '➕';
+            }
+        }
+
+        function updateClientNextRevision(client) {
+            const futureObs = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision));
+            if (futureObs.length > 0) {
+                client.proximaRevision = futureObs[0].proximaRevision;
+                client.observacion = futureObs[0].texto;
+                if (futureObs[0].textoPrivado) { client.observacion += ` (Privado: ${futureObs[0].textoPrivado})`; }
+                client.fechaTrabajado = futureObs[0].fecha;
+            } else {
+                client.proximaRevision = '';
+                client.observacion = 'No hay tareas pendientes';
+                client.fechaTrabajado = '';
+            }
+        }
+        
+        function updateAudienciasSummary(client) {
+            if (!client.audiencias_list) { client.audiencias = ''; return; }
+            client.audiencias = client.audiencias_list.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join('; ');
+        }
+        
+        function renderAll() {
+            clientsData.forEach(c => {
+                updateClientNextRevision(c);
+                updateAudienciasSummary(c);
+            });
+            renderDashboardLists();
+            renderAllClientsList();
+        }
+
+        function renderDashboardLists() {
+            const allSchedulableItems = clientsData.flatMap(client => {
+                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
+                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
+                return [...tasks, ...audiences, ...vencimientos];
+            });
+            const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
+            const overdueItems = allSchedulableItems.filter(item => isPastDue(item.reviewDate)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
+            const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
+            renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today');
+            renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
+            renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
+        }
+
+        function renderReviewList(containerId, items, emptyMsg, type) {
+            const container = document.getElementById(containerId);
+            const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
+            container.innerHTML = items.length === 0 ? `<p style="color: ${listColor}; text-align: center;">${emptyMsg}</p>` : items.map(item => {
+                let dateInfo = '';
+                if (type === 'today') dateInfo = 'HOY';
+                else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
+                else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
+                const toggleFunc = `marcarEventoCompleto(event, '${item.client.id}', '${item.id}', '${item.type}')`;
+                const completedClass = item.completed ? 'completed' : '';
+                const privateNoteHtml = item.type === 'task' && item.item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.item.textoPrivado}</div>` : '';
+                const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
+                return `<div class="review-item ${completedClass}">${completeButton}<div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs">${item.reviewText}</div>${privateNoteHtml}</div></div>`;
+            }).join('');
+        }
+        
+        function renderAllClientsList() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const estadoFilter = document.getElementById('estadoFilter').value;
+            const filteredData = clientsData.filter(c => {
+                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado}`.toLowerCase();
+                return (!searchTerm || searchString.includes(searchTerm)) && (!estadoFilter || c.estado === estadoFilter);
+            }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
+            document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
+                const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
+                const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
+                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content"><div class="review-date">Próx. Revisión: ${formatDate(c.proximaRevision)}</div>${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}<div class="review-client">${getDisplayName(c)}</div><div class="review-obs">Últ. Tarea: ${c.observacion}</div></div></div>`;
+            }).join('');
+        }
+
+        function showClientModal(clientId) {
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            updateClientNextRevision(client);
+            const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
+            const content = `
+                <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
+                <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
+                    ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
+                    <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
+                </div></div>
+                <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event, '${client.id}')"><div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4><form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div></div></div>
+                <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
+            document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
+            document.getElementById('clientInfoModal').classList.add('active');
+        }
+
+        function renderHistoryList(client) {
+            const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
+            const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
+            const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
+            const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
+                const itemDate = item.type === 'task' ? `Revisar el: ${formatDate(item.proximaRevision)}` : `Fecha: ${formatDate(item.date)} ${formatTime(item.hora)}`;
+                const workedDate = item.type === 'task' && item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : '';
+                let tagType, tagText;
+                switch(item.type) { case 'task': tagType = 'task'; tagText = 'TAREA'; break; case 'audience': tagType = 'audience'; tagText = 'AUDIENCIA'; break; case 'vencimiento': tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; break; default: tagType = 'task'; tagText = 'EVENTO'; }
+                const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '';
+                return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}"><div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div><div class="history-text">${item.texto}</div>${privateNoteHtml}<div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button></div></div>`;
+            }).join('');
+        }
+        
+        function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
+        function showClientSelectorModal() {
+            const selector = document.getElementById('clientSelector');
+            selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...clientsData].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join('');
+            document.getElementById('clientSelectorModal').classList.add('active');
+        }
+        function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
+        function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
+        
+        function editField(clientId, fieldName) {
+            if (editingField) return;
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            editingClientId = clientId; editingField = fieldName;
+            const fieldElement = document.getElementById(`field-${fieldName}`);
+            const currentValue = client[fieldName] || '';
+            const inputElement = (fieldName === 'notas') ? document.createElement('textarea') : document.createElement('input');
+            inputElement.value = currentValue;
+            if (fieldName === 'notas') { inputElement.style.cssText = 'width: 100%; height: 120px; font-family: inherit; font-size: inherit;'; } else { inputElement.type = 'text'; }
+            inputElement.addEventListener('blur', saveField);
+            inputElement.addEventListener('keydown', e => { if (e.key === 'Enter' && fieldName !== 'notas') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { editingClientId = null; editingField = null; showClientModal(clientId); } });
+            fieldElement.innerHTML = ''; fieldElement.appendChild(inputElement); inputElement.focus();
+        }
+
+        function saveField() {
+            if (!editingClientId || !editingField) return;
+            const client = clientsData.find(c => c.id === editingClientId);
+            const input = document.getElementById(`field-${editingField}`)?.querySelector('input, textarea');
+            if (client && input) { client[editingField] = input.value; saveData(); }
+            const tempId = editingClientId;
+            editingClientId = null; editingField = null;
+            renderAll();
+            showClientModal(tempId);
+        }
+
+        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        async function addAudience(event, clientId) { event.preventDefault(); if (!gapi.client.getToken()?.access_token) { alert('Debe conectar su cuenta de Google para poder agendar audiencias.'); return; } const client = clientsData.find(c => c.id === clientId); if (!client) return; const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false, alertaMostrada: false }; const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia'); if (success) { client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); } }
+        async function addVencimiento(event, clientId) { event.preventDefault(); if (!gapi.client.getToken()?.access_token) { alert('Debe conectar su cuenta de Google para poder agendar vencimientos.'); return; } const client = clientsData.find(c => c.id === clientId); if (!client) return; const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false }; const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento'); if (success) { client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); } }
+        function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}"></div><button class="btn btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
+        function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        function deleteItem(clientId, itemId, itemType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento'}[itemType]; if (!confirm(`¿Seguro que quieres eliminar esta ${itemName}?`)) return; if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId); updateClientNextRevision(client); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
+        function deleteClient(id) { if (confirm('¿Seguro que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
+        function marcarEventoCompleto(event, clientId, eventId, eventType) { event?.stopPropagation(); const client = clientsData.find(c => c.id === clientId); if (!client) return; let eventItem; const type = eventType.toLowerCase(); if(type === 'task') eventItem = client.observaciones.find(item => item.id === eventId); else if(type === 'audience') eventItem = client.audiencias_list.find(item => item.id === eventId); else if(type === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId); if(eventItem) eventItem.completed = !eventItem.completed; updateClientNextRevision(client); saveData(); renderAll(); if(document.getElementById('alertModal').classList.contains('active')){ closeModal('alertModal'); } }
+        function mostrarAlertaDeEventos(eventosPorAlertar) { if (eventosPorAlertar.length === 0) return; const modal = document.getElementById('alertModal'); if (modal.classList.contains('active')) return; const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alertas para Hoy!</h2><div class="reviews-list">${eventosPorAlertar.map(alert => { const tipoEnEspanol = alert.type === 'Audiencia' ? 'AUDIENCIA' : 'VENCIMIENTO'; return `<div class="review-item today"><div class="review-item-content"><div onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">${getDisplayName(alert.client)}</div><div class="review-obs"><strong>${tipoEnEspanol} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div><div><button onclick="marcarEventoCompleto(event, '${alert.client.id}', '${alert.item.id}', '${alert.type}')">Hecho</button><button onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">Posponer</button></div></div></div>` }).join('')}</div>`; modal.querySelector('.modal-content').innerHTML = content; modal.classList.add('active'); eventosPorAlertar.forEach(alerta => { const client = clientsData.find(c => c.id === alerta.client.id); if(!client) return; let eventItem = (alerta.type === 'Audiencia') ? client.audiencias_list.find(item => item.id === alerta.item.id) : client.vencimientos_list.find(item => item.id === alerta.item.id); if (eventItem) eventItem.alertaMostrada = true; }); saveData(); }
+        function revisarAlertas() { const ahora = new Date(); const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`; const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada).map(aud => ({ client, item: aud, type: 'Audiencia' }))); const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada).map(venc => ({ client, item: venc, type: 'Vencimiento' }))); const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar]; if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy); }
+        function iniciarVigilanteDeAlertas() { setTimeout(revisarAlertas, 2000); setInterval(revisarAlertas, 60000); }
+        function showRescheduleModal(clientId, eventId, eventType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list; const eventItem = list.find(item => item.id === eventId); if(!eventItem) return; const modal = document.getElementById('rescheduleModal'); const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar ${eventType}</h3><p><b>Caso:</b> ${client.nombre}</p><div class="form-group"><label>Nueva Fecha</label><input type="date" id="rescheduleDate" value="${eventItem.fecha}"></div><div class="form-group"><label>Nueva Hora</label><input type="time" id="rescheduleTime" value="${eventItem.hora}"></div><div><button onclick="confirmReschedule('${clientId}', '${eventId}', '${eventType}')">Confirmar</button></div>`; modal.querySelector('.modal-content').innerHTML = content; closeModal('alertModal'); modal.classList.add('active'); }
+        function confirmReschedule(clientId, eventId, eventType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list; let eventItem = list.find(item => item.id === eventId); if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; eventItem.alertaMostrada = false; } saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ ${eventType} reprogramada.`); }
+        function snoozeAlerta(minutos) { closeModal('alertModal'); updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`); setTimeout(revisarAlertas, minutos * 60 * 1000); }
+        function exportToExcel(){const d=clientsData.map(c=>{const o=(c.observaciones||[]).map(obs=>`[Rev: ${formatDate(obs.proximaRevision)}] ${obs.texto}`).join('; ');return{'Nombre':c.nombre,'Carátula':c.caratula,'Próxima Revisión':formatDate(c.proximaRevision),'Observación':c.observacion,'Historial':o}});const w=XLSX.utils.json_to_sheet(d);const b=XLSX.utils.book_new();XLSX.utils.book_append_sheet(b,w,'Casos');XLSX.writeFile(b,`Casos_${getTodayYMD()}.xlsx`)}
+        function exportData(){const d=JSON.stringify(clientsData,null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d],{type:'application/json'}));a.download=`casos_${getTodayYMD()}.json`;a.click()}
+        function importData(){document.getElementById('importInput').click()}
+        function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const i=JSON.parse(e.target.result);if(Array.isArray(i)&&confirm(`Importar ${i.length} casos?`)){clientsData=i;saveData();loadData();renderAll()}}catch(err){alert('Error.')}};r.readAsText(f);ev.target.value=''}
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const digitalClockElement = document.getElementById('digital-clock');
+            const hourHand = document.querySelector('.hour-hand');
+            const minHand = document.querySelector('.min-hand');
+            const secondHand = document.querySelector('.second-hand');
+            function updateClock() {
+                const now = new Date();
+                const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                digitalClockElement.innerHTML = `${now.toLocaleDateString('es-AR', dateOptions)}<br>${now.toLocaleTimeString('es-AR', { hour12: false })}`;
+                const seconds = now.getSeconds(); secondHand.style.transform = `rotate(${((seconds / 60) * 360) + 90}deg)`;
+                const mins = now.getMinutes(); minHand.style.transform = `rotate(${((mins / 60) * 360) + ((seconds/60)*6) + 90}deg)`;
+                const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
+            }
+            updateClock(); setInterval(updateClock, 1000);
+
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Estado</label><select id="newEstado"><option value="EJECUCION">Ejecución</option></select></div></div><div class="form-group"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newFechaRevision"></div><button type="submit" class="btn">Guardar</button></form>`;
+            document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
+            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const c=document.getElementById('newCaratula').value.trim();if(c&&clientsData.some(cl=>cl.caratula&&cl.caratula.trim().toUpperCase()===c.toUpperCase())){alert('Error: Ya existe un caso con esa carátula.');return;}const n={id:generateId({}),nombre:document.getElementById('newNombre').value.toUpperCase(),dni:document.getElementById('newDni').value,telefono:document.getElementById('newTelefono').value,caratula:c,expediente:document.getElementById('newExpediente').value.trim(),juzgado:document.getElementById('newJuzgado').value,estado:document.getElementById('newEstado').value,observaciones:[]};const o=document.getElementById('newObservacion').value;const f=document.getElementById('newFechaRevision').value;if(o&&f){n.observaciones.push({id:generateId({}),fecha:getTodayYMD(),texto:o,proximaRevision:f,completed:false});}updateClientNextRevision(n);clientsData.push(n);saveData();renderAll();closeModal('newClientModal');e.target.reset(); });
+            
             loadData();
             renderAll();
-            // iniciarVigilanteDeAlertas(); // Puedes mantener esta línea si la tienes
-
-            // Llamada automática a Justina para el resumen diario
-            if (clientsData.length > 0) {
-                setTimeout(() => callJustina(true), 500); // Pequeño delay para que la página cargue visualmente
-            } else {
-                addMessageToChat('ia', 'Hola, Dra. García. No he encontrado datos de casos para analizar. Puede empezar agregando un nuevo caso.');
-            }
+            iniciarVigilanteDeAlertas();
         });
-
-        // --- Asegúrate de que todas tus otras funciones globales (fuera de DOMContentLoaded) también estén aquí ---
-        // Ejemplo:
-        // function showNewClientModal() { ... }
-        // function showClientSelectorModal() { ... }
-        // etc...
+        window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
+    </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+        const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+        const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+        const GD_DATA_FILE = 'datos_planilla_juridica.json';
+        const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos';
+        let gdTokenClient, gapiReady = false, gisReady = false, gdDataFileId = null, gdDocsFolderId = null, localFilesForUpload = [];
+        function gapiLoaded(){gapi.load('client',initializeGapiClient)}
+        async function initializeGapiClient(){try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']});gapiReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GAPI client init:",e);updateDataStatus('❌ Error al inicializar APIs de Google.',true)}}
+        function gisLoaded(){try{gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,callback:tokenResponseCallback});gisReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GIS client init:",e);updateDataStatus('❌ Error al inicializar autenticación de Google.',true)}}
+        function maybeEnableGoogleButtons(){if(gapiReady&&gisReady){document.getElementById('connectDriveBtn').onclick=handleAuthClick}}
+        function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
+        async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});document.getElementById('connectDriveBtn').style.display='none';document.getElementById('saveToDriveBtn').style.display='inline-block';document.getElementById('loadFromDriveBtn').style.display='inline-block';updateDataStatus('✅ Conectado. Buscando respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Error post-conexión.',true)}}
+        
+        async function crearEventoEnCalendario(client, evento, tipoEvento) {
+            // ... (código existente de Google Calendar)
+        }
     </script>
 </body>
 </html>
+}
+pasame el codigo ya con el frankestein hecho porque sino voya hacer macana
