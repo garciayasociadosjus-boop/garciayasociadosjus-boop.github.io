@@ -378,217 +378,31 @@
         });
         // ===== FIN LÓGICA JUSTINA =====
 
+
         // --- INICIO CÓDIGO JS COMPLETO DEL BACKUP ---
-        
-        function saveData() {
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            updateDataStatus('✅ Datos guardados localmente');
-        }
-
-        function loadData() {
-            const savedData = localStorage.getItem('planilla_juridica_data');
-            let data = savedData ? JSON.parse(savedData) : [];
-            const uniqueClients = new Map();
-            data.forEach(client => {
-                const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
-                if (!uniqueClients.has(key)) { uniqueClients.set(key, client); }
-            });
-            const deduplicatedData = Array.from(uniqueClients.values());
-            let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista';
-            if (deduplicatedData.length < data.length) {
-                statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
-                saveData();
-            }
-            clientsData = sanitizeData(deduplicatedData);
-            updateDataStatus(statusMessage, false);
-        }
-
-        function sanitizeData(data) {
-            (data || []).forEach(c => {
-                c.id = c.id || generateId(c);
-                c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
-                c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
-                c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
-                c.observaciones.forEach(obs => {
-                    obs.id = obs.id || generateId({});
-                    obs.texto = obs.texto || '';
-                    obs.textoPrivado = obs.textoPrivado || '';
-                    obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
-                });
-                c.audiencias_list.forEach(aud => {
-                    aud.id = aud.id || generateId({});
-                    aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
-                    aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false;
-                });
-                c.vencimientos_list.forEach(venc => {
-                    venc.id = venc.id || generateId({});
-                    venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
-                    venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false;
-                });
-                updateClientNextRevision(c);
-            });
-            return data;
-        }
-
-        function updateDataStatus(message, isWarning = false) {
-            const el = document.getElementById('dataStatus');
-            el.textContent = message;
-            el.style.background = isWarning ? '#fff3cd' : '#d4edda';
-            el.style.color = isWarning ? '#664d03' : '#155724';
-        }
-        
+        function saveData() { localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData)); updateDataStatus('✅ Datos guardados localmente'); }
+        function loadData() { const savedData = localStorage.getItem('planilla_juridica_data'); let data = savedData ? JSON.parse(savedData) : []; const uniqueClients = new Map(); data.forEach(client => { const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id; if (!uniqueClients.has(key)) { uniqueClients.set(key, client); } }); const deduplicatedData = Array.from(uniqueClients.values()); let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista'; if (deduplicatedData.length < data.length) { statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`; saveData(); } clientsData = sanitizeData(deduplicatedData); updateDataStatus(statusMessage, false); }
+        function sanitizeData(data) { (data || []).forEach(c => { c.id = c.id || generateId(c); c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : []; c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : []; c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : []; c.observaciones.forEach(obs => { obs.id = obs.id || generateId({}); obs.texto = obs.texto || ''; obs.textoPrivado = obs.textoPrivado || ''; obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false; }); c.audiencias_list.forEach(aud => { aud.id = aud.id || generateId({}); aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false; aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false; }); c.vencimientos_list.forEach(venc => { venc.id = venc.id || generateId({}); venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false; venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false; }); updateClientNextRevision(c); }); return data; }
+        function updateDataStatus(message, isWarning = false) { const el = document.getElementById('dataStatus'); el.textContent = message; el.style.background = isWarning ? '#fff3cd' : '#d4edda'; el.style.color = isWarning ? '#664d03' : '#155724'; }
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
-        function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        function formatDate(dateString) { if (!dateString) return 'No definida'; const date = new Date(dateString); const userTimezoneOffset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('es-AR', {day: '2-digit', month: '2-digit', year: 'numeric'});}
         function formatTime(timeString) { if (!timeString) return ''; return timeString; }
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
         function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; }
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
-        
-        function toggleVisibility(elementId) {
-            const element = document.getElementById(elementId);
-            const icon = element.previousElementSibling.querySelector('.toggle-icon');
-            if (!element || !icon) return;
-            
-            if (element.style.display === 'none') {
-                element.style.display = 'flex';
-                icon.textContent = '➖';
-            } else {
-                element.style.display = 'none';
-                icon.textContent = '➕';
-            }
-        }
-
-        function toggleFormVisibility(formId) {
-            const formElement = document.getElementById(formId);
-            const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
-            if (formElement.style.display === 'none' || formElement.style.display === '') {
-                formElement.style.display = 'block';
-                if(iconElement) iconElement.textContent = '➖';
-            } else {
-                formElement.style.display = 'none';
-                if(iconElement) iconElement.textContent = '➕';
-            }
-        }
-
-        function updateClientNextRevision(client) {
-            const futureObs = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision));
-            if (futureObs.length > 0) {
-                client.proximaRevision = futureObs[0].proximaRevision;
-                client.observacion = futureObs[0].texto;
-                if (futureObs[0].textoPrivado) { client.observacion += ` (Privado: ${futureObs[0].textoPrivado})`; }
-                client.fechaTrabajado = futureObs[0].fecha;
-            } else {
-                client.proximaRevision = '';
-                client.observacion = 'No hay tareas pendientes';
-                client.fechaTrabajado = '';
-            }
-        }
-        
-        function updateAudienciasSummary(client) {
-            if (!client.audiencias_list) { client.audiencias = ''; return; }
-            client.audiencias = client.audiencias_list.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join('; ');
-        }
-        
-        function renderAll() {
-            clientsData.forEach(c => {
-                updateClientNextRevision(c);
-                updateAudienciasSummary(c);
-            });
-            renderWeeklyGlance();
-            renderDashboardLists();
-            renderAllClientsList();
-        }
-
-        function renderWeeklyGlance() {
-            const container = document.getElementById('weeklyGlanceContainer');
-            if (!container) return;
-            const counts = Array(7).fill(0);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const allSchedulableItems = clientsData.flatMap(client => {
-                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
-                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
-                return [...tasks, ...audiences, ...vencimientos];
-            });
-            allSchedulableItems.forEach(item => {
-                if (!item.reviewDate) return;
-                const itemDate = new Date(item.reviewDate + 'T00:00:00');
-                const diffTime = itemDate - today;
-                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays >= 0 && diffDays < 7) {
-                    counts[diffDays]++;
-                }
-            });
-            const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-            let html = '';
-            for (let i = 0; i < 7; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() + i);
-                const dayOfWeek = date.getDay();
-                const dayName = dayNames[dayOfWeek];
-                const dateNumber = date.getDate();
-                const hasTasksClass = counts[i] > 0 ? 'has-tasks' : '';
-                const isTodayClass = i === 0 ? 'is-today' : '';
-                const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-                html += `<div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}"><span class="day-name">${dayName} ${dateNumber}</span><span class="day-count">${counts[i]}</span></div>`;
-            }
-            container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
-        }
-
-        function renderDashboardLists() {
-            const allSchedulableItems = clientsData.flatMap(client => {
-                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
-                const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
-                return [...tasks, ...audiences, ...vencimientos];
-            });
-            const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
-            const overdueItems = allSchedulableItems.filter(item => isPastDue(item.reviewDate)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
-            const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
-            renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today');
-            renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
-            renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
-        }
-
-        function renderReviewList(containerId, items, emptyMsg, type) {
-            const container = document.getElementById(containerId);
-            const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
-            container.innerHTML = items.length === 0 ? `<p style="color: ${listColor}; text-align: center;">${emptyMsg}</p>` : items.map(item => {
-                let dateInfo = '';
-                if (type === 'today') dateInfo = 'HOY';
-                else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`;
-                else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`;
-                const toggleFunc = `marcarEventoCompleto(event, '${item.client.id}', '${item.id}', '${item.type}')`;
-                const completedClass = item.completed ? 'completed' : '';
-                const privateNoteHtml = item.type === 'task' && item.item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.item.textoPrivado}</div>` : '';
-                const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`;
-                return `<div class="review-item ${completedClass}">${completeButton}<div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs">${item.reviewText}</div>${privateNoteHtml}</div></div>`;
-            }).join('');
-        }
-        
-        function renderAllClientsList() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const estadoFilter = document.getElementById('estadoFilter').value;
-            const filteredData = clientsData.filter(c => {
-                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado}`.toLowerCase();
-                return (!searchTerm || searchString.includes(searchTerm)) && (!estadoFilter || c.estado === estadoFilter);
-            }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
-            document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
-                const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
-                const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
-                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content"><div class="review-date">Próx. Revisión: ${formatDate(c.proximaRevision)}</div>${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}<div class="review-client">${getDisplayName(c)}</div><div class="review-obs">Últ. Tarea: ${c.observacion}</div></div></div>`;
-            }).join('');
-        }
-
-        function showClientModal(clientId) {
-            const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            updateClientNextRevision(client);
-            const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
-            const content = `<span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2><div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div></div></div><div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div><div style="display: grid; grid-template-columns: 1fr; gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event, '${client.id}')"><div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4><form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div></div></div><div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`; document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content; document.getElementById('clientInfoModal').classList.add('active'); }
+        function toggleVisibility(elementId) { const element = document.getElementById(elementId); const icon = element.previousElementSibling.querySelector('.toggle-icon'); if (!element || !icon) return; if (element.style.display === 'none') { element.style.display = 'flex'; icon.textContent = '➖'; } else { element.style.display = 'none'; icon.textContent = '➕'; } }
+        function toggleFormVisibility(formId) { const formElement = document.getElementById(formId); const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon'); if (formElement.style.display === 'none' || formElement.style.display === '') { formElement.style.display = 'block'; if(iconElement) iconElement.textContent = '➖'; } else { formElement.style.display = 'none'; if(iconElement) iconElement.textContent = '➕'; } }
+        function updateClientNextRevision(client) { const futureObs = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).sort((a, b) => a.proximaRevision.localeCompare(b.proximaRevision)); if (futureObs.length > 0) { client.proximaRevision = futureObs[0].proximaRevision; client.observacion = futureObs[0].texto; if (futureObs[0].textoPrivado) { client.observacion += ` (Privado: ${futureObs[0].textoPrivado})`; } client.fechaTrabajado = futureObs[0].fecha; } else { client.proximaRevision = ''; client.observacion = 'No hay tareas pendientes'; client.fechaTrabajado = ''; } }
+        function updateAudienciasSummary(client) { if (!client.audiencias_list) { client.audiencias = ''; return; } client.audiencias = client.audiencias_list.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join('; '); }
+        function renderAll() { clientsData.forEach(c => { updateClientNextRevision(c); updateAudienciasSummary(c); }); renderWeeklyGlance(); renderDashboardLists(); renderAllClientsList(); }
+        function renderWeeklyGlance() { const container = document.getElementById('weeklyGlanceContainer'); if (!container) return; const counts = Array(7).fill(0); const today = new Date(); today.setHours(0, 0, 0, 0); const allSchedulableItems = clientsData.flatMap(client => { const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision })); const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha })); const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha })); return [...tasks, ...audiences, ...vencimientos]; }); allSchedulableItems.forEach(item => { if (!item.reviewDate) return; const itemDate = new Date(item.reviewDate + 'T00:00:00'); const diffTime = itemDate - today; const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)); if (diffDays >= 0 && diffDays < 7) { counts[diffDays]++; } }); const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S']; let html = ''; for (let i = 0; i < 7; i++) { const date = new Date(today); date.setDate(today.getDate() + i); const dayOfWeek = date.getDay(); const dayName = dayNames[dayOfWeek]; const dateNumber = date.getDate(); const hasTasksClass = counts[i] > 0 ? 'has-tasks' : ''; const isTodayClass = i === 0 ? 'is-today' : ''; const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }); html += `<div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}"><span class="day-name">${dayName} ${dateNumber}</span><span class="day-count">${counts[i]}</span></div>`; } container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>'; }
+        function renderDashboardLists() { const allSchedulableItems = clientsData.flatMap(client => { const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs })); const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud })); const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc })); return [...tasks, ...audiences, ...vencimientos]; }); const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate)); const overdueItems = allSchedulableItems.filter(item => isPastDue(item.reviewDate)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate)); const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate)); renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today'); renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue'); renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming'); }
+        function renderReviewList(containerId, items, emptyMsg, type) { const container = document.getElementById(containerId); const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)'; container.innerHTML = items.length === 0 ? `<p style="color: ${listColor}; text-align: center;">${emptyMsg}</p>` : items.map(item => { let dateInfo = ''; if (type === 'today') dateInfo = 'HOY'; else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.reviewDate)}`; else dateInfo = `En ${getDaysDifference(item.reviewDate)} días - ${formatDate(item.reviewDate)}`; const toggleFunc = `marcarEventoCompleto(event, '${item.client.id}', '${item.id}', '${item.type}')`; const completedClass = item.completed ? 'completed' : ''; const privateNoteHtml = item.type === 'task' && item.item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.item.textoPrivado}</div>` : ''; const completeButton = item.isCompletable ? `<button class="complete-btn" onclick="${toggleFunc}">✔</button>` : `<div style="width:30px; flex-shrink:0;"></div>`; return `<div class="review-item ${completedClass}">${completeButton}<div class="review-item-content" onclick="showClientModal('${item.client.id}')"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs">${item.reviewText}</div>${privateNoteHtml}</div></div>`; }).join(''); }
+        function renderAllClientsList() { const searchTerm = document.getElementById('searchInput').value.toLowerCase(); const estadoFilter = document.getElementById('estadoFilter').value; const filteredData = clientsData.filter(c => { const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado}`.toLowerCase(); return (!searchTerm || searchString.includes(searchTerm)) && (!estadoFilter || c.estado === estadoFilter); }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999')); document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => { const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision); const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`; return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content"><div class="review-date">Próx. Revisión: ${formatDate(c.proximaRevision)}</div>${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}<div class="review-client">${getDisplayName(c)}</div><div class="review-obs">Últ. Tarea: ${c.observacion}</div></div></div>`; }).join(''); }
+        function showClientModal(clientId) { const client = clientsData.find(c => c.id === clientId); if (!client) return; updateClientNextRevision(client); const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'}; const content = `<span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2><div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div></div></div><div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div><div style="display: grid; grid-template-columns: 1fr; gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event, '${client.id}')"><div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4><form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div></div></div><div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`; document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content; document.getElementById('clientInfoModal').classList.add('active'); }
         function renderHistoryList(client) { const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' })); const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' })); const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' })); const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || '')); return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => { const itemDate = item.type === 'task' ? `Revisar el: ${formatDate(item.proximaRevision)}` : `Fecha: ${formatDate(item.date)} ${formatTime(item.hora)}`; const workedDate = item.type === 'task' && item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''; let tagType, tagText; switch(item.type) { case 'task': tagType = 'task'; tagText = 'TAREA'; break; case 'audience': tagType = 'audience'; tagText = 'AUDIENCIA'; break; case 'vencimiento': tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; break; default: tagType = 'task'; tagText = 'EVENTO'; } const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : ''; return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}"><div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div><div class="history-text">${item.texto}</div>${privateNoteHtml}<div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button></div></div>`; }).join(''); }
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
         function showClientSelectorModal() { const selector = document.getElementById('clientSelector'); selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...clientsData].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join(''); document.getElementById('clientSelectorModal').classList.add('active'); }
@@ -604,18 +418,18 @@
         function deleteItem(clientId, itemId, itemType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento'}[itemType]; if (!confirm(`¿Estás seguro de que quieres eliminar esta ${itemName}?`)) return; if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId); updateClientNextRevision(client); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
         function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
         function marcarEventoCompleto(event, clientId, eventId, eventType) { event?.stopPropagation(); const client = clientsData.find(c => c.id === clientId); if (!client) return; let eventItem; const type = eventType.toLowerCase(); if(type === 'task') eventItem = client.observaciones.find(item => item.id === eventId); else if(type === 'audience') eventItem = client.audiencias_list.find(item => item.id === eventId); else if(type === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId); if(eventItem) eventItem.completed = !eventItem.completed; updateClientNextRevision(client); saveData(); renderAll(); if(document.getElementById('alertModal').classList.contains('active')){ closeModal('alertModal'); } }
-        function mostrarAlertaDeEventos(eventosPorAlertar) { if (eventosPorAlertar.length === 0) return; const modal = document.getElementById('alertModal'); if (modal.classList.contains('active')) return; const content = `...`; modal.querySelector('.modal-content').innerHTML = content; modal.classList.add('active'); eventosPorAlertar.forEach(alerta => { const client = clientsData.find(c => c.id === alerta.client.id); if(!client) return; let eventItem = (alerta.type === 'Audiencia') ? client.audiencias_list.find(item => item.id === alerta.item.id) : client.vencimientos_list.find(item => item.id === alerta.item.id); if (eventItem) eventItem.alertaMostrada = true; }); saveData(); }
+        function mostrarAlertaDeEventos(eventosPorAlertar) { if (eventosPorAlertar.length === 0) return; const modal = document.getElementById('alertModal'); if (modal.classList.contains('active')) return; const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alertas para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${eventosPorAlertar.map(alert => { const tipoEnEspanol = alert.type === 'Audiencia' ? 'AUDIENCIA' : 'VENCIMIENTO'; return `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color); cursor: pointer;" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">${getDisplayName(alert.client)}</div><div class="review-obs"><strong>${tipoEnEspanol} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarEventoCompleto(event, '${alert.client.id}', '${alert.item.id}', '${alert.type}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">🗓️ Posponer</button><button class="btn btn-info btn-sm" onclick="snoozeAlerta(30)">🕒 30 min</button><button class="btn btn-info btn-sm" onclick="snoozeAlerta(60)">🕒 1 hs</button></div></div></div>` }).join('')}</div>`; modal.querySelector('.modal-content').innerHTML = content; modal.classList.add('active'); eventosPorAlertar.forEach(alerta => { const client = clientsData.find(c => c.id === alerta.client.id); if(!client) return; let eventItem = (alerta.type === 'Audiencia') ? client.audiencias_list.find(item => item.id === alerta.item.id) : client.vencimientos_list.find(item => item.id === alerta.item.id); if (eventItem) eventItem.alertaMostrada = true; }); saveData(); }
         function revisarAlertas() { const ahora = new Date(); const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`; const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada).map(aud => ({ client, item: aud, type: 'Audiencia' }))); const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada).map(venc => ({ client, item: venc, type: 'Vencimiento' }))); const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar]; if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy); }
         function iniciarVigilanteDeAlertas() { setTimeout(revisarAlertas, 2000); setInterval(revisarAlertas, 60000); }
-        function showRescheduleModal(clientId, eventId, eventType) { /*...*/ }
-        function confirmReschedule(clientId, eventId, eventType) { /*...*/ }
-        function snoozeAlerta(minutos) { /*...*/ }
+        function showRescheduleModal(clientId, eventId, eventType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list; const eventItem = list.find(item => item.id === eventId); if(!eventItem) return; const modal = document.getElementById('rescheduleModal'); const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar ${eventType}</h3><p><b>Caso:</b> ${client.nombre}</p><div class="form-group" style="margin-top:15px;"><label>Nueva Fecha</label><input type="date" id="rescheduleDate" value="${eventItem.fecha}"></div><div class="form-group"><label>Nueva Hora</label><input type="time" id="rescheduleTime" value="${eventItem.hora}"></div><div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${clientId}', '${eventId}', '${eventType}')">Confirmar</button></div>`; modal.querySelector('.modal-content').innerHTML = content; closeModal('alertModal'); modal.classList.add('active'); }
+        function confirmReschedule(clientId, eventId, eventType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list; let eventItem = list.find(item => item.id === eventId); if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; eventItem.alertaMostrada = false; } saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ ${eventType} reprogramada.`, false); }
+        function snoozeAlerta(minutos) { closeModal('alertModal'); updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`); setTimeout(revisarAlertas, minutos * 60 * 1000); }
         function exportToExcel(){const excelData=clientsData.map(c=>{const allObs=(c.observaciones||[]).map(obs=>`[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado||''}`).join(' \n ');const allAuds=(c.audiencias_list||[]).map(aud=>`[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');const allVencs=(c.vencimientos_list||[]).map(venc=>`[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');return{'Nombre':c.nombre,'DNI':c.dni,'Teléfono':c.telefono,'Carátula':c.caratula,'Expediente':c.expediente,'Juzgado':c.juzgado,'Dirección Juzgado':c.direccionJuzgado,'Tel. Juzgado':c.telJuzgado,'Estado':c.estado,'Notas':c.notas,'Próxima Revisión':formatDate(c.proximaRevision),'Última Tarea':c.observacion,'Resumen de Audiencias':c.audiencias,'Historial Tareas':allObs,'Historial Audiencias':allAuds,'Historial Vencimientos':allVencs}});const worksheet=XLSX.utils.json_to_sheet(excelData);const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,worksheet,'Casos Familia');XLSX.writeFile(workbook,`Casos_Familia_${getTodayYMD()}.xlsx`)}
         function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
         function importData(){document.getElementById('importInput').click()}
         function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
-        function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const printContent=`...`;const printWindow=window.open('','_blank');printWindow.document.write(`...`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
-        function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`...`;const printWindow=window.open('','_blank');printWindow.document.write(`...`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
+        function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
+        function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         
         document.addEventListener('DOMContentLoaded', () => {
             const digitalClockElement = document.getElementById('digital-clock');
@@ -642,9 +456,6 @@
         });
         window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
     
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <script>
         const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
         const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
@@ -712,5 +523,4 @@
 </body>
 </html>
 }
-el server no lo necesito .
-solo el html jutidico y incorpora a justina con todas las funciones que hablamos sin romer nada nada
+no anda nada del codigo que me pasaste el html de juridica es un desastre
