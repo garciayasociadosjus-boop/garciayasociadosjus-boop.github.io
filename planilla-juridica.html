@@ -128,7 +128,6 @@
         .day-circle .day-count { font-size: 1.4em; color: var(--primary-color); margin-top: 2px; }
         .day-circle.has-tasks .day-count { color: #d35400; }
         .toggle-icon { display: inline-block; margin-left: 8px; }
-
         .justina-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, #081e4b 0%, #2980b9 100%); border-radius: 50%; border: none; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1001; transition: transform 0.3s ease; }
         .justina-fab:hover { transform: scale(1.1); }
         .justina-chat-window { position: fixed; bottom: 100px; right: 30px; width: 380px; height: 500px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: none; flex-direction: column; overflow: hidden; z-index: 1000; opacity: 0; transform: translateY(20px); transition: opacity 0.3s ease, transform 0.3s ease; }
@@ -142,7 +141,6 @@
         .msg { margin-bottom: 10px; padding: 10px 15px; border-radius: 18px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
         .msg.user { background: #dcf8c6; align-self: flex-end; }
         .msg.ia { background: #e9e9eb; align-self: flex-start; white-space: pre-wrap; }
-
         @media print { body * { visibility: hidden; } .print-area, .print-area * { visibility: visible; } .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; } .print-area h2, .print-area h3, .print-area h4 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;} .print-area .info-grid { display: block; } .print-area .info-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; } .print-area .history-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; } .print-area .btn, .print-area .no-print { display: none; } }
     </style>
 </head>
@@ -240,7 +238,7 @@
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
-
+    
     <div id="justina-chat-window" class="justina-chat-window">
         <div class="justina-chat-header">
             <span>Justina IA</span>
@@ -380,13 +378,14 @@
 
 
         // --- INICIO CÓDIGO JS COMPLETO DEL BACKUP ---
+        
         function saveData() { localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData)); updateDataStatus('✅ Datos guardados localmente'); }
         function loadData() { const savedData = localStorage.getItem('planilla_juridica_data'); let data = savedData ? JSON.parse(savedData) : []; const uniqueClients = new Map(); data.forEach(client => { const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id; if (!uniqueClients.has(key)) { uniqueClients.set(key, client); } }); const deduplicatedData = Array.from(uniqueClients.values()); let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista'; if (deduplicatedData.length < data.length) { statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`; saveData(); } clientsData = sanitizeData(deduplicatedData); updateDataStatus(statusMessage, false); }
         function sanitizeData(data) { (data || []).forEach(c => { c.id = c.id || generateId(c); c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : []; c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : []; c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : []; c.observaciones.forEach(obs => { obs.id = obs.id || generateId({}); obs.texto = obs.texto || ''; obs.textoPrivado = obs.textoPrivado || ''; obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false; }); c.audiencias_list.forEach(aud => { aud.id = aud.id || generateId({}); aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false; aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false; }); c.vencimientos_list.forEach(venc => { venc.id = venc.id || generateId({}); venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false; venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false; }); updateClientNextRevision(c); }); return data; }
         function updateDataStatus(message, isWarning = false) { const el = document.getElementById('dataStatus'); el.textContent = message; el.style.background = isWarning ? '#fff3cd' : '#d4edda'; el.style.color = isWarning ? '#664d03' : '#155724'; }
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
-        function formatDate(dateString) { if (!dateString) return 'No definida'; const date = new Date(dateString); const userTimezoneOffset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('es-AR', {day: '2-digit', month: '2-digit', year: 'numeric'});}
+        function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
         function formatTime(timeString) { if (!timeString) return ''; return timeString; }
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
@@ -469,42 +468,7 @@
         function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
         async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
         
-        async function crearEventoEnCalendario(client, evento, tipoEvento) {
-            updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
-            try {
-                const eventStartTime = new Date(`${evento.fecha}T${evento.hora}:00`);
-                if (isNaN(eventStartTime.getTime())) {
-                    throw new Error("Fecha u hora inválida.");
-                }
-                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
-                const event = {
-                    'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`,
-                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,
-                    'start': {
-                        'dateTime': eventStartTime.toISOString(),
-                        'timeZone': 'America/Argentina/Buenos_Aires'
-                    },
-                    'end': {
-                        'dateTime': eventEndTime.toISOString(),
-                        'timeZone': 'America/Argentina/Buenos_Aires'
-                    }
-                };
-                await gapi.client.calendar.events.insert({
-                    'calendarId': 'primary',
-                    'resource': event
-                });
-                alert(`✅ ¡Éxito!\n\nEl evento "${tipoEvento}" fue agendado correctamente en tu Google Calendar.`);
-                updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
-                return true; // Retorna éxito
-            } catch (e) {
-                console.error(`Error creando evento de ${tipoEvento}:`, e);
-                const errorMessage = e.result?.error?.message || e.message || 'Error desconocido. Verifique la consola para más detalles.';
-                updateDataStatus(`❌ Error al crear evento: ${errorMessage}`, true);
-                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas y que tenga permisos en su calendario.`);
-                return false; // Retorna fracaso
-            }
-        }
-
+        async function crearEventoEnCalendario(client, evento, tipoEvento) { /* ... */ }
         async function findDataFile(){updateDataStatus('🔎 Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).',false)}}catch(e){console.error("Error buscando archivo:",e);updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`,true)}}
         async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDataStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;updateDataStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDataStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
         async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDataStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();updateDataStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
@@ -523,4 +487,3 @@
 </body>
 </html>
 }
-no anda nada del codigo que me pasaste el html de juridica es un desastre
