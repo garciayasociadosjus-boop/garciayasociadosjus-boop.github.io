@@ -158,34 +158,21 @@
                 <div id="digital-clock"></div>
             </div>
         </header>
-
         <main class="main-content">
             <div id="dataStatus" class="data-status">Cargando datos...</div>
             <div id="driveStatus" class="data-status" style="display: none;"></div>
-
             <section class="card" style="margin-bottom: 30px;">
                 <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
                     🗓️ Resumen de la Próxima Semana
                     <span class="toggle-icon">➖</span>
                 </h3>
-                <div id="weeklyGlanceContainer" class="weekly-glance">
-                    </div>
+                <div id="weeklyGlanceContainer" class="weekly-glance"></div>
             </section>
             <section class="dashboard">
-                <div class="card today-reviews">
-                    <h3><i class="icon"></i>Revisiones de Hoy</h3>
-                    <div class="reviews-list" id="todayReviews"></div>
-                </div>
-                <div class="card overdue-reviews">
-                    <h3><i class="icon"></i>Revisiones Vencidas</h3>
-                    <div class="reviews-list" id="overdueReviews"></div>
-                </div>
-                <div class="card pending-reviews">
-                    <h3><i class="icon"></i>Próximas Revisiones</h3>
-                    <div class="reviews-list" id="upcomingReviews"></div>
-                </div>
+                <div class="card today-reviews"><h3><i class="icon"></i>Revisiones de Hoy</h3><div class="reviews-list" id="todayReviews"></div></div>
+                <div class="card overdue-reviews"><h3><i class="icon"></i>Revisiones Vencidas</h3><div class="reviews-list" id="overdueReviews"></div></div>
+                <div class="card pending-reviews"><h3><i class="icon"></i>Próximas Revisiones</h3><div class="reviews-list" id="upcomingReviews"></div></div>
             </section>
-
             <section style="text-align: center; margin-bottom: 30px;">
                 <button class="btn btn-success" onclick="showNewClientModal()">➕ Agregar Caso</button>
                 <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
@@ -193,18 +180,15 @@
                 <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
             </section>
-            
             <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive & Calendar</button>
                 <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
                 <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
             </section>
-
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
                 <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
             </section>
-
             <section class="card">
                 <h3>📋 Todos los Casos (Ordenados por fecha de revisión)</h3>
                 <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
@@ -214,41 +198,17 @@
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
     <input type="file" id="documentUploadInput" style="display: none;" multiple>
-
     <div id="newClientModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
-    
-    <div id="documentModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('documentModal')">&times;</span>
-            <h2 id="documentModalTitle"></h2>
-            <div id="uploadArea" class="upload-area" style="border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 15px 0; background: #f9f9f9;">
-                <p>Arrastra y suelta tus archivos aquí</p>
-            </div>
-            <ul id="localDocumentList" class="document-list" style="margin-top:10px;"></ul>
-            <h4>Documentos ya guardados en Drive:</h4>
-            <ul id="driveDocumentList" class="document-list"></ul>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-info" onclick="triggerLocalFileUpload()">➕ Agregar Archivo</button>
-                <button class="btn btn-success" onclick="saveDocumentsToDrive()">📤 Guardar Documentos en Drive</button>
-            </div>
-        </div>
-    </div>
-
+    <div id="documentModal" class="modal"><div class="modal-content"></div></div>
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
-    
+
     <div id="justina-chat-window" class="justina-chat-window">
-        <div class="justina-chat-header">
-            <span>Justina IA</span>
-            <span id="close-justina-chat" class="close-chat">&times;</span>
-        </div>
+        <div class="justina-chat-header"><span>Justina IA</span><span id="close-justina-chat" class="close-chat">&times;</span></div>
         <div id="justina-messages" class="justina-messages"></div>
-        <div class="justina-input-area">
-            <input type="text" id="justina-input" placeholder="Escriba su consulta...">
-            <button id="justina-send-btn">➤</button>
-        </div>
+        <div class="justina-input-area"><input type="text" id="justina-input" placeholder="Escriba su consulta..."><button id="justina-send-btn">➤</button></div>
     </div>
     <button id="justina-fab" class="justina-fab" title="Consultar a Justina IA">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 2v2"/><path d="M9 2v2"/></svg>
@@ -272,79 +232,51 @@
         function addMessageToChat(sender, text) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `msg ${sender}`;
-            msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+            msgDiv.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/### (.*?)\n/g, '<h3>$1</h3>');
             justinaMessagesContainer.appendChild(msgDiv);
             justinaMessagesContainer.scrollTop = justinaMessagesContainer.scrollHeight;
         }
 
         async function callJustina(isInitialSummary = false) {
             let userMessage = { role: 'user', content: justinaInput.value.trim() };
-            
             justinaSendBtn.disabled = true;
             justinaInput.disabled = true;
-
             if (isInitialSummary) {
                 userMessage.content = "Por favor, genera mi informe de inteligencia diario.";
                 addMessageToChat('ia', 'Analizando la información para generar su resumen diario, Dra. García. Por favor, aguarde...');
             } else {
-                 if (userMessage.content === '') {
-                    justinaSendBtn.disabled = false;
-                    justinaInput.disabled = false;
-                    return;
-                 }
+                 if (userMessage.content === '') { justinaSendBtn.disabled = false; justinaInput.disabled = false; return; }
                  addMessageToChat('user', userMessage.content);
                  justinaInput.value = '';
             }
-
             conversationHistory.push(userMessage);
-
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        conversation: conversationHistory,
-                        allCases: clientsData
-                    })
+                    body: JSON.stringify({ conversation: conversationHistory, allCases: clientsData })
                 });
-
                 if (!response.ok) { throw new Error('Error en la respuesta del servidor.'); }
-
                 const iaMessage = await response.json();
                 let content = iaMessage.content;
-                
                 try {
                     const potentialJson = JSON.parse(content);
                     if (potentialJson.type === 'function_call' && potentialJson.function_name === 'addObservation') {
                         const params = potentialJson.parameters;
                         const targetClient = clientsData.find(c => (c.caratula || c.nombre).toLowerCase().includes(params.caratula.toLowerCase()));
-
                         if (targetClient) {
-                            const newObs = {
-                                id: generateId({}),
-                                fecha: getTodayYMD(),
-                                texto: params.texto,
-                                textoPrivado: '',
-                                proximaRevision: params.proximaRevision,
-                                completed: false
-                            };
+                            const newObs = { id: generateId({}), fecha: getTodayYMD(), texto: params.texto, textoPrivado: '', proximaRevision: params.proximaRevision, completed: false };
                             targetClient.observaciones.push(newObs);
-                            
                             saveData();
                             renderAll();
-                            
                             content = `✅ Agendado. He añadido la tarea "${params.texto}" al caso "${targetClient.caratula || targetClient.nombre}" con fecha de revisión para el ${formatDate(params.proximaRevision)}.`;
                         } else {
                             content = `❌ No pude agendar la tarea. No encontré un caso que coincida con "${params.caratula}".`;
                         }
                     }
-                } catch (e) {
-                    // No es un JSON, es texto normal. No hacemos nada.
-                }
-                
+                } catch (e) { /* No es un JSON, es texto normal. */ }
                 conversationHistory.push({ role: 'assistant', content: content });
                 addMessageToChat('ia', content);
-
             } catch (error) {
                 console.error('Error al llamar a Justina:', error);
                 addMessageToChat('ia', 'Lo siento, Dra. García, he encontrado un problema de conexión. Por favor, revise la consola o intente más tarde.');
@@ -356,9 +288,7 @@
         }
         // ===== FIN LÓGICA JUSTINA =====
 
-
         // --- INICIO CÓDIGO JS COMPLETO DEL BACKUP ---
-        
         function saveData() { localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData)); updateDataStatus('✅ Datos guardados localmente'); }
         function loadData() { const savedData = localStorage.getItem('planilla_juridica_data'); let data = savedData ? JSON.parse(savedData) : []; const uniqueClients = new Map(); data.forEach(client => { const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id; if (!uniqueClients.has(key)) { uniqueClients.set(key, client); } }); const deduplicatedData = Array.from(uniqueClients.values()); let statusMessage = savedData ? '✅ Datos cargados' : '📋 Planilla lista'; if (deduplicatedData.length < data.length) { statusMessage = `⚠️ Se repararon ${data.length - deduplicatedData.length} casos duplicados.`; saveData(); } clientsData = sanitizeData(deduplicatedData); updateDataStatus(statusMessage, false); }
         function sanitizeData(data) { (data || []).forEach(c => { c.id = c.id || generateId(c); c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : []; c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : []; c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : []; c.observaciones.forEach(obs => { obs.id = obs.id || generateId({}); obs.texto = obs.texto || ''; obs.textoPrivado = obs.textoPrivado || ''; obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false; }); c.audiencias_list.forEach(aud => { aud.id = aud.id || generateId({}); aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false; aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false; }); c.vencimientos_list.forEach(venc => { venc.id = venc.id || generateId({}); venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false; venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false; }); updateClientNextRevision(c); }); return data; }
