@@ -172,6 +172,27 @@
         .info-value { font-size: 0.9em; color: var(--dark-text); margin-top: 2px; font-weight: 500; white-space: pre-wrap; word-break: break-word; user-select: text; }
         .editable-field { cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s ease; min-height: 20px; }
         .editable-field:hover { background-color: #e8f4fd; color: #2980b9; }
+        
+        .summary-note {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-left: 5px solid var(--warning-color);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        .summary-note h4 {
+            color: #8a6d3b;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .summary-note p {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+            line-height: 1.6;
+        }
+
         .history-section { margin-top: 20px; }
         .history-item { background: var(--light-text); border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; position: relative; }
         .private-note-details { margin-top: 10px; }
@@ -589,6 +610,29 @@
             }).join('');
         }
 
+        function renderBonosAportesSummary(client) {
+            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) {
+                return '';
+            }
+            const sortedList = [...client.bonos_aportes_list].sort((a, b) => {
+                const dateA = a.bonoFecha || a.aporteFecha || a.fecha || '0000-00-00';
+                const dateB = b.bonoFecha || b.aporteFecha || b.fecha || '0000-00-00';
+                return dateB.localeCompare(dateA);
+            });
+            const lastEntry = sortedList[0];
+            const lastDate = formatDate(lastEntry.bonoFecha || lastEntry.aporteFecha || lastEntry.fecha);
+            
+            return `
+                <div class="summary-note">
+                    <h4>📌 Último Registro de Bonos y Aportes (${lastDate})</h4>
+                    <p>
+                        <b>Bono:</b> ${lastEntry.bonoPago}, $${lastEntry.bonoImporte || '0.00'} (A cargo de: ${lastEntry.bonoCargo})<br>
+                        <b>Aporte:</b> ${lastEntry.aportePago}, $${lastEntry.aporteImporte || '0.00'} (A cargo de: ${lastEntry.aporteCargo})
+                    </p>
+                </div>
+            `;
+        }
+
         function showClientModal(clientId) {
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             updateClientNextRevision(client);
@@ -599,6 +643,7 @@
                     ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
                     <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                 </div></div>
+                ${renderBonosAportesSummary(client)}
                 <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
                 
                 <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
