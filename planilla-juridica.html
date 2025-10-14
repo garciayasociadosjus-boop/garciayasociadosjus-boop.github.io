@@ -315,9 +315,17 @@
                     🗓️ Resumen de la Próxima Semana
                     <span class="toggle-icon">➖</span>
                 </h3>
-                <div id="weeklyGlanceContainer" class="weekly-glance">
-                    </div>
+                <div id="weeklyGlanceContainer" class="weekly-glance"></div>
             </section>
+            
+            <section class="card" style="margin-bottom: 30px; background-color: #e7f5ff;">
+                <h3 onclick="toggleVisibility('advanceNoticeContainer')" style="cursor: pointer; user-select: none; border-color: #b3e0ff;">
+                    🔔 Avisos Previos Configurables (<span id="advanceNoticeCount">0</span>)
+                    <span class="toggle-icon">➖</span>
+                </h3>
+                <div id="advanceNoticeContainer" class="reviews-list" style="max-height: 300px;"></div>
+            </section>
+
             <section class="dashboard">
                 <div class="card today-reviews">
                     <h3><i class="icon"></i>Revisiones de Hoy</h3>
@@ -427,14 +435,17 @@
                     obs.texto = obs.texto || '';
                     obs.textoPrivado = obs.textoPrivado || '';
                     obs.completed = typeof obs.completed === 'boolean' ? obs.completed : false;
+                    obs.avisoPrevio = obs.avisoPrevio || '1'; // Default para datos antiguos
                 });
                 c.audiencias_list.forEach(aud => {
                     aud.id = aud.id || generateId({});
                     aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
+                    aud.avisoPrevio = aud.avisoPrevio || '1'; // Default para datos antiguos
                 });
                 c.vencimientos_list.forEach(venc => {
                     venc.id = venc.id || generateId({});
                     venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
+                    venc.avisoPrevio = venc.avisoPrevio || '1'; // Default para datos antiguos
                 });
                 updateClientNextRevision(c);
             });
@@ -463,8 +474,8 @@
             const icon = element.previousElementSibling.querySelector('.toggle-icon');
             if (!element || !icon) return;
             
-            if (element.style.display === 'none') {
-                element.style.display = 'flex';
+            if (getComputedStyle(element).display === 'none') {
+                element.style.display = 'block'; // O 'flex' si es necesario
                 icon.textContent = '➖';
             } else {
                 element.style.display = 'none';
@@ -509,6 +520,7 @@
                 updateAudienciasSummary(c);
             });
             renderWeeklyGlance();
+            renderAdvanceNotices();
             renderDashboardLists();
             renderAllClientsList();
         }
@@ -565,6 +577,50 @@
             container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
         }
 
+        function renderAdvanceNotices() {
+            const container = document.getElementById('advanceNoticeContainer');
+            if (!container) return;
+
+            const itemsToNotice = [];
+            
+            clientsData.forEach(client => {
+                const allItems = [
+                    ...(client.observaciones || []).map(item => ({...item, dueDate: item.proximaRevision, type: 'task', text: item.texto })),
+                    ...(client.audiencias_list || []).map(item => ({...item, dueDate: item.fecha, type: 'audience', text: `AUDIENCIA: ${item.texto}` })),
+                    ...(client.vencimientos_list || []).map(item => ({...item, dueDate: item.fecha, type: 'vencimiento', text: `VENCIMIENTO: ${item.texto}` }))
+                ];
+
+                allItems.forEach(item => {
+                    const noticeDays = parseInt(item.avisoPrevio, 10);
+                    if (!item.completed && noticeDays > 0 && item.dueDate) {
+                        const daysDifference = getDaysDifference(item.dueDate);
+                        if (daysDifference > 0 && daysDifference <= noticeDays) {
+                            itemsToNotice.push({ client, item, daysDifference });
+                        }
+                    }
+                });
+            });
+
+            itemsToNotice.sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
+            document.getElementById('advanceNoticeCount').textContent = itemsToNotice.length;
+
+            if (itemsToNotice.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No hay avisos previos para los próximos días.</p>';
+                return;
+            }
+
+            container.innerHTML = itemsToNotice.map(({ client, item, daysDifference }) => {
+                const dateInfo = `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+                return `<div class="review-item" onclick="showClientModal('${client.id}')">
+                            <div class="review-item-content">
+                                <div class="review-date">${dateInfo}</div>
+                                <div class="review-client">${getDisplayName(client)}</div>
+                                <div class="review-obs">${item.text}</div>
+                            </div>
+                        </div>`;
+            }).join('');
+        }
+
         function renderDashboardLists() {
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
@@ -574,7 +630,7 @@
             });
             const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
             const overdueItems = allSchedulableItems.filter(item => isPastDue(item.reviewDate)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
-            const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate));
+            const upcomingItems = allSchedulableItems.filter(item => getDaysDifference(item.reviewDate) > 0 && !itemsToNotice.some(notice => notice.item.id === item.id)).sort((a, b) => a.reviewDate.localeCompare(b.reviewDate)); // Modificado para excluir los avisos
             renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today');
             renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
             renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
@@ -652,7 +708,10 @@
                         <form onsubmit="addObservation(event, '${client.id}')">
                             <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
                             <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
-                            <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+                            <div style="display: flex; gap: 10px;">
+                                <div class="form-group" style="flex-grow: 1;"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+                                <div class="form-group"><label>Aviso Previo</label><select id="newObsAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
+                            </div>
                             <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
                         </form>
                     </div>
@@ -664,6 +723,7 @@
                                 <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
                                 <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
                                 <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
+                                <div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
@@ -673,6 +733,7 @@
                                 <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
                                 <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
                                 <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
+                                <div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
                                 <button type="submit" class="btn btn-success">💾 Agendar</button>
                             </form>
                         </div>
@@ -819,7 +880,7 @@
             showClientModal(tempId);
         }
 
-        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, avisoPrevio: document.getElementById('newObsAvisoPrevio').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         
         async function addAudience(event, clientId) {
             event.preventDefault();
@@ -828,7 +889,7 @@
                 return;
             }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false };
+            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
             const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
             if (success) {
                 client.audiencias_list.push(newAudience);
@@ -846,7 +907,7 @@
                 return;
             }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false };
+            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, avisoPrevio: document.getElementById('newVencimientoAvisoPrevio').value, completed: false };
             const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
             if (success) {
                 client.vencimientos_list.push(newVencimiento);
@@ -1012,7 +1073,7 @@
 
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
-            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
+            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false, avisoPrevio: '1' }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
