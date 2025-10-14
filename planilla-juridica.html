@@ -233,6 +233,11 @@
             background: #fff9e6;
             border-color: var(--warning-color);
             font-weight: bold;
+            cursor: pointer;
+        }
+        .day-circle.has-tasks:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
         }
         .day-circle.is-today {
              background: #e8f2ff;
@@ -339,6 +344,7 @@
     <div id="newClientModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientSelectorModal" class="modal"><div class="modal-content"></div></div>
     <div id="clientInfoModal" class="modal"><div class="modal-content"></div></div>
+    <div id="dailyTasksModal" class="modal"><div class="modal-content"></div></div>
     
     <div id="documentModal" class="modal">
         <div class="modal-content">
@@ -404,12 +410,10 @@
                 c.audiencias_list.forEach(aud => {
                     aud.id = aud.id || generateId({});
                     aud.completed = typeof aud.completed === 'boolean' ? aud.completed : false;
-                    aud.alertaMostrada = typeof aud.alertaMostrada === 'boolean' ? aud.alertaMostrada : false;
                 });
                 c.vencimientos_list.forEach(venc => {
                     venc.id = venc.id || generateId({});
                     venc.completed = typeof venc.completed === 'boolean' ? venc.completed : false;
-                    venc.alertaMostrada = typeof venc.alertaMostrada === 'boolean' ? venc.alertaMostrada : false;
                 });
                 updateClientNextRevision(c);
             });
@@ -522,13 +526,16 @@
                 const dayOfWeek = date.getDay();
                 const dayName = dayNames[dayOfWeek];
                 const dateNumber = date.getDate();
+                const isoDateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-                const hasTasksClass = counts[i] > 0 ? 'has-tasks' : '';
+                const hasTasks = counts[i] > 0;
+                const hasTasksClass = hasTasks ? 'has-tasks' : '';
                 const isTodayClass = i === 0 ? 'is-today' : '';
                 const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+                const onClickAction = hasTasks ? `onclick="showTasksForDate('${isoDateString}')"` : '';
 
                 html += `
-                    <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}">
+                    <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}>
                         <span class="day-name">${dayName} ${dateNumber}</span>
                         <span class="day-count">${counts[i]}</span>
                     </div>
@@ -661,7 +668,7 @@
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
-            const bonos_aportes = (client.bonos_aportes_list || []).map(ba => ({ ...ba, date: ba.bonoFecha || ba.aporteFecha || ba.fecha, type: 'bono_aporte' })); // ba.fecha for old data compatibility
+            const bonos_aportes = (client.bonos_aportes_list || []).map(ba => ({ ...ba, date: ba.bonoFecha || ba.aporteFecha || ba.fecha, type: 'bono_aporte' }));
             const combinedHistory = [...tasks, ...audiences, ...vencimientos, ...bonos_aportes].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
@@ -688,7 +695,7 @@
                         break;
                     case 'bono_aporte':
                         tagType = 'bono_aporte'; tagText = 'BONO/APORTE';
-                        itemDate = `Registrado`; // Main date for this item is less relevant as it's a private log entry
+                        itemDate = `Registrado`;
                         itemContent = `
                             <details class="private-note-details" style="margin-top:0;">
                                 <summary class="private-note-summary" style="font-size:1em;">🔒 Ver Registro de Bonos/Aportes</summary>
@@ -776,7 +783,7 @@
                 return;
             }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false, alertaMostrada: false };
+            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, completed: false };
             const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
             if (success) {
                 client.audiencias_list.push(newAudience);
@@ -794,7 +801,7 @@
                 return;
             }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false, alertaMostrada: false };
+            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, completed: false };
             const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
             if (success) {
                 client.vencimientos_list.push(newVencimiento);
@@ -868,22 +875,16 @@
             if (eventosPorAlertar.length === 0) return;
             const modal = document.getElementById('alertModal');
             if (modal.classList.contains('active')) return;
-            const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alertas para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${eventosPorAlertar.map(alert => { const tipoEnEspanol = alert.type === 'Audiencia' ? 'AUDIENCIA' : 'VENCIMIENTO'; return `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color); cursor: pointer;" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">${getDisplayName(alert.client)}</div><div class="review-obs"><strong>${tipoEnEspanol} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarEventoCompleto(event, '${alert.client.id}', '${alert.item.id}', '${alert.type}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">🗓️ Posponer</button><button class="btn btn-info btn-sm" onclick="snoozeAlerta(30)">🕒 30 min</button><button class="btn btn-info btn-sm" onclick="snoozeAlerta(60)">🕒 1 hs</button></div></div></div>` }).join('')}</div>`;
+            const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alertas para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${eventosPorAlertar.map(alert => { const tipoEnEspanol = alert.type === 'Audiencia' ? 'AUDIENCIA' : 'VENCIMIENTO'; return `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color); cursor: pointer;" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">${getDisplayName(alert.client)}</div><div class="review-obs"><strong>${tipoEnEspanol} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarEventoCompleto(event, '${alert.client.id}', '${alert.item.id}', '${alert.type}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">🗓️ Posponer</button></div></div></div>` }).join('')}</div>`;
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
-            eventosPorAlertar.forEach(alerta => {
-                const client = clientsData.find(c => c.id === alerta.client.id); if(!client) return;
-                let eventItem = (alerta.type === 'Audiencia') ? client.audiencias_list.find(item => item.id === alerta.item.id) : client.vencimientos_list.find(item => item.id === alerta.item.id);
-                if (eventItem) eventItem.alertaMostrada = true;
-            });
-            saveData();
         }
         
         function revisarAlertas() {
             const ahora = new Date();
             const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
-            const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed && !aud.alertaMostrada).map(aud => ({ client, item: aud, type: 'Audiencia' })));
-            const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed && !venc.alertaMostrada).map(venc => ({ client, item: venc, type: 'Vencimiento' })));
+            const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed).map(aud => ({ client, item: aud, type: 'Audiencia' })));
+            const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed).map(venc => ({ client, item: venc, type: 'Vencimiento' })));
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
             if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
         }
@@ -908,12 +909,40 @@
             const client = clientsData.find(c => c.id === clientId); if(!client) return;
             const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list;
             let eventItem = list.find(item => item.id === eventId);
-            if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; eventItem.alertaMostrada = false; }
+            if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; }
             saveData(); renderAll(); closeModal('rescheduleModal');
             updateDataStatus(`✅ ${eventType} reprogramada.`, false);
         }
 
-        function snoozeAlerta(minutos) { closeModal('alertModal'); updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`); setTimeout(revisarAlertas, minutos * 60 * 1000); }
+        function showTasksForDate(dateString) {
+            const allSchedulableItems = clientsData.flatMap(client => {
+                const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({ client: client, reviewText: obs.texto, type: 'task' }));
+                const audiences = (client.audiencias_list || []).filter(aud => !aud.completed && aud.fecha === dateString).map(aud => ({ client: client, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, type: 'audience' }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => !venc.completed && venc.fecha === dateString).map(venc => ({ client: client, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, type: 'vencimiento' }));
+                return [...tasks, ...audiences, ...vencimientos];
+            });
+
+            const formattedDate = formatDate(dateString);
+            const modal = document.getElementById('dailyTasksModal');
+            let content = `<span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para el ${formattedDate}</h2>`;
+
+            if (allSchedulableItems.length === 0) {
+                content += '<p>No hay tareas programadas para esta fecha.</p>';
+            } else {
+                content += `<div class="reviews-list" style="max-height: 60vh;">${allSchedulableItems.map(item => {
+                    return `<div class="review-item" onclick="closeModal('dailyTasksModal'); showClientModal('${item.client.id}')">
+                                <div class="review-item-content">
+                                    <div class="review-client">${getDisplayName(item.client)}</div>
+                                    <div class="review-obs">${item.reviewText}</div>
+                                </div>
+                            </div>`;
+                }).join('')}</div>`;
+            }
+
+            modal.querySelector('.modal-content').innerHTML = content;
+            modal.classList.add('active');
+        }
+
         function exportToExcel(){const excelData=clientsData.map(c=>{const allObs=(c.observaciones||[]).map(obs=>`[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado||''}`).join(' \n ');const allAuds=(c.audiencias_list||[]).map(aud=>`[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');const allVencs=(c.vencimientos_list||[]).map(venc=>`[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');const allBAs=(c.bonos_aportes_list||[]).map(ba=>`[BONO/APORTE] Bono: ${ba.bonoPago} (A cargo: ${ba.bonoCargo}, $${ba.bonoImporte || 0}, Fecha: ${formatDate(ba.bonoFecha)}) | Aporte: ${ba.aportePago} (A cargo: ${ba.aporteCargo}, $${ba.aporteImporte || 0}, Fecha: ${formatDate(ba.aporteFecha)}) | Obs: ${ba.observacion || ''}`).join(' \n ');return{'Nombre':c.nombre,'DNI':c.dni,'Teléfono':c.telefono,'Carátula':c.caratula,'Expediente':c.expediente,'Juzgado':c.juzgado,'Dirección Juzgado':c.direccionJuzgado,'Tel. Juzgado':c.telJuzgado,'Estado':c.estado,'Notas':c.notas,'Próxima Revisión':formatDate(c.proximaRevision),'Última Tarea':c.observacion,'Resumen de Audiencias':c.audiencias,'Historial Tareas':allObs,'Historial Audiencias':allAuds,'Historial Vencimientos':allVencs,'Historial Bonos y Aportes':allBAs}});const worksheet=XLSX.utils.json_to_sheet(excelData);const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,worksheet,'Casos Familia');XLSX.writeFile(workbook,`Casos_Familia_${getTodayYMD()}.xlsx`)}
         function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
         function importData(){document.getElementById('importInput').click()}
@@ -945,7 +974,7 @@
         });
         
         window.addEventListener('click', e => { 
-            if (e.target.classList.contains('modal') && e.target.id !== 'alertModal') {
+            if (e.target.classList.contains('modal')) {
                 closeModal(e.target.id); 
             }
         });
