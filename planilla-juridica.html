@@ -499,7 +499,7 @@
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !aud.completed).map(venc => ({ reviewDate: venc.fecha }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
 
@@ -541,7 +541,7 @@
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !aud.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
             const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
@@ -661,7 +661,7 @@
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
-            const bonos_aportes = (client.bonos_aportes_list || []).map(ba => ({ ...ba, date: ba.bonoFecha || ba.aporteFecha, type: 'bono_aporte' }));
+            const bonos_aportes = (client.bonos_aportes_list || []).map(ba => ({ ...ba, date: ba.bonoFecha || ba.aporteFecha || ba.fecha, type: 'bono_aporte' })); // ba.fecha for old data compatibility
             const combinedHistory = [...tasks, ...audiences, ...vencimientos, ...bonos_aportes].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
@@ -688,18 +688,18 @@
                         break;
                     case 'bono_aporte':
                         tagType = 'bono_aporte'; tagText = 'BONO/APORTE';
-                        itemDate = `Registrado`;
+                        itemDate = `Registrado`; // Main date for this item is less relevant as it's a private log entry
                         itemContent = `
                             <details class="private-note-details" style="margin-top:0;">
                                 <summary class="private-note-summary" style="font-size:1em;">🔒 Ver Registro de Bonos/Aportes</summary>
                                 <div class="private-note-content">
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; font-size: 0.9em;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; font-size: 0.9em; color: #333;">
                                         <span><strong>Bono:</strong> ${item.bonoPago}</span><span><strong>Aporte:</strong> ${item.aportePago}</span>
                                         <span><strong>A cargo (Bono):</strong> ${item.bonoCargo}</span><span><strong>A cargo (Aporte):</strong> ${item.aporteCargo}</span>
                                         <span><strong>Importe (Bono):</strong> $${item.bonoImporte || '0.00'}</span><span><strong>Importe (Aporte):</strong> $${item.aporteImporte || '0.00'}</span>
                                         <span><strong>Fecha (Bono):</strong> ${formatDate(item.bonoFecha)}</span><span><strong>Fecha (Aporte):</strong> ${formatDate(item.aporteFecha)}</span>
                                     </div>
-                                    ${item.observacion ? `<div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px;"><strong>Obs:</strong> ${item.observacion}</div>` : ''}
+                                    ${item.observacion ? `<div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px; color: #333;"><strong>Obs:</strong> ${item.observacion}</div>` : ''}
                                 </div>
                             </details>`;
                         break;
