@@ -183,12 +183,14 @@
         .history-item-audience { border-left: 5px solid #8e44ad; }
         .history-item-task { border-left: 5px solid var(--secondary-color); }
         .history-item-vencimiento { border-left: 5px solid #ff6347; }
+        .history-item-bono_aporte { border-left: 5px solid #1abc9c; }
         .history-date { font-size: 0.9em; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; display: flex; align-items: center;}
         .history-text { color: var(--dark-text); }
         .history-tag { font-size: 0.8em; color: #fff; padding: 2px 8px; border-radius: 10px; margin-left: auto; font-weight: 500; display: inline-block; }
         .tag-audience { background-color: #8e44ad; }
         .tag-task { background-color: var(--secondary-color); }
         .tag-vencimiento { background-color: #ff6347; }
+        .tag-bono_aporte { background-color: #1abc9c; }
         .close { float: right; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; }
         .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
         .data-status {
@@ -392,6 +394,7 @@
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
                 c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
+                c.bonos_aportes_list = Array.isArray(c.bonos_aportes_list) ? c.bonos_aportes_list : [];
                 c.observaciones.forEach(obs => {
                     obs.id = obs.id || generateId({});
                     obs.texto = obs.texto || '';
@@ -422,7 +425,7 @@
         
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
-        function formatDate(dateString) { if (!dateString) return 'No definida'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        function formatDate(dateString) { if (!dateString) return 'S/F'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
         function formatTime(timeString) { if (!timeString) return ''; return timeString; }
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
@@ -496,7 +499,7 @@
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !aud.completed).map(venc => ({ reviewDate: venc.fecha }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
 
@@ -538,7 +541,7 @@
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
-                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
+                const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !aud.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
             const todayItems = allSchedulableItems.filter(item => isToday(item.reviewDate));
@@ -590,7 +593,65 @@
                     <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                 </div></div>
                 <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
-                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event, '${client.id}')"><div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4><form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div></div></div>
+                
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                        <h4>📝 Agregar Tarea</h4>
+                        <form onsubmit="addObservation(event, '${client.id}')">
+                            <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
+                            <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
+                            <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+                            <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
+                        </form>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
+                            <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
+                                <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
+                                <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
+                                <button type="submit" class="btn btn-success">💾 Agendar</button>
+                            </form>
+                        </div>
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4>
+                            <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
+                                <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
+                                <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
+                                <button type="submit" class="btn btn-success">💾 Agendar</button>
+                            </form>
+                        </div>
+                        
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
+                            <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Bonos y Aportes</h4>
+                            <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
+                                    <div>
+                                        <h5>Bonos</h5>
+                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoPago" id="newBonoPagoSi" value="Si" checked> <label for="newBonoPagoSi">Sí</label> <input type="radio" name="bonoPago" id="newBonoPagoNo" value="No"> <label for="newBonoPagoNo">No</label></div></div>
+                                        <div class="form-group"><label>A cargo de:</label><select id="newBonoCargo"><option>Estudio</option><option>Cliente</option></select></div>
+                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newBonoImporte" step="0.01" placeholder="0.00"></div>
+                                        <div class="form-group"><label>Fecha Bono:</label><input type="date" id="newBonoFecha"></div>
+                                    </div>
+                                    <div>
+                                        <h5>Aportes</h5>
+                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="aportePago" id="newAportePagoSi" value="Si" checked> <label for="newAportePagoSi">Sí</label> <input type="radio" name="aportePago" id="newAportePagoNo" value="No"> <label for="newAportePagoNo">No</label></div></div>
+                                        <div class="form-group"><label>A cargo de:</label><select id="newAporteCargo"><option>Estudio</option><option>Cliente</option></select></div>
+                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newAporteImporte" step="0.01" placeholder="0.00"></div>
+                                        <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="newAporteFecha"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
+                                <button type="submit" class="btn btn-success">💾 Guardar Registro</button>
+                            </form>
+                        </div>
+                        
+                    </div>
+                </div>
+
                 <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
             document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
             document.getElementById('clientInfoModal').classList.add('active');
@@ -600,19 +661,61 @@
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
-            const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            const bonos_aportes = (client.bonos_aportes_list || []).map(ba => ({ ...ba, date: ba.bonoFecha || ba.aporteFecha, type: 'bono_aporte' }));
+            const combinedHistory = [...tasks, ...audiences, ...vencimientos, ...bonos_aportes].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
+            
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
-                const itemDate = item.type === 'task' ? `Revisar el: ${formatDate(item.proximaRevision)}` : `Fecha: ${formatDate(item.date)} ${formatTime(item.hora)}`;
-                const workedDate = item.type === 'task' && item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : '';
-                let tagType, tagText;
+                let itemDate = '';
+                let workedDate = '';
+                let tagType, tagText, itemContent;
+
                 switch(item.type) {
-                    case 'task': tagType = 'task'; tagText = 'TAREA'; break;
-                    case 'audience': tagType = 'audience'; tagText = 'AUDIENCIA'; break;
-                    case 'vencimiento': tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; break;
-                    default: tagType = 'task'; tagText = 'EVENTO';
+                    case 'task': 
+                        tagType = 'task'; tagText = 'TAREA'; 
+                        itemDate = `Revisar el: ${formatDate(item.proximaRevision)}`;
+                        workedDate = item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : '';
+                        itemContent = `<div class="history-text">${item.texto}</div>` + (item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '');
+                        break;
+                    case 'audience': 
+                        tagType = 'audience'; tagText = 'AUDIENCIA'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`;
+                        itemContent = `<div class="history-text">${item.texto}</div>`;
+                        break;
+                    case 'vencimiento': 
+                        tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`;
+                        itemContent = `<div class="history-text">${item.texto}</div>`;
+                        break;
+                    case 'bono_aporte':
+                        tagType = 'bono_aporte'; tagText = 'BONO/APORTE';
+                        itemDate = `Registrado`;
+                        itemContent = `
+                            <details class="private-note-details" style="margin-top:0;">
+                                <summary class="private-note-summary" style="font-size:1em;">🔒 Ver Registro de Bonos/Aportes</summary>
+                                <div class="private-note-content">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; font-size: 0.9em;">
+                                        <span><strong>Bono:</strong> ${item.bonoPago}</span><span><strong>Aporte:</strong> ${item.aportePago}</span>
+                                        <span><strong>A cargo (Bono):</strong> ${item.bonoCargo}</span><span><strong>A cargo (Aporte):</strong> ${item.aporteCargo}</span>
+                                        <span><strong>Importe (Bono):</strong> $${item.bonoImporte || '0.00'}</span><span><strong>Importe (Aporte):</strong> $${item.aporteImporte || '0.00'}</span>
+                                        <span><strong>Fecha (Bono):</strong> ${formatDate(item.bonoFecha)}</span><span><strong>Fecha (Aporte):</strong> ${formatDate(item.aporteFecha)}</span>
+                                    </div>
+                                    ${item.observacion ? `<div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px;"><strong>Obs:</strong> ${item.observacion}</div>` : ''}
+                                </div>
+                            </details>`;
+                        break;
+                    default: 
+                        tagType = 'task'; tagText = 'EVENTO'; 
+                        itemContent = `<div class="history-text">${item.texto || ''}</div>`;
                 }
-                const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '';
-                return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}"><div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div><div class="history-text">${item.texto}</div>${privateNoteHtml}<div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button></div></div>`;
+
+                return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}">
+                            <div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div>
+                            ${itemContent}
+                            <div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">
+                                ${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}
+                                <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button>
+                            </div>
+                        </div>`;
             }).join('');
         }
         
@@ -700,10 +803,50 @@
                 showClientModal(clientId);
             }
         }
+        
+        function addBonoAporte(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            const newBA = {
+                id: generateId({}),
+                bonoPago: document.querySelector('input[name="bonoPago"]:checked').value,
+                bonoCargo: document.getElementById('newBonoCargo').value,
+                bonoImporte: document.getElementById('newBonoImporte').value,
+                bonoFecha: document.getElementById('newBonoFecha').value,
+                aportePago: document.querySelector('input[name="aportePago"]:checked').value,
+                aporteCargo: document.getElementById('newAporteCargo').value,
+                aporteImporte: document.getElementById('newAporteImporte').value,
+                aporteFecha: document.getElementById('newAporteFecha').value,
+                observacion: document.getElementById('newBAObservacion').value
+            };
+            if (!newBA.bonoFecha && !newBA.aporteFecha) {
+                alert("Debe ingresar al menos una fecha (para Bono o para Aporte).");
+                return;
+            }
+            client.bonos_aportes_list.push(newBA);
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
 
         function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
         function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
-        function deleteItem(clientId, itemId, itemType) { const client = clientsData.find(c => c.id === clientId); if(!client) return; const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento'}[itemType]; if (!confirm(`¿Estás seguro de que quieres eliminar esta ${itemName}?`)) return; if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId); updateClientNextRevision(client); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
+        
+        function deleteItem(clientId, itemId, itemType) { 
+            const client = clientsData.find(c => c.id === clientId); if(!client) return; 
+            const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento', bono_aporte: 'registro de bono/aporte'}[itemType]; 
+            if (!confirm(`¿Estás seguro de que quieres eliminar este/a ${itemName}?`)) return; 
+            if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); 
+            else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); 
+            else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId);
+            else if(itemType === 'bono_aporte') client.bonos_aportes_list = client.bonos_aportes_list.filter(item => item.id !== itemId);
+            updateClientNextRevision(client); 
+            updateAudienciasSummary(client); 
+            saveData(); 
+            renderAll(); 
+            showClientModal(clientId); 
+        }
+
         function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
         
         function marcarEventoCompleto(event, clientId, eventId, eventType) {
@@ -771,7 +914,7 @@
         }
 
         function snoozeAlerta(minutos) { closeModal('alertModal'); updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`); setTimeout(revisarAlertas, minutos * 60 * 1000); }
-        function exportToExcel(){const excelData=clientsData.map(c=>{const allObs=(c.observaciones||[]).map(obs=>`[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado||''}`).join(' \n ');const allAuds=(c.audiencias_list||[]).map(aud=>`[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');const allVencs=(c.vencimientos_list||[]).map(venc=>`[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');return{'Nombre':c.nombre,'DNI':c.dni,'Teléfono':c.telefono,'Carátula':c.caratula,'Expediente':c.expediente,'Juzgado':c.juzgado,'Dirección Juzgado':c.direccionJuzgado,'Tel. Juzgado':c.telJuzgado,'Estado':c.estado,'Notas':c.notas,'Próxima Revisión':formatDate(c.proximaRevision),'Última Tarea':c.observacion,'Resumen de Audiencias':c.audiencias,'Historial Tareas':allObs,'Historial Audiencias':allAuds,'Historial Vencimientos':allVencs}});const worksheet=XLSX.utils.json_to_sheet(excelData);const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,worksheet,'Casos Familia');XLSX.writeFile(workbook,`Casos_Familia_${getTodayYMD()}.xlsx`)}
+        function exportToExcel(){const excelData=clientsData.map(c=>{const allObs=(c.observaciones||[]).map(obs=>`[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado||''}`).join(' \n ');const allAuds=(c.audiencias_list||[]).map(aud=>`[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');const allVencs=(c.vencimientos_list||[]).map(venc=>`[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');const allBAs=(c.bonos_aportes_list||[]).map(ba=>`[BONO/APORTE] Bono: ${ba.bonoPago} (A cargo: ${ba.bonoCargo}, $${ba.bonoImporte || 0}, Fecha: ${formatDate(ba.bonoFecha)}) | Aporte: ${ba.aportePago} (A cargo: ${ba.aporteCargo}, $${ba.aporteImporte || 0}, Fecha: ${formatDate(ba.aporteFecha)}) | Obs: ${ba.observacion || ''}`).join(' \n ');return{'Nombre':c.nombre,'DNI':c.dni,'Teléfono':c.telefono,'Carátula':c.caratula,'Expediente':c.expediente,'Juzgado':c.juzgado,'Dirección Juzgado':c.direccionJuzgado,'Tel. Juzgado':c.telJuzgado,'Estado':c.estado,'Notas':c.notas,'Próxima Revisión':formatDate(c.proximaRevision),'Última Tarea':c.observacion,'Resumen de Audiencias':c.audiencias,'Historial Tareas':allObs,'Historial Audiencias':allAuds,'Historial Vencimientos':allVencs,'Historial Bonos y Aportes':allBAs}});const worksheet=XLSX.utils.json_to_sheet(excelData);const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,worksheet,'Casos Familia');XLSX.writeFile(workbook,`Casos_Familia_${getTodayYMD()}.xlsx`)}
         function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
         function importData(){document.getElementById('importInput').click()}
         function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
@@ -795,12 +938,17 @@
 
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
-            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
+            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
         });
-        window.addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(e.target.id); });
+        
+        window.addEventListener('click', e => { 
+            if (e.target.classList.contains('modal') && e.target.id !== 'alertModal') {
+                closeModal(e.target.id); 
+            }
+        });
     </script>
     
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
@@ -845,13 +993,13 @@
                 });
                 alert(`✅ ¡Éxito!\n\nEl evento "${tipoEvento}" fue agendado correctamente en tu Google Calendar.`);
                 updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
-                return true; // Retorna éxito
+                return true;
             } catch (e) {
                 console.error(`Error creando evento de ${tipoEvento}:`, e);
                 const errorMessage = e.result?.error?.message || e.message || 'Error desconocido. Verifique la consola para más detalles.';
                 updateDataStatus(`❌ Error al crear evento: ${errorMessage}`, true);
                 alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas y que tenga permisos en su calendario.`);
-                return false; // Retorna fracaso
+                return false;
             }
         }
 
