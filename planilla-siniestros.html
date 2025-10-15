@@ -210,7 +210,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
     </div>
 
     <div style="text-align:center;border-top:1px solid #ddd;padding-top:18px;margin-bottom:25px;">
-      <button id="connectDriveBtn" class="btn" onclick="handleAuthClick()" style="visibility: hidden;">🔗 Conectar a Drive & Calendar</button>
+      <button id="connectDriveBtn" class="btn" onclick="handleAuthClick()">🔗 Conectar a Drive & Calendar</button>
       <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveToDrive()">📤 Guardar en Drive</button>
       <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadFromDrive()">📥 Cargar de Drive</button>
     </div>
@@ -242,33 +242,30 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <script>
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
+
+// --- INICIO: CÓDIGO DE GOOGLE DRIVE Y CALENDAR INTEGRADO ---
 let tokenClient;
-let gapiInited = false;
-let gisInited = false;
+let gapiReady = false, gisReady = false;
+let gdDataFileId = null;
 
 // Configuración de Google API
-const CLIENT_ID = '724822437938-1h6d9g6h5d4f7g8h9j0k1l2m3n4o5p6q.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyB1H2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7';
-const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest', 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
-const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar';
+const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+const GD_DATA_FILE = 'datos_planilla_siniestros.json';
 
-// Inicialización al cargar la página - CORREGIDO
 document.addEventListener('DOMContentLoaded', function() {
-    // Primero cargar los datos locales
     try {
         loadData();
         updateDataStatus('✅ Datos locales cargados');
     } catch (error) {
         console.error('Error al cargar datos:', error);
         updateDataStatus('❌ Error al cargar datos', true);
-        siniestrosData = []; // Inicializar con array vacío si hay error
+        siniestrosData = [];
     }
     
-    // Luego inicializar Google API
-    gapiLoaded();
-    gisLoaded();
+    // Las funciones gapiLoaded y gisLoaded se llaman desde los scripts de Google al final del body
     
-    // Finalmente renderizar todo
     renderAll();
     updateClock();
     setInterval(updateClock, 1000);
@@ -280,147 +277,166 @@ function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
 }
 
-function gisLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '', // defined later
-    });
-    gisInited = true;
-    maybeEnableButtons();
-}
-
-function initializeGapiClient() {
-    gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: DISCOVERY_DOCS,
-    }).then(() => {
-        gapiInited = true;
-        maybeEnableButtons();
-    }, (error) => {
-        console.error('Error al inicializar Google API client:', error);
-        updateDriveStatus('❌ Error al inicializar Google API');
-    });
-}
-
-function maybeEnableButtons() {
-    if (gapiInited && gisInited) {
-        document.getElementById('connectDriveBtn').style.visibility = 'visible';
+async function initializeGapiClient() {
+    try {
+        await gapi.client.init({
+            apiKey: GD_API_KEY,
+            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest', 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
+        });
+        gapiReady = true;
+    } catch (e) {
+        console.error("Error GAPI client init:", e);
+        updateDriveStatus('❌ Error al inicializar APIs de Google.');
     }
 }
 
-// Función de autenticación
+function gisLoaded() {
+    try {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GD_CLIENT_ID,
+            scope: GD_SCOPES,
+            callback: tokenResponseCallback,
+        });
+        gisReady = true;
+    } catch(e) {
+        console.error("Error GIS client init:", e);
+        updateDriveStatus('❌ Error al inicializar autenticación de Google.');
+    }
+}
+
 function handleAuthClick() {
-    tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) {
-            throw (resp);
-        }
+    if (tokenClient) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+        updateDriveStatus('❌ La autenticación de Google no está lista.');
+    }
+}
+
+async function tokenResponseCallback(resp) {
+    if (resp.error) {
+        updateDriveStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.');
+        return;
+    }
+    try {
+        gapi.client.setToken({ access_token: resp.access_token });
         document.getElementById('connectDriveBtn').style.display = 'none';
         document.getElementById('saveToDriveBtn').style.display = 'inline-block';
         document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-        updateDriveStatus('✅ Conectado a Google Drive y Calendar');
-    };
-    
-    if (gapi.client.getToken() === null) {
-        tokenClient.requestAccessToken({prompt: 'consent'});
-    } else {
-        tokenClient.requestAccessToken({prompt: ''});
+        updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...');
+        await findDataFile();
+    } catch (e) {
+        console.error("Error en callback:", e);
+        updateDriveStatus('❌ Ocurrió un error después de conectar.');
     }
 }
 
-// Guardar datos en Drive
-function saveToDrive() {
-    const data = JSON.stringify(siniestrosData, null, 2);
-    const fileName = `siniestros_${getTodayYMD()}.json`;
-    const fileContent = new Blob([data], {type: 'application/json'});
-    
-    const metadata = {
-        name: fileName,
-        mimeType: 'application/json',
-        parents: ['appDataFolder']
-    };
-    
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-    form.append('file', fileContent);
-    
-    fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: new Headers({
-            'Authorization': `Bearer ${gapi.client.getToken().access_token}`
-        }),
-        body: form
-    }).then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }).then(result => {
-        updateDriveStatus(`✅ Archivo guardado: ${fileName}`);
-    }).catch(error => {
-        console.error('Error:', error);
-        updateDriveStatus(`❌ Error: ${error.message}`);
+async function findDataFile(){
+  updateDriveStatus('🔎 Buscando archivo de Drive...');
+  try {
+    const response = await gapi.client.drive.files.list({
+        q: `name='${GD_DATA_FILE}' and trashed=false`,
+        fields: 'files(id, name)',
+        spaces: 'drive'
     });
+    if (response.result.files && response.result.files.length > 0) {
+        gdDataFileId = response.result.files[0].id;
+        updateDriveStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.');
+    } else {
+        updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).');
+    }
+  } catch(e) {
+    console.error("Error buscando archivo:", e);
+    updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`);
+  }
 }
 
-// Cargar datos desde Drive
-function loadFromDrive() {
-    gapi.client.drive.files.list({
-        q: "name contains 'siniestros_' and trashed=false",
-        spaces: 'appDataFolder',
-        fields: 'files(id, name, modifiedTime)',
-        orderBy: 'modifiedTime desc',
-        pageSize: 10
-    }).then(function(response) {
-        const files = response.result.files;
-        if (files && files.length > 0) {
-            const latestFile = files[0];
-            gapi.client.drive.files.get({
-                fileId: latestFile.id,
-                alt: 'media'
-            }).then(function(response) {
-                try {
-                    const data = JSON.parse(response.body);
-                    if (confirm(`¿Importar ${data.length} registros desde Drive?`)) {
-                        siniestrosData = sanitizeData(data);
-                        saveData();
-                        renderAll();
-                        updateDriveStatus(`✅ Datos cargados: ${latestFile.name}`);
-                    }
-                } catch (error) {
-                    updateDriveStatus(`❌ Error al procesar archivo`);
-                }
+async function saveToDrive() {
+    if (!gapi.client.getToken()?.access_token) { alert('No está conectado a Google.'); return; }
+    if (!confirm('¿Guardar datos en Drive? Esto sobreescribirá la copia anterior.')) return;
+    updateDriveStatus('💾 Guardando en Drive...');
+    const content = JSON.stringify(siniestrosData, null, 2);
+    try {
+        let request;
+        if (gdDataFileId) {
+            // Actualizar archivo existente
+            request = gapi.client.request({
+                path: `/upload/drive/v3/files/${gdDataFileId}`,
+                method: 'PATCH',
+                params: { uploadType: 'media' },
+                body: content
             });
         } else {
-            updateDriveStatus('ℹ️ No hay archivos de respaldo');
+            // Crear archivo nuevo
+            const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
+            request = gapi.client.drive.files.create({
+                resource: metadata,
+                media: { mimeType: 'application/json', body: content },
+                fields: 'id'
+            });
         }
-    });
+        const response = await request;
+        if (response.result.id) gdDataFileId = response.result.id;
+        updateDriveStatus('✅ Guardado en Drive con éxito.');
+    } catch (e) {
+        console.error('Error en saveToDrive:', e);
+        updateDriveStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`);
+    }
 }
 
-// Agregar evento a Google Calendar
-function addEventToGoogleCalendar(siniestro, mediacion) {
-    const event = {
-        summary: `Mediación: ${siniestro.cliente}`,
-        description: `Caso: ${siniestro.numeroReclamo || 'S/N'}\n${mediacion.texto}`,
-        start: {
-            dateTime: `${mediacion.fecha}T${mediacion.hora}:00`,
-            timeZone: 'America/Argentina/Buenos_Aires'
-        },
-        end: {
-            dateTime: `${mediacion.fecha}T${mediacion.hora}:00`,
-            timeZone: 'America/Argentina/Buenos_Aires'
-        }
-    };
-    
-    gapi.client.calendar.events.insert({
-        calendarId: 'primary',
-        resource: event
-    }).then(function(response) {
-        console.log('Evento creado:', response.result);
-    });
+async function loadFromDrive(){
+  if (!gapi.client.getToken()?.access_token) { alert('No está conectado a Google.'); return; }
+  if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; }
+  if(!confirm('¿Reemplazar los datos locales con la copia de seguridad de Drive?')) return;
+  updateDriveStatus('📥 Cargando desde Drive...');
+  try {
+    const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' });
+    const imported = JSON.parse(response.body);
+    if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.');
+    siniestrosData = sanitizeData(imported);
+    saveData();
+    renderAll();
+    updateDriveStatus('✅ Datos cargados desde Drive.');
+  } catch(e) {
+    console.error("Error cargando datos:", e);
+    updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`);
+  }
 }
 
-// FUNCIONES DE LOCAL STORAGE - CORREGIDAS
+async function addEventToGoogleCalendar(siniestro, mediacion) {
+    if (!gapi.client.getToken()?.access_token) {
+        updateDriveStatus('⚠️ No conectado a Google. No se puede crear el evento.');
+        return;
+    }
+    updateDriveStatus('🗓️ Creando evento en Google Calendar...');
+    try {
+        const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`);
+        const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); // Duración de 1 hora
+        const event = {
+            'summary': `Mediación: ${siniestro.cliente}`,
+            'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,
+            'start': {
+                'dateTime': eventStartTime.toISOString(),
+                'timeZone': 'America/Argentina/Buenos_Aires'
+            },
+            'end': {
+                'dateTime': eventEndTime.toISOString(),
+                'timeZone': 'America/Argentina/Buenos_Aires'
+            },
+        };
+        await gapi.client.calendar.events.insert({
+            'calendarId': 'primary',
+            'resource': event
+        });
+        updateDriveStatus('✅ Evento creado en Google Calendar.');
+    } catch(e) {
+        console.error("Error creando evento:", e);
+        updateDriveStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`);
+    }
+}
+// --- FIN: CÓDIGO DE GOOGLE DRIVE Y CALENDAR INTEGRADO ---
+
+
+// FUNCIONES DE LOCAL STORAGE
 function saveData(){
     try {
         localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
@@ -1054,9 +1070,9 @@ function addMediacion(e, sid){
     };
     s.mediaciones_list.push(newMediacion);
     saveData();
+    addEventToGoogleCalendar(s, newMediacion); // <- Llamada a la función de Google Calendar
     renderAll();
     showSiniestroModal(sid);
-    addEventToGoogleCalendar(s, newMediacion);
 }
 
 function deleteMediacion(sid, mid){
@@ -1347,8 +1363,7 @@ function showDocumentModal(siniestroId) {
 }
 </script>
 
-<!-- Google API Script -->
-<script async defer src="https://apis.google.com/js/api.js"></script>
-<script async defer src="https://accounts.google.com/gsi/client"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
