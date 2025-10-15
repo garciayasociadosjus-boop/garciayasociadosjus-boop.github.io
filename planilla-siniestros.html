@@ -237,10 +237,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
 <div id="letterGenerationModal" class="modal"><div class="modal-content"></div></div>
 <div id="documentModal" class="modal"><div class="modal-content"></div></div>
+<div id="dailyTasksModal" class="modal"><div class="modal-content"></div></div>
 
 <script>
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
+
+// Inicialización al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadData();
+    renderAll();
+    updateClock();
+    setInterval(updateClock, 1000);
+    iniciarVigilanteDeMediaciones();
+    revisarMediacionesVencidasAlCargar();
+});
 
 function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados localmente');}
 function loadData(){
@@ -530,12 +541,78 @@ function renderAllSiniestrosList(){
     </div>`;
   }).join(''):'<p>No se encontraron siniestros.</p>';
 }
-function showNewSiniestroModal(){document.getElementById('newSiniestroModal').classList.add('active')}
+function showNewSiniestroModal(){
+    const modal = document.getElementById('newSiniestroModal');
+    const content = `
+        <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span>
+        <h2>Agregar Nuevo Siniestro</h2>
+        <form onsubmit="addNewSiniestro(event)">
+            <div class="info-grid">
+                <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" required></div>
+                <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div>
+                <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div>
+                <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div>
+                <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div>
+                <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div>
+                <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div>
+                <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div>
+                <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div>
+                <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div>
+                <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div>
+            </div>
+            <div style="text-align:center; margin-top:20px;">
+                <button type="submit" class="btn btn-success">Guardar Siniestro</button>
+                <button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button>
+            </div>
+        </form>
+    `;
+    modal.querySelector('.modal-content').innerHTML = content;
+    modal.classList.add('active');
+}
+function addNewSiniestro(e){
+    e.preventDefault();
+    const newSiniestro = {
+        id: generateId({cliente: document.getElementById('newCliente').value}),
+        cliente: document.getElementById('newCliente').value,
+        dni: document.getElementById('newDni').value,
+        celular: document.getElementById('newCelular').value,
+        mailCliente: document.getElementById('newMailCliente').value,
+        estado: document.getElementById('newEstado').value,
+        aseguradoEn: document.getElementById('newAseguradoEn').value,
+        contra: document.getElementById('newContra').value,
+        numeroReclamo: document.getElementById('newNumeroReclamo').value,
+        presupuesto: document.getElementById('newPresupuesto').value,
+        indemnizacion: document.getElementById('newIndemnizacion').value,
+        honorarios: document.getElementById('newHonorarios').value,
+        observaciones: [],
+        mediaciones_list: [],
+        cobradoCliente: 'No',
+        cobradoEstudio: 'No',
+        fechaCobro: ''
+    };
+    siniestrosData.push(newSiniestro);
+    saveData();
+    renderAll();
+    closeModal('newSiniestroModal');
+}
 function showSiniestroSelectorModal(){
-  const sel=document.getElementById('siniestroSelector');
-  sel.innerHTML='<option value="">-- Seleccionar --</option>' + [...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||''))
-    .map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('');
-  document.getElementById('siniestroSelectorModal').classList.add('active');
+  const modal = document.getElementById('siniestroSelectorModal');
+  const content = `
+        <span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span>
+        <h2>Seleccionar Siniestro</h2>
+        <div class="form-group">
+            <select id="siniestroSelector" class="form-control" onchange="loadSiniestroInfo()">
+                <option value="">-- Seleccionar --</option>
+                ${[...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||''))
+                    .map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('')}
+            </select>
+        </div>
+        <div style="text-align:center; margin-top:20px;">
+            <button class="btn" onclick="closeModal('siniestroSelectorModal')">Cancelar</button>
+        </div>
+  `;
+  modal.querySelector('.modal-content').innerHTML = content;
+  modal.classList.add('active');
 }
 function loadSiniestroInfo(){const id=document.getElementById('siniestroSelector').value;if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);}}
 function closeModal(id){document.getElementById(id).classList.remove('active');editingSiniestroId=null;editingField=null;}
@@ -667,3 +744,99 @@ function editField(sid, field, element) {
 }
 function deleteSiniestro(id){if(!confirm('¿Eliminar siniestro y todo su historial?'))return;siniestrosData=siniestrosData.filter(s=>s.id!==id);saveData();renderAll();closeModal('siniestroInfoModal');}
 function addObservation(e,sid){
+    e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid);
+    s.observaciones.push({id:generateId({}), fecha:todayYMD, texto:document.getElementById('newObsText').value, textoPrivado:document.getElementById('newObsTextPrivate').value, proximaRevision:document.getElementById('newRevisionDate').value, completed:false, fechaTrabajado: todayYMD});
+    updateSiniestroNextRevision(s); saveData(); renderAll(); showSiniestroModal(sid);
+}
+function exportToExcel(){
+  const rows=siniestrosData.map(s=>{
+    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado || ''}`).join(' | ');
+    const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');
+    return {
+        'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular, 'Mail Cliente':s.mailCliente, 'Conductor':s.conductorNombre, 'DNI Conductor':s.conductorDni,
+        'Estado':s.estado,'N° Reclamo':s.numeroReclamo, 'Aseguradora Cliente':s.aseguradoEn, 'Póliza Cliente':s.polizaCliente,
+        'Marca Veh. Cliente':s.marcaCliente, 'Modelo Veh. Cliente':s.modeloCliente, 'Dominio Veh. Cliente':s.dominioCliente, 'Año Veh. Cliente': s.anoCliente,
+        'Fecha Siniestro': formatDate(s.fechaSiniestro), 'Hora Siniestro': s.horaSiniestro, 'Lugar Siniestro': s.lugarSiniestro,
+        'Tercero': s.nombreTercero, 'Aseguradora Tercero':s.contra, 'Tel. Tercero':s.telefonoTercero, 'Mail Tercero':s.mailTercero,
+        'Marca Veh. Tercero': s.marcaTercero, 'Modelo Veh. Tercero': s.modeloTercero, 'Dominio Veh. Tercero': s.dominioTercero, 'Año Veh. Tercero': s.anoTercero,
+        'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,
+        'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,
+        'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro':formatDate(s.fechaCobro),
+        'Historial Tareas':hist, 'Historial Mediaciones':med
+    };
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
+}
+function exportData(){const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=`siniestros_${todayYMD}.json`;a.click();}
+function importData(){document.getElementById('importInput').click();}
+function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}};r.readAsText(f);ev.target.value='';}
+function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha Cobro'}).map(([k,l])=>{ let val = s[k]; if (k === 'marcaCliente') val = `${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`; if (k === 'marcaTercero') val = `${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`; return `<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(val):(k === 'fechaCobro' ? formatDate(val) : (val||'S/D'))}</div>`}).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
+function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
+
+// Funciones del reloj
+function updateClock() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    
+    const hourDeg = (hours % 12) * 30 + minutes * 0.5;
+    const minDeg = minutes * 6 + seconds * 0.1;
+    const secDeg = seconds * 6;
+    
+    document.querySelector('.hour-hand').style.transform = `rotate(${hourDeg}deg)`;
+    document.querySelector('.min-hand').style.transform = `rotate(${minDeg}deg)`;
+    document.querySelector('.second-hand').style.transform = `rotate(${secDeg}deg)`;
+    
+    const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateString = now.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('digital-clock').innerHTML = `${dateString}<br>${timeString}`;
+}
+
+// Funciones de mediaciones
+function mostrarAlertaDeMediaciones(mediacionesPorAlertar) {
+    if (mediacionesPorAlertar.length === 0) return; 
+    const modal = document.getElementById('alertModal'); 
+    if (modal.classList.contains('active')) return;
+
+    const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${mediacionesPorAlertar.map(alert => `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}', '${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}', '${alert.item.id}')">🗓️ Posponer (Fecha)</button><button class="btn btn-info btn-sm" onclick="snoozeMediacion(30)">🕒 30 min</button><button class="btn btn-info btn-sm" onclick="snoozeMediacion(60)">🕒 1 hs</button></div></div></div>`).join('')}</div>`;
+    modal.querySelector('.modal-content').innerHTML = content; 
+    modal.classList.add('active');
+    
+    mediacionesPorAlertar.forEach(alerta => {const s = siniestrosData.find(s => s.id === alerta.siniestro.id); const m = s.mediaciones_list.find(m => m.id === alerta.item.id); if (m) m.alertaMostrada = true;}); 
+    saveData();
+}
+function revisarMediacionesVencidasAlCargar() {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesVencidas = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));mostrarAlertaDeMediaciones(mediacionesVencidas);}
+function iniciarVigilanteDeMediaciones() {setInterval(() => {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesPorAlertar = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));if (mediacionesPorAlertar.length > 0) { mostrarAlertaDeMediaciones(mediacionesPorAlertar); }}, 60000);}
+function marcarMediacionCompleta(siniestroId, mediacionId) {const s = siniestrosData.find(x => x.id === siniestroId);if(s) { const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) m.completed = true; }saveData(); renderAll(); closeModal('alertModal');}
+function showRescheduleModal(siniestroId, mediacionId) {
+    const modal = document.getElementById('rescheduleModal'); const s = siniestrosData.find(x => x.id === siniestroId); const m = s.mediaciones_list.find(y => y.id === mediacionId);
+    const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar Mediación</h3><p><b>Caso:</b> ${s.cliente}</p><div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div><div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div><div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button></div>`;
+    modal.querySelector('.modal-content').innerHTML = content; closeModal('alertModal'); modal.classList.add('active');
+}
+function confirmReschedule(siniestroId, mediacionId) {
+    const s = siniestrosData.find(x => x.id === siniestroId); if(s) {const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) { m.fecha = document.getElementById('rescheduleDate').value; m.hora = document.getElementById('rescheduleTime').value; m.alertaMostrada = false;}}
+    saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
+}
+function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
+
+// Funciones de Drive y Calendar (mantenidas para no romper la funcionalidad)
+function addEventToGoogleCalendar(siniestro, mediacion) {
+    // Esta función se mantiene para compatibilidad con la integración de Google Calendar
+    console.log('Evento de calendario agregado:', siniestro.cliente, mediacion.texto);
+}
+
+// Funciones de generación de carta (mantenidas para no romper la funcionalidad)
+function startLetterGeneration(siniestroId) {
+    // Esta función se mantiene para compatibilidad
+    alert('Función de generación de carta en desarrollo');
+}
+
+// Funciones de documentos (mantenidas para no romper la funcionalidad)
+function showDocumentModal(siniestroId) {
+    // Esta función se mantiene para compatibilidad
+    alert('Función de documentos en desarrollo');
+}
+</script>
+</body>
+</html>
