@@ -242,9 +242,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <script>
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null, currentSiniestroIdForDocs=null;
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+
+// Configuración de Google API
+const CLIENT_ID = 'TU_CLIENT_ID_AQUI'; // Reemplazar con tu Client ID
+const API_KEY = 'TU_API_KEY_AQUI'; // Reemplazar con tu API Key
+const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar';
 
 // Inicialización al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
+    initializeGapi();
     loadData();
     renderAll();
     updateClock();
@@ -252,6 +261,160 @@ document.addEventListener('DOMContentLoaded', function() {
     iniciarVigilanteDeMediaciones();
     revisarMediacionesVencidasAlCargar();
 });
+
+function initializeGapi() {
+    gapi.load('client', initializeGapiClient);
+    gapi.load('picker', initializePicker);
+}
+
+function initializeGapiClient() {
+    gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest', 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+    }).then(() => {
+        gapiInited = true;
+        maybeEnableButtons();
+    });
+}
+
+function initializePicker() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+    });
+    gisInited = true;
+    maybeEnableButtons();
+}
+
+function maybeEnableButtons() {
+    if (gapiInited && gisInited) {
+        document.getElementById('connectDriveBtn').style.display = 'inline-block';
+    }
+}
+
+// Función para conectar con Google Drive
+function connectToGoogle() {
+    tokenClient.callback = async (response) => {
+        if (response.error !== undefined) {
+            throw (response);
+        }
+        document.getElementById('connectDriveBtn').style.display = 'none';
+        document.getElementById('saveToDriveBtn').style.display = 'inline-block';
+        document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+        updateDriveStatus('✅ Conectado a Google Drive y Calendar');
+    };
+    
+    if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({prompt: 'consent'});
+    } else {
+        tokenClient.requestAccessToken({prompt: ''});
+    }
+}
+
+// Guardar datos en Drive
+function saveToDrive() {
+    if (!gapi.client.getToken()) {
+        connectToGoogle();
+        return;
+    }
+    
+    const data = JSON.stringify(siniestrosData, null, 2);
+    const fileName = `siniestros_${getTodayYMD()}.json`;
+    const fileMetadata = {
+        name: fileName,
+        parents: ['appDataFolder'] // Carpeta de aplicación de Drive
+    };
+    
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
+    form.append('file', new Blob([data], {type: 'application/json'}));
+    
+    fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: new Headers({'Authorization': `Bearer ${gapi.client.getToken().access_token}`}),
+        body: form
+    }).then(response => response.json())
+    .then(result => {
+        updateDriveStatus(`✅ Archivo guardado en Drive: ${fileName}`);
+    })
+    .catch(error => {
+        updateDriveStatus(`❌ Error al guardar en Drive: ${error.message}`);
+    });
+}
+
+// Cargar datos desde Drive
+function loadFromDrive() {
+    if (!gapi.client.getToken()) {
+        connectToGoogle();
+        return;
+    }
+    
+    gapi.client.drive.files.list({
+        q: "name contains 'siniestros_' and trashed=false",
+        spaces: 'appDataFolder',
+        fields: 'files(id, name, modifiedTime)',
+        orderBy: 'modifiedTime desc',
+        pageSize: 10
+    }).then(response => {
+        const files = response.result.files;
+        if (files && files.length > 0) {
+            const latestFile = files[0];
+            gapi.client.drive.files.get({
+                fileId: latestFile.id,
+                alt: 'media'
+            }).then(response => {
+                try {
+                    const data = JSON.parse(response.body);
+                    if (confirm(`¿Importar ${data.length} registros desde Drive? Esto sobreescribirá los datos locales.`)) {
+                        siniestrosData = sanitizeData(data);
+                        saveData();
+                        renderAll();
+                        updateDriveStatus(`✅ Datos cargados desde Drive: ${latestFile.name}`);
+                    }
+                } catch (error) {
+                    updateDriveStatus(`❌ Error al procesar archivo: ${error.message}`);
+                }
+            });
+        } else {
+            updateDriveStatus('ℹ️ No se encontraron archivos de respaldo en Drive');
+        }
+    });
+}
+
+// Agregar evento a Google Calendar
+function addEventToGoogleCalendar(siniestro, mediacion) {
+    if (!gapi.client.getToken()) {
+        return;
+    }
+    
+    const event = {
+        summary: `Mediación: ${siniestro.cliente}`,
+        description: `Caso: ${siniestro.numeroReclamo || 'S/N'}\n${mediacion.texto}`,
+        start: {
+            dateTime: `${mediacion.fecha}T${mediacion.hora}:00`,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        end: {
+            dateTime: `${mediacion.fecha}T${mediacion.hora}:00`,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        reminders: {
+            useDefault: false,
+            overrides: [
+                {method: 'email', minutes: 24 * 60}, // 1 día antes
+                {method: 'popup', minutes: 60} // 1 hora antes
+            ]
+        }
+    };
+    
+    gapi.client.calendar.events.insert({
+        calendarId: 'primary',
+        resource: event
+    }).then(response => {
+        console.log('Evento creado en Calendar:', response.result);
+    });
+}
 
 function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados localmente');}
 function loadData(){
@@ -286,6 +449,14 @@ function updateDataStatus(msg,err=false){
   el.textContent=msg;
   el.style.background=err?'#f8d7da':'#d4edda';
   el.style.color=err?'#721c24':'#155724';
+}
+function updateDriveStatus(msg){
+  const el=document.getElementById('driveStatus');
+  el.textContent=msg;
+  el.style.display='block';
+  el.style.background='#d1ecf1';
+  el.style.color='#0c5460';
+  setTimeout(() => { el.style.display='none'; }, 5000);
 }
 function getTodayYMD(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const todayYMD=getTodayYMD();
@@ -820,12 +991,6 @@ function confirmReschedule(siniestroId, mediacionId) {
 }
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
-// Funciones de Drive y Calendar (mantenidas para no romper la funcionalidad)
-function addEventToGoogleCalendar(siniestro, mediacion) {
-    // Esta función se mantiene para compatibilidad con la integración de Google Calendar
-    console.log('Evento de calendario agregado:', siniestro.cliente, mediacion.texto);
-}
-
 // Funciones de generación de carta (mantenidas para no romper la funcionalidad)
 function startLetterGeneration(siniestroId) {
     // Esta función se mantiene para compatibilidad
@@ -837,6 +1002,15 @@ function showDocumentModal(siniestroId) {
     // Esta función se mantiene para compatibilidad
     alert('Función de documentos en desarrollo');
 }
+
+// Asignar eventos a los botones de Drive
+document.getElementById('connectDriveBtn').addEventListener('click', connectToGoogle);
+document.getElementById('saveToDriveBtn').addEventListener('click', saveToDrive);
+document.getElementById('loadFromDriveBtn').addEventListener('click', loadFromDrive);
 </script>
+
+<!-- Google API Script -->
+<script async defer src="https://apis.google.com/js/api.js"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="initializeGapi()"></script>
 </body>
 </html>
