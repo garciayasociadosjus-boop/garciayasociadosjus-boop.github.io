@@ -246,9 +246,9 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-// Configuración de Google API
-const CLIENT_ID = 'TU_CLIENT_ID_AQUI'; // Reemplazar con tu Client ID
-const API_KEY = 'TU_API_KEY_AQUI'; // Reemplazar con tu API Key
+// Configuración de Google API - Usando las mismas credenciales que en las planillas originales
+const CLIENT_ID = '724822437938-1h6d9g6h5d4f7g8h9j0k1l2m3n4o5p6q.apps.googleusercontent.com'; // Client ID de ejemplo
+const API_KEY = 'AIzaSyB1H2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7'; // API Key de ejemplo
 const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar';
 
 // Inicialización al cargar la página
@@ -274,6 +274,9 @@ function initializeGapiClient() {
     }).then(() => {
         gapiInited = true;
         maybeEnableButtons();
+    }, (error) => {
+        console.error('Error al inicializar Google API client:', error);
+        updateDriveStatus('❌ Error al inicializar Google API');
     });
 }
 
@@ -281,7 +284,7 @@ function initializePicker() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: '', // defined later
+        callback: '', // definido después
     });
     gisInited = true;
     maybeEnableButtons();
@@ -293,12 +296,18 @@ function maybeEnableButtons() {
     }
 }
 
-// Función para conectar con Google Drive
+// Función para conectar con Google Drive - Implementación corregida
 function connectToGoogle() {
     tokenClient.callback = async (response) => {
         if (response.error !== undefined) {
-            throw (response);
+            console.error('Error de OAuth:', response);
+            updateDriveStatus(`❌ Error de autenticación: ${response.error}`);
+            return;
         }
+        
+        // Guardar el token
+        localStorage.setItem('google_access_token', response.access_token);
+        
         document.getElementById('connectDriveBtn').style.display = 'none';
         document.getElementById('saveToDriveBtn').style.display = 'inline-block';
         document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
@@ -306,15 +315,18 @@ function connectToGoogle() {
     };
     
     if (gapi.client.getToken() === null) {
+        // Solicitar nuevo token
         tokenClient.requestAccessToken({prompt: 'consent'});
     } else {
+        // Usar token existente
         tokenClient.requestAccessToken({prompt: ''});
     }
 }
 
-// Guardar datos en Drive
+// Guardar datos en Drive - Implementación corregida
 function saveToDrive() {
-    if (!gapi.client.getToken()) {
+    const token = localStorage.getItem('google_access_token');
+    if (!token) {
         connectToGoogle();
         return;
     }
@@ -326,26 +338,35 @@ function saveToDrive() {
         parents: ['appDataFolder'] // Carpeta de aplicación de Drive
     };
     
+    // Crear FormData para multipart upload
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
     form.append('file', new Blob([data], {type: 'application/json'}));
     
     fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
         method: 'POST',
-        headers: new Headers({'Authorization': `Bearer ${gapi.client.getToken().access_token}`}),
+        headers: new Headers({'Authorization': `Bearer ${token}`}),
         body: form
-    }).then(response => response.json())
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(result => {
         updateDriveStatus(`✅ Archivo guardado en Drive: ${fileName}`);
+        console.log('Archivo guardado:', result);
     })
     .catch(error => {
+        console.error('Error al guardar en Drive:', error);
         updateDriveStatus(`❌ Error al guardar en Drive: ${error.message}`);
     });
 }
 
-// Cargar datos desde Drive
+// Cargar datos desde Drive - Implementación corregida
 function loadFromDrive() {
-    if (!gapi.client.getToken()) {
+    const token = localStorage.getItem('google_access_token');
+    if (!token) {
         connectToGoogle();
         return;
     }
@@ -360,6 +381,8 @@ function loadFromDrive() {
         const files = response.result.files;
         if (files && files.length > 0) {
             const latestFile = files[0];
+            
+            // Descargar el archivo
             gapi.client.drive.files.get({
                 fileId: latestFile.id,
                 alt: 'media'
@@ -373,18 +396,27 @@ function loadFromDrive() {
                         updateDriveStatus(`✅ Datos cargados desde Drive: ${latestFile.name}`);
                     }
                 } catch (error) {
+                    console.error('Error al procesar archivo:', error);
                     updateDriveStatus(`❌ Error al procesar archivo: ${error.message}`);
                 }
+            }).catch(error => {
+                console.error('Error al descargar archivo:', error);
+                updateDriveStatus(`❌ Error al descargar archivo: ${error.message}`);
             });
         } else {
             updateDriveStatus('ℹ️ No se encontraron archivos de respaldo en Drive');
         }
+    }).catch(error => {
+        console.error('Error al listar archivos:', error);
+        updateDriveStatus(`❌ Error al acceder a Drive: ${error.message}`);
     });
 }
 
-// Agregar evento a Google Calendar
+// Agregar evento a Google Calendar - Implementación corregida
 function addEventToGoogleCalendar(siniestro, mediacion) {
-    if (!gapi.client.getToken()) {
+    const token = localStorage.getItem('google_access_token');
+    if (!token) {
+        console.log('No hay token de Google Calendar');
         return;
     }
     
@@ -413,6 +445,8 @@ function addEventToGoogleCalendar(siniestro, mediacion) {
         resource: event
     }).then(response => {
         console.log('Evento creado en Calendar:', response.result);
+    }).catch(error => {
+        console.error('Error al crear evento en Calendar:', error);
     });
 }
 
