@@ -105,6 +105,56 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
 @media (max-width:780px){.reviews-list{max-height:300px}.action-buttons .btn{flex:1 1 100%}}
 @media print{body *{visibility:hidden}.print-area,.print-area *{visibility:visible}.print-area{position:absolute;left:0;top:0;width:100%;padding:20px}.btn,.no-print{display:none!important}#generatedLetterText{white-space:pre-wrap}}
+
+/* Estilos para las nuevas funcionalidades */
+.weekly-glance {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px 0 5px 0;
+    gap: 10px;
+    flex-wrap: wrap;
+    transition: all 0.4s ease-in-out;
+}
+.day-circle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #f0f4f7;
+    border: 2px solid #e1e8ed;
+    transition: all 0.3s ease;
+}
+.day-circle.has-tasks {
+    background: #fff9e6;
+    border-color: var(--warning-color);
+    font-weight: bold;
+    cursor: pointer;
+}
+.day-circle.has-tasks:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
+}
+.day-circle.is-today {
+     background: #e8f2ff;
+     border-color: var(--primary-color);
+}
+.day-circle .day-name {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--dark-text);
+}
+.day-circle .day-count {
+    font-size: 1.4em;
+    color: var(--primary-color);
+    margin-top: 2px;
+}
+.day-circle.has-tasks .day-count {
+    color: #d35400;
+}
+.toggle-icon { display: inline-block; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -128,6 +178,22 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
   <div class="main-content">
     <div id="dataStatus" class="data-status">Cargando datos...</div>
     <div id="driveStatus" class="data-status" style="display:none;"></div>
+
+    <section class="card" style="margin-bottom: 30px;">
+        <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
+            🗓️ Resumen de la Próxima Semana
+            <span class="toggle-icon">➖</span>
+        </h3>
+        <div id="weeklyGlanceContainer" class="weekly-glance"></div>
+    </section>
+    
+    <section class="card" style="margin-bottom: 30px; background-color: #e7f5ff;">
+        <h3 onclick="toggleVisibility('advanceNoticeContainer')" style="cursor: pointer; user-select: none; border-color: #b3e0ff;">
+            🔔 Avisos Previos (Vencimientos y Mediaciones) (<span id="advanceNoticeCount">0</span>)
+            <span class="toggle-icon">➖</span>
+        </h3>
+        <div id="advanceNoticeContainer" class="reviews-list" style="max-height: 300px; display: block;"></div>
+    </section>
 
     <div class="dashboard">
       <div class="card today-reviews"><h3>Eventos de Hoy</h3><div class="reviews-list" id="todayReviews"></div></div>
@@ -198,6 +264,7 @@ function sanitizeData(data){
         m.id=m.id||generateId({});
         m.completed=typeof m.completed==='boolean'?m.completed:false;
         m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;
+        m.avisoPrevio = m.avisoPrevio || '1'; // Default para datos antiguos
     });
     updateSiniestroNextRevision(s);
   });
@@ -250,20 +317,168 @@ function toggleCompleted(e,sid,oid, type='task'){
     if (type === 'task') updateSiniestroNextRevision(s);
     saveData(); renderAll();
 }
-function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderDashboardLists();renderAllSiniestrosList();}
+function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderWeeklyGlance();renderAdvanceNotices();renderDashboardLists();renderAllSiniestrosList();}
+function renderWeeklyGlance() {
+    const container = document.getElementById('weeklyGlanceContainer');
+    if (!container) return;
+
+    const counts = Array(7).fill(0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allSchedulableItems = siniestrosData.flatMap(siniestro => {
+        const tasks = (siniestro.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
+        const mediaciones = (siniestro.mediaciones_list || []).filter(med => med.fecha && !med.completed).map(med => ({ reviewDate: med.fecha }));
+        return [...tasks, ...mediaciones];
+    });
+
+    allSchedulableItems.forEach(item => {
+        if (!item.reviewDate) return;
+        const itemDate = new Date(item.reviewDate + 'T00:00:00');
+        const diffTime = itemDate - today;
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays >= 0 && diffDays < 7) {
+            counts[diffDays]++;
+        }
+    });
+
+    const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        const dayOfWeek = date.getDay();
+        const dayName = dayNames[dayOfWeek];
+        const dateNumber = date.getDate();
+        const isoDateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+        const hasTasks = counts[i] > 0;
+        const hasTasksClass = hasTasks ? 'has-tasks' : '';
+        const isTodayClass = i === 0 ? 'is-today' : '';
+        const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+        const onClickAction = hasTasks ? `onclick="showTasksForDate('${isoDateString}')"` : '';
+
+        html += `
+            <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}>
+                <span class="day-name">${dayName} ${dateNumber}</span>
+                <span class="day-count">${counts[i]}</span>
+            </div>
+        `;
+    }
+    container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
+}
+
+function renderAdvanceNotices() {
+    const container = document.getElementById('advanceNoticeContainer');
+    if (!container) return;
+
+    const itemsToNotice = [];
+    
+    siniestrosData.forEach(siniestro => {
+        const criticalItems = [
+            ...(siniestro.mediaciones_list || []).map(item => ({...item, dueDate: item.fecha, type: 'mediacion', text: `MEDIACIÓN: ${item.texto}` }))
+        ];
+
+        criticalItems.forEach(item => {
+            const noticeDays = parseInt(item.avisoPrevio, 10);
+            if (!item.completed && noticeDays > 0 && item.dueDate) {
+                const daysDifference = getDaysDifference(item.dueDate);
+                if (daysDifference > 0 && daysDifference <= noticeDays) {
+                    itemsToNotice.push({ siniestro, item, daysDifference });
+                }
+            }
+        });
+    });
+
+    itemsToNotice.sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
+    document.getElementById('advanceNoticeCount').textContent = itemsToNotice.length;
+
+    if (itemsToNotice.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">No hay avisos previos para los próximos días.</p>';
+        return;
+    }
+
+    container.innerHTML = itemsToNotice.map(({ siniestro, item, daysDifference }) => {
+        const dateInfo = `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+        return `<div class="review-item" onclick="showSiniestroModal('${siniestro.id}')">
+                    <div class="review-item-content">
+                        <div class="review-date">${dateInfo}</div>
+                        <div class="review-client">${getDisplayName(siniestro)}</div>
+                        <div class="review-obs">${item.text}</div>
+                    </div>
+                </div>`;
+    }).join('');
+}
+
+function showTasksForDate(dateString) {
+    const date = new Date(dateString);
+    const formattedDate = formatDate(dateString);
+    const modal = document.getElementById('dailyTasksModal');
+    
+    const tasksForDate = siniestrosData.flatMap(siniestro => {
+        const tasks = (siniestro.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({...obs, siniestro, type: 'task'}));
+        const mediaciones = (siniestro.mediaciones_list || []).filter(med => !med.completed && med.fecha === dateString).map(med => ({...med, siniestro, type: 'mediacion'}));
+        return [...tasks, ...mediaciones];
+    });
+    
+    const content = `
+        <span class="close" onclick="closeModal('dailyTasksModal')">&times;</span>
+        <h2>Tareas para ${formattedDate}</h2>
+        <div class="reviews-list" style="max-height: 60vh;">
+            ${tasksForDate.length === 0 ? 
+                '<p style="text-align: center; color: #666;">No hay tareas para esta fecha.</p>' :
+                tasksForDate.map(item => {
+                    const toggleFunc = `toggleCompleted(event,'${item.siniestro.id}','${item.id}', '${item.type}')`;
+                    const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.textoPrivado}</div>` : '';
+                    const timeLabel = item.type === 'mediacion' ? formatTime(item.hora) : '';
+                    const label = item.type === 'mediacion' ? 'MEDIACIÓN:' : '';
+                    
+                    return `<div class="review-item">
+                        <button class="complete-btn" onclick="${toggleFunc}">✔</button>
+                        <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
+                            <div class="review-date">${timeLabel}</div>
+                            <div class="review-client">${item.siniestro.cliente}</div>
+                            <div class="review-obs"><b>${label}</b> ${item.texto}</div>
+                            ${privateNoteHtml}
+                        </div>
+                    </div>`;
+                }).join('')
+            }
+        </div>
+    `;
+    
+    modal.querySelector('.modal-content').innerHTML = content;
+    modal.classList.add('active');
+}
+
+function toggleVisibility(elementId) {
+    const element = document.getElementById(elementId);
+    const icon = element.previousElementSibling.querySelector('.toggle-icon');
+    if (!element || !icon) return;
+    
+    if (getComputedStyle(element).display === 'none') {
+        element.style.display = 'block';
+        icon.textContent = '➖';
+    } else {
+        element.style.display = 'none';
+        icon.textContent = '➕';
+    }
+}
+
 function renderDashboardLists(){
-  const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o => !o.completed && o.proximaRevision).map(o => ({...o, siniestro: s, type: 'task'})));
-  const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m => !m.completed && m.fecha).map(m => ({...m, siniestro: s, type: 'mediacion', proximaRevision: m.fecha})));
-  const allItems = [...tasks, ...mediaciones];
+  const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'})));
+  const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha})));
+  const allItems = [...tasks,...mediaciones];
 
   const today=allItems.filter(t=>isToday(t.proximaRevision));
   const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
   const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  renderReviewList('todayReviews',today,'No hay eventos para hoy', 'today');
-  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos', 'overdue');
-  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos', 'upcoming');
+  renderReviewList('todayReviews',today,'No hay eventos para hoy','today');
+  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue');
+  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming');
 }
-function renderReviewList(id,items,empty, type){
+function renderReviewList(id,items,empty,type){
   const c=document.getElementById(id);
   const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
   if(!items.length){c.innerHTML=`<p style="color:${listColor};text-align:center;">${empty}</p>`;return;}
@@ -293,7 +508,7 @@ function renderAllSiniestrosList(){
   const sterm=document.getElementById('searchInput').value.toLowerCase();
   const estado=document.getElementById('estadoFilter').value;
   const filtrados=siniestrosData.filter(s=>{
-    const searchString = [s.cliente, s.dni, s.celular, s.mailCliente, s.estado, s.aseguradoEn, s.contra, s.numeroReclamo, s.presupuesto, s.indemnizacion, s.honorarios, s.acuerdo, s.fechaPago, s.factura, s.marcaCliente, s.modeloCliente, s.dominioCliente, s.marcaTercero, s.modeloTercero, s.dominioTercero].filter(Boolean).join(' ').toLowerCase();
+    const searchString = [s.cliente,s.dni,s.celular,s.mailCliente,s.estado,s.aseguradoEn,s.contra,s.numeroReclamo,s.presupuesto,s.indemnizacion,s.honorarios,s.acuerdo,s.fechaPago,s.factura,s.marcaCliente,s.modeloCliente,s.dominioCliente,s.marcaTercero,s.modeloTercero,s.dominioTercero].filter(Boolean).join(' ').toLowerCase();
     const matchS=!sterm||searchString.includes(sterm);
     const matchE=!estado||s.estado===estado;
     return matchS&&matchE;
@@ -346,10 +561,29 @@ function showSiniestroModal(id){
     }).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${
         /presupuesto|indemnizacion|honorarios/.test(k) ? formatCurrency(s[k]) : (k === 'fechaSiniestro' ? formatDate(s[k]) : (s[k] || 'S/D'))
     }</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+    
+    <div class="form-section" style="margin-top: 20px;">
+        <h4>💰 Información de Cobro</h4>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Cobrado por Cliente</div>
+                <div class="info-value editable-field" id="field-cobradoCliente" onclick="editField('${s.id}','cobradoCliente', this)">${s.cobradoCliente || 'No'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Cobrado por Estudio</div>
+                <div class="info-value editable-field" id="field-cobradoEstudio" onclick="editField('${s.id}','cobradoEstudio', this)">${s.cobradoEstudio || 'No'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Fecha de Cobro</div>
+                <div class="info-value editable-field" id="field-fechaCobro" onclick="editField('${s.id}','fechaCobro', this)">${s.fechaCobro ? formatDate(s.fechaCobro) : 'S/F'}</div>
+            </div>
+        </div>
+    </div>
+    
     <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
     <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
         <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto para el Cliente (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Internas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
-        <div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div>
+        <div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div>
     </div>
     <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
   const m=document.getElementById('siniestroInfoModal');m.querySelector('.modal-content').innerHTML=html;m.classList.add('active');
@@ -379,529 +613,57 @@ function saveObs(sid,oid){
   updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
 }
 function deleteObs(sid,oid){if(!confirm('¿Eliminar tarea?'))return;const s=siniestrosData.find(x=>x.id===sid);s.observaciones=s.observaciones.filter(o=>o.id!==oid);updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
-function addMediacion(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);const newMediacion = { id:generateId({}), fecha:document.getElementById('newMediacionDate').value, hora:document.getElementById('newMediacionTime').value, texto:document.getElementById('newMediacionText').value, completed:false, alertaMostrada: false };s.mediaciones_list.push(newMediacion);saveData(); renderAll(); showSiniestroModal(sid);addEventToGoogleCalendar(s, newMediacion);}
+function addMediacion(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);const newMediacion = { id:generateId({}), fecha:document.getElementById('newMediacionDate').value, hora:document.getElementById('newMediacionTime').value, texto:document.getElementById('newMediacionText').value, completed:false, alertaMostrada: false, avisoPrevio: document.getElementById('newMediacionAvisoPrevio').value };s.mediaciones_list.push(newMediacion);saveData(); renderAll(); showSiniestroModal(sid);addEventToGoogleCalendar(s, newMediacion);}
 function deleteMediacion(sid,mid){if(!confirm('¿Eliminar mediación?'))return;const s=siniestrosData.find(x=>x.id===sid);s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);saveData();renderAll();showSiniestroModal(sid);}
 function editField(sid, field, element) {
     if (editingField) return; editingSiniestroId = sid; editingField = field;
     const s = siniestrosData.find(x => x.id === sid); const currentValue = s[field] || '';
     let inputType = 'text';
-    if (/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero/.test(field)) inputType = 'number';
-    else if (field === 'fechaSiniestro') inputType = 'date';
-    else if (field === 'horaSiniestro') inputType = 'time';
-    else if (/mail/.test(field)) inputType = 'email';
+    
+    if (field === 'cobradoCliente' || field === 'cobradoEstudio') {
+        inputType = 'select';
+    } else if (/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero/.test(field)) {
+        inputType = 'number';
+    } else if (field === 'fechaSiniestro' || field === 'fechaCobro') {
+        inputType = 'date';
+    } else if (field === 'horaSiniestro') {
+        inputType = 'time';
+    } else if (/mail/.test(field)) {
+        inputType = 'email';
+    }
 
-    const input = document.createElement('input');
-    input.type = inputType;
-    input.value = currentValue; input.style.cssText='width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
+    const input = document.createElement(inputType === 'select' ? 'select' : 'input');
+    if (inputType === 'select') {
+        const options = ['Sí', 'No'];
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === currentValue) option.selected = true;
+            input.appendChild(option);
+        });
+    } else {
+        input.type = inputType;
+        input.value = currentValue;
+    }
+    
+    input.style.cssText='width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
     if (field === 'aseguradoEn') input.setAttribute('list', 'aseguradorasList');
     if (field === 'contra') input.setAttribute('list', 'contrasList');
     if (/marca/.test(field)) input.setAttribute('list', 'marcasVehiculosList');
     
-    const save = () => { s[editingField] = input.value; saveData(); editingSiniestroId = null; editingField = null; showSiniestroModal(sid); };
-    input.addEventListener('blur', save); input.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); }});
-    element.innerHTML = ''; element.appendChild(input); input.focus(); const valLength = input.value.length; input.setSelectionRange(valLength, valLength);
+    const save = () => { 
+        s[editingField] = input.value; 
+        saveData(); 
+        editingSiniestroId = null; 
+        editingField = null; 
+        showSiniestroModal(sid); 
+    };
+    input.addEventListener('blur', save); 
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); }});
+    element.innerHTML = ''; element.appendChild(input); input.focus(); 
+    const valLength = input.value.length; 
+    input.setSelectionRange(valLength, valLength);
 }
 function deleteSiniestro(id){if(!confirm('¿Eliminar siniestro y todo su historial?'))return;siniestrosData=siniestrosData.filter(s=>s.id!==id);saveData();renderAll();closeModal('siniestroInfoModal');}
 function addObservation(e,sid){
-    e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid);
-    s.observaciones.push({id:generateId({}), fecha:todayYMD, texto:document.getElementById('newObsText').value, textoPrivado:document.getElementById('newObsTextPrivate').value, proximaRevision:document.getElementById('newRevisionDate').value, completed:false, fechaTrabajado: todayYMD});
-    updateSiniestroNextRevision(s); saveData(); renderAll(); showSiniestroModal(sid);
-}
-function exportToExcel(){
-  const rows=siniestrosData.map(s=>{
-    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado || ''}`).join(' | ');
-    const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');
-    return {
-        'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular, 'Mail Cliente':s.mailCliente, 'Conductor':s.conductorNombre, 'DNI Conductor':s.conductorDni,
-        'Estado':s.estado,'N° Reclamo':s.numeroReclamo, 'Aseguradora Cliente':s.aseguradoEn, 'Póliza Cliente':s.polizaCliente,
-        'Marca Veh. Cliente':s.marcaCliente, 'Modelo Veh. Cliente':s.modeloCliente, 'Dominio Veh. Cliente':s.dominioCliente, 'Año Veh. Cliente': s.anoCliente,
-        'Fecha Siniestro': formatDate(s.fechaSiniestro), 'Hora Siniestro': s.horaSiniestro, 'Lugar Siniestro': s.lugarSiniestro,
-        'Tercero': s.nombreTercero, 'Aseguradora Tercero':s.contra, 'Tel. Tercero':s.telefonoTercero, 'Mail Tercero':s.mailTercero,
-        'Marca Veh. Tercero': s.marcaTercero, 'Modelo Veh. Tercero': s.modeloTercero, 'Dominio Veh. Tercero': s.dominioTercero, 'Año Veh. Tercero': s.anoTercero,
-        'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,
-        'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,
-        'Historial Tareas':hist, 'Historial Mediaciones':med
-    };
-  });
-  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
-}
-function exportData(){const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=`siniestros_${todayYMD}.json`;a.click();}
-function importData(){document.getElementById('importInput').click();}
-function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}};r.readAsText(f);ev.target.value='';}
-function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'}).map(([k,l])=>{ let val = s[k]; if (k === 'marcaCliente') val = `${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`; if (k === 'marcaTercero') val = `${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`; return `<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(val):(val||'S/D')}</div>`}).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
-function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
-function mostrarAlertaDeMediaciones(mediacionesPorAlertar) {
-    if (mediacionesPorAlertar.length === 0) return; const modal = document.getElementById('alertModal'); if (modal.classList.contains('active')) return;
-    const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${mediacionesPorAlertar.map(alert => `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}', '${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}', '${alert.item.id}')">🗓️ Posponer (Fecha)</button><button class="btn btn-info btn-sm" onclick="snoozeMediacion(30)">🕒 30 min</button><button class="btn btn-info btn-sm" onclick="snoozeMediacion(60)">🕒 1 hs</button></div></div></div>`).join('')}</div>`;
-    modal.querySelector('.modal-content').innerHTML = content; modal.classList.add('active');
-    mediacionesPorAlertar.forEach(alerta => {const s = siniestrosData.find(s => s.id === alerta.siniestro.id); const m = s.mediaciones_list.find(m => m.id === alerta.item.id); if (m) m.alertaMostrada = true;}); saveData();
-}
-function revisarMediacionesVencidasAlCargar() {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesVencidas = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));mostrarAlertaDeMediaciones(mediacionesVencidas);}
-function iniciarVigilanteDeMediaciones() {setInterval(() => {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesPorAlertar = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));if (mediacionesPorAlertar.length > 0) { mostrarAlertaDeMediaciones(mediacionesPorAlertar); }}, 60000);}
-function marcarMediacionCompleta(siniestroId, mediacionId) {const s = siniestrosData.find(x => x.id === siniestroId);if(s) { const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) m.completed = true; }saveData(); renderAll(); closeModal('alertModal');}
-function showRescheduleModal(siniestroId, mediacionId) {
-    const modal = document.getElementById('rescheduleModal'); const s = siniestrosData.find(x => x.id === siniestroId); const m = s.mediaciones_list.find(y => y.id === mediacionId);
-    const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar Mediación</h3><p><b>Caso:</b> ${s.cliente}</p><div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div><div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div><div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button></div>`;
-    modal.querySelector('.modal-content').innerHTML = content; closeModal('alertModal'); modal.classList.add('active');
-}
-function confirmReschedule(siniestroId, mediacionId) {
-    const s = siniestrosData.find(x => x.id === siniestroId); if(s) {const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) { m.fecha = document.getElementById('rescheduleDate').value; m.hora = document.getElementById('rescheduleTime').value; m.alertaMostrada = false;}}
-    saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
-}
-function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
-
-
-// --- INICIO: LÓGICA DE CARTA PATROCINIO (SIN MODIFICACIONES FUNCIONALES) ---
-function startLetterGeneration(siniestroId) {
-    const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return;
-
-    // Reconstruimos el string del vehículo para mantener la compatibilidad
-    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', ');
-    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', ');
-
-    const modal = document.getElementById('letterGenerationModal');
-    const formHTML = `
-        <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span>
-        <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2>
-        <p style="font-size: 0.9em; margin-bottom: 20px;">Verifica y completa los datos. La IA se encargará de redactar la carta con un tono profesional.</p>
-        <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')">
-            <div class="info-grid">
-                <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div>
-                <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div>
-                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div>
-                <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div>
-                <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div>
-                <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div>
-                <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div>
-                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div>
-                <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div>
-                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div>
-                <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div>
-                <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${vehiculoTerceroString}" placeholder="Marca, Modelo, Año, Dominio"></div>
-            </div>
-
-            <div class="form-section" style="border-left: 4px solid var(--secondary-color); margin-top: 15px;">
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <input type="checkbox" id="conductorEsTitular" onchange="toggleConductorFields(!this.checked)" style="width: auto;" checked>
-                    <label for="conductorEsTitular" style="margin-bottom: 0; font-weight: 700;">¿El conductor es el mismo titular del vehículo?</label>
-                </div>
-                <div id="conductorFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
-                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos del conductor.</p>
-                    <div class="info-grid">
-                        <div class="form-group"><label>Nombre y Apellido del Conductor</label><input type="text" id="letterConductorNombre" value="${s.conductorNombre || ''}"></div>
-                        <div class="form-group"><label>DNI del Conductor (Opcional)</label><input type="text" id="letterConductorDni" value="${s.conductorDni || ''}"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato detallado de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente. La IA lo redactará formalmente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó la prioridad de paso, etc." required></textarea></div></div>
-            
-            <div class="form-section" style="border-left: 4px solid var(--warning-color); margin-top: 15px;">
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width: auto;">
-                    <label for="checkLesiones" style="margin-bottom: 0; font-weight: 700;">¿Hubo Lesiones?</label>
-                </div>
-                <div id="lesionesFields" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
-                    <p style="font-size:0.9em; margin-bottom:10px;">Completa los datos de las lesiones (todos opcionales).</p>
-                    <div class="form-group"><label>Descripción de las lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div>
-                    <div class="form-group"><label>Monto reclamado por Lesiones/Incapacidad</label><input type="number" id="letterLesionesMonto" placeholder="0"></div>
-                </div>
-            </div>
-
-            <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div>
-        </form>
-    `;
-    modal.querySelector('.modal-content').innerHTML = formHTML;
-    modal.classList.add('active');
-}
-
-function toggleLesiones(checked) {
-    document.getElementById('lesionesFields').style.display = checked ? 'block' : 'none';
-}
-
-function toggleConductorFields(show) {
-    document.getElementById('conductorFields').style.display = show ? 'block' : 'none';
-}
-
-async function processLetterData(event, siniestroId) {
-    event.preventDefault();
-    const s = siniestrosData.find(x => x.id === siniestroId);
-    if (!s) { alert("Error: No se pudo encontrar el siniestro para procesar."); return; }
-
-    const checkLesionesEl = document.getElementById('checkLesiones');
-    const hayLesiones = checkLesionesEl ? checkLesionesEl.checked : false;
-    const montoLesionesEl = document.getElementById('letterLesionesMonto');
-    const montoLesiones = montoLesionesEl ? parseFloat(montoLesionesEl.value) || 0 : 0;
-    const montoMateriales = parseFloat(s.presupuesto) || 0;
-
-    let relatoOriginal = document.getElementById('letterRelato').value;
-    const conductorEsTitular = document.getElementById('conductorEsTitular').checked;
-    if (!conductorEsTitular) {
-        const nombreConductor = document.getElementById('letterConductorNombre').value;
-        const dniConductor = document.getElementById('letterConductorDni').value;
-        let infoConductor = `Aclaración: El vehículo de mi mandante era conducido por el/la Sr./Sra. ${nombreConductor}`;
-        if (dniConductor) {
-            infoConductor += `, DNI N° ${dniConductor}`;
-        }
-        infoConductor += '. ';
-        relatoOriginal = infoConductor + relatoOriginal;
-    }
-
-
-    const data = {
-        siniestro: s,
-        lugarEmision: document.getElementById('letterLugar').value,
-        destinatario: document.getElementById('letterDestinatario').value,
-        destinatarioDomicilio: document.getElementById('letterDestinatarioDom').value,
-        polizaCliente: document.getElementById('letterPolizaCliente').value,
-        aseguradoraCliente: document.getElementById('letterAseguradoraCliente').value,
-        fechaSiniestro: formatDate(document.getElementById('letterFechaSiniestro').value),
-        horaSiniestro: document.getElementById('letterHoraSiniestro').value,
-        lugarSiniestro: document.getElementById('letterLugarSiniestro').value,
-        vehiculoCliente: document.getElementById('letterVehiculoCliente').value,
-        partesDanadas: document.getElementById('letterPartesDanadas').value,
-        nombreTercero: document.getElementById('letterNombreTercero').value,
-        vehiculoTercero: document.getElementById('letterVehiculoTercero').value,
-        relato: relatoOriginal,
-        infracciones: document.getElementById('letterInfracciones').value,
-        hayLesiones: hayLesiones,
-        lesionesDesc: hayLesiones ? document.getElementById('letterLesionesDesc').value : '',
-        montoLesiones: montoLesiones,
-        montoTotal: montoMateriales + montoLesiones
-    };
-
-    const modalContent = document.getElementById('letterGenerationModal').querySelector('.modal-content');
-    modalContent.innerHTML = `<h2 style="text-align:center; margin-bottom: 20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center; margin-bottom:10px; font-style:italic; color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
-
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progress-text');
-    let width = 0;
-    const interval = setInterval(() => {
-        width += 5;
-        if (width >= 95) return;
-        progressBar.style.width = width + '%';
-        if (width > 30 && width < 70) progressText.textContent = "Analizando mecánica del hecho...";
-        else if (width >= 70) progressText.textContent = "Dando formato legal...";
-    }, 150);
-
-    const result = await callAIApi(data);
-    clearInterval(interval);
-    progressBar.style.width = '100%';
-
-    let resultHTML;
-    if (result.success) {
-        progressText.textContent = "¡Generado con éxito!";
-        resultHTML = `
-            <div class="print-area">
-                <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
-                <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2>
-                <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea>
-            </div>
-            <div class="action-buttons no-print" style="margin-top:15px;">
-                <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button>
-                <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
-                <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button>
-                <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button>
-            </div>
-        `;
-    } else {
-        progressText.textContent = "Error en la generación";
-        resultHTML = `
-             <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span>
-             <h2 style="color: var(--danger-color); text-align: center;">❌ Ocurrió un Error</h2>
-             <p style="margin-top: 15px; font-size: 1em; text-align: center;">No se pudo generar la carta. Motivo:</p>
-             <textarea readonly style="width:100%; height: 200px; margin-top: 10px; background-color: #f3f3f3; border: 1px solid #ccc; padding: 10px; font-family: monospace;">${result.error}</textarea>
-             <div class="action-buttons no-print" style="margin-top:15px;">
-                <button class="btn btn-warning" onclick="closeModal('letterGenerationModal')">Cerrar</button>
-             </div>
-             <p style="font-size: 0.8em; text-align: center; margin-top: 20px; color: #555;"><b>Sugerencia:</b> Revisa los logs de tu servidor en Render.com para ver el error detallado. El problema suele ser una API Key de Gemini incorrecta o que el servidor tarda demasiado en responder.</p>
-        `;
-    }
-    modalContent.innerHTML = resultHTML;
-}
-
-async function callAIApi(data) {
-    console.log("Enviando datos al servidor para generar la carta:", data);
-    const API_URL = 'https://portal-backend-production-3ea3.up.railway.app/api/generar-carta';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            let errorJson;
-            try {
-                errorJson = JSON.parse(errorText);
-                throw new Error(errorJson.detalle || errorJson.error || 'Error desconocido del servidor.');
-            } catch (e) {
-                throw new Error(errorText || `Error del servidor: ${response.status}`);
-            }
-        }
-
-        const generatedLetter = await response.text();
-        return { success: true, letter: generatedLetter };
-
-    } catch (error) {
-        clearTimeout(timeoutId);
-        console.error("Error al llamar a la API del servidor:", error);
-        
-        let errorMessage = `ERROR: No se pudo conectar con el servidor para generar la carta.`;
-        if (error.name === 'AbortError') {
-            errorMessage = `ERROR: La solicitud al servidor ha tardado demasiado (más de 60 segundos) y fue cancelada. Esto puede deberse a que el servidor está "despertando" (cold start). Por favor, intenta de nuevo en un momento.`;
-        } else {
-             errorMessage += `\n\nDetalles: ${error.message}`;
-        }
-        
-        return { success: false, error: errorMessage };
-    }
-}
-
-function copyToClipboard(elementId) {
-    const textArea = document.getElementById(elementId);
-    textArea.select();
-    document.execCommand('copy');
-    updateDataStatus('✅ Texto copiado al portapapeles.');
-}
-
-function downloadAsPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    const text = document.getElementById('generatedLetterText').value;
-    const splitText = doc.splitTextToSize(text, 180); 
-    const pageHeight = doc.internal.pageSize.getHeight();
-    let y = 15;
-    doc.setFontSize(11);
-    for (let i = 0; i < splitText.length; i++) {
-        if (y > pageHeight - 15) { doc.addPage(); y = 15; }
-        doc.text(splitText[i], 15, y);
-        y += 7;
-    }
-    doc.save('CartaDePatrocinio.pdf');
-}
-
-function downloadAsWord() {
-    const text = document.getElementById('generatedLetterText').value;
-    const content = `
-        <!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body { font-family: Arial, sans-serif; font-size: 12pt; }
-        pre { font-family: Times New Roman, sans-serif; font-size: 12pt; white-space: pre-wrap; word-wrap: break-word; }
-        </style></head><body><pre>${text}</pre></body></html>`;
-    const blob = htmlDocx.asBlob(content);
-    saveAs(blob, 'CartaDePatrocinio.doc');
-}
-
-
-document.addEventListener('DOMContentLoaded',()=>{
-  const digitalClockElement = document.getElementById('digital-clock'); const hourHand = document.querySelector('.hour-hand'); const minHand = document.querySelector('.min-hand'); const secondHand = document.querySelector('.second-hand');
-  function updateClock() {
-      const now = new Date();
-      const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      digitalClockElement.innerHTML = `${now.toLocaleDateString('es-AR', dateOptions)}<br>${now.toLocaleTimeString('es-AR', { hour12: false })}`;
-      const seconds = now.getSeconds(); secondHand.style.transform = `rotate(${((seconds / 60) * 360) + 90}deg)`;
-      const mins = now.getMinutes(); minHand.style.transform = `rotate(${((mins / 60) * 360) + ((seconds/60)*6) + 90}deg)`;
-      const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
-  }
-  updateClock(); setInterval(updateClock, 1000);
-
-  // --- INICIO: FORMULARIO MODIFICADO ---
-  document.getElementById('newSiniestroModal').querySelector('.modal-content').innerHTML=`
-    <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2 style="margin-bottom:14px;">➕ Nuevo Siniestro</h2>
-    <form id="newSiniestroForm">
-        <fieldset class="form-section">
-            <legend><h4>Datos del Cliente y Conductor</h4></legend>
-            <div class="info-grid">
-                <div class="form-group"><label>Cliente (Titular) *</label><input required id="newCliente" type="text"></div>
-                <div class="form-group"><label>DNI (Titular)</label><input id="newDni" type="number"></div>
-                <div class="form-group"><label>Celular</label><input id="newCelular" type="tel"></div>
-                <div class="form-group"><label>Mail</label><input id="newMailCliente" type="email"></div>
-                <div class="form-group"><label>Nombre Conductor</label><input id="newConductorNombre" placeholder="Dejar en blanco si es el titular"></div>
-                <div class="form-group"><label>DNI Conductor</label><input id="newConductorDni" type="number" placeholder="Opcional"></div>
-            </div>
-        </fieldset>
-        <fieldset class="form-section">
-            <legend><h4>Vehículo del Cliente y Póliza</h4></legend>
-            <div class="info-grid">
-                <div class="form-group"><label>Aseguradora Cliente</label><input id="newAseguradoEn"></div>
-                <div class="form-group"><label>Póliza Cliente</label><input id="newPolizaCliente"></div>
-                <div class="form-group"><label>Marca</label><input id="newMarcaCliente" list="marcasVehiculosList" autocomplete="off"></div>
-                <div class="form-group"><label>Modelo</label><input id="newModeloCliente" type="text"></div>
-                <div class="form-group"><label>Dominio</label><input id="newDominioCliente" type="text"></div>
-                <div class="form-group"><label>Año</label><select id="newAnoCliente"></select></div>
-            </div>
-        </fieldset>
-        <fieldset class="form-section">
-            <legend><h4>Datos del Siniestro</h4></legend>
-            <div class="info-grid">
-                <div class="form-group"><label>Fecha Siniestro</label><input id="newFechaSiniestro" type="date"></div>
-                <div class="form-group"><label>Hora Siniestro</label><input id="newHoraSiniestro" type="time"></div>
-                <div class="form-group"><label>Lugar Siniestro</label><input id="newLugarSiniestro"></div>
-            </div>
-        </fieldset>
-         <fieldset class="form-section">
-            <legend><h4>Datos del Tercero</h4></legend>
-            <div class="info-grid">
-                <div class="form-group"><label>Nombre Tercero</label><input id="newNombreTercero"></div>
-                <div class="form-group"><label>Aseguradora Tercero</label><input id="newContra"></div>
-                <div class="form-group"><label>Teléfono Tercero</label><input id="newTelefonoTercero" type="tel" placeholder="Opcional"></div>
-                <div class="form-group"><label>Mail Tercero</label><input id="newMailTercero" type="email" placeholder="Opcional"></div>
-                <div class="form-group"><label>Marca Veh.</label><input id="newMarcaTercero" list="marcasVehiculosList" autocomplete="off"></div>
-                <div class="form-group"><label>Modelo Veh.</label><input id="newModeloTercero" type="text"></div>
-                <div class="form-group"><label>Dominio Veh.</label><input id="newDominioTercero" type="text"></div>
-                <div class="form-group"><label>Año Veh.</label><select id="newAnoTercero"></select></div>
-            </div>
-        </fieldset>
-        <fieldset class="form-section">
-            <legend><h4>Gestión Interna</h4></legend>
-            <div class="info-grid">
-                <div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="DEMORADA">Demorada</option><option value="SIN INICIAR">Sin iniciar</option></select></div>
-                <div class="form-group"><label>N° Reclamo</label><input id="newNumeroReclamo"></div>
-                <div class="form-group"><label>Presupuesto</label><input id="newPresupuesto" type="number"></div>
-            </div>
-            <div class="form-group" style="margin-top:10px;"><label>Tarea Inicial</label><textarea id="newObservacion" rows="2"></textarea></div>
-            <div class="form-group"><label>Fecha Revisión Tarea</label><input id="newFechaRevision" type="date"></div>
-        </fieldset>
-        <div style="text-align:center;margin-top:12px;"><button class="btn btn-success" type="submit">Guardar</button></div>
-    </form>`;
-    // --- FIN: FORMULARIO MODIFICADO ---
-
-    document.getElementById('siniestroSelectorModal').querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2 style="margin-bottom:12px;">Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" onchange="loadSiniestroInfo()"></select></div>`;
-    
-    // --- INICIO: LÓGICA PARA NUEVOS CAMPOS ---
-    function popularSelectsAnio() {
-        const currentYear = new Date().getFullYear();
-        const startYear = 1960;
-        const selects = [document.getElementById('newAnoCliente'), document.getElementById('newAnoTercero')];
-        selects.forEach(select => {
-            if(!select) return;
-            select.innerHTML = '<option value="">Seleccionar</option>';
-            for (let year = currentYear + 5; year >= startYear; year--) {
-                select.innerHTML += `<option value="${year}">${year}</option>`;
-            }
-        });
-    }
-
-    function gestionarDatalistMarcas() {
-        const marcasGuardadas = JSON.parse(localStorage.getItem('marcas_vehiculos') || '[]');
-        const datalist = document.getElementById('marcasVehiculosList');
-        datalist.innerHTML = marcasGuardadas.map(m => `<option value="${m}"></option>`).join('');
-
-        const inputs = [document.getElementById('newMarcaCliente'), document.getElementById('newMarcaTercero')];
-        inputs.forEach(input => {
-            if(!input) return;
-            input.addEventListener('blur', () => {
-                const nuevaMarca = input.value.trim().toUpperCase();
-                if (nuevaMarca && !marcasGuardadas.includes(nuevaMarca)) {
-                    marcasGuardadas.push(nuevaMarca);
-                    localStorage.setItem('marcas_vehiculos', JSON.stringify(marcasGuardadas));
-                    datalist.innerHTML += `<option value="${nuevaMarca}"></option>`;
-                }
-            });
-        });
-    }
-
-    popularSelectsAnio();
-    gestionarDatalistMarcas();
-    
-    document.getElementById('newSiniestroForm').addEventListener('submit',e=>{
-        e.preventDefault();
-        const n = {
-            id: generateId({}),
-            cliente: document.getElementById('newCliente').value.toUpperCase(),
-            dni: document.getElementById('newDni').value,
-            celular: document.getElementById('newCelular').value,
-            mailCliente: document.getElementById('newMailCliente').value,
-            conductorNombre: document.getElementById('newConductorNombre').value,
-            conductorDni: document.getElementById('newConductorDni').value,
-            estado: document.getElementById('newEstado').value,
-            aseguradoEn: document.getElementById('newAseguradoEn').value.toUpperCase(),
-            polizaCliente: document.getElementById('newPolizaCliente').value,
-            marcaCliente: document.getElementById('newMarcaCliente').value.toUpperCase(),
-            modeloCliente: document.getElementById('newModeloCliente').value,
-            dominioCliente: document.getElementById('newDominioCliente').value.toUpperCase(),
-            anoCliente: document.getElementById('newAnoCliente').value,
-            contra: document.getElementById('newContra').value.toUpperCase(),
-            numeroReclamo: document.getElementById('newNumeroReclamo').value,
-            presupuesto: document.getElementById('newPresupuesto').value,
-            fechaSiniestro: document.getElementById('newFechaSiniestro').value,
-            horaSiniestro: document.getElementById('newHoraSiniestro').value,
-            lugarSiniestro: document.getElementById('newLugarSiniestro').value,
-            nombreTercero: document.getElementById('newNombreTercero').value,
-            mailTercero: document.getElementById('newMailTercero').value,
-            telefonoTercero: document.getElementById('newTelefonoTercero').value,
-            marcaTercero: document.getElementById('newMarcaTercero').value.toUpperCase(),
-            modeloTercero: document.getElementById('newModeloTercero').value,
-            dominioTercero: document.getElementById('newDominioTercero').value.toUpperCase(),
-            anoTercero: document.getElementById('newAnoTercero').value,
-            observaciones: [],
-            mediaciones_list: []
-        };
-        const txt=document.getElementById('newObservacion').value; const rev=document.getElementById('newFechaRevision').value;
-        if(txt&&rev){n.observaciones.push({id:generateId({}),fecha:todayYMD,texto:txt,proximaRevision:rev,completed:false, fechaTrabajado: todayYMD});}
-        updateSiniestroNextRevision(n);siniestrosData.push(n);saveData();renderAll();closeModal('newSiniestroModal');e.target.reset();
-    });
-    // --- FIN: LÓGICA PARA NUEVOS CAMPOS ---
-
-
-  loadData(); renderAll(); revisarMediacionesVencidasAlCargar(); iniciarVigilanteDeMediaciones();
-});
-window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))closeModal(e.target.id);});
-</script>
-
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-<script>
-// --- TODA LA LÓGICA DE GOOGLE DRIVE API PERMANECE IGUAL ---
-const GD_CLIENT_ID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com'; const GD_API_KEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM'; const GD_SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events'; const GD_DATA_FILE='datos_planilla_siniestros.json'; const GD_DOCS_ROOT='Planilla_Siniestros_Documentos'; let tokenClient; let gapiReady = false, gisReady = false; let gdDataFileId = null, gdDocsFolderId = null;
-function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-async function initializeGapiClient() {try {await gapi.client.init({apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']}); gapiReady = true; maybeEnableButtons();} catch (e) { console.error("Error GAPI client init:", e); updateDataStatus('❌ Error al inicializar APIs de Google.', true); }}
-function gisLoaded() {try {tokenClient = google.accounts.oauth2.initTokenClient({client_id: GD_CLIENT_ID, scope: GD_SCOPES, callback: tokenResponseCallback,}); gisReady = true; maybeEnableButtons();} catch(e) { console.error("Error GIS client init:", e); updateDataStatus('❌ Error al inicializar autenticación de Google.', true); }}
-function maybeEnableButtons() {if (gapiReady && gisReady) {document.getElementById('connectDriveBtn').onclick = handleAuthClick;}}
-function handleAuthClick() {if (tokenClient) {tokenClient.requestAccessToken({ prompt: 'consent' });}}
-async function tokenResponseCallback(resp) {
-    if (resp.error) {updateDataStatus('❌ Error de autenticación. Verifique que las pop-ups no estén bloqueadas.', true); return;}
-    try {gapi.client.setToken({ access_token: resp.access_token }); document.getElementById('connectDriveBtn').style.display = 'none'; const saveBtn = document.getElementById('saveToDriveBtn'); const loadBtn = document.getElementById('loadFromDriveBtn'); if (saveBtn) {saveBtn.style.display = 'inline-block'; saveBtn.onclick = saveDataToDrive;} if (loadBtn) {loadBtn.style.display = 'inline-block'; loadBtn.onclick = loadDataFromDrive;} updateDataStatus('✅ Conectado. Buscando archivo de respaldo...', false); await findDataFile();} catch (e) {console.error("Error en callback:", e); updateDataStatus('❌ Ocurrió un error después de conectar.', true);}
-}
-async function addEventToGoogleCalendar(siniestro, mediacion) {
-    if (!gapi.client.getToken()?.access_token) { updateDataStatus('⚠️ No conectado a Google. No se puede crear el evento.', true); return; }
-    updateDataStatus('🗓️ Creando evento en Google Calendar...', false);
-    try {const eventStartTime = new Date(`${mediacion.fecha}T${mediacion.hora}:00`); const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000); const event = {'summary': `Mediación: ${siniestro.cliente}`,'description': `Caso: ${siniestro.cliente} vs ${siniestro.contra || 'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo || 'S/N'}\n\nDescripción: ${mediacion.texto}`,'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' },}; await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event }); updateDataStatus('✅ Evento creado en Google Calendar.', false);} catch(e) {console.error("Error creando evento:", e); updateDataStatus(`❌ Error al crear evento: ${e.result?.error?.message || 'Error desconocido.'}`, true);}
-}
-async function findDataFile(){
-  updateDataStatus('🔎 Buscando archivo de Drive...', false);
-  try {const response = await gapi.client.drive.files.list({ q: `name='${GD_DATA_FILE}' and trashed=false`, fields: 'files(id, name)', spaces: 'drive' }); if (response.result.files && response.result.files.length > 0) {gdDataFileId = response.result.files[0].id; updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.', false);} else {updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).', false);}} catch(e) {console.error("Error buscando archivo:", e); updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`, true);}
-}
-async function saveDataToDrive() {
-    if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if (!confirm('¿Guardar datos en Drive?')) return;
-    updateDataStatus('💾 Guardando en Drive...', false); const content = JSON.stringify(siniestrosData, null, 2); const metadata = { name: GD_DATA_FILE, mimeType: 'application/json' };
-    try {let request; if (gdDataFileId) {request = gapi.client.request({path: `/upload/drive/v3/files/${gdDataFileId}`, method: 'PATCH', params: { uploadType: 'media' }, body: content});} else { request = gapi.client.drive.files.create({resource: metadata, media: { mimeType: 'application/json', body: content }, fields: 'id'});} const response = await request; if (response.result.id) gdDataFileId = response.result.id; updateDataStatus('✅ Guardado en Drive con éxito.', false);} catch (e) {console.error('Error en saveDataToDrive:', e); updateDataStatus(`❌ Error al guardar: ${e.result?.error?.message || e.message}`, true);}
-}
-async function loadDataFromDrive(){
-  if (!gapi.client.getToken()?.access_token) return alert('No está conectado a Google.'); if(!gdDataFileId){ alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.'); return; } if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?')) return;
-  updateDataStatus('📥 Cargando desde Drive...', false);
-  try {const response = await gapi.client.drive.files.get({ fileId: gdDataFileId, alt: 'media' }); const imported = JSON.parse(response.body); if (!Array.isArray(imported)) throw new Error('Formato de archivo inválido.'); siniestrosData = sanitizeData(imported); saveData(); renderAll(); updateDataStatus('✅ Datos cargados desde Drive.', false);} catch(e) {console.error("Error cargando datos:", e); updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message || e.message}`, true);}
-}
-async function showDocumentModal(sid) {if (!gapi.client.getToken()?.access_token) return alert('Conecta con Google Drive primero.'); currentSiniestroIdForDocs = sid; localFilesForUpload = []; const s = siniestrosData.find(x => x.id === sid); if (!s) return; document.getElementById('documentModalTitle').innerText = `Documentos: ${getDisplayName(s)}`; document.getElementById('documentModal').classList.add('active'); renderLocalFileList(); await renderDriveFileList(); const area = document.getElementById('uploadArea'); ['dragenter','dragover','dragleave','drop'].forEach(eN=>area.addEventListener(eN,e=>{e.preventDefault();e.stopPropagation();},false)); ['dragenter','dragover'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#eef5ff',false)); ['dragleave','drop'].forEach(eN=>area.addEventListener(eN,()=>area.style.background='#f9f9f9',false)); area.addEventListener('drop', e=>processFiles(e.dataTransfer.files), false);}
-function processFiles(files) { for (const file of files) { const reader = new FileReader(); reader.onload = e => { localFilesForUpload.push({id:'local_'+Date.now(), name: file.name, type: file.type||'application/octet-stream', size: file.size, dataUrl: e.target.result}); renderLocalFileList(); }; reader.readAsDataURL(file); } }
-function renderLocalFileList() { const listEl = document.getElementById('localDocumentList'); listEl.innerHTML = localFilesForUpload.length ? '<h4>Archivos listos para subir:</h4>' + localFilesForUpload.map(f => `<li><span>${f.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${f.id}')">X</button></li>`).join('') : '<p style="font-style: italic; color: #666; text-align:center;">No hay archivos nuevos para subir.</p>'; }
-function removeLocalFile(id) { localFilesForUpload = localFilesForUpload.filter(f => f.id !== id); renderLocalFileList(); }
-function triggerLocalFileUpload() { const up=document.getElementById('documentUploadInput'); up.onchange = e=>processFiles(e.target.files); up.value=''; up.click(); }
-async function saveDocumentsToDrive() { if (localFilesForUpload.length === 0) return alert("No hay archivos nuevos para guardar."); document.getElementById('driveDocumentList').innerHTML += '<div class="spinner"></div>'; const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; try { if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); for (const file of localFilesForUpload) { await uploadDocumentContent(file.dataUrl, file.name, file.type, clientFolder); } localFilesForUpload = []; renderLocalFileList(); await renderDriveFileList(); } catch (e) { alert("Error al subir los archivos."); await renderDriveFileList(); } }
-async function renderDriveFileList() { const listEl = document.getElementById('driveDocumentList'); listEl.innerHTML = '<div class="spinner"></div>'; try { const s=siniestrosData.find(x=>x.id===currentSiniestroIdForDocs); if (!gdDocsFolderId) gdDocsFolderId = await getOrCreateFolder(GD_DOCS_ROOT); const folderName=`${s.cliente.replace(/[\/\\?%*:|"<>]/g,'-')} - Reclamo ${s.numeroReclamo||s.id.slice(-4)}`; const clientFolder = await getOrCreateFolder(folderName, gdDocsFolderId); const r = await gapi.client.drive.files.list({ q: `'${clientFolder}' in parents and trashed=false`, fields: 'files(id,name,webViewLink)' }); listEl.innerHTML = r.result.files.length ? r.result.files.map(f => `<li><a href="${f.webViewLink}" target="_blank">${f.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${f.id}')">X</button></li>`).join('') : '<li>Sin documentos en Drive.</li>'; } catch (e) { listEl.innerHTML = '<li>Error al cargar documentos.</li>'; } }
-async function deleteDocument(fid) { if (confirm('¿Eliminar documento de Drive?')) try { await gapi.client.drive.files.delete({ fileId: fid }); await renderDriveFileList(); } catch (e) { alert('Error al eliminar'); } }
-async function getOrCreateFolder(name, parentId = null) { let q=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`; if (parentId) q+=` and '${parentId}' in parents`; const r = await gapi.client.drive.files.list({ q, fields: 'files(id)' }); if (r.result.files.length) return r.result.files[0].id; const meta = { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId && { parents: [parentId] }) }; const newF = await gapi.client.drive.files.create({ resource: meta, fields: 'id' }); return newF.result.id; }
-async function uploadDocumentContent(content,fileName,mimeType,parentId){ const boundary = '-------314159265358979323846'; const metadata = { name: fileName, mimeType: mimeType, ...(parentId && { parents: [parentId] }) }; const base64Data = content.split(',')[1]; const body = [ `--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(metadata), `--${boundary}`, `Content-Type: ${mimeType}`, 'Content-Transfer-Encoding: base64', '', base64Data, `--${boundary}--` ].join('\r\n'); const request = await gapi.client.request({ path: '/upload/drive/v3/files', method: 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: body }); return request.result.id; }
-</script>
-</body>
-</html>
-}
-y con esto me despido gracias por todo, queiro que me digas que el archivo esta bien y que es el correcto para usarlo
-me pasas el de familia tambien?
