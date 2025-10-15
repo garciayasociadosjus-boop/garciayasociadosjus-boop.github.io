@@ -246,17 +246,29 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-// Configuración de Google API - Simplificada como en las planillas originales
+// Configuración de Google API
 const CLIENT_ID = '724822437938-1h6d9g6h5d4f7g8h9j0k1l2m3n4o5p6q.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyB1H2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7';
 const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest', 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
 const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar';
 
-// Inicialización al cargar la página
+// Inicialización al cargar la página - CORREGIDO
 document.addEventListener('DOMContentLoaded', function() {
+    // Primero cargar los datos locales
+    try {
+        loadData();
+        updateDataStatus('✅ Datos locales cargados');
+    } catch (error) {
+        console.error('Error al cargar datos:', error);
+        updateDataStatus('❌ Error al cargar datos', true);
+        siniestrosData = []; // Inicializar con array vacío si hay error
+    }
+    
+    // Luego inicializar Google API
     gapiLoaded();
     gisLoaded();
-    loadData();
+    
+    // Finalmente renderizar todo
     renderAll();
     updateClock();
     setInterval(updateClock, 1000);
@@ -297,7 +309,7 @@ function maybeEnableButtons() {
     }
 }
 
-// Función de autenticación - Simplificada
+// Función de autenticación
 function handleAuthClick() {
     tokenClient.callback = async (resp) => {
         if (resp.error !== undefined) {
@@ -316,13 +328,12 @@ function handleAuthClick() {
     }
 }
 
-// Guardar datos en Drive - Simplificado
+// Guardar datos en Drive
 function saveToDrive() {
     const data = JSON.stringify(siniestrosData, null, 2);
     const fileName = `siniestros_${getTodayYMD()}.json`;
     const fileContent = new Blob([data], {type: 'application/json'});
     
-    // Crear metadata del archivo
     const metadata = {
         name: fileName,
         mimeType: 'application/json',
@@ -352,7 +363,7 @@ function saveToDrive() {
     });
 }
 
-// Cargar datos desde Drive - Simplificado
+// Cargar datos desde Drive
 function loadFromDrive() {
     gapi.client.drive.files.list({
         q: "name contains 'siniestros_' and trashed=false",
@@ -386,7 +397,7 @@ function loadFromDrive() {
     });
 }
 
-// Agregar evento a Google Calendar - Simplificado
+// Agregar evento a Google Calendar
 function addEventToGoogleCalendar(siniestro, mediacion) {
     const event = {
         summary: `Mediación: ${siniestro.cliente}`,
@@ -409,90 +420,192 @@ function addEventToGoogleCalendar(siniestro, mediacion) {
     });
 }
 
-function saveData(){localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData));updateDataStatus('✅ Datos guardados localmente');}
+// FUNCIONES DE LOCAL STORAGE - CORREGIDAS
+function saveData(){
+    try {
+        localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
+        updateDataStatus('✅ Datos guardados localmente');
+    } catch (error) {
+        console.error('Error al guardar datos:', error);
+        updateDataStatus('❌ Error al guardar datos', true);
+    }
+}
+
 function loadData(){
-  const saved=localStorage.getItem('planilla_siniestros_data');
-  siniestrosData = saved ? JSON.parse(saved) : [];
-  siniestrosData=sanitizeData(siniestrosData);
-  updateDataStatus(saved?'✅ Datos locales cargados':'📋 Planilla lista para usar.');
+    try {
+        const saved = localStorage.getItem('planilla_siniestros_data');
+        if (saved) {
+            siniestrosData = JSON.parse(saved);
+            siniestrosData = sanitizeData(siniestrosData);
+            updateDataStatus('✅ Datos locales cargados');
+        } else {
+            siniestrosData = [];
+            updateDataStatus('📋 Planilla lista para usar');
+        }
+    } catch (error) {
+        console.error('Error al cargar datos:', error);
+        siniestrosData = [];
+        updateDataStatus('❌ Error al cargar datos, iniciando con planilla vacía', true);
+    }
 }
+
 function sanitizeData(data){
-  (data||[]).forEach(s=>{
-    s.id=s.id||generateId(s);
-    s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[];
-    s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[];
-    s.observaciones.forEach(o=>{
-        o.id=o.id||generateId({});
-        o.texto = o.texto || '';
-        o.textoPrivado = o.textoPrivado || '';
-        o.completed=typeof o.completed==='boolean'?o.completed:false;
+    if (!Array.isArray(data)) {
+        console.warn('Datos no son un array, convirtiendo...');
+        data = [];
+    }
+    
+    (data||[]).forEach(s=>{
+        if (!s || typeof s !== 'object') return;
+        
+        s.id = s.id || generateId(s);
+        s.observaciones = Array.isArray(s.observaciones) ? s.observaciones : [];
+        s.mediaciones_list = Array.isArray(s.mediaciones_list) ? s.mediaciones_list : [];
+        
+        s.observaciones.forEach(o=>{
+            o.id = o.id || generateId({});
+            o.texto = o.texto || '';
+            o.textoPrivado = o.textoPrivado || '';
+            o.completed = typeof o.completed === 'boolean' ? o.completed : false;
+        });
+        
+        s.mediaciones_list.forEach(m=>{
+            m.id = m.id || generateId({});
+            m.completed = typeof m.completed === 'boolean' ? m.completed : false;
+            m.alertaMostrada = typeof m.alertaMostrada === 'boolean' ? m.alertaMostrada : false;
+            m.avisoPrevio = m.avisoPrevio || '1';
+        });
+        
+        try {
+            updateSiniestroNextRevision(s);
+        } catch (error) {
+            console.error('Error actualizando próxima revisión:', error);
+        }
     });
-    s.mediaciones_list.forEach(m=>{
-        m.id=m.id||generateId({});
-        m.completed=typeof m.completed==='boolean'?m.completed:false;
-        m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;
-        m.avisoPrevio = m.avisoPrevio || '1';
-    });
-    updateSiniestroNextRevision(s);
-  });
-  return data;
+    return data;
 }
-function updateDataStatus(msg,err=false){
-  const el=document.getElementById('dataStatus');
-  el.textContent=msg;
-  el.style.background=err?'#f8d7da':'#d4edda';
-  el.style.color=err?'#721c24':'#155724';
+
+function updateDataStatus(msg, isError = false){
+    const el = document.getElementById('dataStatus');
+    if (el) {
+        el.textContent = msg;
+        el.style.background = isError ? '#f8d7da' : '#d4edda';
+        el.style.color = isError ? '#721c24' : '#155724';
+    }
 }
+
 function updateDriveStatus(msg){
-  const el=document.getElementById('driveStatus');
-  el.textContent=msg;
-  el.style.display='block';
-  el.style.background='#d1ecf1';
-  el.style.color='#0c5460';
-  setTimeout(() => { el.style.display='none'; }, 5000);
+    const el = document.getElementById('driveStatus');
+    if (el) {
+        el.textContent = msg;
+        el.style.display = 'block';
+        el.style.background = '#d1ecf1';
+        el.style.color = '#0c5460';
+        setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
 }
-function getTodayYMD(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-const todayYMD=getTodayYMD();
-function formatDate(d){if(!d) return 'No definida'; const date = new Date(d); const userTimezoneOffset = date.getTimezoneOffset() * 60000; const adjustedDate = new Date(date.getTime() + userTimezoneOffset); const [y,m,day]=adjustedDate.toISOString().split('T')[0].split('-'); return `${day}/${m}/${y}`;}
-function formatTime(t){if(!t) return ''; return t;}
-function isToday(d){return d&&d===todayYMD}
-function isPastDue(d){return d&&d<todayYMD}
-function getDaysDifference(d){if(!d) return 999;return Math.ceil((new Date(d)-new Date(todayYMD))/86400000)}
-function generateId(it){return `EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1000)}`}
-function getDisplayName(s){return `${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`}
-function formatCurrency(v){if(v===null||v===undefined||v==='') return 'S/D';return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v)}
+
+function getTodayYMD(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const todayYMD = getTodayYMD();
+
+function formatDate(d){
+    if (!d) return 'No definida'; 
+    const date = new Date(d); 
+    const userTimezoneOffset = date.getTimezoneOffset() * 60000; 
+    const adjustedDate = new Date(date.getTime() + userTimezoneOffset); 
+    const [y,m,day] = adjustedDate.toISOString().split('T')[0].split('-'); 
+    return `${day}/${m}/${y}`;
+}
+
+function formatTime(t){
+    if (!t) return ''; 
+    return t;
+}
+
+function isToday(d){
+    return d && d === todayYMD;
+}
+
+function isPastDue(d){
+    return d && d < todayYMD;
+}
+
+function getDaysDifference(d){
+    if (!d) return 999;
+    return Math.ceil((new Date(d) - new Date(todayYMD)) / 86400000);
+}
+
+function generateId(it){
+    return `EVT_${(it.cliente || 'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+}
+
+function getDisplayName(s){
+    return `${s.cliente || 'S/N'} - Reclamo: ${s.numeroReclamo || 'S/N'} (${s.estado || 'S/E'})`;
+}
+
+function formatCurrency(v){
+    if (v === null || v === undefined || v === '') return 'S/D';
+    return new Intl.NumberFormat('es-AR', {style: 'currency', currency: 'ARS'}).format(v);
+}
+
 function toggleFormVisibility(formId) {
     const formElement = document.getElementById(formId);
     const iconElement = formElement.previousElementSibling.querySelector('.toggle-icon');
     if (formElement.style.display === 'none' || formElement.style.display === '') {
         formElement.style.display = 'block';
-        if(iconElement) iconElement.textContent = '➖';
+        if (iconElement) iconElement.textContent = '➖';
     } else {
         formElement.style.display = 'none';
-        if(iconElement) iconElement.textContent = '➕';
+        if (iconElement) iconElement.textContent = '➕';
     }
 }
+
 function updateSiniestroNextRevision(s){
-  const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  if(future.length){
-      s.fechaRevision=future[0].proximaRevision;
-      s.observacion=future[0].texto;
-      if(future[0].textoPrivado) s.observacion += ` (Privado: ${future[0].textoPrivado})`;
+    if (!s) return;
+    
+    const future = (s.observaciones || []).filter(o => !o.completed && o.proximaRevision).sort((a,b) => a.proximaRevision.localeCompare(b.proximaRevision));
+    if (future.length) {
+        s.fechaRevision = future[0].proximaRevision;
+        s.observacion = future[0].texto;
+        if (future[0].textoPrivado) s.observacion += ` (Privado: ${future[0].textoPrivado})`;
+    } else {
+        s.fechaRevision = '';
+        s.observacion = 'No hay tareas pendientes';
     }
-  else {s.fechaRevision='';s.observacion='No hay tareas pendientes';}
 }
-function toggleCompleted(e,sid,oid, type='task'){
+
+function toggleCompleted(e, sid, oid, type = 'task'){
     e.stopPropagation();
     const s = siniestrosData.find(x => x.id === sid);
+    if (!s) return;
+    
     let item;
     if (type === 'task') item = s.observaciones.find(y => y.id === oid);
     else if (type === 'mediacion') item = s.mediaciones_list.find(y => y.id === oid);
     
-    if(item) item.completed = !item.completed;
+    if (item) item.completed = !item.completed;
     if (type === 'task') updateSiniestroNextRevision(s);
-    saveData(); renderAll();
+    saveData(); 
+    renderAll();
 }
-function renderAll(){siniestrosData.forEach(updateSiniestroNextRevision);renderWeeklyGlance();renderAdvanceNotices();renderDashboardLists();renderAllSiniestrosList();}
+
+function renderAll(){
+    try {
+        siniestrosData.forEach(updateSiniestroNextRevision);
+        renderWeeklyGlance();
+        renderAdvanceNotices();
+        renderDashboardLists();
+        renderAllSiniestrosList();
+    } catch (error) {
+        console.error('Error al renderizar:', error);
+        updateDataStatus('❌ Error al actualizar la vista', true);
+    }
+}
+
 function renderWeeklyGlance() {
     const container = document.getElementById('weeklyGlanceContainer');
     if (!container) return;
@@ -567,7 +680,8 @@ function renderAdvanceNotices() {
     });
 
     itemsToNotice.sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
-    document.getElementById('advanceNoticeCount').textContent = itemsToNotice.length;
+    const countElement = document.getElementById('advanceNoticeCount');
+    if (countElement) countElement.textContent = itemsToNotice.length;
 
     if (itemsToNotice.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: #666;">No hay avisos previos para los próximos días.</p>';
@@ -642,69 +756,82 @@ function toggleVisibility(elementId) {
 }
 
 function renderDashboardLists(){
-  const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'})));
-  const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha})));
-  const allItems = [...tasks,...mediaciones];
+    const tasks = siniestrosData.flatMap(s => (s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'})));
+    const mediaciones = siniestrosData.flatMap(s => (s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha})));
+    const allItems = [...tasks,...mediaciones];
 
-  const today=allItems.filter(t=>isToday(t.proximaRevision));
-  const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
-  renderReviewList('todayReviews',today,'No hay eventos para hoy','today');
-  renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue');
-  renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming');
+    const today = allItems.filter(t=>isToday(t.proximaRevision));
+    const overdue = allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+    const upcoming = allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision));
+    renderReviewList('todayReviews',today,'No hay eventos para hoy','today');
+    renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue');
+    renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming');
 }
-function renderReviewList(id,items,empty,type){
-  const c=document.getElementById(id);
-  const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
-  if(!items.length){c.innerHTML=`<p style="color:${listColor};text-align:center;">${empty}</p>`;return;}
-  c.innerHTML=items.map(item=>{
-    let dateInfo = '';
-    if (type === 'today') dateInfo = 'HOY';
-    else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.proximaRevision)}`;
-    else dateInfo = `En ${getDaysDifference(item.proximaRevision)} días - ${formatDate(item.proximaRevision)}`;
+
+function renderReviewList(id, items, empty, type){
+    const c = document.getElementById(id);
+    if (!c) return;
     
-    let label = '';
-    let timeLabel = item.type === 'mediacion' ? formatTime(item.hora) : '';
-    if(item.type === 'mediacion') label = 'MEDIACIÓN:';
-    const toggleFunc = `toggleCompleted(event,'${item.siniestro.id}','${item.id}', '${item.type}')`;
-    const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.textoPrivado}</div>` : '';
-    return `<div class="review-item">
-      <button class="complete-btn" onclick="${toggleFunc}">✔</button>
-      <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
-        <div class="review-date">${dateInfo} ${timeLabel}</div>
-        <div class="review-client">${item.siniestro.cliente}</div>
-        <div class="review-obs"><b>${label}</b> ${item.texto}</div>
-        ${privateNoteHtml}
-      </div>
-    </div>`;
-  }).join('');
+    const listColor = (type === 'today' || type === 'overdue' || type === 'pending-reviews') ? 'var(--light-text)' : 'rgba(0,0,0,0.6)';
+    if (!items.length) {
+        c.innerHTML = `<p style="color:${listColor};text-align:center;">${empty}</p>`;
+        return;
+    }
+    
+    c.innerHTML = items.map(item => {
+        let dateInfo = '';
+        if (type === 'today') dateInfo = 'HOY';
+        else if (type === 'overdue') dateInfo = `VENCIDA - ${formatDate(item.proximaRevision)}`;
+        else dateInfo = `En ${getDaysDifference(item.proximaRevision)} días - ${formatDate(item.proximaRevision)}`;
+        
+        let label = '';
+        let timeLabel = item.type === 'mediacion' ? formatTime(item.hora) : '';
+        if (item.type === 'mediacion') label = 'MEDIACIÓN:';
+        const toggleFunc = `toggleCompleted(event,'${item.siniestro.id}','${item.id}', '${item.type}')`;
+        const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<div class="review-obs-private">🔒 ${item.textoPrivado}</div>` : '';
+        return `<div class="review-item">
+            <button class="complete-btn" onclick="${toggleFunc}">✔</button>
+            <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')">
+                <div class="review-date">${dateInfo} ${timeLabel}</div>
+                <div class="review-client">${item.siniestro.cliente}</div>
+                <div class="review-obs"><b>${label}</b> ${item.texto}</div>
+                ${privateNoteHtml}
+            </div>
+        </div>`;
+    }).join('');
 }
+
 function renderAllSiniestrosList(){
-  const sterm=document.getElementById('searchInput').value.toLowerCase();
-  const estado=document.getElementById('estadoFilter').value;
-  const filtrados=siniestrosData.filter(s=>{
-    const searchString = [s.cliente,s.dni,s.celular,s.mailCliente,s.estado,s.aseguradoEn,s.contra,s.numeroReclamo,s.presupuesto,s.indemnizacion,s.honorarios,s.acuerdo,s.fechaPago,s.factura,s.marcaCliente,s.modeloCliente,s.dominioCliente,s.marcaTercero,s.modeloTercero,s.dominioTercero].filter(Boolean).join(' ').toLowerCase();
-    const matchS=!sterm||searchString.includes(sterm);
-    const matchE=!estado||s.estado===estado;
-    return matchS&&matchE;
-  }).sort((a,b)=>(a.fechaRevision||'9999').localeCompare(b.fechaRevision||'9999'));
-  document.getElementById('allSiniestros').innerHTML=filtrados.length?filtrados.map(s=>{
-    const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision);
-    const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
-    const lastWorkedObs = (s.observaciones || []).filter(o => o.fechaTrabajado).sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
-    const lastWorkedDate = lastWorkedObs ? lastWorkedObs.fechaTrabajado : null;
-    return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
-      <div class="review-item-content">
-        <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>
-            ${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}
-        </div>
-        <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div>
-        <div class="review-obs">${s.observacion}</div>
-      </div>
-    </div>`;
-  }).join(''):'<p>No se encontraron siniestros.</p>';
+    const sterm = document.getElementById('searchInput').value.toLowerCase();
+    const estado = document.getElementById('estadoFilter').value;
+    const filtrados = siniestrosData.filter(s => {
+        const searchString = [s.cliente,s.dni,s.celular,s.mailCliente,s.estado,s.aseguradoEn,s.contra,s.numeroReclamo,s.presupuesto,s.indemnizacion,s.honorarios,s.acuerdo,s.fechaPago,s.factura,s.marcaCliente,s.modeloCliente,s.dominioCliente,s.marcaTercero,s.modeloTercero,s.dominioTercero].filter(Boolean).join(' ').toLowerCase();
+        const matchS = !sterm || searchString.includes(sterm);
+        const matchE = !estado || s.estado === estado;
+        return matchS && matchE;
+    }).sort((a,b) => (a.fechaRevision || '9999').localeCompare(b.fechaRevision || '9999'));
+    
+    const container = document.getElementById('allSiniestros');
+    if (!container) return;
+    
+    container.innerHTML = filtrados.length ? filtrados.map(s => {
+        const pending = (s.observaciones || []).some(o => !o.completed && o.proximaRevision);
+        const cls = `review-item ${!pending ? 'completed' : ''} ${isToday(s.fechaRevision) ? 'today' : ''} ${isPastDue(s.fechaRevision) ? 'overdue' : ''}`;
+        const lastWorkedObs = (s.observaciones || []).filter(o => o.fechaTrabajado).sort((a, b) => b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0];
+        const lastWorkedDate = lastWorkedObs ? lastWorkedObs.fechaTrabajado : null;
+        return `<div class="${cls}" onclick="showSiniestroModal('${s.id}')">
+            <div class="review-item-content">
+                <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                    <div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>
+                    ${lastWorkedDate ? `<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>` : ''}
+                </div>
+                <div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo || 'S/N'}</div>
+                <div class="review-obs">${s.observacion}</div>
+            </div>
+        </div>`;
+    }).join('') : '<p>No se encontraron siniestros.</p>';
 }
+
 function showNewSiniestroModal(){
     const modal = document.getElementById('newSiniestroModal');
     const content = `
@@ -733,6 +860,7 @@ function showNewSiniestroModal(){
     modal.querySelector('.modal-content').innerHTML = content;
     modal.classList.add('active');
 }
+
 function addNewSiniestro(e){
     e.preventDefault();
     const newSiniestro = {
@@ -759,9 +887,10 @@ function addNewSiniestro(e){
     renderAll();
     closeModal('newSiniestroModal');
 }
+
 function showSiniestroSelectorModal(){
-  const modal = document.getElementById('siniestroSelectorModal');
-  const content = `
+    const modal = document.getElementById('siniestroSelectorModal');
+    const content = `
         <span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span>
         <h2>Seleccionar Siniestro</h2>
         <div class="form-group">
@@ -774,91 +903,177 @@ function showSiniestroSelectorModal(){
         <div style="text-align:center; margin-top:20px;">
             <button class="btn" onclick="closeModal('siniestroSelectorModal')">Cancelar</button>
         </div>
-  `;
-  modal.querySelector('.modal-content').innerHTML = content;
-  modal.classList.add('active');
+    `;
+    modal.querySelector('.modal-content').innerHTML = content;
+    modal.classList.add('active');
 }
-function loadSiniestroInfo(){const id=document.getElementById('siniestroSelector').value;if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);}}
-function closeModal(id){document.getElementById(id).classList.remove('active');editingSiniestroId=null;editingField=null;}
+
+function loadSiniestroInfo(){
+    const id = document.getElementById('siniestroSelector').value;
+    if (id) {
+        closeModal('siniestroSelectorModal');
+        showSiniestroModal(id);
+    }
+}
+
+function closeModal(id){
+    const modal = document.getElementById(id);
+    if (modal) modal.classList.remove('active');
+    editingSiniestroId = null;
+    editingField = null;
+}
+
 function showSiniestroModal(id){
-  const s=siniestrosData.find(x=>x.id===id);if(!s)return;
-  updateSiniestroNextRevision(s);
-  const aseguradoras = [...new Set(siniestrosData.map(s => s.aseguradoEn).filter(Boolean))];
-  const contras = [...new Set(siniestrosData.map(s => s.contra).filter(Boolean))];
-  const datalistsHTML = `<datalist id="aseguradorasList">${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
-  const html=`
-    <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
-    <div class="info-grid">${Object.entries({
-        cliente:'Cliente (Titular)',dni:'DNI (Titular)',celular:'Celular',mailCliente:'Mail Cliente',estado:'Estado',
-        conductorNombre: 'Nombre Conductor', conductorDni: 'DNI Conductor',
-        aseguradoEn:'Aseguradora Cliente', polizaCliente: 'Póliza Cliente', 
-        marcaCliente: 'Marca Veh. Cliente', modeloCliente: 'Modelo Veh. Cliente', dominioCliente: 'Dominio Veh. Cliente', anoCliente: 'Año Veh. Cliente',
-        contra:'Aseguradora Tercero', numeroReclamo:'N° Reclamo',
-        fechaSiniestro: 'Fecha Siniestro', horaSiniestro: 'Hora Siniestro', lugarSiniestro: 'Lugar Siniestro',
-        nombreTercero: 'Nombre Tercero', mailTercero:'Mail Tercero', telefonoTercero: 'Teléfono Tercero',
-        marcaTercero: 'Marca Veh. Tercero', modeloTercero: 'Modelo Veh. Tercero', dominioTercero: 'Dominio Veh. Tercero', anoTercero: 'Año Veh. Tercero',
-        presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',
-        acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'
-    }).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${
-        /presupuesto|indemnizacion|honorarios/.test(k) ? formatCurrency(s[k]) : (k === 'fechaSiniestro' ? formatDate(s[k]) : (s[k] || 'S/D'))
-    }</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+    const s = siniestrosData.find(x => x.id === id);
+    if (!s) return;
     
-    <div class="form-section" style="margin-top: 20px;">
-        <h4>💰 Información de Cobro</h4>
-        <div class="info-grid">
-            <div class="info-item">
-                <div class="info-label">Cobrado por Cliente</div>
-                <div class="info-value editable-field" id="field-cobradoCliente" onclick="editField('${s.id}','cobradoCliente', this)">${s.cobradoCliente || 'No'}</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Cobrado por Estudio</div>
-                <div class="info-value editable-field" id="field-cobradoEstudio" onclick="editField('${s.id}','cobradoEstudio', this)">${s.cobradoEstudio || 'No'}</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Fecha de Cobro</div>
-                <div class="info-value editable-field" id="field-fechaCobro" onclick="editField('${s.id}','fechaCobro', this)">${s.fechaCobro ? formatDate(s.fechaCobro) : 'S/F'}</div>
+    updateSiniestroNextRevision(s);
+    const aseguradoras = [...new Set(siniestrosData.map(s => s.aseguradoEn).filter(Boolean))];
+    const contras = [...new Set(siniestrosData.map(s => s.contra).filter(Boolean))];
+    const datalistsHTML = `<datalist id="aseguradorasList">${aseguradoras.map(a => `<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
+    
+    const html = `
+        <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span>
+        <h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
+        <div class="info-grid">${Object.entries({
+            cliente:'Cliente (Titular)',dni:'DNI (Titular)',celular:'Celular',mailCliente:'Mail Cliente',estado:'Estado',
+            conductorNombre: 'Nombre Conductor', conductorDni: 'DNI Conductor',
+            aseguradoEn:'Aseguradora Cliente', polizaCliente: 'Póliza Cliente', 
+            marcaCliente: 'Marca Veh. Cliente', modeloCliente: 'Modelo Veh. Cliente', dominioCliente: 'Dominio Veh. Cliente', anoCliente: 'Año Veh. Cliente',
+            contra:'Aseguradora Tercero', numeroReclamo:'N° Reclamo',
+            fechaSiniestro: 'Fecha Siniestro', horaSiniestro: 'Hora Siniestro', lugarSiniestro: 'Lugar Siniestro',
+            nombreTercero: 'Nombre Tercero', mailTercero:'Mail Tercero', telefonoTercero: 'Teléfono Tercero',
+            marcaTercero: 'Marca Veh. Tercero', modeloTercero: 'Modelo Veh. Tercero', dominioTercero: 'Dominio Veh. Tercero', anoTercero: 'Año Veh. Tercero',
+            presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',
+            acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura'
+        }).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}', this)">${
+            /presupuesto|indemnizacion|honorarios/.test(k) ? formatCurrency(s[k]) : (k === 'fechaSiniestro' ? formatDate(s[k]) : (s[k] || 'S/D'))
+        }</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div>
+        
+        <div class="form-section" style="margin-top: 20px;">
+            <h4>💰 Información de Cobro</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Cobrado por Cliente</div>
+                    <div class="info-value editable-field" id="field-cobradoCliente" onclick="editField('${s.id}','cobradoCliente', this)">${s.cobradoCliente || 'No'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Cobrado por Estudio</div>
+                    <div class="info-value editable-field" id="field-cobradoEstudio" onclick="editField('${s.id}','cobradoEstudio', this)">${s.cobradoEstudio || 'No'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Fecha de Cobro</div>
+                    <div class="info-value editable-field" id="field-fechaCobro" onclick="editField('${s.id}','fechaCobro', this)">${s.fechaCobro ? formatDate(s.fechaCobro) : 'S/F'}</div>
+                </div>
             </div>
         </div>
-    </div>
+        
+        <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
+            <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto para el Cliente (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Internas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
+            <div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div>
+        </div>
+        <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
     
-    <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div>
-    <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px;">
-        <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto para el Cliente (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Internas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
-        <div class="form-section"><h4 onclick="toggleFormVisibility('mediacion-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none; margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha de Mediación</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora de Mediación</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div>
-    </div>
-    <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn btn-info" onclick="printHistorial('${s.id}')">🖨️ Historial</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-info" onclick="showDocumentModal('${s.id}')">📁 Documentos</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`;
-  const m=document.getElementById('siniestroInfoModal');m.querySelector('.modal-content').innerHTML=html;m.classList.add('active');
+    const m = document.getElementById('siniestroInfoModal');
+    if (m) {
+        m.querySelector('.modal-content').innerHTML = html;
+        m.classList.add('active');
+    }
 }
+
 function renderHistoryList(s){
     const tasks = (s.observaciones||[]).map(o => ({...o, type: 'task', date: o.proximaRevision}));
     const mediaciones = (s.mediaciones_list||[]).map(m => ({...m, type: 'mediacion', date: m.fecha}));
     const allEvents = [...tasks, ...mediaciones].sort((a,b) => (b.date||'').localeCompare(a.date||''));
     return allEvents.length ? allEvents.map(item => {
         let tagClass, tagText, itemClass, dateLabel, dateValue, deleteFunc, timeValue = '';
-        if(item.type === 'task') {tagClass = 'tag-task'; tagText = 'TAREA'; itemClass = ''; dateLabel = 'Creación'; dateValue = item.fecha; deleteFunc = `deleteObs('${s.id}','${item.id}')`;} 
-        else {tagClass = 'tag-mediacion'; tagText = 'MEDIACIÓN'; itemClass = 'history-item-mediacion'; dateLabel = 'Fecha'; dateValue = item.fecha; timeValue = formatTime(item.hora); deleteFunc = `deleteMediacion('${s.id}','${item.id}')`;}
+        if (item.type === 'task') {
+            tagClass = 'tag-task'; 
+            tagText = 'TAREA'; 
+            itemClass = ''; 
+            dateLabel = 'Creación'; 
+            dateValue = item.fecha; 
+            deleteFunc = `deleteObs('${s.id}','${item.id}')`;
+        } else {
+            tagClass = 'tag-mediacion'; 
+            tagText = 'MEDIACIÓN'; 
+            itemClass = 'history-item-mediacion'; 
+            dateLabel = 'Fecha'; 
+            dateValue = item.fecha; 
+            timeValue = formatTime(item.hora); 
+            deleteFunc = `deleteMediacion('${s.id}','${item.id}')`;
+        }
         const privateNoteHtml = item.type === 'task' && item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '';
         return `<div class="history-item ${itemClass} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex; align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type === 'task' && item.fechaTrabajado ? `<div class="history-date" style="color: #27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>` : ''}<div>${item.texto}</div>${privateNoteHtml}${item.type === 'task' ? `<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>` : ''}<div style="margin-top:6px;display:flex;gap:6px;">${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>` : ''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`;
     }).join('') : '<p style="font-size:.8em;">Sin eventos.</p>';
 }
-function editObs(sid,oid){
-  const s=siniestrosData.find(x=>x.id===sid); const o=s.observaciones.find(k=>k.id===oid);
-  const el=document.getElementById(`task-item-${o.id}`);
-  el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
+
+function editObs(sid, oid){
+    const s = siniestrosData.find(x => x.id === sid);
+    const o = s.observaciones.find(k => k.id === oid);
+    const el = document.getElementById(`task-item-${o.id}`);
+    if (!el) return;
+    
+    el.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size: 1rem; min-height: 60px;">${o.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`;
 }
-function saveObs(sid,oid){
-  const s=siniestrosData.find(x=>x.id===sid); const o=s.observaciones.find(k=>k.id===oid);
-  o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;
-  o.textoPrivado=document.getElementById(`edit-obs-private-${o.id}`).value;
-  o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value;
-  updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);
+
+function saveObs(sid, oid){
+    const s = siniestrosData.find(x => x.id === sid);
+    const o = s.observaciones.find(k => k.id === oid);
+    o.texto = document.getElementById(`edit-obs-text-${o.id}`).value;
+    o.textoPrivado = document.getElementById(`edit-obs-private-${o.id}`).value;
+    o.proximaRevision = document.getElementById(`edit-obs-revision-${o.id}`).value;
+    updateSiniestroNextRevision(s);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
 }
-function deleteObs(sid,oid){if(!confirm('¿Eliminar tarea?'))return;const s=siniestrosData.find(x=>x.id===sid);s.observaciones=s.observaciones.filter(o=>o.id!==oid);updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid);}
-function addMediacion(e,sid){e.preventDefault();const s=siniestrosData.find(x=>x.id===sid);const newMediacion = { id:generateId({}), fecha:document.getElementById('newMediacionDate').value, hora:document.getElementById('newMediacionTime').value, texto:document.getElementById('newMediacionText').value, completed:false, alertaMostrada: false, avisoPrevio: document.getElementById('newMediacionAvisoPrevio').value };s.mediaciones_list.push(newMediacion);saveData(); renderAll(); showSiniestroModal(sid);addEventToGoogleCalendar(s, newMediacion);}
-function deleteMediacion(sid,mid){if(!confirm('¿Eliminar mediación?'))return;const s=siniestrosData.find(x=>x.id===sid);s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid);saveData();renderAll();showSiniestroModal(sid);}
+
+function deleteObs(sid, oid){
+    if (!confirm('¿Eliminar tarea?')) return;
+    const s = siniestrosData.find(x => x.id === sid);
+    s.observaciones = s.observaciones.filter(o => o.id !== oid);
+    updateSiniestroNextRevision(s);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
+}
+
+function addMediacion(e, sid){
+    e.preventDefault();
+    const s = siniestrosData.find(x => x.id === sid);
+    const newMediacion = {
+        id: generateId({}), 
+        fecha: document.getElementById('newMediacionDate').value, 
+        hora: document.getElementById('newMediacionTime').value, 
+        texto: document.getElementById('newMediacionText').value, 
+        completed: false, 
+        alertaMostrada: false, 
+        avisoPrevio: document.getElementById('newMediacionAvisoPrevio').value
+    };
+    s.mediaciones_list.push(newMediacion);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
+    addEventToGoogleCalendar(s, newMediacion);
+}
+
+function deleteMediacion(sid, mid){
+    if (!confirm('¿Eliminar mediación?')) return;
+    const s = siniestrosData.find(x => x.id === sid);
+    s.mediaciones_list = s.mediaciones_list.filter(m => m.id !== mid);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
+}
+
 function editField(sid, field, element) {
-    if (editingField) return; editingSiniestroId = sid; editingField = field;
-    const s = siniestrosData.find(x => x.id === sid); const currentValue = s[field] || '';
+    if (editingField) return;
+    editingSiniestroId = sid;
+    editingField = field;
+    const s = siniestrosData.find(x => x.id === sid);
+    const currentValue = s[field] || '';
     let inputType = 'text';
     
     if (field === 'cobradoCliente' || field === 'cobradoEstudio') {
@@ -888,7 +1103,7 @@ function editField(sid, field, element) {
         input.value = currentValue;
     }
     
-    input.style.cssText='width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
+    input.style.cssText = 'width:100%;font-size:0.85em;border:1px solid #667eea;padding:2px;';
     if (field === 'aseguradoEn') input.setAttribute('list', 'aseguradorasList');
     if (field === 'contra') input.setAttribute('list', 'contrasList');
     if (/marca/.test(field)) input.setAttribute('list', 'marcasVehiculosList');
@@ -902,40 +1117,146 @@ function editField(sid, field, element) {
     };
     input.addEventListener('blur', save); 
     input.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); }});
-    element.innerHTML = ''; element.appendChild(input); input.focus(); 
+    element.innerHTML = ''; 
+    element.appendChild(input); 
+    input.focus(); 
     const valLength = input.value.length; 
     input.setSelectionRange(valLength, valLength);
 }
-function deleteSiniestro(id){if(!confirm('¿Eliminar siniestro y todo su historial?'))return;siniestrosData=siniestrosData.filter(s=>s.id!==id);saveData();renderAll();closeModal('siniestroInfoModal');}
-function addObservation(e,sid){
-    e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid);
-    s.observaciones.push({id:generateId({}), fecha:todayYMD, texto:document.getElementById('newObsText').value, textoPrivado:document.getElementById('newObsTextPrivate').value, proximaRevision:document.getElementById('newRevisionDate').value, completed:false, fechaTrabajado: todayYMD});
-    updateSiniestroNextRevision(s); saveData(); renderAll(); showSiniestroModal(sid);
+
+function deleteSiniestro(id){
+    if (!confirm('¿Eliminar siniestro y todo su historial?')) return;
+    siniestrosData = siniestrosData.filter(s => s.id !== id);
+    saveData();
+    renderAll();
+    closeModal('siniestroInfoModal');
 }
+
+function addObservation(e, sid){
+    e.preventDefault();
+    const s = siniestrosData.find(x => x.id === sid);
+    s.observaciones.push({
+        id: generateId({}), 
+        fecha: todayYMD, 
+        texto: document.getElementById('newObsText').value, 
+        textoPrivado: document.getElementById('newObsTextPrivate').value, 
+        proximaRevision: document.getElementById('newRevisionDate').value, 
+        completed: false, 
+        fechaTrabajado: todayYMD
+    });
+    updateSiniestroNextRevision(s);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
+}
+
 function exportToExcel(){
-  const rows=siniestrosData.map(s=>{
-    const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado || ''}`).join(' | ');
-    const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');
-    return {
-        'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular, 'Mail Cliente':s.mailCliente, 'Conductor':s.conductorNombre, 'DNI Conductor':s.conductorDni,
-        'Estado':s.estado,'N° Reclamo':s.numeroReclamo, 'Aseguradora Cliente':s.aseguradoEn, 'Póliza Cliente':s.polizaCliente,
-        'Marca Veh. Cliente':s.marcaCliente, 'Modelo Veh. Cliente':s.modeloCliente, 'Dominio Veh. Cliente':s.dominioCliente, 'Año Veh. Cliente': s.anoCliente,
-        'Fecha Siniestro': formatDate(s.fechaSiniestro), 'Hora Siniestro': s.horaSiniestro, 'Lugar Siniestro': s.lugarSiniestro,
-        'Tercero': s.nombreTercero, 'Aseguradora Tercero':s.contra, 'Tel. Tercero':s.telefonoTercero, 'Mail Tercero':s.mailTercero,
-        'Marca Veh. Tercero': s.marcaTercero, 'Modelo Veh. Tercero': s.modeloTercero, 'Dominio Veh. Tercero': s.dominioTercero, 'Año Veh. Tercero': s.anoTercero,
-        'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,
-        'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,
-        'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro':formatDate(s.fechaCobro),
-        'Historial Tareas':hist, 'Historial Mediaciones':med
-    };
-  });
-  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`);
+    const rows = siniestrosData.map(s => {
+        const hist = (s.observaciones||[]).map(o => `${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado || ''}`).join(' | ');
+        const med = (s.mediaciones_list||[]).map(m => `${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');
+        return {
+            'Cliente': s.cliente,
+            'DNI': s.dni,
+            'Celular': s.celular, 
+            'Mail Cliente': s.mailCliente, 
+            'Conductor': s.conductorNombre, 
+            'DNI Conductor': s.conductorDni,
+            'Estado': s.estado,
+            'N° Reclamo': s.numeroReclamo, 
+            'Aseguradora Cliente': s.aseguradoEn, 
+            'Póliza Cliente': s.polizaCliente,
+            'Marca Veh. Cliente': s.marcaCliente, 
+            'Modelo Veh. Cliente': s.modeloCliente, 
+            'Dominio Veh. Cliente': s.dominioCliente, 
+            'Año Veh. Cliente': s.anoCliente,
+            'Fecha Siniestro': formatDate(s.fechaSiniestro), 
+            'Hora Siniestro': s.horaSiniestro, 
+            'Lugar Siniestro': s.lugarSiniestro,
+            'Tercero': s.nombreTercero, 
+            'Aseguradora Tercero': s.contra, 
+            'Tel. Tercero': s.telefonoTercero, 
+            'Mail Tercero': s.mailTercero,
+            'Marca Veh. Tercero': s.marcaTercero, 
+            'Modelo Veh. Tercero': s.modeloTercero, 
+            'Dominio Veh. Tercero': s.dominioTercero, 
+            'Año Veh. Tercero': s.anoTercero,
+            'Próxima Revisión': formatDate(s.fechaRevision),
+            'Última Tarea': s.observacion,
+            'Presupuesto': s.presupuesto,
+            'Indemnización': s.indemnizacion,
+            'Honorarios': s.honorarios,
+            'Cobrado Cliente': s.cobradoCliente,
+            'Cobrado Estudio': s.cobradoEstudio,
+            'Fecha Cobro': formatDate(s.fechaCobro),
+            'Historial Tareas': hist, 
+            'Historial Mediaciones': med
+        };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Siniestros');
+    XLSX.writeFile(wb, `Siniestros_${todayYMD}.xlsx`);
 }
-function exportData(){const data=JSON.stringify(siniestrosData,null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=`siniestros_${todayYMD}.json`;a.click();}
-function importData(){document.getElementById('importInput').click();}
-function handleImport(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}};r.readAsText(f);ev.target.value='';}
-function printFicha(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha Cobro'}).map(([k,l])=>{ let val = s[k]; if (k === 'marcaCliente') val = `${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`; if (k === 'marcaTercero') val = `${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`; return `<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(val):(k === 'fechaCobro' ? formatDate(val) : (val||'S/D'))}</div>`}).join('')}</div></div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
-function printHistorial(id){const s=siniestrosData.find(x=>x.id===id);if(!s)return;const hist=renderHistoryList(s);const html=`<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;const w=window.open('','_blank');w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.print();w.close();},250);}
+
+function exportData(){
+    const data = JSON.stringify(siniestrosData, null, 2);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([data], {type: 'application/json'}));
+    a.download = `siniestros_${todayYMD}.json`;
+    a.click();
+}
+
+function importData(){
+    document.getElementById('importInput').click();
+}
+
+function handleImport(ev){
+    const f = ev.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = e => {
+        try {
+            const imp = JSON.parse(e.target.result);
+            if (Array.isArray(imp) && confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)) {
+                siniestrosData = sanitizeData(imp);
+                saveData();
+                renderAll();
+            }
+        } catch (err) {
+            alert('Error al importar el archivo.');
+        }
+    };
+    r.readAsText(f);
+    ev.target.value = '';
+}
+
+function printFicha(id){
+    const s = siniestrosData.find(x => x.id === id);
+    if (!s) return;
+    const html = `<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({
+        cliente:'Cliente',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',acuerdo:'Acuerdo',fechaPago:'Fecha Pago',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha Cobro'
+    }).map(([k,l]) => { 
+        let val = s[k]; 
+        if (k === 'marcaCliente') val = `${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`; 
+        if (k === 'marcaTercero') val = `${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`; 
+        return `<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios/.test(k)?formatCurrency(val):(k === 'fechaCobro' ? formatDate(val) : (val||'S/D'))}</div>`;
+    }).join('')}</div></div>`;
+    const w = window.open('','_blank');
+    w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);
+    w.document.close();
+    setTimeout(() => {w.print();w.close();}, 250);
+}
+
+function printHistorial(id){
+    const s = siniestrosData.find(x => x.id === id);
+    if (!s) return;
+    const hist = renderHistoryList(s);
+    const html = `<div class="print-area"><h2>Historial de Eventos</h2><h3>${getDisplayName(s)}</h3>${hist}</div>`;
+    const w = window.open('','_blank');
+    w.document.write(`<html><head><title>Historial</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`);
+    w.document.close();
+    setTimeout(() => {w.print();w.close();}, 250);
+}
 
 // Funciones del reloj
 function updateClock() {
@@ -948,13 +1269,18 @@ function updateClock() {
     const minDeg = minutes * 6 + seconds * 0.1;
     const secDeg = seconds * 6;
     
-    document.querySelector('.hour-hand').style.transform = `rotate(${hourDeg}deg)`;
-    document.querySelector('.min-hand').style.transform = `rotate(${minDeg}deg)`;
-    document.querySelector('.second-hand').style.transform = `rotate(${secDeg}deg)`;
+    const hourHand = document.querySelector('.hour-hand');
+    const minHand = document.querySelector('.min-hand');
+    const secondHand = document.querySelector('.second-hand');
+    const digitalClock = document.getElementById('digital-clock');
+    
+    if (hourHand) hourHand.style.transform = `rotate(${hourDeg}deg)`;
+    if (minHand) minHand.style.transform = `rotate(${minDeg}deg)`;
+    if (secondHand) secondHand.style.transform = `rotate(${secDeg}deg)`;
     
     const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const dateString = now.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    document.getElementById('digital-clock').innerHTML = `${dateString}<br>${timeString}`;
+    if (digitalClock) digitalClock.innerHTML = `${dateString}<br>${timeString}`;
 }
 
 // Funciones de mediaciones
@@ -970,26 +1296,52 @@ function mostrarAlertaDeMediaciones(mediacionesPorAlertar) {
     mediacionesPorAlertar.forEach(alerta => {const s = siniestrosData.find(s => s.id === alerta.siniestro.id); const m = s.mediaciones_list.find(m => m.id === alerta.item.id); if (m) m.alertaMostrada = true;}); 
     saveData();
 }
-function revisarMediacionesVencidasAlCargar() {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesVencidas = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));mostrarAlertaDeMediaciones(mediacionesVencidas);}
-function iniciarVigilanteDeMediaciones() {setInterval(() => {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesPorAlertar = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));if (mediacionesPorAlertar.length > 0) { mostrarAlertaDeMediaciones(mediacionesPorAlertar); }}, 60000);}
+
+function revisarMediacionesVencidasAlCargar() { 
+    const ahora = new Date();
+    const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+    const mediacionesVencidas = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));
+    mostrarAlertaDeMediaciones(mediacionesVencidas);
+}
+
+function iniciarVigilanteDeMediaciones() { 
+    setInterval(() => {const ahora = new Date();const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;const mediacionesPorAlertar = siniestrosData.flatMap(s => (s.mediaciones_list || []).filter(m => isToday(m.fecha) && m.hora && m.hora <= horaActual && !m.completed && !m.alertaMostrada).map(m => ({ siniestro: s, item: m })));if (mediacionesPorAlertar.length > 0) { mostrarAlertaDeMediaciones(mediacionesPorAlertar); }}, 60000);
+}
+
 function marcarMediacionCompleta(siniestroId, mediacionId) {const s = siniestrosData.find(x => x.id === siniestroId);if(s) { const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) m.completed = true; }saveData(); renderAll(); closeModal('alertModal');}
+
 function showRescheduleModal(siniestroId, mediacionId) {
-    const modal = document.getElementById('rescheduleModal'); const s = siniestrosData.find(x => x.id === siniestroId); const m = s.mediaciones_list.find(y => y.id === mediacionId);
+    const modal = document.getElementById('rescheduleModal'); 
+    const s = siniestrosData.find(x => x.id === siniestroId); 
+    const m = s.mediaciones_list.find(y => y.id === mediacionId);
     const content = `<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar Mediación</h3><p><b>Caso:</b> ${s.cliente}</p><div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div><div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div><div style="text-align:center; margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${siniestroId}', '${mediacionId}')">Confirmar</button></div>`;
-    modal.querySelector('.modal-content').innerHTML = content; closeModal('alertModal'); modal.classList.add('active');
+    modal.querySelector('.modal-content').innerHTML = content; 
+    closeModal('alertModal'); 
+    modal.classList.add('active');
 }
+
 function confirmReschedule(siniestroId, mediacionId) {
-    const s = siniestrosData.find(x => x.id === siniestroId); if(s) {const m = s.mediaciones_list.find(y => y.id === mediacionId); if(m) { m.fecha = document.getElementById('rescheduleDate').value; m.hora = document.getElementById('rescheduleTime').value; m.alertaMostrada = false;}}
-    saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
+    const s = siniestrosData.find(x => x.id === siniestroId); 
+    if(s) {const m = s.mediaciones_list.find(y => y.id === mediacionId); 
+    if(m) { 
+        m.fecha = document.getElementById('rescheduleDate').value; 
+        m.hora = document.getElementById('rescheduleTime').value; 
+        m.alertaMostrada = false;
+    }}
+    saveData(); 
+    renderAll(); 
+    closeModal('rescheduleModal'); 
+    updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`);
 }
+
 function snoozeMediacion(minutos) {closeModal('alertModal');updateDataStatus(`⏰ Recordatorio pospuesto por ${minutos} minutos.`);setTimeout(() => { revisarMediacionesVencidasAlCargar(); }, minutos * 60 * 1000);}
 
-// Funciones de generación de carta (mantenidas para no romper la funcionalidad)
+// Funciones de generación de carta
 function startLetterGeneration(siniestroId) {
     alert('Función de generación de carta en desarrollo');
 }
 
-// Funciones de documentos (mantenidas para no romper la funcionalidad)
+// Funciones de documentos
 function showDocumentModal(siniestroId) {
     alert('Función de documentos en desarrollo');
 }
