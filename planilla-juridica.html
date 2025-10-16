@@ -592,7 +592,9 @@
                     const noticeDays = parseInt(item.avisoPrevio, 10);
                     if (!item.completed && noticeDays > 0 && item.dueDate) {
                         const daysDifference = getDaysDifference(item.dueDate);
-                        if (daysDifference > 0 && daysDifference <= noticeDays) {
+                        // --- CORRECCIÓN AQUÍ ---
+                        // Se cambió daysDifference > 0 por daysDifference >= 0 para incluir el día de hoy.
+                        if (daysDifference >= 0 && daysDifference <= noticeDays) {
                             itemsToNotice.push({ client, item, daysDifference });
                         }
                     }
@@ -608,7 +610,11 @@
             }
 
             container.innerHTML = itemsToNotice.map(({ client, item, daysDifference }) => {
-                const dateInfo = `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+                // --- MEJORA VISUAL AQUÍ ---
+                const dateInfo = daysDifference === 0 
+                    ? '<span style="color: var(--danger-color);">Vence HOY</span>' 
+                    : `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+                
                 return `<div class="review-item" onclick="showClientModal('${client.id}')">
                             <div class="review-item-content">
                                 <div class="review-date">${dateInfo}</div>
@@ -982,17 +988,26 @@
         }
         
         function revisarAlertas() {
-            const ahora = new Date();
-            const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
-            const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && aud.hora && aud.hora <= horaActual && !aud.completed).map(aud => ({ client, item: aud, type: 'Audiencia' })));
-            const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && venc.hora && venc.hora <= horaActual && !venc.completed).map(venc => ({ client, item: venc, type: 'Vencimiento' })));
+            // --- CORRECCIÓN AQUÍ ---
+            // Se eliminó la condición de la hora (<= horaActual) para que la alerta
+            // se muestre para todos los eventos del día, sin importar la hora.
+            const audienciasPorAlertar = clientsData.flatMap(client => 
+                (client.audiencias_list || [])
+                .filter(aud => isToday(aud.fecha) && !aud.completed)
+                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
+            );
+            const vencimientosPorAlertar = clientsData.flatMap(client => 
+                (client.vencimientos_list || [])
+                .filter(venc => isToday(venc.fecha) && !venc.completed)
+                .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
+            );
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
             if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
         }
         
         function iniciarVigilanteDeAlertas() {
-            setTimeout(revisarAlertas, 2000);
-            setInterval(revisarAlertas, 60000);
+            setTimeout(revisarAlertas, 2000); // Se revisa una vez a los 2 segundos de cargar
+            setInterval(revisarAlertas, 60000); // Y luego cada minuto
         }
 
         function showRescheduleModal(clientId, eventId, eventType) {
