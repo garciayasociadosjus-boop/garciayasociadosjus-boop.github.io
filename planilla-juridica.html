@@ -671,9 +671,34 @@
             }).join('');
         }
 
-        function renderBonosAportesSummary(client) {
-            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) { return ''; }
+        function renderLastPaymentSummary(client) {
+            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) {
+                return '';
+            }
+            const sortedList = [...client.bonos_aportes_list].sort((a, b) => {
+                const dateA = a.bonoLeyFecha || a.bonoFecha || a.aporteFecha || a.iusFecha || '0000-00-00';
+                const dateB = b.bonoLeyFecha || b.bonoFecha || b.aporteFecha || b.iusFecha || '0000-00-00';
+                return dateB.localeCompare(dateA);
+            });
+            const lastEntry = sortedList[0];
+            const lastDate = formatDate(lastEntry.bonoLeyFecha || lastEntry.bonoFecha || lastEntry.aporteFecha || lastEntry.iusFecha);
+            
+            return `
+                <div class="summary-note">
+                    <h4>📌 Último Registro de Pagos (${lastDate})</h4>
+                    <p style="margin:0; padding:0; line-height: 1.7;">
+                        <b>Bono Ley:</b> ${lastEntry.bonoLeyPago || lastEntry.bonoPago || 'S/D'} ($${lastEntry.bonoLeyImporte || lastEntry.bonoImporte || '0.00'})<br>
+                        <b>Aporte:</b> ${lastEntry.aportePago || 'S/D'} ($${lastEntry.aporteImporte || '0.00'})<br>
+                        <b>Ius Prev:</b> ${lastEntry.iusPago || 'S/D'} ($${lastEntry.iusImporte || '0.00'})
+                    </p>
+                </div>
+            `;
+        }
 
+        function renderPaymentHistoryList(client) {
+            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) {
+                return '<p style="text-align:center; color:#666; margin-top:15px;">No hay registros de pagos.</p>';
+            }
             const sortedList = [...client.bonos_aportes_list].sort((a, b) => {
                 const dateA = a.bonoLeyFecha || a.bonoFecha || a.aporteFecha || a.iusFecha || '0000-00-00';
                 const dateB = b.bonoLeyFecha || b.bonoFecha || b.aporteFecha || b.iusFecha || '0000-00-00';
@@ -701,7 +726,7 @@
                 </div>`;
             }).join('');
             
-            return `<div><h4>Historial de Pagos</h4>${itemsHtml}</div>`;
+            return `<div><h4 style="margin-top:20px;">Historial Completo de Pagos</h4>${itemsHtml}</div>`;
         }
 
         function showClientModal(clientId) {
@@ -714,7 +739,7 @@
                     ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
                     <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                 </div></div>
-                
+                ${renderLastPaymentSummary(client)}
                 <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
                 
                 <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
@@ -779,7 +804,7 @@
                                 <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
                                 <button type="submit" class="btn btn-success">💾 Guardar Registro</button>
                             </form>
-                            <div id="bonos-aportes-list">${renderBonosAportesSummary(client)}</div>
+                            <div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div>
                         </div>
                         
                     </div>
