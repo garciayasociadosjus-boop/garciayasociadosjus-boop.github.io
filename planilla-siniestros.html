@@ -212,7 +212,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setInterval(updateClock, 1000); 
     iniciarVigilanteDeMediaciones(); 
     revisarMediacionesVencidasAlCargar();
-    // --- NUEVO: Listener para cerrar modales al hacer clic afuera ---
     window.addEventListener('click', e => { if (e.target.classList.contains('modal')) { closeModal(e.target.id); } });
 });
 function gapiLoaded(){ gapi.load('client', initializeGapiClient); }
@@ -232,7 +231,25 @@ function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach
 function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
 const todayYMD = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
-function formatDate(d){ if(!d)return'No definida'; const date=new Date(d); const adjustedDate=new Date(date.getTime()+date.getTimezoneOffset()*6e4); const[y,m,day]=adjustedDate.toISOString().split('T')[0].split('-'); return`${day}/${m}/${y}`; }
+
+// --- FUNCIÓN CORREGIDA ---
+function formatDate(d) {
+    if (!d) return 'No definida';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) {
+        console.warn(`Se encontró una fecha inválida: "${d}"`);
+        return 'Fecha Inválida';
+    }
+    const adjustedDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+    try {
+        const [y, m, day] = adjustedDate.toISOString().split('T')[0].split('-');
+        return `${day}/${m}/${y}`;
+    } catch (e) {
+        console.error("Error al formatear una fecha procesada:", d, e);
+        return 'Error de Fecha';
+    }
+}
+
 function formatTime(t){ return t||''; }
 function isToday(d){ return d&&d===todayYMD; }
 function isPastDue(d){ return d&&d<todayYMD; }
