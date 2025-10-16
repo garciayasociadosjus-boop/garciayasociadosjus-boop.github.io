@@ -672,9 +672,7 @@
         }
 
         function renderLastPaymentSummary(client) {
-            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) {
-                return '';
-            }
+            if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) { return ''; }
             const sortedList = [...client.bonos_aportes_list].sort((a, b) => {
                 const dateA = a.bonoLeyFecha || a.bonoFecha || a.aporteFecha || a.iusFecha || '0000-00-00';
                 const dateB = b.bonoLeyFecha || b.bonoFecha || b.aporteFecha || b.iusFecha || '0000-00-00';
@@ -683,13 +681,16 @@
             const lastEntry = sortedList[0];
             const lastDate = formatDate(lastEntry.bonoLeyFecha || lastEntry.bonoFecha || lastEntry.aporteFecha || lastEntry.iusFecha);
             
+            let obsHtml = lastEntry.observacion ? `<br><b>Obs:</b> ${lastEntry.observacion}` : '';
+
             return `
                 <div class="summary-note">
                     <h4>📌 Último Registro de Pagos (${lastDate})</h4>
                     <p style="margin:0; padding:0; line-height: 1.7;">
-                        <b>Bono Ley:</b> ${lastEntry.bonoLeyPago || lastEntry.bonoPago || 'S/D'} ($${lastEntry.bonoLeyImporte || lastEntry.bonoImporte || '0.00'})<br>
-                        <b>Aporte:</b> ${lastEntry.aportePago || 'S/D'} ($${lastEntry.aporteImporte || '0.00'})<br>
+                        <b>Bono Ley:</b> ${lastEntry.bonoLeyPago || lastEntry.bonoPago || 'S/D'} ($${lastEntry.bonoLeyImporte || lastEntry.bonoImporte || '0.00'}) | 
+                        <b>Aporte:</b> ${lastEntry.aportePago || 'S/D'} ($${lastEntry.aporteImporte || '0.00'}) | 
                         <b>Ius Prev:</b> ${lastEntry.iusPago || 'S/D'} ($${lastEntry.iusImporte || '0.00'})
+                        ${obsHtml}
                     </p>
                 </div>
             `;
@@ -778,7 +779,7 @@
                         <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
                             <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Registrar Pagos</h4>
                             <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
                                     <div>
                                         <h5>Bono Ley</h5>
                                         <div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoLeyPago" id="newBonoLeyPagoSi" value="Si"> <label for="newBonoLeyPagoSi">Sí</label> <input type="radio" name="bonoLeyPago" id="newBonoLeyPagoNo" value="No" checked> <label for="newBonoLeyPagoNo">No</label></div></div>
@@ -955,7 +956,7 @@
             const itemElement = document.getElementById(`bono_aporte-item-${baId}`);
             const formHtml = `
                 <div style="padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                         <div>
                             <h5>Bono Ley</h5>
                             <div class="form-group"><label>Pago:</label><div><input type="radio" name="editBonoLeyPago-${baId}" value="Si" ${ (ba.bonoLeyPago || ba.bonoPago) === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editBonoLeyPago-${baId}" value="No" ${ (ba.bonoLeyPago || ba.bonoPago) !== 'Si' ? 'checked' : ''}> No</div></div>
