@@ -98,10 +98,10 @@
                     <div class="card"><h3 >Ingresos Totales</h3><div class="value positive" id="kpiIngresos"></div></div>
                     <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
-                    <div class="card"><h3 >Abonos Activos en el Período</h3><div class="value" id="kpiCasos"></div></div>
+                    <div class="card"><h3 >Abonos en el Período</h3><div class="value" id="kpiCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
-                    <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
+                    <div class="card"><h3 >Ingreso Prom./Abono</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
                 </div>
             </div>
 
@@ -153,7 +153,8 @@
                 'abono mensual': 'ingresos_abonos_mensuales',
                 'honorario siniestros': 'ingresos_honorarios_siniestros',
                 'honorario juridico': 'ingresos_honorarios_juridicos',
-                'regulacion de honorarios': 'ingresos_honorarios_juridicos'
+                'regulacion honorarios': 'ingresos_honorarios_juridicos', // <-- Variación
+                'pago de bonos y ap': 'ingresos_bonos_ap' // <-- Nueva categoría si es necesario
             };
 
             const metricOptions = {
@@ -163,7 +164,7 @@
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
                 egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
-                abonos_activos_count: { label: '📂 Abonos Activos (Mes)', color: '#1e293b' },
+                abonos_activos_count: { label: '📂 Abonos en el Mes', color: '#1e293b' },
                 nuevos_casos: { label: '✨ Nuevos Casos (Siniestros)', color: '#db2777' },
                 nuevos_casos_juridico: { label: '⚖️ Nuevos Casos (Jurídico)', color: '#9333ea' },
             };
@@ -210,19 +211,24 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // <-- NUEVA FUNCIÓN para limpiar y convertir los montos en formato de moneda
+            // <-- NUEVA FUNCIÓN ROBUSTA para limpiar y convertir los montos
             function limpiarYParsearMonto(montoStr) {
-                if (typeof montoStr !== 'string' || !montoStr) return 0;
+                if (typeof montoStr !== 'string' && typeof montoStr !== 'number') return 0;
+                if (typeof montoStr === 'number') return montoStr;
+
                 const montoLimpio = montoStr
-                    .replace(/\$\s?/g, '')  // Quita el símbolo de peso y espacios
-                    .replace(/\./g, '')       // Quita los puntos de miles
-                    .replace(',', '.');      // Reemplaza la coma decimal por un punto
+                    .replace(/\$\s?/g, '')      // Quita el símbolo de peso y espacios
+                    .replace(/\./g, (match, offset, original) => {
+                        // Reemplaza los puntos de miles, pero conserva el último punto si es decimal
+                        return original.lastIndexOf('.') === offset ? '.' : '';
+                    })
+                    .replace(',', '.');          // Reemplaza la coma decimal por un punto
                 return parseFloat(montoLimpio) || 0;
             }
 
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
+                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0, ingresos_bonos_ap: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
 
@@ -232,20 +238,18 @@
                     return { year: y, month: m - 1 };
                 };
 
-                // 1. CÁLCULO DE INGRESOS Y ABONOS ACTIVOS POR MES
+                // 1. CÁLCULO DE INGRESOS Y ABONOS ACTIVOS POR MES (DESDE `abonosData`)
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
                     if (fecha?.year === year) {
-                        const monto = limpiarYParsearMonto(abono.monto); // <-- LÓGICA CORREGIDA
+                        const monto = limpiarYParsearMonto(abono.monto);
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        // Suma a la categoría de ingreso correspondiente
                         const categoria = tipoIngresoMap[tipoNormalizado];
                         if (categoria) {
                             monthlyData[fecha.month][categoria] += monto;
                         }
 
-                        // Cuenta como abono activo para ese mes específico
                         if (tipoNormalizado === 'abono mensual') {
                             monthlyData[fecha.month].abonos_activos_count++;
                         }
@@ -272,20 +276,16 @@
                 };
                 allData.siniestros.forEach(caso => {
                     const fechaInicio = getFechaInicio(caso);
-                    if (fechaInicio?.year === year) {
-                        monthlyData[fechaInicio.month].nuevos_casos++;
-                    }
+                    if (fechaInicio?.year === year) monthlyData[fechaInicio.month].nuevos_casos++;
                 });
                 allData.juridica.forEach(caso => {
                     const fechaInicio = getFechaInicio(caso);
-                    if (fechaInicio?.year === year) {
-                        monthlyData[fechaInicio.month].nuevos_casos_juridico++;
-                    }
+                    if (fechaInicio?.year === year) monthlyData[fechaInicio.month].nuevos_casos_juridico++;
                 });
                 
                 // 4. CÁLCULO DE TOTALES Y BALANCE
                 monthlyData.forEach(data => {
-                    data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros;
+                    data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros + data.ingresos_bonos_ap;
                     data.balance = data.ingresos_totales - data.egresos_totales;
                 });
 
@@ -295,9 +295,9 @@
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 let kpis;
-                let abonosActivosDelPeriodo = 0;
+                let abonosDelPeriodo = 0;
 
-                if (selectedMonth === 'todos') { // Vista Anual
+                if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
                     kpis = data.reduce((acc, monthData) => {
@@ -308,15 +308,14 @@
                         return acc;
                     }, { ingresos: 0, egresos: 0, nuevos_casos: 0, nuevos_casos_juridico: 0 });
                     
-                    // Para la vista anual, muestra los abonos del último mes con datos
                     for (let i = data.length - 1; i >= 0; i--) {
-                        if (data[i].ingresos_totales > 0 || data[i].egresos_totales > 0) {
-                            abonosActivosDelPeriodo = data[i].abonos_activos_count;
+                        if (data[i].abonos_activos_count > 0) {
+                            abonosDelPeriodo = data[i].abonos_activos_count;
                             break;
                         }
                     }
 
-                } else { // Vista Mensual
+                } else {
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
                     document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
@@ -326,7 +325,7 @@
                         nuevos_casos: data[monthIndex].nuevos_casos,
                         nuevos_casos_juridico: data[monthIndex].nuevos_casos_juridico
                     };
-                    abonosActivosDelPeriodo = data[monthIndex].abonos_activos_count;
+                    abonosDelPeriodo = data[monthIndex].abonos_activos_count;
                 }
 
                 const balance = kpis.ingresos - kpis.egresos;
@@ -334,10 +333,10 @@
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = abonosActivosDelPeriodo;
+                document.getElementById('kpiCasos').textContent = abonosDelPeriodo;
                 document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
                 document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico;
-                document.getElementById('kpiIngresoPorCaso').textContent = abonosActivosDelPeriodo > 0 ? formatCurrency((kpis.ingresos / abonosActivosDelPeriodo)) : formatCurrency(0);
+                document.getElementById('kpiIngresoPorCaso').textContent = abonosDelPeriodo > 0 ? formatCurrency((kpis.ingresos / abonosDelPeriodo)) : formatCurrency(0);
             }
 
             function renderizarGraficoIngresos(data) {
@@ -374,7 +373,7 @@
                 const chartType = chartTypeSelectorEl.value;
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
-                
+
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
                     const annualTotals = selectedMetrics.map(key => Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
