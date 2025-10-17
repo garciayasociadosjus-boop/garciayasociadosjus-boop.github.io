@@ -43,7 +43,13 @@
         .card .value.negative { color: var(--danger-color); }
         
         .analysis-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; }
-        .chart-container { position: relative; min-height: 380px; background: var(--light-bg); padding: 20px; border-radius: 12px; }
+        .chart-container { 
+            position: relative; 
+            height: 400px;
+            background: var(--light-bg); 
+            padding: 20px; 
+            border-radius: 12px; 
+        }
         .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
         .custom-chart-section { display: grid; grid-template-columns: 300px 1fr; gap: 30px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
         .chart-controls { padding: 10px; }
@@ -64,7 +70,6 @@
 <body>
     <div class="container">
         <header class="header"><h1>🔬 Panel de Análisis Interactivo</h1><p>Visualización de Datos del Estudio</p></header>
-
         <main class="main-content">
             <div id="dataStatus" class="data-status" style="display:none;"></div>
             <div class="controls">
@@ -239,7 +244,10 @@
 
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
-                const totalCasosActivos = (allData.abonos || []).filter(a => a.estado && a.estado.trim().toLowerCase() === 'activo').length;
+                
+                // <-- CAMBIO PRINCIPAL: Lógica corregida para contar clientes activos
+                const totalCasosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
+
                 let kpis;
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
@@ -289,7 +297,10 @@
                 const chartType = chartTypeSelectorEl.value;
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
-                const abonosActivos = (allData.abonos || []).filter(a => a.estado && a.estado.trim().toLowerCase() === 'activo').length;
+                
+                // <-- CAMBIO SECUNDARIO: Lógica corregida para el gráfico personalizado
+                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
+
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
                     const annualTotals = selectedMetrics.map(key => key === 'casos_activos_abono' ? abonosActivos : Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
