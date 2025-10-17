@@ -43,7 +43,7 @@
         .card .value.negative { color: var(--danger-color); }
         
         .analysis-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; }
-        .chart-container { position: relative; min-height: 400px; background: var(--light-bg); padding: 20px; border-radius: 12px; }
+        .chart-container { position: relative; min-height: 380px; background: var(--light-bg); padding: 20px; border-radius: 12px; }
         .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
         .custom-chart-section { display: grid; grid-template-columns: 300px 1fr; gap: 30px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
         .chart-controls { padding: 10px; }
@@ -94,7 +94,7 @@
                     <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
                     <div class="card"><h3 >Clientes con Abono Activo</h3><div class="value" id="kpiCasos"></div></div>
-                    <div class="card"><h3 >Casos Nuevos (Período)</h3><div class="value" id="kpiNuevosCasos"></div></div>
+                    <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Caso Nuevo</h3><div class="value" id="kpiIngresoPorCasoNuevo"></div></div>
                 </div>
@@ -109,7 +109,7 @@
                     <div class="data-table-container">
                         <details open>
                             <summary>Tabla de Datos Mensuales</summary>
-                            <div id="dataTableWrapper" style="max-height: 400px; overflow-y: auto;"></div>
+                            <div id="dataTableWrapper" style="max-height: 380px; overflow-y: auto;"></div>
                         </details>
                     </div>
                 </div>
@@ -176,23 +176,22 @@
 
             function poblarSelectores() {
                 const years = new Set();
-                const parseDateForYear = (dateStr) => { if(dateStr) try { years.add(new Date(dateStr).getFullYear()); } catch(e){} };
-                
+                const parseDateForYear = (dateStr) => {
+                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+                    try { years.add(parseInt(dateStr.substring(0, 4))); } catch (e) {}
+                };
                 allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
-                allData.siniestros.forEach(s => { (s.bonos_aportes_list || []).forEach(p => parseDateForYear(p.bonoLeyFecha || p.aporteFecha || p.iusFecha)); parseDateForYear(s.fecha_inicio); });
-                allData.juridica.forEach(c => { (c.bonos_aportes_list || []).forEach(p => parseDateForYear(p.bonoLeyFecha || p.aporteFecha || p.iusFecha)); });
+                allData.siniestros.forEach(s => { (s.bonos_aportes_list || []).forEach(p => { parseDateForYear(p.bonoLeyFecha); parseDateForYear(p.aporteFecha); parseDateForYear(p.iusFecha); }); parseDateForYear(s.fecha_inicio); });
+                allData.juridica.forEach(c => { (c.bonos_aportes_list || []).forEach(p => { parseDateForYear(p.bonoLeyFecha); parseDateForYear(p.aporteFecha); parseDateForYear(p.iusFecha); }); });
                 Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
-
                 const currentYear = yearFilterEl.value;
                 yearFilterEl.innerHTML = '';
                 const sortedYears = Array.from(years).filter(y => !isNaN(y)).sort((a, b) => b - a);
                 if (sortedYears.length === 0) sortedYears.push(new Date().getFullYear());
                 sortedYears.forEach(y => yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`);
                 if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
-
                 monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
                 mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index + 1}">${mes}</option>`);
-                
                 metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `<label><input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 4 ? 'checked' : ''}> ${label}</label>`).join('');
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
@@ -202,12 +201,16 @@
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0
                 }));
-                const parseDate = (dateStr) => dateStr ? new Date(dateStr + "T00:00:00") : null;
+                const parseDate = (dateStr) => {
+                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    return { year: y, month: m - 1 };
+                };
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
-                    if (fecha?.getFullYear() === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
+                    if (fecha?.year === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        if(abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.getMonth()].ingresos_abonos_mensuales += monto;
+                        if(abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.month].ingresos_abonos_mensuales += monto;
                     }
                 });
                 const procesarPagosCaso = (caso, categoria) => {
@@ -216,19 +219,17 @@
                         const importes = [pago.bonoLeyImporte, pago.aporteImporte, pago.iusImporte];
                         fechas.forEach((fechaStr, i) => {
                             const fecha = parseDate(fechaStr);
-                            if (fecha?.getFullYear() === year) monthlyData[fecha.getMonth()][categoria] += parseFloat(importes[i]) || 0;
+                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(importes[i]) || 0;
                         });
                     });
                 };
                 allData.juridica.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_juridicos'));
                 allData.siniestros.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_siniestros'));
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
-                    if (parseInt(monthKey.split('-')[0]) === year) {
-                        const monthIndex = parseInt(monthKey.split('-')[1]) - 1;
-                        (data.transactions || []).forEach(t => { if (t.categoria === 'egreso') monthlyData[monthIndex].egresos_totales += parseFloat(t.monto) || 0; });
-                    }
+                    const [y, m] = monthKey.split('-').map(Number);
+                    if (y === year) (data.transactions || []).forEach(t => { if (t.categoria === 'egreso') monthlyData[m - 1].egresos_totales += parseFloat(t.monto) || 0; });
                 });
-                allData.siniestros.forEach(s => { const fecha = parseDate(s.fecha_inicio); if (fecha?.getFullYear() === year) monthlyData[fecha.getMonth()].nuevos_casos++; });
+                allData.siniestros.forEach(s => { const fecha = parseDate(s.fecha_inicio); if (fecha?.year === year) monthlyData[fecha.month].nuevos_casos++; });
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
@@ -238,7 +239,7 @@
 
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
-                const totalCasosActivos = (allData.abonos || []).filter(a => a.estado === 'Activo').length;
+                const totalCasosActivos = (allData.abonos || []).filter(a => a.estado && a.estado.trim().toLowerCase() === 'activo').length;
                 let kpis;
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
@@ -273,7 +274,7 @@
             }
 
             function renderizarTablaDatos(data) {
-                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Casos Nuevos</th></tr></thead><tbody>';
+                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Nuevos Casos</th></tr></thead><tbody>';
                 data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td></tr>`; });
                 const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; return acc; }, {i:0, e:0, b:0, nc:0});
                 tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td></tr>`;
@@ -288,7 +289,7 @@
                 const chartType = chartTypeSelectorEl.value;
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
-                const abonosActivos = (allData.abonos || []).filter(a => a.estado === 'Activo').length;
+                const abonosActivos = (allData.abonos || []).filter(a => a.estado && a.estado.trim().toLowerCase() === 'activo').length;
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
                     const annualTotals = selectedMetrics.map(key => key === 'casos_activos_abono' ? abonosActivos : Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
@@ -369,7 +370,7 @@
                 } catch (err) { updateStatus('❌ Error al guardar en Drive.', 'warning'); }
             }
             async function loadDataFromDrive() {
-                if (!dataFileId) return alert("No se encontró un archivo de respaldo en Drive para cargar.");
+                if (!dataFileId) { alert("No se encontró un archivo de respaldo en Drive para cargar. Guarda uno primero."); return; }
                 try {
                     updateStatus('📥 Cargando desde Drive...', 'success');
                     const resp = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
