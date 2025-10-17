@@ -151,10 +151,9 @@
 
             const tipoIngresoMap = {
                 'abono mensual': 'ingresos_abonos_mensuales',
-                'honorario siniestros': 'ingresos_honorarios_siniestros',
-                'honorario juridico': 'ingresos_honorarios_juridicos',
-                'regulacion honorarios': 'ingresos_honorarios_juridicos', // <-- Variación
-                'pago de bonos y ap': 'ingresos_bonos_ap' // <-- Nueva categoría si es necesario
+                'honorario siniestro': 'ingresos_honorarios_siniestros', // Singular para coincidir
+                'regulacion honorarios': 'ingresos_honorarios_juridicos',
+                'pago de bonos y ap': 'ingresos_bonos_ap'
             };
 
             const metricOptions = {
@@ -194,7 +193,10 @@
                     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
                     try { years.add(parseInt(dateStr.substring(0, 4))); } catch (e) {}
                 };
-                allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
+                allData.abonos.forEach(a => {
+                    if (a.mesServicio) years.add(a.mesServicio.year);
+                    else parseDateForYear(a.fechaPago);
+                });
                 allData.siniestros.forEach(s => { (s.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 allData.juridica.forEach(c => { (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
@@ -211,18 +213,14 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // <-- NUEVA FUNCIÓN ROBUSTA para limpiar y convertir los montos
-            function limpiarYParsearMonto(montoStr) {
-                if (typeof montoStr !== 'string' && typeof montoStr !== 'number') return 0;
-                if (typeof montoStr === 'number') return montoStr;
-
-                const montoLimpio = montoStr
+            // <-- FUNCIÓN DE LIMPIEZA DE MONTOS MEJORADA
+            function limpiarYParsearMonto(monto) {
+                if (typeof monto === 'number') return monto;
+                if (typeof monto !== 'string' || !monto) return 0;
+                const montoLimpio = monto
                     .replace(/\$\s?/g, '')      // Quita el símbolo de peso y espacios
-                    .replace(/\./g, (match, offset, original) => {
-                        // Reemplaza los puntos de miles, pero conserva el último punto si es decimal
-                        return original.lastIndexOf('.') === offset ? '.' : '';
-                    })
-                    .replace(',', '.');          // Reemplaza la coma decimal por un punto
+                    .replace(/\./g, '')       // Quita TODOS los puntos de miles
+                    .replace(',', '.');      // Reemplaza la coma decimal por un punto
                 return parseFloat(montoLimpio) || 0;
             }
 
@@ -232,31 +230,48 @@
                     egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
 
-                const parseDate = (dateStr) => {
-                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-                    const [y, m, d] = dateStr.split('-').map(Number);
-                    return { year: y, month: m - 1 };
+                // <-- LÓGICA DE FECHAS CORREGIDA
+                const getMesDelAbono = (abono) => {
+                    if (abono.mesServicio && typeof abono.mesServicio.month === 'number' && abono.mesServicio.year === year) {
+                        return abono.mesServicio.month;
+                    }
+                    if (abono.fechaPago) {
+                        const d = new Date(abono.fechaPago + 'T00:00:00');
+                        if (d.getFullYear() === year) {
+                            return d.getMonth();
+                        }
+                    }
+                    return -1;
                 };
 
-                // 1. CÁLCULO DE INGRESOS Y ABONOS ACTIVOS POR MES (DESDE `abonosData`)
+                // 1. CÁLCULO DE INGRESOS Y ABONOS (LÓGICA CORREGIDA)
                 allData.abonos.forEach(abono => {
-                    const fecha = parseDate(abono.fechaPago);
-                    if (fecha?.year === year) {
-                        const monto = limpiarYParsearMonto(abono.monto);
+                    const mes = getMesDelAbono(abono);
+                    if (mes !== -1) {
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        const categoria = tipoIngresoMap[tipoNormalizado];
-                        if (categoria) {
-                            monthlyData[fecha.month][categoria] += monto;
+                        // Contar abonos del mes
+                        if (tipoNormalizado === 'abono mensual') {
+                            monthlyData[mes].abonos_activos_count++;
                         }
 
-                        if (tipoNormalizado === 'abono mensual') {
-                            monthlyData[fecha.month].abonos_activos_count++;
+                        // Sumar ingresos solo si están pagados
+                        if (['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
+                            const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
+                            const categoria = tipoIngresoMap[tipoNormalizado];
+                            if (categoria) {
+                                monthlyData[mes][categoria] += monto;
+                            }
                         }
                     }
                 });
                 
                 // 2. CÁLCULO DE EGRESOS
+                const parseDate = (dateStr) => { // Función de ayuda local
+                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    return { year: y, month: m - 1 };
+                };
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     const [y, m] = monthKey.split('-').map(Number);
                     if (y === year) {
@@ -314,7 +329,6 @@
                             break;
                         }
                     }
-
                 } else {
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
