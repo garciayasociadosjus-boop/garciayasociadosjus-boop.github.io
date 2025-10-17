@@ -310,7 +310,7 @@
 
         <main class="main-content">
             <div id="dataStatus" class="data-status">Cargando datos...</div>
-            <div id="driveStatus" class="data-status" style="display: none;"></div>
+            <div id="driveStatus" class="data-status" style="display: none; background: #cfe2ff; color: #084298;"></div>
 
             <section class="card" style="margin-bottom: 30px;">
                 <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
@@ -823,12 +823,30 @@
             const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
-                let itemDate = '', workedDate = '', tagType, tagText, itemContent;
+                let itemDate = '', workedDate = '', tagType, tagText, itemContent, editButton = '';
                 switch(item.type) {
-                    case 'task': tagType = 'task'; tagText = 'TAREA'; itemDate = `Revisar el: ${formatDate(item.proximaRevision)}`; workedDate = item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''; itemContent = `<div class="history-text">${item.texto}</div>` + (item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : ''); break;
-                    case 'audience': tagType = 'audience'; tagText = 'AUDIENCIA'; itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; itemContent = `<div class="history-text">${item.texto}</div>`; break;
-                    case 'vencimiento': tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; itemContent = `<div class="history-text">${item.texto}</div>`; break;
-                    default: tagType = 'task'; tagText = 'EVENTO'; itemContent = `<div class="history-text">${item.texto || ''}</div>`;
+                    case 'task': 
+                        tagType = 'task'; tagText = 'TAREA'; 
+                        itemDate = `Revisar el: ${formatDate(item.proximaRevision)}`; 
+                        workedDate = item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''; 
+                        itemContent = `<div class="history-text">${item.texto}</div>` + (item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : '');
+                        editButton = `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>`;
+                        break;
+                    case 'audience': 
+                        tagType = 'audience'; tagText = 'AUDIENCIA'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; 
+                        itemContent = `<div class="history-text">${item.texto}</div>`;
+                        editButton = `<button class="btn btn-sm" onclick="editItem('${client.id}', '${item.id}', 'audience')">Editar</button>`;
+                        break;
+                    case 'vencimiento': 
+                        tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; 
+                        itemContent = `<div class="history-text">${item.texto}</div>`;
+                        editButton = `<button class="btn btn-sm" onclick="editItem('${client.id}', '${item.id}', 'vencimiento')">Editar</button>`;
+                        break;
+                    default: 
+                        tagType = 'task'; tagText = 'EVENTO'; 
+                        itemContent = `<div class="history-text">${item.texto || ''}</div>`;
                 }
 
                 return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}">
@@ -836,7 +854,7 @@
                             ${itemContent}
                             <div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">
                                 <button class="btn btn-sm ${item.completed ? '' : 'btn-success'}" onclick="marcarEventoCompleto(event, '${client.id}', '${item.id}', '${item.type}')">${item.completed ? 'Reabrir' : '✓ Completar'}</button>
-                                ${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}
+                                ${editButton}
                                 <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button>
                             </div>
                         </div>`;
@@ -948,6 +966,61 @@
         function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
         function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         
+        function editItem(clientId, itemId, itemType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const item = list.find(i => i.id === itemId);
+            if (!item) return;
+
+            const itemElement = document.getElementById(`${itemType}-item-${itemId}`);
+            const avisoOptions = ['0', '1', '2', '3', '7'].map(val => 
+                `<option value="${val}" ${item.avisoPrevio === val ? 'selected' : ''}>
+                    ${{0: 'Sin aviso', 1: '1 día antes', 2: '2 días antes', 3: '3 días antes', 7: '1 semana antes'}[val]}
+                </option>`
+            ).join('');
+
+            itemElement.innerHTML = `
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="edit-text-${itemId}" rows="2" class="form-group input">${item.texto}</textarea>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Fecha</label>
+                        <input type="date" id="edit-date-${itemId}" value="${item.fecha}" class="form-group input">
+                    </div>
+                    <div class="form-group">
+                        <label>Hora</label>
+                        <input type="time" id="edit-time-${itemId}" value="${item.hora}" class="form-group input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Aviso Previo</label>
+                    <select id="edit-aviso-${itemId}">${avisoOptions}</select>
+                </div>
+                <button class="btn btn-success btn-sm" onclick="saveItemEdit('${clientId}', '${itemId}', '${itemType}')">Guardar</button>
+                <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
+        }
+        
+        function saveItemEdit(clientId, itemId, itemType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const item = list.find(i => i.id === itemId);
+            if (!item) return;
+
+            item.texto = document.getElementById(`edit-text-${itemId}`).value;
+            item.fecha = document.getElementById(`edit-date-${itemId}`).value;
+            item.hora = document.getElementById(`edit-time-${itemId}`).value;
+            item.avisoPrevio = document.getElementById(`edit-aviso-${itemId}`).value;
+
+            if (itemType === 'audience') { updateAudienciasSummary(client); }
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+
         function editBonoAporte(clientId, baId) {
             const client = clientsData.find(c => c.id === clientId);
             const ba = client?.bonos_aportes_list.find(item => item.id === baId);
@@ -1120,7 +1193,9 @@
             const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list;
             let eventItem = list.find(item => item.id === eventId);
             if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; }
-            saveData(); renderAll(); closeModal('rescheduleModal');
+            saveData(); 
+            renderAll(); 
+            closeModal('rescheduleModal');
             updateDataStatus(`✅ ${eventType} reprogramada.`, false);
         }
 
@@ -1219,17 +1294,25 @@
         const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos';
         let gdTokenClient, gapiReady = false, gisReady = false, gdDataFileId = null, gdDocsFolderId = null, localFilesForUpload = [];
         
+        function updateDriveStatus(message, isWarning = false) {
+            const el = document.getElementById('driveStatus');
+            el.textContent = message;
+            el.style.display = 'block';
+            el.style.background = isWarning ? '#fff3cd' : '#cfe2ff';
+            el.style.color = isWarning ? '#664d03' : '#084298';
+        }
+
         function isGoogleAuthenticated() {
             const token = gapi.client.getToken();
             return token && token.access_token;
         }
 
         function gapiLoaded(){gapi.load('client',initializeGapiClient)}
-        async function initializeGapiClient(){try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']});gapiReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GAPI client init:",e);updateDataStatus('❌ Error al inicializar APIs de Google.',true)}}
-        function gisLoaded(){try{gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,callback:tokenResponseCallback});gisReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GIS client init:",e);updateDataStatus('❌ Error al inicializar autenticación de Google.',true)}}
+        async function initializeGapiClient(){try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']});gapiReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GAPI client init:",e);updateDriveStatus('❌ Error al inicializar APIs de Google.',true)}}
+        function gisLoaded(){try{gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,callback:tokenResponseCallback});gisReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GIS client init:",e);updateDriveStatus('❌ Error al inicializar autenticación de Google.',true)}}
         function maybeEnableGoogleButtons(){if(gapiReady&&gisReady){document.getElementById('connectDriveBtn').onclick=handleAuthClick}}
         function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
-        async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
+        async function tokenResponseCallback(resp){if(resp.error){updateDriveStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDriveStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDriveStatus('❌ Ocurrió un error después de conectar.',true)}}
         
         async function crearEventoEnCalendario(client, evento, tipoEvento) {
             updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
@@ -1267,16 +1350,16 @@
             }
         }
 
-        async function findDataFile(){updateDataStatus('🔎 Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDataStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDataStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).',false)}}catch(e){console.error("Error buscando archivo:",e);updateDataStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`,true)}}
-        async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDataStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;updateDataStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDataStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
-        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDataStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();updateDataStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDataStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
+        async function findDataFile(){updateDriveStatus('🔎 Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDriveStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).',true)}}catch(e){console.error("Error buscando archivo:",e);updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`,true)}}
+        async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;updateDriveStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDriveStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
+        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();updateDriveStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
         async function showDocumentModal(clientId){if(!gapi.client.getToken()?.access_token)return alert('Conecta con Google Drive primero.');currentClientIdForDocs=clientId;localFilesForUpload=[];const client=clientsData.find(c=>c.id===clientId);if(!client)return;document.getElementById('documentModalTitle').innerText=`Documentos de: ${getDisplayName(client)}`;document.getElementById('documentModal').classList.add('active');renderLocalFileList();await renderDriveFileList();setupDragAndDrop()}
         function setupDragAndDrop(){const area=document.getElementById('uploadArea');['dragenter','dragover','dragleave','drop'].forEach(eName=>area.addEventListener(eName,e=>{e.preventDefault();e.stopPropagation()},false));['dragenter','dragover'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#eef5ff',false));['dragleave','drop'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#f9f9f9',false));area.addEventListener('drop',e=>processFiles(e.dataTransfer.files),false)}
         function processFiles(files){for(const file of files){const reader=new FileReader();reader.onload=e=>{localFilesForUpload.push({id:'local_'+Date.now(),name:file.name,type:file.type,size:file.size,dataUrl:e.target.result});renderLocalFileList()};reader.readAsDataURL(file)}}
         function renderLocalFileList(){const listEl=document.getElementById('localDocumentList');if(localFilesForUpload.length===0){listEl.innerHTML='<p style="font-style: italic; color: #666; text-align:center; padding:10px;">No hay archivos nuevos para subir.</p>';return}listEl.innerHTML='<p style="font-style: italic; color: #666;">Archivos listos para subir:</p>';listEl.innerHTML+=localFilesForUpload.map(file=>`<li><span>${file.name}</span><button class="btn btn-danger btn-sm" onclick="removeLocalFile('${file.id}')">X</button></li>`).join('')}
         function removeLocalFile(fileId){localFilesForUpload=localFilesForUpload.filter(f=>f.id!==fileId);renderLocalFileList()}
         function triggerLocalFileUpload(){const uploader=document.getElementById('documentUploadInput');uploader.onchange=e=>processFiles(e.target.files);uploader.value='';uploader.click()}
-        async function saveDocumentsToDrive(){if(localFilesForUpload.length===0)return alert("No hay archivos nuevos para guardar.");updateDataStatus('Subiendo documentos...',false);const client=clientsData.find(c=>c.id===currentClientIdForDocs);const clientFolderName=`${client.nombre.replace(/[\/\\?%*:|"<>]/g,'-')} - Exp ${client.expediente||client.id.slice(-4)}`;try{if(!gdDocsFolderId)gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);const clientFolderId=await getOrCreateFolder(clientFolderName,gdDocsFolderId);for(const file of localFilesForUpload){await uploadDocumentContent(file.dataUrl,file.name,file.type,clientFolderId)}localFilesForUpload=[];renderLocalFileList();await renderDriveFileList()}catch(err){console.error(err);alert("Error al subir los archivos.");await renderDriveFileList()}}
+        async function saveDocumentsToDrive(){if(localFilesForUpload.length===0)return alert("No hay archivos nuevos para guardar.");updateDriveStatus('Subiendo documentos...',false);const client=clientsData.find(c=>c.id===currentClientIdForDocs);const clientFolderName=`${client.nombre.replace(/[\/\\?%*:|"<>]/g,'-')} - Exp ${client.expediente||client.id.slice(-4)}`;try{if(!gdDocsFolderId)gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);const clientFolderId=await getOrCreateFolder(clientFolderName,gdDocsFolderId);for(const file of localFilesForUpload){await uploadDocumentContent(file.dataUrl,file.name,file.type,clientFolderId)}localFilesForUpload=[];renderLocalFileList();await renderDriveFileList()}catch(err){console.error(err);alert("Error al subir los archivos.");await renderDriveFileList()}}
         async function renderDriveFileList(){const listEl=document.getElementById('driveDocumentList');listEl.innerHTML='<div class="spinner"></div>';try{const client=clientsData.find(c=>c.id===currentClientIdForDocs);if(!gdDocsFolderId)gdDocsFolderId=await getOrCreateFolder(GD_DOCS_ROOT);const clientFolderName=`${client.nombre.replace(/[\/\\?%*:|"<>]/g,'-')} - Exp ${client.expediente||client.id.slice(-4)}`;const clientFolderId=await getOrCreateFolder(clientFolderName,gdDocsFolderId);const response=await gapi.client.drive.files.list({q:`'${clientFolderId}' in parents and trashed=false`,fields:'files(id, name, webViewLink)'});if(response.result.files.length===0){listEl.innerHTML='<li>No hay documentos guardados en Drive para este caso.</li>'}else{listEl.innerHTML=response.result.files.map(file=>`<li><a href="${file.webViewLink}" target="_blank">${file.name}</a><button class="btn btn-danger btn-sm" onclick="deleteDocument('${file.id}')">X</button></li>`).join('')}}catch(err){console.error(err);listEl.innerHTML='<li>Error al cargar documentos de Drive.</li>'}}
         async function deleteDocument(fileId){if(confirm('¿Eliminar este documento permanentemente de Google Drive?')){try{await gapi.client.drive.files.delete({fileId});await renderDriveFileList()}catch(err){alert('Error al eliminar el documento.')}}}
         async function getOrCreateFolder(name,parentId=null){let query=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;if(parentId)query+=` and '${parentId}' in parents`;const response=await gapi.client.drive.files.list({q:query,fields:'files(id)'});if(response.result.files&&response.result.files.length>0)return response.result.files[0].id;const fileMetadata={name,mimeType:'application/vnd.google-apps.folder',...(parentId&&{parents:[parentId]})};const newFolder=await gapi.client.drive.files.create({resource:fileMetadata,fields:'id'});return newFolder.result.id}
