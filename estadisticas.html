@@ -98,7 +98,7 @@
                     <div class="card"><h3 >Ingresos Totales</h3><div class="value positive" id="kpiIngresos"></div></div>
                     <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
-                    <div class="card"><h3 >Clientes con Abono Activo</h3><div class="value" id="kpiCasos"></div></div>
+                    <div class="card"><h3 >Abonos Activos en el Período</h3><div class="value" id="kpiCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
@@ -149,7 +149,6 @@
             const metricsSelectorEl = document.getElementById('metricsSelector');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-            // Mapeo de tipos de ingreso para ser más robusto a variaciones
             const tipoIngresoMap = {
                 'abono mensual': 'ingresos_abonos_mensuales',
                 'honorario siniestros': 'ingresos_honorarios_siniestros',
@@ -164,7 +163,7 @@
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
                 egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
-                casos_activos_abono: { label: '📂 Clientes c/Abono Activo', color: '#1e293b' },
+                abonos_activos_count: { label: '📂 Abonos Activos (Mes)', color: '#1e293b' },
                 nuevos_casos: { label: '✨ Nuevos Casos (Siniestros)', color: '#db2777' },
                 nuevos_casos_juridico: { label: '⚖️ Nuevos Casos (Jurídico)', color: '#9333ea' },
             };
@@ -211,11 +210,20 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // <-- FUNCIÓN `procesarDatos` REESCRITA CON LA NUEVA LÓGICA
+            // <-- NUEVA FUNCIÓN para limpiar y convertir los montos en formato de moneda
+            function limpiarYParsearMonto(montoStr) {
+                if (typeof montoStr !== 'string' || !montoStr) return 0;
+                const montoLimpio = montoStr
+                    .replace(/\$\s?/g, '')  // Quita el símbolo de peso y espacios
+                    .replace(/\./g, '')       // Quita los puntos de miles
+                    .replace(',', '.');      // Reemplaza la coma decimal por un punto
+                return parseFloat(montoLimpio) || 0;
+            }
+
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
-                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0
+                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
 
                 const parseDate = (dateStr) => {
@@ -224,17 +232,22 @@
                     return { year: y, month: m - 1 };
                 };
 
-                // 1. CÁLCULO DE INGRESOS (EXCLUSIVAMENTE DESDE `abonosData`, sin cuentas complejas)
+                // 1. CÁLCULO DE INGRESOS Y ABONOS ACTIVOS POR MES
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
                     if (fecha?.year === year) {
-                        // Se usa directamente el `monto`, como se solicitó, sin verificar estado.
-                        const monto = parseFloat(abono.monto) || 0;
+                        const monto = limpiarYParsearMonto(abono.monto); // <-- LÓGICA CORREGIDA
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
+                        // Suma a la categoría de ingreso correspondiente
                         const categoria = tipoIngresoMap[tipoNormalizado];
                         if (categoria) {
                             monthlyData[fecha.month][categoria] += monto;
+                        }
+
+                        // Cuenta como abono activo para ese mes específico
+                        if (tipoNormalizado === 'abono mensual') {
+                            monthlyData[fecha.month].abonos_activos_count++;
                         }
                     }
                 });
@@ -251,20 +264,18 @@
                     }
                 });
                 
-                // 3. CÁLCULO DE CASOS NUEVOS (Basado en la primera observación)
+                // 3. CÁLCULO DE CASOS NUEVOS
                 const getFechaInicio = (caso) => {
                     if (!caso.observaciones || caso.observaciones.length === 0) return null;
                     const fechas = caso.observaciones.map(o => o.fecha).filter(Boolean).sort();
                     return fechas.length > 0 ? parseDate(fechas[0]) : null;
                 };
-
                 allData.siniestros.forEach(caso => {
                     const fechaInicio = getFechaInicio(caso);
                     if (fechaInicio?.year === year) {
                         monthlyData[fechaInicio.month].nuevos_casos++;
                     }
                 });
-
                 allData.juridica.forEach(caso => {
                     const fechaInicio = getFechaInicio(caso);
                     if (fechaInicio?.year === year) {
@@ -280,17 +291,12 @@
 
                 return monthlyData;
             }
-
-            // <-- FUNCIÓN `renderizarDashboard` ACTUALIZADA
+            
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
-                
-                // Lógica precisa para contar clientes activos: solo por tipo "Abono Mensual"
-                const totalCasosActivos = (allData.abonos || []).filter(a => 
-                    a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual'
-                ).length;
-
                 let kpis;
+                let abonosActivosDelPeriodo = 0;
+
                 if (selectedMonth === 'todos') { // Vista Anual
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
@@ -301,6 +307,15 @@
                         acc.nuevos_casos_juridico += monthData.nuevos_casos_juridico;
                         return acc;
                     }, { ingresos: 0, egresos: 0, nuevos_casos: 0, nuevos_casos_juridico: 0 });
+                    
+                    // Para la vista anual, muestra los abonos del último mes con datos
+                    for (let i = data.length - 1; i >= 0; i--) {
+                        if (data[i].ingresos_totales > 0 || data[i].egresos_totales > 0) {
+                            abonosActivosDelPeriodo = data[i].abonos_activos_count;
+                            break;
+                        }
+                    }
+
                 } else { // Vista Mensual
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
@@ -311,16 +326,18 @@
                         nuevos_casos: data[monthIndex].nuevos_casos,
                         nuevos_casos_juridico: data[monthIndex].nuevos_casos_juridico
                     };
+                    abonosActivosDelPeriodo = data[monthIndex].abonos_activos_count;
                 }
+
                 const balance = kpis.ingresos - kpis.egresos;
                 document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = totalCasosActivos;
+                document.getElementById('kpiCasos').textContent = abonosActivosDelPeriodo;
                 document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
                 document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico;
-                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosActivos > 0 ? formatCurrency((kpis.ingresos / totalCasosActivos)) : formatCurrency(0);
+                document.getElementById('kpiIngresoPorCaso').textContent = abonosActivosDelPeriodo > 0 ? formatCurrency((kpis.ingresos / abonosActivosDelPeriodo)) : formatCurrency(0);
             }
 
             function renderizarGraficoIngresos(data) {
@@ -333,25 +350,10 @@
                     return acc;
                 }, { abonos: 0, juridico: 0, siniestros: 0 });
                 
-                const labels = [];
-                const chartData = [];
-                const colors = [];
-
-                if(annualTotals.abonos > 0) {
-                    labels.push('Abonos Mensuales');
-                    chartData.push(annualTotals.abonos);
-                    colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3');
-                }
-                if(annualTotals.juridico > 0) {
-                    labels.push('Honorarios Jurídicos');
-                    chartData.push(annualTotals.juridico);
-                    colors.push(metricOptions.ingresos_honorarios_juridicos.color + 'B3');
-                }
-                if(annualTotals.siniestros > 0) {
-                    labels.push('Honorarios Siniestros');
-                    chartData.push(annualTotals.siniestros);
-                    colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3');
-                }
+                const labels = []; const chartData = []; const colors = [];
+                if(annualTotals.abonos > 0) { labels.push('Abonos Mensuales'); chartData.push(annualTotals.abonos); colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3'); }
+                if(annualTotals.juridico > 0) { labels.push('Honorarios Jurídicos'); chartData.push(annualTotals.juridico); colors.push(metricOptions.ingresos_honorarios_juridicos.color + 'B3'); }
+                if(annualTotals.siniestros > 0) { labels.push('Honorarios Siniestros'); chartData.push(annualTotals.siniestros); colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3'); }
 
                 ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: labels, datasets: [{ data: chartData, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
             }
@@ -373,18 +375,16 @@
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
                 
-                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
-
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
-                    const annualTotals = selectedMetrics.map(key => key === 'casos_activos_abono' ? abonosActivos : Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
+                    const annualTotals = selectedMetrics.map(key => Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
                     datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff' }];
                     title = `Distribución Anual de ${yearFilterEl.value}`;
                 } else {
                     labels = mesesLabels;
                     datasets = selectedMetrics.map(key => ({
                         label: metricOptions[key].label,
-                        data: key === 'casos_activos_abono' ? Array(12).fill(abonosActivos) : processedDataForYear.map(month => month[key]),
+                        data: processedDataForYear.map(month => month[key]),
                         borderColor: metricOptions[key].color, backgroundColor: metricOptions[key].color + '33', tension: 0.1, fill: chartType === 'line' || chartType === 'radar'
                     }));
                     title = `Comparativa Mensual - ${yearFilterEl.value}`;
