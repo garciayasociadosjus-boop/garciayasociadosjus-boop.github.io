@@ -95,7 +95,7 @@
                 <h2 style="margin-bottom: 15px;">Indicadores Clave de Rendimiento (KPIs)</h2>
                 <div id="dashboard" class="dashboard">
                     <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
-                    <div class="card"><h3 >Ingresos Totales</h3><div class="value positive" id="kpiIngresos"></div></div>
+                    <div class="card"><h3 >Honorarios Cobrados</h3><div class="value positive" id="kpiIngresos"></div></div>
                     <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
                     <div class="card"><h3 >Abonos en el Período</h3><div class="value" id="kpiCasos"></div></div>
@@ -108,7 +108,7 @@
             <div id="analysis" class="tab-pane">
                 <div class="analysis-grid">
                     <div class="chart-container">
-                        <h3 id="ingresosTitle">Composición de Ingresos Anual</h3>
+                        <h3 id="ingresosTitle">Composición de Honorarios Cobrados (Anual)</h3>
                         <canvas id="ingresosChart"></canvas>
                     </div>
                     <div class="data-table-container">
@@ -149,15 +149,8 @@
             const metricsSelectorEl = document.getElementById('metricsSelector');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-            const tipoIngresoMap = {
-                'abono mensual': 'ingresos_abonos_mensuales',
-                'honorario siniestro': 'ingresos_honorarios_siniestros', // Singular para coincidir
-                'regulacion honorarios': 'ingresos_honorarios_juridicos',
-                'pago de bonos y ap': 'ingresos_bonos_ap'
-            };
-
             const metricOptions = {
-                ingresos_totales: { label: '📈 Ingresos Totales', color: '#059669' },
+                ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
                 ingresos_honorarios_juridicos: { label: '⚖️ Honorarios Jurídicos', color: '#4f46e5' },
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
@@ -213,65 +206,69 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // <-- FUNCIÓN DE LIMPIEZA DE MONTOS MEJORADA
             function limpiarYParsearMonto(monto) {
                 if (typeof monto === 'number') return monto;
                 if (typeof monto !== 'string' || !monto) return 0;
-                const montoLimpio = monto
-                    .replace(/\$\s?/g, '')      // Quita el símbolo de peso y espacios
-                    .replace(/\./g, '')       // Quita TODOS los puntos de miles
-                    .replace(',', '.');      // Reemplaza la coma decimal por un punto
+                // Función robusta para limpiar el formato de moneda Argentino
+                const montoLimpio = monto.replace(/\$|\s/g, '').replace(/\./g, '').replace(',', '.');
                 return parseFloat(montoLimpio) || 0;
             }
 
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0, ingresos_bonos_ap: 0,
+                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
-
-                // <-- LÓGICA DE FECHAS CORREGIDA
+                
+                const parseDate = (dateStr) => {
+                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    return { year: y, month: m - 1 };
+                };
+                
                 const getMesDelAbono = (abono) => {
                     if (abono.mesServicio && typeof abono.mesServicio.month === 'number' && abono.mesServicio.year === year) {
                         return abono.mesServicio.month;
                     }
                     if (abono.fechaPago) {
                         const d = new Date(abono.fechaPago + 'T00:00:00');
-                        if (d.getFullYear() === year) {
-                            return d.getMonth();
-                        }
+                        if (d.getFullYear() === year) return d.getMonth();
                     }
                     return -1;
                 };
 
-                // 1. CÁLCULO DE INGRESOS Y ABONOS (LÓGICA CORREGIDA)
+                // 1. CÁLCULO DE INGRESOS Y ABONOS (LÓGICA FINAL Y CORRECTA)
                 allData.abonos.forEach(abono => {
                     const mes = getMesDelAbono(abono);
                     if (mes !== -1) {
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        // Contar abonos del mes
+                        // Contar abonos del mes, sin importar el estado
                         if (tipoNormalizado === 'abono mensual') {
                             monthlyData[mes].abonos_activos_count++;
                         }
 
-                        // Sumar ingresos solo si están pagados
+                        // Sumar ingresos solo si están cobrados (Pagado, Pago Parcial, Terminado)
                         if (['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
-                            const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
-                            const categoria = tipoIngresoMap[tipoNormalizado];
-                            if (categoria) {
-                                monthlyData[mes][categoria] += monto;
+                            // Sumar al total de Honorarios Cobrados (excluyendo Bonos y AP)
+                            if (tipoNormalizado !== 'pago de bonos y ap') {
+                                const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
+                                monthlyData[mes].ingresos_totales += monto;
+                                
+                                // Desglosar por categoría para los gráficos
+                                if (tipoNormalizado === 'abono mensual') {
+                                    monthlyData[mes].ingresos_abonos_mensuales += monto;
+                                } else if (tipoNormalizado === 'honorario siniestro') {
+                                    monthlyData[mes].ingresos_honorarios_siniestros += monto;
+                                } else if (tipoNormalizado === 'regulacion honorarios') {
+                                    monthlyData[mes].ingresos_honorarios_juridicos += monto;
+                                }
                             }
                         }
                     }
                 });
                 
                 // 2. CÁLCULO DE EGRESOS
-                const parseDate = (dateStr) => { // Función de ayuda local
-                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-                    const [y, m, d] = dateStr.split('-').map(Number);
-                    return { year: y, month: m - 1 };
-                };
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     const [y, m] = monthKey.split('-').map(Number);
                     if (y === year) {
@@ -298,9 +295,8 @@
                     if (fechaInicio?.year === year) monthlyData[fechaInicio.month].nuevos_casos_juridico++;
                 });
                 
-                // 4. CÁLCULO DE TOTALES Y BALANCE
+                // 4. CÁLCULO DE BALANCE
                 monthlyData.forEach(data => {
-                    data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros + data.ingresos_bonos_ap;
                     data.balance = data.ingresos_totales - data.egresos_totales;
                 });
 
@@ -372,7 +368,7 @@
             }
 
             function renderizarTablaDatos(data) {
-                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Nuevos Siniestros</th><th>Nuevos Jurídico</th></tr></thead><tbody>';
+                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Honorarios Cobrados</th><th>Egresos</th><th>Balance</th><th>Nuevos Siniestros</th><th>Nuevos Jurídico</th></tr></thead><tbody>';
                 data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td><td>${monthData.nuevos_casos_juridico}</td></tr>`; });
                 const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; acc.ncj += m.nuevos_casos_juridico; return acc; }, {i:0, e:0, b:0, nc:0, ncj:0});
                 tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td><td>${totals.ncj}</td></tr>`;
