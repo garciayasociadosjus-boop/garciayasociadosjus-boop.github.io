@@ -15,7 +15,7 @@
         .header { background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); color: var(--text-light); padding: 25px; text-align: center; border-bottom: 5px solid var(--info-color); }
         .header h1 { font-size: 2.1em; margin-bottom: 8px; font-weight: 700; letter-spacing: -1px; }
         .main-content { padding: 25px; }
-        .controls { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
+        .controls { background: var(--light-bg); padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
         .form-group { display: flex; flex-direction: column; gap: 5px; }
         .form-group label { font-weight: 600; font-size: .9em; color: var(--secondary-color); }
         .form-group select { padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: .95em; background: #fff; }
@@ -24,32 +24,40 @@
         .btn-primary { background: var(--primary-color); color: var(--text-light); }
         .btn-success { background: var(--success-color); color: var(--text-light); }
         .btn-warning { background: var(--warning-color); color: var(--text-light); }
-        .data-status { text-align: center; padding: 12px; border-radius: 8px; margin: 10px 0 20px 0; font-weight: 500; animation: fadeIn .5s ease; }
+        .data-status { text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; animation: fadeIn .5s ease; }
         .status-success { background: #d1fae5; color: #065f46; }
         .status-warning { background: #fef3c7; color: #92400e; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        
+        .tab-nav { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 25px; }
+        .tab-button { padding: 15px 25px; cursor: pointer; background: none; border: none; font-size: 1em; font-weight: 600; color: var(--secondary-color); border-bottom: 3px solid transparent; transition: all .3s ease; }
+        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-pane { display: none; animation: fadeIn .5s ease; }
+        .tab-pane.active { display: block; }
+
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
         .card { background: var(--light-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.05); border-left: 5px solid var(--primary-color); transition: all .3s ease; }
         .card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,.1); }
         .card h3 { color: var(--secondary-color); margin-bottom: 10px; font-size: 0.85em; text-transform: uppercase; font-weight: 600; }
         .card .value { font-size: 1.8em; font-weight: 700; color: var(--primary-color); }
         .card .value.positive { color: var(--success-color); }
         .card .value.negative { color: var(--danger-color); }
-        .analysis-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; margin-top: 30px; }
-        .chart-container { position: relative; min-height: 450px; background: var(--light-bg); padding: 20px; border-radius: 12px; }
+        
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; }
+        .chart-container { position: relative; min-height: 400px; background: var(--light-bg); padding: 20px; border-radius: 12px; }
         .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
-        .custom-chart-section { grid-column: 1 / -1; display: grid; grid-template-columns: 300px 1fr; gap: 30px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .custom-chart-section { display: grid; grid-template-columns: 300px 1fr; gap: 30px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
         .chart-controls { padding: 10px; }
         .chart-controls h3 { margin-bottom: 15px; color: var(--secondary-color); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
         .control-group { margin-bottom: 20px; }
         .control-group label { font-weight: 600; display: block; margin-bottom: 10px; }
         .metrics-list label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.95em; cursor: pointer; }
-        .data-table-container { grid-column: 1 / -1; margin-top: 10px; }
         .data-table-container summary { cursor: pointer; font-size: 1.2em; font-weight: 600; margin-bottom: 10px; }
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th, .data-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
         .data-table th { background: var(--light-bg); font-size: .9em; }
         .data-table td { font-size: .95em; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1200px) { .analysis-grid, .custom-chart-section { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -59,60 +67,65 @@
 
         <main class="main-content">
             <div id="dataStatus" class="data-status" style="display:none;"></div>
-
-            <details open><summary style="font-size: 1.2em; font-weight: 600; margin-bottom: 10px; cursor:pointer;">Filtros Globales y Acciones</summary>
-                <div class="controls">
-                    <button class="btn btn-primary" id="syncButton">🔄 Sincronizar Datos Locales</button>
-                    <div class="form-group"><label for="yearFilter">Año de Análisis:</label><select id="yearFilter"></select></div>
-                    <div class="form-group"><label for="monthFilter">Período Mensual:</label><select id="monthFilter"></select></div>
-                    <div style="display:flex; gap:10px;">
-                        <button id="connectDriveBtn" class="btn btn-primary">🔗 Conectar a Drive</button>
-                        <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar Respaldo</button>
-                        <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar Respaldo</button>
-                    </div>
+            <div class="controls">
+                <div id="driveActions">
+                    <button id="connectDriveBtn" class="btn btn-primary">🔗 Conectar a Google Drive</button>
+                    <button id="loadFromDriveBtn" class="btn btn-success" style="display:none;">☁️ Cargar Datos de Drive</button>
                 </div>
-            </details>
+                <div class="form-group"><label for="yearFilter">Año de Análisis:</label><select id="yearFilter"></select></div>
+                <div class="form-group"><label for="monthFilter">Período Mensual:</label><select id="monthFilter"></select></div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" id="syncButton">🔄 Cargar Datos Locales</button>
+                    <button id="saveToDriveBtn" class="btn btn-warning" style="display:none;">📤 Guardar Respaldo en Drive</button>
+                </div>
+            </div>
             
-            <h2 style="margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">Indicadores Clave de Rendimiento (KPIs)</h2>
-            <div id="dashboard" class="dashboard">
-                 <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
-                 <div class="card"><h3 >Ingresos Totales</h3><div class="value positive" id="kpiIngresos"></div></div>
-                 <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
-                 <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
-                 <div class="card"><h3 >Clientes con Abono Activo</h3><div class="value" id="kpiCasos"></div></div>
-                 <div class="card"><h3 >Casos Nuevos (Período)</h3><div class="value" id="kpiNuevosCasos"></div></div>
-                 <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
-                 <div class="card"><h3 >Ingreso Prom./Caso Nuevo</h3><div class="value" id="kpiIngresoPorCasoNuevo"></div></div>
+            <div class="tab-nav">
+                <button class="tab-button active" data-tab="kpis">Panel Principal</button>
+                <button class="tab-button" data-tab="analysis">Análisis Anual</button>
+                <button class="tab-button" data-tab="custom">Gráfico Personalizado</button>
             </div>
 
-            <div class="analysis-grid">
-                <div class="chart-container">
-                    <h3 id="ingresosTitle">Composición de Ingresos Anual</h3>
-                    <canvas id="ingresosChart"></canvas>
-                </div>
-                <div class="data-table-container">
-                    <details open>
-                        <summary>Tabla de Datos Mensuales</summary>
-                        <div id="dataTableWrapper" style="max-height: 450px; overflow-y: auto;"></div>
-                    </details>
+            <div id="kpis" class="tab-pane active">
+                <h2 style="margin-bottom: 15px;">Indicadores Clave de Rendimiento (KPIs)</h2>
+                <div id="dashboard" class="dashboard">
+                    <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
+                    <div class="card"><h3 >Ingresos Totales</h3><div class="value positive" id="kpiIngresos"></div></div>
+                    <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
+                    <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
+                    <div class="card"><h3 >Clientes con Abono Activo</h3><div class="value" id="kpiCasos"></div></div>
+                    <div class="card"><h3 >Casos Nuevos (Período)</h3><div class="value" id="kpiNuevosCasos"></div></div>
+                    <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
+                    <div class="card"><h3 >Ingreso Prom./Caso Nuevo</h3><div class="value" id="kpiIngresoPorCasoNuevo"></div></div>
                 </div>
             </div>
 
-            <div class="custom-chart-section">
-                <div class="chart-controls">
-                    <h3>Arma tu Gráfico Personalizado</h3>
-                    <div class="control-group">
-                        <label for="chartTypeSelector">1. Elige un tipo de gráfico:</label>
-                        <select id="chartTypeSelector"><option value="bar">Barras</option><option value="line">Líneas</option><option value="pie">Torta</option><option value="doughnut">Dona</option><option value="radar">Radar</option></select>
+            <div id="analysis" class="tab-pane">
+                <div class="analysis-grid">
+                    <div class="chart-container">
+                        <h3 id="ingresosTitle">Composición de Ingresos Anual</h3>
+                        <canvas id="ingresosChart"></canvas>
                     </div>
-                    <div class="control-group">
-                        <label>2. Elige las métricas a comparar:</label>
-                        <div class="metrics-list" id="metricsSelector"></div>
+                    <div class="data-table-container">
+                        <details open>
+                            <summary>Tabla de Datos Mensuales</summary>
+                            <div id="dataTableWrapper" style="max-height: 400px; overflow-y: auto;"></div>
+                        </details>
                     </div>
                 </div>
-                <div class="chart-container">
-                    <h3 id="customChartTitle">Gráfico Personalizado</h3>
-                    <canvas id="customChart"></canvas>
+            </div>
+            
+            <div id="custom" class="tab-pane">
+                <div class="custom-chart-section">
+                    <div class="chart-controls">
+                        <h3>Arma tu Gráfico</h3>
+                        <div class="control-group"><label for="chartTypeSelector">1. Elige un tipo de gráfico:</label><select id="chartTypeSelector"><option value="bar">Barras</option><option value="line">Líneas</option><option value="pie">Torta</option><option value="doughnut">Dona</option><option value="radar">Radar</option></select></div>
+                        <div class="control-group"><label>2. Elige las métricas:</label><div class="metrics-list" id="metricsSelector"></div></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3 id="customChartTitle">Gráfico Personalizado</h3>
+                        <canvas id="customChart"></canvas>
+                    </div>
                 </div>
             </div>
         </main>
@@ -138,27 +151,27 @@
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
                 egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
-                casos_activos_totales: { label: '📂 Clientes c/Abono Activo', color: '#1e293b' },
-                nuevos_casos: { label: '✨ Nuevos Casos', color: '#db2777' },
+                casos_activos_abono: { label: '📂 Clientes c/Abono Activo', color: '#1e293b' },
+                nuevos_casos: { label: '✨ Nuevos Casos (Siniestros)', color: '#db2777' },
             };
 
             function updateStatus(message, type = 'success') {
                 statusEl.textContent = message;
                 statusEl.className = `data-status status-${type}`;
                 statusEl.style.display = 'block';
-                setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+                setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
             }
 
-            function sincronizarDatos() {
+            function sincronizarDatosLocales() {
                 try {
                     allData.siniestros = JSON.parse(localStorage.getItem('planilla_siniestros_data')) || [];
                     allData.juridica = JSON.parse(localStorage.getItem('planilla_juridica_data')) || [];
                     allData.abonos = JSON.parse(localStorage.getItem('abonosData')) || [];
                     allData.egresos = JSON.parse(localStorage.getItem('ingresosEgresosData')) || {};
-                    updateStatus('✅ Datos locales sincronizados correctamente.');
+                    updateStatus('✅ Datos locales cargados. Procesando...');
                     poblarSelectores();
                     render();
-                } catch (error) { console.error("Error al sincronizar:", error); updateStatus('❌ Error al sincronizar.', 'warning'); }
+                } catch (error) { console.error("Error al sincronizar:", error); updateStatus('❌ Error al cargar datos locales.', 'warning'); }
             }
 
             function poblarSelectores() {
@@ -178,7 +191,7 @@
                 if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
 
                 monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
-                mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index}">${mes}</option>`);
+                mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index + 1}">${mes}</option>`);
                 
                 metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `<label><input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 4 ? 'checked' : ''}> ${label}</label>`).join('');
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
@@ -189,88 +202,56 @@
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0
                 }));
-
                 const parseDate = (dateStr) => dateStr ? new Date(dateStr + "T00:00:00") : null;
-
-                // 1. INGRESOS POR ABONOS
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
                     if (fecha?.getFullYear() === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        if(abono.tipo !== 'Pago de Bonos y AP') {
-                             monthlyData[fecha.getMonth()].ingresos_abonos_mensuales += monto;
-                        }
+                        if(abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.getMonth()].ingresos_abonos_mensuales += monto;
                     }
                 });
-
-                // 2. INGRESOS POR HONORARIOS (JURIDICA Y SINIESTROS)
                 const procesarPagosCaso = (caso, categoria) => {
                     (caso.bonos_aportes_list || []).forEach(pago => {
                         const fechas = [pago.bonoLeyFecha, pago.aporteFecha, pago.iusFecha].filter(Boolean);
                         const importes = [pago.bonoLeyImporte, pago.aporteImporte, pago.iusImporte];
                         fechas.forEach((fechaStr, i) => {
                             const fecha = parseDate(fechaStr);
-                            if (fecha?.getFullYear() === year) {
-                                monthlyData[fecha.getMonth()][categoria] += parseFloat(importes[i]) || 0;
-                            }
+                            if (fecha?.getFullYear() === year) monthlyData[fecha.getMonth()][categoria] += parseFloat(importes[i]) || 0;
                         });
                     });
                 };
                 allData.juridica.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_juridicos'));
                 allData.siniestros.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_siniestros'));
-
-                // 3. EGRESOS
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     if (parseInt(monthKey.split('-')[0]) === year) {
                         const monthIndex = parseInt(monthKey.split('-')[1]) - 1;
-                        (data.transactions || []).forEach(t => {
-                            if (t.categoria === 'egreso') monthlyData[monthIndex].egresos_totales += parseFloat(t.monto) || 0;
-                        });
+                        (data.transactions || []).forEach(t => { if (t.categoria === 'egreso') monthlyData[monthIndex].egresos_totales += parseFloat(t.monto) || 0; });
                     }
                 });
-
-                // 4. NUEVOS CASOS (Siniestros con fecha de inicio en el año)
-                allData.siniestros.forEach(s => {
-                    const fecha = parseDate(s.fecha_inicio);
-                    if (fecha?.getFullYear() === year) monthlyData[fecha.getMonth()].nuevos_casos++;
-                });
-
-                // 5. CÁLCULOS DERIVADOS
+                allData.siniestros.forEach(s => { const fecha = parseDate(s.fecha_inicio); if (fecha?.getFullYear() === year) monthlyData[fecha.getMonth()].nuevos_casos++; });
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
                 });
-                
                 return monthlyData;
             }
 
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
-                
-                // *** LÓGICA CORREGIDA: Casos activos son solo los abonos con estado "Activo". ***
                 const totalCasosActivos = (allData.abonos || []).filter(a => a.estado === 'Activo').length;
-
                 let kpis;
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
                     kpis = data.reduce((acc, monthData) => {
-                        acc.ingresos += monthData.ingresos_totales;
-                        acc.egresos += monthData.egresos_totales;
-                        acc.nuevos_casos += monthData.nuevos_casos;
-                        return acc;
+                        acc.ingresos += monthData.ingresos_totales; acc.egresos += monthData.egresos_totales; acc.nuevos_casos += monthData.nuevos_casos; return acc;
                     }, { ingresos: 0, egresos: 0, nuevos_casos: 0 });
                 } else {
-                    const monthIndex = parseInt(selectedMonth);
+                    const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
                     document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
-                    kpis = {
-                        ingresos: data[monthIndex].ingresos_totales,
-                        egresos: data[monthIndex].egresos_totales,
-                        nuevos_casos: data[monthIndex].nuevos_casos
-                    };
+                    kpis = { ingresos: data[monthIndex].ingresos_totales, egresos: data[monthIndex].egresos_totales, nuevos_casos: data[monthIndex].nuevos_casos };
                 }
-
                 const balance = kpis.ingresos - kpis.egresos;
                 document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
                 document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
@@ -278,7 +259,7 @@
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
                 document.getElementById('kpiCasos').textContent = totalCasosActivos;
                 document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
-                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosActivos > 0 ? formatCurrency(kpis.ingresos / totalCasosActivos) : formatCurrency(0);
+                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosActivos > 0 ? formatCurrency((kpis.ingresos / totalCasosActivos)) : formatCurrency(0);
                 document.getElementById('kpiIngresoPorCasoNuevo').textContent = kpis.nuevos_casos > 0 ? formatCurrency(kpis.ingresos / kpis.nuevos_casos) : formatCurrency(0);
             }
 
@@ -286,38 +267,14 @@
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
                 const annualTotals = data.reduce((acc, month) => {
-                    acc.abonos += month.ingresos_abonos_mensuales;
-                    acc.juridico += month.ingresos_honorarios_juridicos;
-                    acc.siniestros += month.ingresos_honorarios_siniestros;
-                    return acc;
+                    acc.abonos += month.ingresos_abonos_mensuales; acc.juridico += month.ingresos_honorarios_juridicos; acc.siniestros += month.ingresos_honorarios_siniestros; return acc;
                 }, { abonos: 0, juridico: 0, siniestros: 0 });
-
-                ingresosChartInstance = new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: ['Abonos Mensuales', 'Honorarios Jurídicos', 'Honorarios Siniestros'],
-                        datasets: [{
-                            data: [annualTotals.abonos, annualTotals.juridico, annualTotals.siniestros],
-                            backgroundColor: [metricOptions.ingresos_abonos_mensuales.color + 'B3', metricOptions.ingresos_honorarios_juridicos.color + 'B3', metricOptions.ingresos_honorarios_siniestros.color + 'B3'],
-                            borderColor: '#fff',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-                });
+                ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: ['Abonos Mensuales', 'Honorarios Jurídicos', 'Honorarios Siniestros'], datasets: [{ data: [annualTotals.abonos, annualTotals.juridico, annualTotals.siniestros], backgroundColor: [metricOptions.ingresos_abonos_mensuales.color + 'B3', metricOptions.ingresos_honorarios_juridicos.color + 'B3', metricOptions.ingresos_honorarios_siniestros.color + 'B3'], borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
             }
 
             function renderizarTablaDatos(data) {
                 let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Casos Nuevos</th></tr></thead><tbody>';
-                data.forEach((monthData, index) => {
-                    tableHTML += `<tr>
-                        <td>${mesesLabels[index]}</td>
-                        <td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td>
-                        <td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td>
-                        <td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td>
-                        <td>${monthData.nuevos_casos}</td>
-                    </tr>`;
-                });
+                data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td></tr>`; });
                 const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; return acc; }, {i:0, e:0, b:0, nc:0});
                 tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td></tr>`;
                 tableHTML += '</tbody></table>';
@@ -328,34 +285,24 @@
                 if (customChartInstance) customChartInstance.destroy();
                 const selectedMetrics = Array.from(document.querySelectorAll('.metric-checkbox:checked')).map(cb => cb.value);
                 if (selectedMetrics.length === 0) return;
-
                 const chartType = chartTypeSelectorEl.value;
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
-                const juridicaActivos = allData.juridica.filter(c => c.estado !== 'FINALIZADA').length;
-                const siniestrosActivos = allData.siniestros.filter(s => s.estado !== 'FINALIZADA').length;
                 const abonosActivos = (allData.abonos || []).filter(a => a.estado === 'Activo').length;
-
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
-                    const annualTotals = selectedMetrics.map(key => {
-                        if (key.includes('casos_activos')) return abonosActivos;
-                        return Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0));
-                    });
+                    const annualTotals = selectedMetrics.map(key => key === 'casos_activos_abono' ? abonosActivos : Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
                     datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff' }];
                     title = `Distribución Anual de ${yearFilterEl.value}`;
                 } else {
                     labels = mesesLabels;
                     datasets = selectedMetrics.map(key => ({
                         label: metricOptions[key].label,
-                        data: key.includes('casos_activos') ? Array(12).fill(abonosActivos) : processedDataForYear.map(month => month[key]),
-                        borderColor: metricOptions[key].color,
-                        backgroundColor: metricOptions[key].color + '33',
-                        tension: 0.1, fill: chartType === 'line' || chartType === 'radar'
+                        data: key === 'casos_activos_abono' ? Array(12).fill(abonosActivos) : processedDataForYear.map(month => month[key]),
+                        borderColor: metricOptions[key].color, backgroundColor: metricOptions[key].color + '33', tension: 0.1, fill: chartType === 'line' || chartType === 'radar'
                     }));
                     title = `Comparativa Mensual - ${yearFilterEl.value}`;
                 }
-                
                 document.getElementById('customChartTitle').textContent = title;
                 const ctx = document.getElementById('customChart').getContext('2d');
                 customChartInstance = new Chart(ctx, { type: chartType, data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
@@ -363,17 +310,7 @@
 
             function render() {
                 const selectedYear = parseInt(yearFilterEl.value);
-                if (isNaN(selectedYear)) {
-                    document.querySelector('.dashboard').style.display = 'none';
-                    document.querySelector('.analysis-grid').style.display = 'none';
-                    document.querySelector('.custom-chart-section').style.display = 'none';
-                    updateStatus('Selecciona un año para ver los datos.', 'warning');
-                    return;
-                }
-                document.querySelector('.dashboard').style.display = 'grid';
-                document.querySelector('.analysis-grid').style.display = 'grid';
-                document.querySelector('.custom-chart-section').style.display = 'grid';
-                
+                if (isNaN(selectedYear) || !allData.abonos.length) { updateStatus('No hay datos para mostrar. Carga tus datos desde Drive o localmente.', 'warning'); return; }
                 processedDataForYear = procesarDatos(selectedYear);
                 renderizarDashboard(processedDataForYear);
                 renderizarGraficoIngresos(processedDataForYear);
@@ -383,10 +320,16 @@
 
             function formatCurrency(value) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value); }
 
-            document.getElementById('syncButton').addEventListener('click', sincronizarDatos);
+            document.getElementById('syncButton').addEventListener('click', sincronizarDatosLocales);
             yearFilterEl.addEventListener('change', render);
             monthFilterEl.addEventListener('change', () => renderizarDashboard(processedDataForYear));
             chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
+
+            document.querySelectorAll('.tab-button').forEach(button => button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-button, .tab-pane').forEach(el => el.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(button.dataset.tab).classList.add('active');
+            }));
 
             const DATA_FILE_NAME = 'datos_consolidados_estudio.json';
             let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
@@ -400,8 +343,8 @@
                     if (resp.error) { throw(resp); }
                     updateStatus('✅ Conectado a Google Drive.');
                     document.getElementById('connectDriveBtn').style.display = 'none';
-                    document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-                    document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
+                    document.getElementById('loadFromDriveBtn').style.display = 'inline-flex';
+                    document.getElementById('saveToDriveBtn').style.display = 'inline-flex';
                     await findDataFile();
                 };
                 if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
@@ -410,11 +353,11 @@
                 try {
                     const r = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id)', spaces: 'drive' });
                     dataFileId = r.result.files.length > 0 ? r.result.files[0].id : null;
-                    updateStatus(dataFileId ? 'Archivo de respaldo encontrado.' : 'No se encontró respaldo.', dataFileId ? 'success' : 'warning');
+                    if(dataFileId) { updateStatus('Archivo de respaldo encontrado. Listo para cargar.', 'success'); } else { updateStatus('No se encontró respaldo en Drive. Puedes guardar uno nuevo.', 'warning'); }
                 } catch (err) { updateStatus('Error buscando archivo en Drive.', 'warning'); }
             }
             async function saveDataToDrive() {
-                if (!confirm('¿Guardar una copia de seguridad de los datos sincronizados en Google Drive?')) return;
+                if (!confirm('¿Guardar una copia de los datos actuales en Google Drive? Esto sobreescribirá el respaldo anterior.')) return;
                 try {
                     const snapshot = { siniestros: allData.siniestros, juridica: allData.juridica, abonos: allData.abonos, egresos: allData.egresos };
                     const content = JSON.stringify(snapshot); const boundary = 'b'; const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
@@ -427,20 +370,19 @@
             }
             async function loadDataFromDrive() {
                 if (!dataFileId) return alert("No se encontró un archivo de respaldo en Drive para cargar.");
-                if (!confirm("¿Cargar el respaldo de Drive? Esto reemplazará los datos actuales.")) return;
                 try {
+                    updateStatus('📥 Cargando desde Drive...', 'success');
                     const resp = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
                     const loaded = resp.result;
-                    localStorage.setItem('planilla_siniestros_data', JSON.stringify(loaded.siniestros || []));
-                    localStorage.setItem('planilla_juridica_data', JSON.stringify(loaded.juridica || []));
-                    localStorage.setItem('abonosData', JSON.stringify(loaded.abonos || []));
-                    localStorage.setItem('ingresosEgresosData', JSON.stringify(loaded.egresos || {}));
-                    updateStatus('✅ Respaldo cargado. Sincronizando nuevos datos...');
-                    sincronizarDatos();
+                    allData.siniestros = loaded.siniestros || []; allData.juridica = loaded.juridica || [];
+                    allData.abonos = loaded.abonos || []; allData.egresos = loaded.egresos || {};
+                    updateStatus('✅ Respaldo cargado de Drive. Procesando...');
+                    poblarSelectores();
+                    render();
                 } catch (err) { updateStatus('❌ Error al cargar desde Drive.', 'warning'); }
             }
-            
-            sincronizarDatos();
+            document.getElementById('loadFromDriveBtn').addEventListener('click', loadDataFromDrive);
+            document.getElementById('saveToDriveBtn').addEventListener('click', saveDataToDrive);
         });
     </script>
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
