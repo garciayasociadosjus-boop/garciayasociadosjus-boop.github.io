@@ -35,8 +35,6 @@
         }
         .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
         .header p { font-size: 1.1em; opacity: 0.9; }
-        
-        /* --- ESTILOS PARA EL RELOJ COMBINADO --- */
         .header-clock-container {
             display: flex;
             align-items: center;
@@ -87,7 +85,6 @@
             letter-spacing: 0.5px;
             text-align: left;
         }
-        
         .main-content { padding: 30px; }
         .dashboard {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -135,7 +132,7 @@
             display: flex; align-items: center; gap: 10px;
         }
         .review-item-content { flex-grow: 1; cursor: pointer; }
-        .review-item.completed .review-item-content { text-decoration: line-through; opacity: 0.6; }
+        .review-item.completed .review-item-content, .history-item.completed .history-text { text-decoration: line-through; opacity: 0.6; }
         .review-item.completed { border-left-color: var(--success-color); background-color: #f2fdf5; }
         .review-item:hover { background: #e8f2ff; transform: translateX(5px); }
         .review-item.today { border-left-color: #ff7e5f; background: #fff5f5; }
@@ -172,7 +169,6 @@
         .info-value { font-size: 0.9em; color: var(--dark-text); margin-top: 2px; font-weight: 500; white-space: pre-wrap; word-break: break-word; user-select: text; }
         .editable-field { cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s ease; min-height: 20px; }
         .editable-field:hover { background-color: #e8f4fd; color: #2980b9; }
-        
         .summary-note {
             background: #fffbe6;
             border: 1px solid #ffe58f;
@@ -192,10 +188,8 @@
             margin: 0;
             line-height: 1.6;
         }
-
         .history-section { margin-top: 20px; }
         .history-item { background: var(--light-text); border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; position: relative; }
-        .history-item.completed .history-text { text-decoration: line-through; opacity: 0.7; }
         .private-note-details { margin-top: 10px; }
         .private-note-summary { cursor: pointer; font-weight: 600; color: #8e44ad; user-select: none; font-size: 0.9em;}
         .private-note-summary::-webkit-details-marker { display: none; }
@@ -215,7 +209,7 @@
         .tag-vencimiento { background-color: #ff6347; }
         .tag-bono_aporte { background-color: #1abc9c; }
         .close { float: right; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; }
-        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; justify-content: flex-start; }
         .data-status {
             background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
             padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center;
@@ -231,7 +225,6 @@
         .document-list .btn-sm { flex-shrink: 0; margin-left: 10px; }
         .document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         .weekly-glance {
             display: flex;
             justify-content: space-around;
@@ -400,7 +393,7 @@
     <script>
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
-        let alertaInterval = null; // <<< CAMBIO 1: Variable para controlar el temporizador
+        let alertaInterval = null;
 
         // ========= FUNCIONES AUXILIARES Y DE FORMATO =========
         function saveData() {
@@ -463,7 +456,7 @@
         
         function getTodayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
         const todayYMD = getTodayYMD();
-        function formatDate(dateString) { if (!dateString) return 'S/F'; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; }
+        function formatDate(dateString) { if (!dateString) return 'S/F'; try { const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`; } catch (e) { return 'Fecha Inválida'; } }
         function formatTime(timeString) { if (!timeString) return ''; return timeString; }
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
@@ -475,9 +468,7 @@
             const element = document.getElementById(elementId);
             const icon = element.previousElementSibling.querySelector('.toggle-icon');
             if (!element || !icon) return;
-            
             const displayStyle = elementId.includes('weeklyGlance') ? 'flex' : 'block';
-
             if (getComputedStyle(element).display === 'none') {
                 element.style.display = displayStyle;
                 icon.textContent = '➖';
@@ -532,29 +523,24 @@
         function renderWeeklyGlance() {
             const container = document.getElementById('weeklyGlanceContainer');
             if (!container) return;
-
             const counts = Array(7).fill(0);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
-
             allSchedulableItems.forEach(item => {
                 if (!item.reviewDate) return;
                 const itemDate = new Date(item.reviewDate + 'T00:00:00');
                 const diffTime = itemDate - today;
                 const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
                 if (diffDays >= 0 && diffDays < 7) {
                     counts[diffDays]++;
                 }
             });
-
             const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
             let html = '';
             for (let i = 0; i < 7; i++) {
@@ -564,19 +550,12 @@
                 const dayName = dayNames[dayOfWeek];
                 const dateNumber = date.getDate();
                 const isoDateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
                 const hasTasks = counts[i] > 0;
                 const hasTasksClass = hasTasks ? 'has-tasks' : '';
                 const isTodayClass = i === 0 ? 'is-today' : '';
                 const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
                 const onClickAction = hasTasks ? `onclick="showTasksForDate('${isoDateString}')"` : '';
-
-                html += `
-                    <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}>
-                        <span class="day-name">${dayName} ${dateNumber}</span>
-                        <span class="day-count">${counts[i]}</span>
-                    </div>
-                `;
+                html += `<div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}><span class="day-name">${dayName} ${dateNumber}</span><span class="day-count">${counts[i]}</span></div>`;
             }
             container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
         }
@@ -584,15 +563,12 @@
         function renderAdvanceNotices() {
             const container = document.getElementById('advanceNoticeContainer');
             if (!container) return;
-
             const itemsToNotice = [];
-            
             clientsData.forEach(client => {
                 const criticalItems = [
                     ...(client.audiencias_list || []).map(item => ({...item, dueDate: item.fecha, type: 'audience', text: `AUDIENCIA: ${item.texto}` })),
                     ...(client.vencimientos_list || []).map(item => ({...item, dueDate: item.fecha, type: 'vencimiento', text: `VENCIMIENTO: ${item.texto}` }))
                 ];
-
                 criticalItems.forEach(item => {
                     const noticeDays = parseInt(item.avisoPrevio, 10);
                     if (!item.completed && noticeDays > 0 && item.dueDate) {
@@ -603,27 +579,15 @@
                     }
                 });
             });
-
             itemsToNotice.sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
             document.getElementById('advanceNoticeCount').textContent = itemsToNotice.length;
-
             if (itemsToNotice.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #666;">No hay avisos previos para los próximos días.</p>';
                 return;
             }
-
             container.innerHTML = itemsToNotice.map(({ client, item, daysDifference }) => {
-                const dateInfo = daysDifference === 0 
-                    ? '<span style="color: var(--danger-color);">Vence HOY</span>' 
-                    : `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
-                
-                return `<div class="review-item" onclick="showClientModal('${client.id}')">
-                            <div class="review-item-content">
-                                <div class="review-date">${dateInfo}</div>
-                                <div class="review-client">${getDisplayName(client)}</div>
-                                <div class="review-obs">${item.text}</div>
-                            </div>
-                        </div>`;
+                const dateInfo = daysDifference === 0 ? '<span style="color: var(--danger-color);">Vence HOY</span>' : `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+                return `<div class="review-item" onclick="showClientModal('${client.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(client)}</div><div class="review-obs">${item.text}</div></div></div>`;
             }).join('');
         }
 
@@ -681,20 +645,8 @@
             });
             const lastEntry = sortedList[0];
             const lastDate = formatDate(lastEntry.bonoLeyFecha || lastEntry.bonoFecha || lastEntry.aporteFecha || lastEntry.iusFecha);
-            
             let obsHtml = lastEntry.observacion ? `<br><b>Obs:</b> ${lastEntry.observacion}` : '';
-
-            return `
-                <div class="summary-note">
-                    <h4>📌 Último Registro de Pagos (${lastDate})</h4>
-                    <p style="margin:0; padding:0; line-height: 1.7;">
-                        <b>Bono Ley:</b> ${lastEntry.bonoLeyPago || lastEntry.bonoPago || 'S/D'} ($${lastEntry.bonoLeyImporte || lastEntry.bonoImporte || '0.00'}) | 
-                        <b>Aporte:</b> ${lastEntry.aportePago || 'S/D'} ($${lastEntry.aporteImporte || '0.00'}) | 
-                        <b>Ius Prev:</b> ${lastEntry.iusPago || 'S/D'} ($${lastEntry.iusImporte || '0.00'})
-                        ${obsHtml}
-                    </p>
-                </div>
-            `;
+            return `<div class="summary-note"><h4>📌 Último Registro de Pagos (${lastDate})</h4><p style="margin:0; padding:0; line-height: 1.7;"><b>Bono Ley:</b> ${lastEntry.bonoLeyPago || lastEntry.bonoPago || 'S/D'} ($${lastEntry.bonoLeyImporte || lastEntry.bonoImporte || '0.00'}) | <b>Aporte:</b> ${lastEntry.aportePago || 'S/D'} ($${lastEntry.aporteImporte || '0.00'}) | <b>Ius Prev:</b> ${lastEntry.iusPago || 'S/D'} ($${lastEntry.iusImporte || '0.00'}) ${obsHtml}</p></div>`;
         }
 
         function renderPaymentHistoryList(client) {
@@ -706,28 +658,10 @@
                 const dateB = b.bonoLeyFecha || b.bonoFecha || a.aporteFecha || a.iusFecha || '0000-00-00';
                 return dateB.localeCompare(dateA);
             });
-
             const itemsHtml = sortedList.map(item => {
                 const itemDate = formatDate(item.bonoLeyFecha || item.bonoFecha || item.aporteFecha || item.iusFecha);
-                return `
-                <div id="bono_aporte-item-${item.id}" class="history-item history-item-bono_aporte">
-                    <div class="history-date">${itemDate}<span class="history-tag tag-bono_aporte" style="margin-left: auto;">REG. PAGOS</span></div>
-                    <details class="private-note-details" style="margin-top:0;">
-                        <summary class="private-note-summary" style="font-size:1em;">Ver Detalle de Pagos</summary>
-                        <div class="private-note-content">
-                            <p><strong>Bono Ley:</strong> ${item.bonoLeyPago || item.bonoPago || 'No'} | <strong>A cargo:</strong> ${item.bonoLeyCargo || item.bonoCargo || 'S/D'} | <strong>Importe:</strong> $${item.bonoLeyImporte || item.bonoImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.bonoLeyFecha || item.bonoFecha)}</p>
-                            <p><strong>Aporte:</strong> ${item.aportePago || 'No'} | <strong>A cargo:</strong> ${item.aporteCargo || 'S/D'} | <strong>Importe:</strong> $${item.aporteImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.aporteFecha)}</p>
-                            <p><strong>Ius Previsional:</strong> ${item.iusPago || 'No'} | <strong>A cargo:</strong> ${item.iusCargo || 'S/D'} | <strong>Importe:</strong> $${item.iusImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.iusFecha)}</p>
-                            ${item.observacion ? `<div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px;"><strong>Obs:</strong> ${item.observacion}</div>` : ''}
-                        </div>
-                    </details>
-                    <div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">
-                        <button class="btn btn-sm" onclick="editBonoAporte('${client.id}', '${item.id}')">Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', 'bono_aporte')">Eliminar</button>
-                    </div>
-                </div>`;
+                return `<div id="bono_aporte-item-${item.id}" class="history-item history-item-bono_aporte"><div class="history-date">${itemDate}<span class="history-tag tag-bono_aporte" style="margin-left: auto;">REG. PAGOS</span></div><details class="private-note-details" style="margin-top:0;"><summary class="private-note-summary" style="font-size:1em;">Ver Detalle de Pagos</summary><div class="private-note-content"><p><strong>Bono Ley:</strong> ${item.bonoLeyPago || item.bonoPago || 'No'} | <strong>A cargo:</strong> ${item.bonoLeyCargo || item.bonoCargo || 'S/D'} | <strong>Importe:</strong> $${item.bonoLeyImporte || item.bonoImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.bonoLeyFecha || item.bonoFecha)}</p><p><strong>Aporte:</strong> ${item.aportePago || 'No'} | <strong>A cargo:</strong> ${item.aporteCargo || 'S/D'} | <strong>Importe:</strong> $${item.aporteImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.aporteFecha)}</p><p><strong>Ius Previsional:</strong> ${item.iusPago || 'No'} | <strong>A cargo:</strong> ${item.iusCargo || 'S/D'} | <strong>Importe:</strong> $${item.iusImporte || '0.00'} | <strong>Fecha:</strong> ${formatDate(item.iusFecha)}</p>${item.observacion ? `<div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px;"><strong>Obs:</strong> ${item.observacion}</div>` : ''}</div></details><div class="action-buttons"><button class="btn btn-sm" onclick="editBonoAporte('${client.id}', '${item.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', 'bono_aporte')">Eliminar</button></div></div>`;
             }).join('');
-            
             return `<div><h4 style="margin-top:20px;">Historial Completo de Pagos</h4>${itemsHtml}</div>`;
         }
 
@@ -735,84 +669,7 @@
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             updateClientNextRevision(client);
             const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
-            const content = `
-                <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
-                <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
-                    ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
-                    <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
-                </div></div>
-                ${renderLastPaymentSummary(client)}
-                <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
-                
-                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                    <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                        <h4>📝 Agregar Tarea</h4>
-                        <form onsubmit="addObservation(event, '${client.id}')">
-                            <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
-                            <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
-                            <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
-                            <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
-                        </form>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
-                            <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
-                                <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
-                                <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
-                                <div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
-                                <button type="submit" class="btn btn-success">💾 Agendar</button>
-                            </form>
-                        </div>
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4>
-                            <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
-                                <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
-                                <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
-                                <div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
-                                <button type="submit" class="btn btn-success">💾 Agendar</button>
-                            </form>
-                        </div>
-                        
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
-                            <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Registrar Pagos</h4>
-                            <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
-                                    <div>
-                                        <h5>Bono Ley</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoLeyPago" id="newBonoLeyPagoSi" value="Si"> <label for="newBonoLeyPagoSi">Sí</label> <input type="radio" name="bonoLeyPago" id="newBonoLeyPagoNo" value="No" checked> <label for="newBonoLeyPagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newBonoLeyCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newBonoLeyImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="newBonoLeyFecha"></div>
-                                    </div>
-                                    <div>
-                                        <h5>Aportes</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="aportePago" id="newAportePagoSi" value="Si"> <label for="newAportePagoSi">Sí</label> <input type="radio" name="aportePago" id="newAportePagoNo" value="No" checked> <label for="newAportePagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newAporteCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newAporteImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="newAporteFecha"></div>
-                                    </div>
-                                    <div>
-                                        <h5>Ius Previsional</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="iusPago" id="newIusPagoSi" value="Si"> <label for="newIusPagoSi">Sí</label> <input type="radio" name="iusPago" id="newIusPagoNo" value="No" checked> <label for="newIusPagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newIusCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newIusImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Ius:</label><input type="date" id="newIusFecha"></div>
-                                    </div>
-                                </div>
-                                <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
-                                <button type="submit" class="btn btn-success">💾 Guardar Registro</button>
-                            </form>
-                            <div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div>
-                        </div>
-                        
-                    </div>
-                </div>
-
-                <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
+            const content = `<span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2><div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div></div></div>${renderLastPaymentSummary(client)}<div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div><div style="display: grid; grid-template-columns: 1fr; gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event, '${client.id}')"><div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button type="submit" class="btn btn-success">💾 Guardar Tarea</button></form></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;"><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4><form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;"><h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div><button type="submit" class="btn btn-success">💾 Agendar</button></form></div><div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;"><h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Registrar Pagos</h4><form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;"><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;"><div><h5>Bono Ley</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoLeyPago" id="newBonoLeyPagoSi" value="Si"> <label for="newBonoLeyPagoSi">Sí</label> <input type="radio" name="bonoLeyPago" id="newBonoLeyPagoNo" value="No" checked> <label for="newBonoLeyPagoNo">No</label></div></div><div class="form-group"><label>A cargo de:</label><select id="newBonoLeyCargo"><option>Estudio</option><option>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="newBonoLeyImporte" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="newBonoLeyFecha"></div></div><div><h5>Aportes</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="aportePago" id="newAportePagoSi" value="Si"> <label for="newAportePagoSi">Sí</label> <input type="radio" name="aportePago" id="newAportePagoNo" value="No" checked> <label for="newAportePagoNo">No</label></div></div><div class="form-group"><label>A cargo de:</label><select id="newAporteCargo"><option>Estudio</option><option>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="newAporteImporte" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Aporte:</label><input type="date" id="newAporteFecha"></div></div><div><h5>Ius Previsional</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="iusPago" id="newIusPagoSi" value="Si"> <label for="newIusPagoSi">Sí</label> <input type="radio" name="iusPago" id="newIusPagoNo" value="No" checked> <label for="newIusPagoNo">No</label></div></div><div class="form-group"><label>A cargo de:</label><select id="newIusCargo"><option>Estudio</option><option>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="newIusImporte" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Ius:</label><input type="date" id="newIusFecha"></div></div></div><div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div><button type="submit" class="btn btn-success">💾 Guardar Registro</button></form><div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div></div></div></div><div class="action-buttons" style="justify-content:center; margin-top: 20px;"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
             document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
             document.getElementById('clientInfoModal').classList.add('active');
         }
@@ -824,23 +681,31 @@
             const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
-                let itemDate = '', workedDate = '', tagType, tagText, itemContent;
+                let itemDate = '', workedDate = '', tagType, tagText, itemContent, editButton = '';
                 switch(item.type) {
-                    case 'task': tagType = 'task'; tagText = 'TAREA'; itemDate = `Revisar el: ${formatDate(item.proximaRevision)}`; workedDate = item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''; itemContent = `<div class="history-text">${item.texto}</div>` + (item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : ''); break;
-                    case 'audience': tagType = 'audience'; tagText = 'AUDIENCIA'; itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; itemContent = `<div class="history-text">${item.texto}</div>`; break;
-                    case 'vencimiento': tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; itemContent = `<div class="history-text">${item.texto}</div>`; break;
+                    case 'task': 
+                        tagType = 'task'; tagText = 'TAREA'; 
+                        itemDate = `Revisar el: ${formatDate(item.proximaRevision)}`; 
+                        workedDate = item.fecha ? `<span style="font-weight: normal; color: #444; margin-left: 10px;">(Trabajado el: ${formatDate(item.fecha)})</span>` : ''; 
+                        itemContent = `<div class="history-text">${item.texto}</div>` + (item.textoPrivado ? `<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>` : ''); 
+                        editButton = `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>`;
+                        break;
+                    case 'audience': 
+                        tagType = 'audience'; tagText = 'AUDIENCIA'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; 
+                        itemContent = `<div class="history-text">${item.texto}</div>`; 
+                        editButton = `<button class="btn btn-sm" onclick="editCalendarEvent('${client.id}', '${item.id}', 'audience')">Editar</button>`;
+                        break;
+                    case 'vencimiento': 
+                        tagType = 'vencimiento'; tagText = 'VENCIMIENTO'; 
+                        itemDate = `Fecha: ${formatDate(item.date)} ${formatTime(item.hora || '')}`; 
+                        itemContent = `<div class="history-text">${item.texto}</div>`;
+                        editButton = `<button class="btn btn-sm" onclick="editCalendarEvent('${client.id}', '${item.id}', 'vencimiento')">Editar</button>`;
+                        break;
                     default: tagType = 'task'; tagText = 'EVENTO'; itemContent = `<div class="history-text">${item.texto || ''}</div>`;
                 }
 
-                return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}">
-                            <div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div>
-                            ${itemContent}
-                            <div class="action-buttons" style="justify-content: flex-start; margin-top: 10px;">
-                                <button class="btn btn-sm ${item.completed ? '' : 'btn-success'}" onclick="marcarEventoCompleto(event, '${client.id}', '${item.id}', '${item.type}')">${item.completed ? 'Reabrir' : '✓ Completar'}</button>
-                                ${item.type === 'task' ? `<button class="btn btn-sm" onclick="editObs('${client.id}', '${item.id}')">Editar</button>` : ''}
-                                <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button>
-                            </div>
-                        </div>`;
+                return `<div id="${item.type}-item-${item.id}" class="history-item history-item-${tagType} ${item.completed ? 'completed' : ''}"><div class="history-date">${itemDate}${workedDate}<span class="history-tag tag-${tagType}" style="margin-left: auto;">${tagText}</span></div>${itemContent}<div class="action-buttons"><button class="btn btn-sm ${item.completed ? '' : 'btn-success'}" onclick="marcarEventoCompleto(event, '${client.id}', '${item.id}', '${item.type}')">${item.completed ? 'Reabrir' : '✓ Completar'}</button>${editButton}<button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button></div></div>`;
             }).join('');
         }
         
@@ -857,8 +722,6 @@
             document.getElementById(modalId).classList.remove('active');
             editingClientId = null;
             editingField = null;
-
-            // <<< CAMBIO 3: Si cerramos la alerta sin actuar, reiniciamos el vigilante
             if (modalId === 'alertModal' && !alertaInterval) {
                 iniciarVigilanteDeAlertas();
             }
@@ -866,23 +729,19 @@
         
         function editField(clientId, fieldName) {
             if (editingField) return;
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
             editingClientId = clientId; editingField = fieldName;
             const fieldElement = document.getElementById(`field-${fieldName}`);
             const currentValue = client[fieldName] || '';
             const inputElement = (fieldName === 'notas') ? document.createElement('textarea') : document.createElement('input');
             inputElement.value = currentValue;
-            
             if (fieldName === 'notas') {
                 inputElement.style.cssText = 'width: 100%; height: 120px; font-family: inherit; font-size: inherit;';
             } else {
                 inputElement.type = 'text';
             }
-            
             inputElement.addEventListener('blur', saveField);
             inputElement.addEventListener('keydown', e => { if (e.key === 'Enter' && fieldName !== 'notas') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { editingClientId = null; editingField = null; showClientModal(clientId); } });
-            
             fieldElement.innerHTML = '';
             fieldElement.appendChild(inputElement);
             inputElement.focus();
@@ -909,8 +768,8 @@
             if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
-            const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
-            if (success) { client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
+            const calendarEventId = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
+            if (calendarEventId) { newAudience.calendarEventId = calendarEventId; client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
         }
         
         async function addVencimiento(event, clientId) {
@@ -918,40 +777,23 @@
             if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, avisoPrevio: document.getElementById('newVencimientoAvisoPrevio').value, completed: false };
-            const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
-            if (success) { client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); }
+            const calendarEventId = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
+            if (calendarEventId) { newVencimiento.calendarEventId = calendarEventId; client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); }
         }
         
         function addBonoAporte(event, clientId) {
             event.preventDefault();
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-
             const bonoLeyPago = document.querySelector('input[name="bonoLeyPago"]:checked').value;
             const bonoLeyFecha = document.getElementById('newBonoLeyFecha').value;
             if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
-
             const aportePago = document.querySelector('input[name="aportePago"]:checked').value;
             const aporteFecha = document.getElementById('newAporteFecha').value;
             if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
-
             const iusPago = document.querySelector('input[name="iusPago"]:checked').value;
             const iusFecha = document.getElementById('newIusFecha').value;
             if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
-
-            const newBA = {
-                id: generateId({}),
-                bonoLeyPago, bonoLeyFecha,
-                bonoLeyCargo: document.getElementById('newBonoLeyCargo').value,
-                bonoLeyImporte: document.getElementById('newBonoLeyImporte').value,
-                aportePago, aporteFecha,
-                aporteCargo: document.getElementById('newAporteCargo').value,
-                aporteImporte: document.getElementById('newAporteImporte').value,
-                iusPago, iusFecha,
-                iusCargo: document.getElementById('newIusCargo').value,
-                iusImporte: document.getElementById('newIusImporte').value,
-                observacion: document.getElementById('newBAObservacion').value
-            };
-            
+            const newBA = { id: generateId({}), bonoLeyPago, bonoLeyFecha, bonoLeyCargo: document.getElementById('newBonoLeyCargo').value, bonoLeyImporte: document.getElementById('newBonoLeyImporte').value, aportePago, aporteFecha, aporteCargo: document.getElementById('newAporteCargo').value, aporteImporte: document.getElementById('newAporteImporte').value, iusPago, iusFecha, iusCargo: document.getElementById('newIusCargo').value, iusImporte: document.getElementById('newIusImporte').value, observacion: document.getElementById('newBAObservacion').value };
             client.bonos_aportes_list.push(newBA);
             saveData(); renderAll(); showClientModal(clientId);
         }
@@ -959,91 +801,81 @@
         function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
         function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         
+        function editCalendarEvent(clientId, eventId, type) {
+            const client = clientsData.find(c => c.id === clientId);
+            const list = type === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const event = list.find(e => e.id === eventId);
+            if (!event) return;
+            const itemElement = document.getElementById(`${type}-item-${eventId}`);
+            itemElement.innerHTML = `<div class="form-group"><label>Descripción</label><textarea id="edit-event-text-${eventId}" rows="2">${event.texto}</textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="edit-event-date-${eventId}" value="${event.fecha}"></div><div class="form-group"><label>Hora</label><input type="time" id="edit-event-time-${eventId}" value="${event.hora}"></div><div class="action-buttons"><button class="btn btn-success btn-sm" onclick="saveCalendarEventEdit('${clientId}', '${eventId}', '${type}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button></div>`;
+        }
+
+        async function saveCalendarEventEdit(clientId, eventId, type) {
+            const client = clientsData.find(c => c.id === clientId);
+            const list = type === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const event = list.find(e => e.id === eventId);
+            if (!event) return;
+            event.texto = document.getElementById(`edit-event-text-${eventId}`).value;
+            event.fecha = document.getElementById(`edit-event-date-${eventId}`).value;
+            event.hora = document.getElementById(`edit-event-time-${eventId}`).value;
+            const success = await actualizarEventoEnCalendario(client, event, type.charAt(0).toUpperCase() + type.slice(1));
+            if (success) { saveData(); renderAll(); showClientModal(clientId); }
+        }
+
         function editBonoAporte(clientId, baId) {
             const client = clientsData.find(c => c.id === clientId);
-            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
-            if (!ba) return;
-
+            const ba = client?.bonos_aportes_list.find(item => item.id === baId); if (!ba) return;
             const itemElement = document.getElementById(`bono_aporte-item-${baId}`);
-            const formHtml = `
-                <div style="padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                        <div>
-                            <h5>Bono Ley</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editBonoLeyPago-${baId}" value="Si" ${ (ba.bonoLeyPago || ba.bonoPago) === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editBonoLeyPago-${baId}" value="No" ${ (ba.bonoLeyPago || ba.bonoPago) !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editBonoLeyCargo-${baId}"><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editBonoLeyImporte-${baId}" value="${ba.bonoLeyImporte || ba.bonoImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="editBonoLeyFecha-${baId}" value="${ba.bonoLeyFecha || ba.bonoFecha || ''}"></div>
-                        </div>
-                        <div>
-                            <h5>Aportes</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editAportePago-${baId}" value="Si" ${ba.aportePago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editAportePago-${baId}" value="No" ${ba.aportePago !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editAporteCargo-${baId}"><option ${ba.aporteCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.aporteCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editAporteImporte-${baId}" value="${ba.aporteImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="editAporteFecha-${baId}" value="${ba.aporteFecha || ''}"></div>
-                        </div>
-                        <div>
-                            <h5>Ius Previsional</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editIusPago-${baId}" value="Si" ${ba.iusPago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editIusPago-${baId}" value="No" ${ba.iusPago !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editIusCargo-${baId}"><option ${ba.iusCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.iusCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editIusImporte-${baId}" value="${ba.iusImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Ius:</label><input type="date" id="editIusFecha-${baId}" value="${ba.iusFecha || ''}"></div>
-                        </div>
-                    </div>
-                    <div class="form-group"><label>Observación General</label><textarea id="editBAObservacion-${baId}" rows="2">${ba.observacion || ''}</textarea></div>
-                    <button class="btn btn-success btn-sm" onclick="saveBonoAporteEdit('${clientId}', '${baId}')">Guardar Cambios</button>
-                    <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
-                </div>`;
+            const formHtml = `<div style="padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;"><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;"><div><h5>Bono Ley</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="editBonoLeyPago-${baId}" value="Si" ${ (ba.bonoLeyPago || ba.bonoPago) === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editBonoLeyPago-${baId}" value="No" ${ (ba.bonoLeyPago || ba.bonoPago) !== 'Si' ? 'checked' : ''}> No</div></div><div class="form-group"><label>A cargo de:</label><select id="editBonoLeyCargo-${baId}"><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="editBonoLeyImporte-${baId}" value="${ba.bonoLeyImporte || ba.bonoImporte || ''}" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="editBonoLeyFecha-${baId}" value="${ba.bonoLeyFecha || ba.bonoFecha || ''}"></div></div><div><h5>Aportes</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="editAportePago-${baId}" value="Si" ${ba.aportePago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editAportePago-${baId}" value="No" ${ba.aportePago !== 'Si' ? 'checked' : ''}> No</div></div><div class="form-group"><label>A cargo de:</label><select id="editAporteCargo-${baId}"><option ${ba.aporteCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.aporteCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="editAporteImporte-${baId}" value="${ba.aporteImporte || ''}" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Aporte:</label><input type="date" id="editAporteFecha-${baId}" value="${ba.aporteFecha || ''}"></div></div><div><h5>Ius Previsional</h5><div class="form-group"><label>Pago:</label><div><input type="radio" name="editIusPago-${baId}" value="Si" ${ba.iusPago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editIusPago-${baId}" value="No" ${ba.iusPago !== 'Si' ? 'checked' : ''}> No</div></div><div class="form-group"><label>A cargo de:</label><select id="editIusCargo-${baId}"><option ${ba.iusCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.iusCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div><div class="form-group"><label>Importe $:</label><input type="number" id="editIusImporte-${baId}" value="${ba.iusImporte || ''}" step="0.01" placeholder="0.00"></div><div class="form-group"><label>Fecha Ius:</label><input type="date" id="editIusFecha-${baId}" value="${ba.iusFecha || ''}"></div></div></div><div class="form-group"><label>Observación General</label><textarea id="editBAObservacion-${baId}" rows="2">${ba.observacion || ''}</textarea></div><button class="btn btn-success btn-sm" onclick="saveBonoAporteEdit('${clientId}', '${baId}')">Guardar Cambios</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button></div>`;
             itemElement.innerHTML = formHtml;
         }
 
         function saveBonoAporteEdit(clientId, baId) {
             const client = clientsData.find(c => c.id === clientId);
-            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
-            if (!ba) return;
-
+            const ba = client?.bonos_aportes_list.find(item => item.id === baId); if (!ba) return;
             const bonoLeyPago = document.querySelector(`input[name="editBonoLeyPago-${baId}"]:checked`).value;
             const bonoLeyFecha = document.getElementById(`editBonoLeyFecha-${baId}`).value;
             if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
-
             const aportePago = document.querySelector(`input[name="editAportePago-${baId}"]:checked`).value;
             const aporteFecha = document.getElementById(`editAporteFecha-${baId}`).value;
             if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
-
             const iusPago = document.querySelector(`input[name="editIusPago-${baId}"]:checked`).value;
             const iusFecha = document.getElementById(`editIusFecha-${baId}`).value;
             if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
-
             ba.bonoLeyPago = bonoLeyPago;
             ba.bonoLeyCargo = document.getElementById(`editBonoLeyCargo-${baId}`).value;
             ba.bonoLeyImporte = document.getElementById(`editBonoLeyImporte-${baId}`).value;
             ba.bonoLeyFecha = bonoLeyFecha;
-
             ba.aportePago = aportePago;
             ba.aporteCargo = document.getElementById(`editAporteCargo-${baId}`).value;
             ba.aporteImporte = document.getElementById(`editAporteImporte-${baId}`).value;
             ba.aporteFecha = aporteFecha;
-
             ba.iusPago = iusPago;
             ba.iusCargo = document.getElementById(`editIusCargo-${baId}`).value;
             ba.iusImporte = document.getElementById(`editIusImporte-${baId}`).value;
             ba.iusFecha = iusFecha;
-            
             ba.observacion = document.getElementById(`editBAObservacion-${baId}`).value;
-
-            saveData();
-            renderAll();
-            showClientModal(clientId);
+            saveData(); renderAll(); showClientModal(clientId);
         }
 
-        function deleteItem(clientId, itemId, itemType) { 
+        async function deleteItem(clientId, itemId, itemType) { 
             const client = clientsData.find(c => c.id === clientId); if(!client) return; 
             const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento', bono_aporte: 'registro de pagos'}[itemType]; 
-            if (!confirm(`¿Estás seguro de que quieres eliminar este/a ${itemName}?`)) return; 
+            if (!confirm(`¿Estás seguro de que quieres eliminar este/a ${itemName}?`)) return;
+
+            if (itemType === 'audience' || itemType === 'vencimiento') {
+                const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
+                const item = list.find(i => i.id === itemId);
+                if (item && item.calendarEventId) {
+                    await eliminarEventoDeCalendario(item.calendarEventId);
+                }
+            }
+
             if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); 
             else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); 
             else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId);
             else if(itemType === 'bono_aporte') client.bonos_aportes_list = client.bonos_aportes_list.filter(item => item.id !== itemId);
+            
             updateClientNextRevision(client); 
             updateAudienciasSummary(client); 
             saveData(); 
@@ -1057,11 +889,12 @@
             event?.stopPropagation();
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             let eventItem;
-            const type = eventType.toLowerCase();
-            if(type === 'task') eventItem = client.observaciones.find(item => item.id === eventId);
-            else if(type === 'audience') eventItem = client.audiencias_list.find(item => item.id === eventId);
-            else if(type === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId);
-            if(eventItem) eventItem.completed = !eventItem.completed;
+            if(eventType === 'task') eventItem = client.observaciones.find(item => item.id === eventId);
+            else if(eventType === 'audience') eventItem = client.audiencias_list.find(item => item.id === eventId);
+            else if(eventType === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId);
+            if(eventItem) {
+                eventItem.completed = !eventItem.completed;
+            }
             updateClientNextRevision(client);
             saveData();
             renderAll();
@@ -1073,46 +906,28 @@
         function marcarAlertaCompleta(clientId, eventId, eventType) {
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             let eventItem;
-            const type = eventType.toLowerCase();
-            if (type === 'audience') eventItem = client.audiencias_list.find(item => item.id === eventId);
-            else if (type === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId);
-            
-            if (eventItem) {
-                eventItem.completed = true;
-            }
-            
-            saveData();
-            renderAll();
-            closeModal('alertModal');
+            if (eventType.toLowerCase() === 'audiencia') eventItem = client.audiencias_list.find(item => item.id === eventId);
+            else if (eventType.toLowerCase() === 'vencimiento') eventItem = client.vencimientos_list.find(item => item.id === eventId);
+            if (eventItem) { eventItem.completed = true; }
+            saveData(); renderAll(); closeModal('alertModal');
         }
 
         function mostrarAlertaDeEventos(eventosPorAlertar) {
             if (eventosPorAlertar.length === 0) return;
             const modal = document.getElementById('alertModal');
             if (modal.classList.contains('active')) return;
-
-            // <<< CAMBIO 2: Detenemos el temporizador cuando se muestra la alerta
             if (alertaInterval) {
                 clearInterval(alertaInterval);
                 alertaInterval = null;
             }
-
             const content = `<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alertas para Hoy!</h2><div class="reviews-list" style="max-height: 60vh;">${eventosPorAlertar.map(alert => { const tipoEnEspanol = alert.type === 'Audiencia' ? 'AUDIENCIA' : 'VENCIMIENTO'; return `<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size: 1.1em; color: var(--danger-color); cursor: pointer;" onclick="closeModal('alertModal'); showClientModal('${alert.client.id}');">${getDisplayName(alert.client)}</div><div class="review-obs"><strong>${tipoEnEspanol} (${formatTime(alert.item.hora)}):</strong> ${alert.item.texto}</div><div style="text-align:center; margin-top: 15px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarAlertaCompleta('${alert.client.id}', '${alert.item.id}', '${alert.type}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.client.id}', '${alert.item.id}', '${alert.type}')">🗓️ Posponer</button></div></div></div>` }).join('')}</div>`;
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
         }
         
         function revisarAlertas() {
-            const audienciasPorAlertar = clientsData.flatMap(client => 
-                (client.audiencias_list || [])
-                .filter(aud => isToday(aud.fecha) && !aud.completed)
-                .map(aud => ({ client, item: aud, type: 'Audiencia' }))
-            );
-            const vencimientosPorAlertar = clientsData.flatMap(client => 
-                (client.vencimientos_list || [])
-                .filter(venc => isToday(venc.fecha) && !venc.completed)
-                .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
-            );
+            const audienciasPorAlertar = clientsData.flatMap(client => (client.audiencias_list || []).filter(aud => isToday(aud.fecha) && !aud.completed).map(aud => ({ client, item: aud, type: 'Audiencia' })));
+            const vencimientosPorAlertar = clientsData.flatMap(client => (client.vencimientos_list || []).filter(venc => isToday(venc.fecha) && !venc.completed).map(venc => ({ client, item: venc, type: 'Vencimiento' })));
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
             if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
         }
@@ -1134,11 +949,15 @@
             modal.classList.add('active');
         }
 
-        function confirmReschedule(clientId, eventId, eventType) {
+        async function confirmReschedule(clientId, eventId, eventType) {
             const client = clientsData.find(c => c.id === clientId); if(!client) return;
             const list = eventType.toLowerCase() === 'audiencia' ? client.audiencias_list : client.vencimientos_list;
             let eventItem = list.find(item => item.id === eventId);
-            if(eventItem) { eventItem.fecha = document.getElementById('rescheduleDate').value; eventItem.hora = document.getElementById('rescheduleTime').value; }
+            if(eventItem) { 
+                eventItem.fecha = document.getElementById('rescheduleDate').value; 
+                eventItem.hora = document.getElementById('rescheduleTime').value;
+                await actualizarEventoEnCalendario(client, eventItem, eventType);
+            }
             saveData(); renderAll(); closeModal('rescheduleModal');
             updateDataStatus(`✅ ${eventType} reprogramada.`, false);
         }
@@ -1150,24 +969,14 @@
                 const vencimientos = (client.vencimientos_list || []).filter(venc => !venc.completed && venc.fecha === dateString).map(venc => ({ client: client, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, type: 'vencimiento' }));
                 return [...tasks, ...audiences, ...vencimientos];
             });
-
             const formattedDate = formatDate(dateString);
             const modal = document.getElementById('dailyTasksModal');
             let content = `<span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para el ${formattedDate}</h2>`;
-
             if (allSchedulableItems.length === 0) {
                 content += '<p>No hay tareas programadas para esta fecha.</p>';
             } else {
-                content += `<div class="reviews-list" style="max-height: 60vh;">${allSchedulableItems.map(item => {
-                    return `<div class="review-item" onclick="closeModal('dailyTasksModal'); showClientModal('${item.client.id}')">
-                                <div class="review-item-content">
-                                    <div class="review-client">${getDisplayName(item.client)}</div>
-                                    <div class="review-obs">${item.reviewText}</div>
-                                </div>
-                            </div>`;
-                }).join('')}</div>`;
+                content += `<div class="reviews-list" style="max-height: 60vh;">${allSchedulableItems.map(item => `<div class="review-item" onclick="closeModal('dailyTasksModal'); showClientModal('${item.client.id}')"><div class="review-item-content"><div class="review-client">${getDisplayName(item.client)}</div><div class="review-obs">${item.reviewText}</div></div></div>`).join('')}</div>`;
             }
-
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
         }
@@ -1177,15 +986,8 @@
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado || ''}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');
-                const allBAs = (c.bonos_aportes_list || []).map(ba => {
-                    const bonoLeyStr = `Bono Ley: ${ba.bonoLeyPago || ba.bonoPago || 'No'} (A cargo: ${ba.bonoLeyCargo || ba.bonoCargo}, $${ba.bonoLeyImporte || ba.bonoImporte || 0}, Fecha: ${formatDate(ba.bonoLeyFecha || ba.bonoFecha)})`;
-                    const aporteStr = `Aporte: ${ba.aportePago || 'No'} (A cargo: ${ba.aporteCargo}, $${ba.aporteImporte || 0}, Fecha: ${formatDate(ba.aporteFecha)})`;
-                    const iusStr = `Ius Prev: ${ba.iusPago || 'No'} (A cargo: ${ba.iusCargo}, $${ba.iusImporte || 0}, Fecha: ${formatDate(ba.iusFecha)})`;
-                    return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`;
-                }).join(' \n ');
-                return {
-                    'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs
-                }
+                const allBAs = (c.bonos_aportes_list || []).map(ba => { const bonoLeyStr = `Bono Ley: ${ba.bonoLeyPago || ba.bonoPago || 'No'} (A cargo: ${ba.bonoLeyCargo || ba.bonoCargo}, $${ba.bonoLeyImporte || ba.bonoImporte || 0}, Fecha: ${formatDate(ba.bonoLeyFecha || ba.bonoFecha)})`; const aporteStr = `Aporte: ${ba.aportePago || 'No'} (A cargo: ${ba.aporteCargo}, $${ba.aporteImporte || 0}, Fecha: ${formatDate(ba.aporteFecha)})`; const iusStr = `Ius Prev: ${ba.iusPago || 'No'} (A cargo: ${ba.iusCargo}, $${ba.iusImporte || 0}, Fecha: ${formatDate(ba.iusFecha)})`; return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`; }).join(' \n ');
+                return { 'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs }
             });
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
@@ -1212,7 +1014,6 @@
                 const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
             }
             updateClock(); setInterval(updateClock, 1000);
-
             document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
@@ -1221,11 +1022,7 @@
             iniciarVigilanteDeAlertas();
         });
         
-        window.addEventListener('click', e => { 
-            if (e.target.classList.contains('modal')) {
-                closeModal(e.target.id); 
-            }
-        });
+        window.addEventListener('click', e => { if (e.target.classList.contains('modal')) { closeModal(e.target.id); } });
     </script>
     
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
@@ -1238,51 +1035,71 @@
         const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos';
         let gdTokenClient, gapiReady = false, gisReady = false, gdDataFileId = null, gdDocsFolderId = null, localFilesForUpload = [];
         
-        function isGoogleAuthenticated() {
-            const token = gapi.client.getToken();
-            return token && token.access_token;
-        }
-
+        function isGoogleAuthenticated() { return gapi.client.getToken() && gapi.client.getToken().access_token; }
         function gapiLoaded(){gapi.load('client',initializeGapiClient)}
         async function initializeGapiClient(){try{await gapi.client.init({apiKey:GD_API_KEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']});gapiReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GAPI client init:",e);updateDataStatus('❌ Error al inicializar APIs de Google.',true)}}
         function gisLoaded(){try{gdTokenClient=google.accounts.oauth2.initTokenClient({client_id:GD_CLIENT_ID,scope:GD_SCOPES,callback:tokenResponseCallback});gisReady=true;maybeEnableGoogleButtons()}catch(e){console.error("Error GIS client init:",e);updateDataStatus('❌ Error al inicializar autenticación de Google.',true)}}
         function maybeEnableGoogleButtons(){if(gapiReady&&gisReady){document.getElementById('connectDriveBtn').onclick=handleAuthClick}}
         function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
-        async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
+        async function tokenResponseCallback(resp){if(resp.error){updateDataStatus('❌ Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});document.getElementById('connectDriveBtn').style.display='none';document.getElementById('saveToDriveBtn').style.display='inline-block';document.getElementById('loadFromDriveBtn').style.display='inline-block';updateDataStatus('✅ Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDataStatus('❌ Ocurrió un error después de conectar.',true)}}
         
         async function crearEventoEnCalendario(client, evento, tipoEvento) {
             updateDataStatus(`🗓️ Creando evento para ${tipoEvento} en Google Calendar...`, false);
             try {
-                const eventStartTime = new Date(`${evento.fecha}T${evento.hora}:00`);
-                if (isNaN(eventStartTime.getTime())) {
-                    throw new Error("Fecha u hora inválida.");
-                }
+                const eventStartTime = new Date(`${evento.fecha}T${evento.hora || '00:00'}:00`);
+                if (isNaN(eventStartTime.getTime())) throw new Error("Fecha u hora inválida.");
                 const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
-                const event = {
-                    'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`,
-                    'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`,
-                    'start': {
-                        'dateTime': eventStartTime.toISOString(),
-                        'timeZone': 'America/Argentina/Buenos_Aires'
-                    },
-                    'end': {
-                        'dateTime': eventEndTime.toISOString(),
-                        'timeZone': 'America/Argentina/Buenos_Aires'
-                    }
-                };
-                await gapi.client.calendar.events.insert({
-                    'calendarId': 'primary',
-                    'resource': event
-                });
+                const event = { 'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`, 'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`, 'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' }, 'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' } };
+                const response = await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
                 alert(`✅ ¡Éxito!\n\nEl evento "${tipoEvento}" fue agendado correctamente en tu Google Calendar.`);
                 updateDataStatus(`✅ Evento de ${tipoEvento} creado en Google Calendar.`, false);
-                return true;
+                return response.result.id;
             } catch (e) {
                 console.error(`Error creando evento de ${tipoEvento}:`, e);
-                const errorMessage = e.result?.error?.message || e.message || 'Error desconocido. Verifique la consola para más detalles.';
+                const errorMessage = e.result?.error?.message || e.message || 'Error desconocido.';
                 updateDataStatus(`❌ Error al crear evento: ${errorMessage}`, true);
-                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}\n\nSugerencia: Verifique que la fecha y hora sean válidas y que tenga permisos en su calendario.`);
+                alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${errorMessage}`);
+                return null;
+            }
+        }
+
+        async function actualizarEventoEnCalendario(client, evento, tipoEvento) {
+            if (!evento.calendarEventId) {
+                console.log("No hay ID de evento de calendario para actualizar, se creará uno nuevo.");
+                const newId = await crearEventoEnCalendario(client, evento, tipoEvento);
+                if(newId) evento.calendarEventId = newId;
+                return !!newId;
+            }
+            updateDataStatus(`🗓️ Actualizando evento de ${tipoEvento} en Google Calendar...`, false);
+            try {
+                const eventStartTime = new Date(`${evento.fecha}T${evento.hora || '00:00'}:00`);
+                if (isNaN(eventStartTime.getTime())) throw new Error("Fecha u hora inválida.");
+                const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
+                const eventResource = { 'summary': `${tipoEvento}: ${client.nombre} | ${client.caratula || 'S/C'}`, 'description': `Caso: ${getDisplayName(client)}\n\nDescripción: ${evento.texto}`, 'start': { 'dateTime': eventStartTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' }, 'end': { 'dateTime': eventEndTime.toISOString(), 'timeZone': 'America/Argentina/Buenos_Aires' } };
+                await gapi.client.calendar.events.update({ 'calendarId': 'primary', 'eventId': evento.calendarEventId, 'resource': eventResource });
+                alert(`✅ ¡Éxito!\n\nEl evento "${tipoEvento}" fue actualizado en tu Google Calendar.`);
+                updateDataStatus(`✅ Evento de ${tipoEvento} actualizado.`, false);
+                return true;
+            } catch (e) {
+                console.error(`Error actualizando evento de ${tipoEvento}:`, e);
+                const errorMessage = e.result?.error?.message || e.message || 'Error desconocido.';
+                updateDataStatus(`❌ Error al actualizar evento: ${errorMessage}`, true);
+                alert(`No se pudo actualizar el evento en Google Calendar.\n\nError: ${errorMessage}`);
                 return false;
+            }
+        }
+
+        async function eliminarEventoDeCalendario(eventId) {
+            if (!eventId) return;
+            updateDataStatus(`🗓️ Eliminando evento de Google Calendar...`, false);
+            try {
+                await gapi.client.calendar.events.delete({ 'calendarId': 'primary', 'eventId': eventId });
+                updateDataStatus(`✅ Evento eliminado de Google Calendar.`, false);
+            } catch (e) {
+                console.error("Error eliminando evento del calendario:", e);
+                if (e.result?.error?.code !== 404) { // No mostrar error si el evento ya no existía
+                    updateDataStatus(`❌ Error al eliminar evento del calendario: ${e.result?.error?.message || e.message}`, true);
+                }
             }
         }
 
