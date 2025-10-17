@@ -186,10 +186,12 @@
                     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
                     try { years.add(parseInt(dateStr.substring(0, 4))); } catch (e) {}
                 };
+                // Usar las fechas correctas para poblar los años
                 allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
-                allData.siniestros.forEach(s => { (s.bonos_aportes_list || []).forEach(p => { parseDateForYear(p.bonoLeyFecha); parseDateForYear(p.aporteFecha); parseDateForYear(p.iusFecha); }); parseDateForYear(s.fecha_inicio); });
+                allData.siniestros.forEach(s => { (s.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 allData.juridica.forEach(c => { (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
+                
                 const currentYear = yearFilterEl.value;
                 yearFilterEl.innerHTML = '';
                 const sortedYears = Array.from(years).filter(y => !isNaN(y)).sort((a, b) => b - a);
@@ -202,83 +204,98 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
+            // <-- FUNCIÓN `procesarDatos` TOTALMENTE REESCRITA CON LA NUEVA LÓGICA
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
-                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0
+                    ingresos_totales: 0,
+                    ingresos_abonos_mensuales: 0,
+                    ingresos_honorarios_juridicos: 0,
+                    ingresos_honorarios_siniestros: 0,
+                    // Agrega aquí otras categorías si las tienes en la planilla de Abonos
+                    egresos_totales: 0,
+                    balance: 0,
+                    nuevos_casos: 0,
+                    nuevos_casos_juridico: 0
                 }));
+
                 const parseDate = (dateStr) => {
                     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
                     const [y, m, d] = dateStr.split('-').map(Number);
                     return { year: y, month: m - 1 };
                 };
+
+                // 1. CÁLCULO DE INGRESOS (EXCLUSIVAMENTE DESDE `abonosData`)
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
-                    if (fecha?.year === year && ['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
+                    if (fecha?.year === year && (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial')) {
                         const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        if(abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.month].ingresos_abonos_mensuales += monto;
+                        const tipo = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
+                        
+                        if (tipo === 'abono mensual') {
+                            monthlyData[fecha.month].ingresos_abonos_mensuales += monto;
+                        } else if (tipo === 'honorario siniestros') {
+                            monthlyData[fecha.month].ingresos_honorarios_siniestros += monto;
+                        } else if (tipo === 'honorario juridico' || tipo === 'regulacion de honorarios') { // Sé flexible con los nombres
+                            monthlyData[fecha.month].ingresos_honorarios_juridicos += monto;
+                        }
+                        // Puedes agregar más `else if` para otras categorías de ingresos que tengas
                     }
                 });
                 
-                // <-- CAMBIO: Lógica de Ingresos ahora verifica si el pago fue realizado
-                const procesarPagosCaso = (caso, categoria) => {
-                    (caso.bonos_aportes_list || []).forEach(pago => {
-                        if (pago.bonoLeyPago === 'Si' && pago.bonoLeyFecha) {
-                            const fecha = parseDate(pago.bonoLeyFecha);
-                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.bonoLeyImporte) || 0;
-                        }
-                        if (pago.aportePago === 'Si' && pago.aporteFecha) {
-                            const fecha = parseDate(pago.aporteFecha);
-                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.aporteImporte) || 0;
-                        }
-                        if (pago.iusPago === 'Si' && pago.iusFecha) {
-                            const fecha = parseDate(pago.iusFecha);
-                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.iusImporte) || 0;
-                        }
-                    });
-                };
-
-                allData.juridica.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_juridicos'));
-                allData.siniestros.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_siniestros'));
-                
+                // 2. CÁLCULO DE EGRESOS (Desde `ingresosEgresosData`)
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     const [y, m] = monthKey.split('-').map(Number);
-                    if (y === year) (data.transactions || []).forEach(t => { if (t.categoria === 'egreso') monthlyData[m - 1].egresos_totales += parseFloat(t.monto) || 0; });
+                    if (y === year) {
+                        (data.transactions || []).forEach(t => {
+                            if (t.categoria === 'egreso') {
+                                monthlyData[m - 1].egresos_totales += parseFloat(t.monto) || 0;
+                            }
+                        });
+                    }
                 });
                 
-                allData.siniestros.forEach(s => { const fecha = parseDate(s.fecha_inicio); if (fecha?.year === year) monthlyData[fecha.month].nuevos_casos++; });
-                
-                // <-- CAMBIO: Lógica para contar nuevos casos jurídicos por mes
-                allData.juridica.forEach(c => {
-                    if (c.observaciones && c.observaciones.length > 0) {
-                        const fechas = c.observaciones.map(o => o.fecha).filter(Boolean).sort();
-                        if (fechas.length > 0) {
-                            const fechaInicio = parseDate(fechas[0]);
-                            if (fechaInicio?.year === year) {
-                                monthlyData[fechaInicio.month].nuevos_casos_juridico++;
-                            }
-                        }
+                // 3. CÁLCULO DE CASOS NUEVOS (Desde Siniestros y Jurídico, basado en la primera observación)
+                const getFechaInicio = (caso) => {
+                    if (!caso.observaciones || caso.observaciones.length === 0) return null;
+                    const fechas = caso.observaciones.map(o => o.fecha).filter(Boolean).sort();
+                    return fechas.length > 0 ? parseDate(fechas[0]) : null;
+                };
+
+                allData.siniestros.forEach(caso => {
+                    const fechaInicio = getFechaInicio(caso);
+                    if (fechaInicio?.year === year) {
+                        monthlyData[fechaInicio.month].nuevos_casos++;
                     }
                 });
 
+                allData.juridica.forEach(caso => {
+                    const fechaInicio = getFechaInicio(caso);
+                    if (fechaInicio?.year === year) {
+                        monthlyData[fechaInicio.month].nuevos_casos_juridico++;
+                    }
+                });
+                
+                // 4. CÁLCULO DE TOTALES Y BALANCE
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
                 });
+
                 return monthlyData;
             }
 
+            // <-- FUNCIÓN `renderizarDashboard` ACTUALIZADA CON LA NUEVA LÓGICA
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 
-                // <-- CAMBIO: Lógica precisa para contar clientes activos
+                // Lógica precisa para contar clientes activos
                 const totalCasosActivos = (allData.abonos || []).filter(a => 
                     a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual' && 
                     a.estado && a.estado.trim().toLowerCase() === 'activo'
                 ).length;
 
                 let kpis;
-                if (selectedMonth === 'todos') {
+                if (selectedMonth === 'todos') { // Vista Anual
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
                     kpis = data.reduce((acc, monthData) => {
@@ -288,7 +305,7 @@
                         acc.nuevos_casos_juridico += monthData.nuevos_casos_juridico;
                         return acc;
                     }, { ingresos: 0, egresos: 0, nuevos_casos: 0, nuevos_casos_juridico: 0 });
-                } else {
+                } else { // Vista Mensual
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
                     document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
@@ -314,9 +331,33 @@
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
                 const annualTotals = data.reduce((acc, month) => {
-                    acc.abonos += month.ingresos_abonos_mensuales; acc.juridico += month.ingresos_honorarios_juridicos; acc.siniestros += month.ingresos_honorarios_siniestros; return acc;
+                    acc.abonos += month.ingresos_abonos_mensuales; 
+                    acc.juridico += month.ingresos_honorarios_juridicos; 
+                    acc.siniestros += month.ingresos_honorarios_siniestros; 
+                    return acc;
                 }, { abonos: 0, juridico: 0, siniestros: 0 });
-                ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: ['Abonos Mensuales', 'Honorarios Jurídicos', 'Honorarios Siniestros'], datasets: [{ data: [annualTotals.abonos, annualTotals.juridico, annualTotals.siniestros], backgroundColor: [metricOptions.ingresos_abonos_mensuales.color + 'B3', metricOptions.ingresos_honorarios_juridicos.color + 'B3', metricOptions.ingresos_honorarios_siniestros.color + 'B3'], borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+                
+                const labels = [];
+                const chartData = [];
+                const colors = [];
+
+                if(annualTotals.abonos > 0) {
+                    labels.push('Abonos Mensuales');
+                    chartData.push(annualTotals.abonos);
+                    colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3');
+                }
+                if(annualTotals.juridico > 0) {
+                    labels.push('Honorarios Jurídicos');
+                    chartData.push(annualTotals.juridico);
+                    colors.push(metricOptions.ingresos_honorarios_juridicos.color + 'B3');
+                }
+                if(annualTotals.siniestros > 0) {
+                    labels.push('Honorarios Siniestros');
+                    chartData.push(annualTotals.siniestros);
+                    colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3');
+                }
+
+                ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: labels, datasets: [{ data: chartData, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
             }
 
             function renderizarTablaDatos(data) {
@@ -359,7 +400,7 @@
 
             function render() {
                 const selectedYear = parseInt(yearFilterEl.value);
-                if (isNaN(selectedYear) || !allData.abonos.length && !allData.juridica.length) { updateStatus('No hay datos para mostrar. Carga tus datos desde Drive o localmente.', 'warning'); return; }
+                if (isNaN(selectedYear)) { updateStatus('Seleccione un año para analizar.', 'warning'); return; }
                 processedDataForYear = procesarDatos(selectedYear);
                 renderizarDashboard(processedDataForYear);
                 renderizarGraficoIngresos(processedDataForYear);
