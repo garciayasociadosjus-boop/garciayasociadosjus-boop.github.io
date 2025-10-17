@@ -100,8 +100,8 @@
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
                     <div class="card"><h3 >Clientes con Abono Activo</h3><div class="value" id="kpiCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
+                    <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Abono Act.</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
-                    <div class="card"><h3 >Ingreso Prom./Caso Nuevo</h3><div class="value" id="kpiIngresoPorCasoNuevo"></div></div>
                 </div>
             </div>
 
@@ -158,6 +158,7 @@
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
                 casos_activos_abono: { label: '📂 Clientes c/Abono Activo', color: '#1e293b' },
                 nuevos_casos: { label: '✨ Nuevos Casos (Siniestros)', color: '#db2777' },
+                nuevos_casos_juridico: { label: '⚖️ Nuevos Casos (Jurídico)', color: '#9333ea' },
             };
 
             function updateStatus(message, type = 'success') {
@@ -187,7 +188,7 @@
                 };
                 allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
                 allData.siniestros.forEach(s => { (s.bonos_aportes_list || []).forEach(p => { parseDateForYear(p.bonoLeyFecha); parseDateForYear(p.aporteFecha); parseDateForYear(p.iusFecha); }); parseDateForYear(s.fecha_inicio); });
-                allData.juridica.forEach(c => { (c.bonos_aportes_list || []).forEach(p => { parseDateForYear(p.bonoLeyFecha); parseDateForYear(p.aporteFecha); parseDateForYear(p.iusFecha); }); });
+                allData.juridica.forEach(c => { (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
                 const currentYear = yearFilterEl.value;
                 yearFilterEl.innerHTML = '';
@@ -204,7 +205,7 @@
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
-                    egresos_totales: 0, balance: 0, nuevos_casos: 0
+                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0
                 }));
                 const parseDate = (dateStr) => {
                     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
@@ -218,23 +219,48 @@
                         if(abono.tipo !== 'Pago de Bonos y AP') monthlyData[fecha.month].ingresos_abonos_mensuales += monto;
                     }
                 });
+                
+                // <-- CAMBIO: Lógica de Ingresos ahora verifica si el pago fue realizado
                 const procesarPagosCaso = (caso, categoria) => {
                     (caso.bonos_aportes_list || []).forEach(pago => {
-                        const fechas = [pago.bonoLeyFecha, pago.aporteFecha, pago.iusFecha].filter(Boolean);
-                        const importes = [pago.bonoLeyImporte, pago.aporteImporte, pago.iusImporte];
-                        fechas.forEach((fechaStr, i) => {
-                            const fecha = parseDate(fechaStr);
-                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(importes[i]) || 0;
-                        });
+                        if (pago.bonoLeyPago === 'Si' && pago.bonoLeyFecha) {
+                            const fecha = parseDate(pago.bonoLeyFecha);
+                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.bonoLeyImporte) || 0;
+                        }
+                        if (pago.aportePago === 'Si' && pago.aporteFecha) {
+                            const fecha = parseDate(pago.aporteFecha);
+                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.aporteImporte) || 0;
+                        }
+                        if (pago.iusPago === 'Si' && pago.iusFecha) {
+                            const fecha = parseDate(pago.iusFecha);
+                            if (fecha?.year === year) monthlyData[fecha.month][categoria] += parseFloat(pago.iusImporte) || 0;
+                        }
                     });
                 };
+
                 allData.juridica.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_juridicos'));
                 allData.siniestros.forEach(caso => procesarPagosCaso(caso, 'ingresos_honorarios_siniestros'));
+                
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     const [y, m] = monthKey.split('-').map(Number);
                     if (y === year) (data.transactions || []).forEach(t => { if (t.categoria === 'egreso') monthlyData[m - 1].egresos_totales += parseFloat(t.monto) || 0; });
                 });
+                
                 allData.siniestros.forEach(s => { const fecha = parseDate(s.fecha_inicio); if (fecha?.year === year) monthlyData[fecha.month].nuevos_casos++; });
+                
+                // <-- CAMBIO: Lógica para contar nuevos casos jurídicos por mes
+                allData.juridica.forEach(c => {
+                    if (c.observaciones && c.observaciones.length > 0) {
+                        const fechas = c.observaciones.map(o => o.fecha).filter(Boolean).sort();
+                        if (fechas.length > 0) {
+                            const fechaInicio = parseDate(fechas[0]);
+                            if (fechaInicio?.year === year) {
+                                monthlyData[fechaInicio.month].nuevos_casos_juridico++;
+                            }
+                        }
+                    }
+                });
+
                 monthlyData.forEach(data => {
                     data.ingresos_totales = data.ingresos_abonos_mensuales + data.ingresos_honorarios_juridicos + data.ingresos_honorarios_siniestros;
                     data.balance = data.ingresos_totales - data.egresos_totales;
@@ -245,21 +271,33 @@
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 
-                // <-- CAMBIO PRINCIPAL: Lógica corregida para contar clientes activos
-                const totalCasosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
+                // <-- CAMBIO: Lógica precisa para contar clientes activos
+                const totalCasosActivos = (allData.abonos || []).filter(a => 
+                    a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual' && 
+                    a.estado && a.estado.trim().toLowerCase() === 'activo'
+                ).length;
 
                 let kpis;
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
                     kpis = data.reduce((acc, monthData) => {
-                        acc.ingresos += monthData.ingresos_totales; acc.egresos += monthData.egresos_totales; acc.nuevos_casos += monthData.nuevos_casos; return acc;
-                    }, { ingresos: 0, egresos: 0, nuevos_casos: 0 });
+                        acc.ingresos += monthData.ingresos_totales; 
+                        acc.egresos += monthData.egresos_totales; 
+                        acc.nuevos_casos += monthData.nuevos_casos;
+                        acc.nuevos_casos_juridico += monthData.nuevos_casos_juridico;
+                        return acc;
+                    }, { ingresos: 0, egresos: 0, nuevos_casos: 0, nuevos_casos_juridico: 0 });
                 } else {
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
                     document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
-                    kpis = { ingresos: data[monthIndex].ingresos_totales, egresos: data[monthIndex].egresos_totales, nuevos_casos: data[monthIndex].nuevos_casos };
+                    kpis = { 
+                        ingresos: data[monthIndex].ingresos_totales, 
+                        egresos: data[monthIndex].egresos_totales, 
+                        nuevos_casos: data[monthIndex].nuevos_casos,
+                        nuevos_casos_juridico: data[monthIndex].nuevos_casos_juridico
+                    };
                 }
                 const balance = kpis.ingresos - kpis.egresos;
                 document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
@@ -268,8 +306,8 @@
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
                 document.getElementById('kpiCasos').textContent = totalCasosActivos;
                 document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
+                document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico;
                 document.getElementById('kpiIngresoPorCaso').textContent = totalCasosActivos > 0 ? formatCurrency((kpis.ingresos / totalCasosActivos)) : formatCurrency(0);
-                document.getElementById('kpiIngresoPorCasoNuevo').textContent = kpis.nuevos_casos > 0 ? formatCurrency(kpis.ingresos / kpis.nuevos_casos) : formatCurrency(0);
             }
 
             function renderizarGraficoIngresos(data) {
@@ -282,10 +320,10 @@
             }
 
             function renderizarTablaDatos(data) {
-                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Nuevos Casos</th></tr></thead><tbody>';
-                data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td></tr>`; });
-                const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; return acc; }, {i:0, e:0, b:0, nc:0});
-                tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td></tr>`;
+                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Nuevos Siniestros</th><th>Nuevos Jurídico</th></tr></thead><tbody>';
+                data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td><td>${monthData.nuevos_casos_juridico}</td></tr>`; });
+                const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; acc.ncj += m.nuevos_casos_juridico; return acc; }, {i:0, e:0, b:0, nc:0, ncj:0});
+                tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td><td>${totals.ncj}</td></tr>`;
                 tableHTML += '</tbody></table>';
                 document.getElementById('dataTableWrapper').innerHTML = tableHTML;
             }
@@ -298,8 +336,7 @@
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
                 
-                // <-- CAMBIO SECUNDARIO: Lógica corregida para el gráfico personalizado
-                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
+                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual' && a.estado && a.estado.trim().toLowerCase() === 'activo').length;
 
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
@@ -322,7 +359,7 @@
 
             function render() {
                 const selectedYear = parseInt(yearFilterEl.value);
-                if (isNaN(selectedYear) || !allData.abonos.length) { updateStatus('No hay datos para mostrar. Carga tus datos desde Drive o localmente.', 'warning'); return; }
+                if (isNaN(selectedYear) || !allData.abonos.length && !allData.juridica.length) { updateStatus('No hay datos para mostrar. Carga tus datos desde Drive o localmente.', 'warning'); return; }
                 processedDataForYear = procesarDatos(selectedYear);
                 renderizarDashboard(processedDataForYear);
                 renderizarGraficoIngresos(processedDataForYear);
