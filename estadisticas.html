@@ -149,6 +149,14 @@
             const metricsSelectorEl = document.getElementById('metricsSelector');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+            // Mapeo de tipos de ingreso para ser más robusto a variaciones
+            const tipoIngresoMap = {
+                'abono mensual': 'ingresos_abonos_mensuales',
+                'honorario siniestros': 'ingresos_honorarios_siniestros',
+                'honorario juridico': 'ingresos_honorarios_juridicos',
+                'regulacion de honorarios': 'ingresos_honorarios_juridicos'
+            };
+
             const metricOptions = {
                 ingresos_totales: { label: '📈 Ingresos Totales', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
@@ -186,7 +194,6 @@
                     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
                     try { years.add(parseInt(dateStr.substring(0, 4))); } catch (e) {}
                 };
-                // Usar las fechas correctas para poblar los años
                 allData.abonos.forEach(a => parseDateForYear(a.fechaPago));
                 allData.siniestros.forEach(s => { (s.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
                 allData.juridica.forEach(c => { (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
@@ -204,18 +211,11 @@
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
-            // <-- FUNCIÓN `procesarDatos` TOTALMENTE REESCRITA CON LA NUEVA LÓGICA
+            // <-- FUNCIÓN `procesarDatos` REESCRITA CON LA NUEVA LÓGICA
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0,
-                    ingresos_abonos_mensuales: 0,
-                    ingresos_honorarios_juridicos: 0,
-                    ingresos_honorarios_siniestros: 0,
-                    // Agrega aquí otras categorías si las tienes en la planilla de Abonos
-                    egresos_totales: 0,
-                    balance: 0,
-                    nuevos_casos: 0,
-                    nuevos_casos_juridico: 0
+                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
+                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0
                 }));
 
                 const parseDate = (dateStr) => {
@@ -224,25 +224,22 @@
                     return { year: y, month: m - 1 };
                 };
 
-                // 1. CÁLCULO DE INGRESOS (EXCLUSIVAMENTE DESDE `abonosData`)
+                // 1. CÁLCULO DE INGRESOS (EXCLUSIVAMENTE DESDE `abonosData`, sin cuentas complejas)
                 allData.abonos.forEach(abono => {
                     const fecha = parseDate(abono.fechaPago);
-                    if (fecha?.year === year && (abono.estado === 'Pagado' || abono.estado === 'Pago Parcial')) {
-                        const monto = parseFloat(abono.estado === 'Pago Parcial' ? abono.montoPagado : abono.monto) || 0;
-                        const tipo = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
+                    if (fecha?.year === year) {
+                        // Se usa directamente el `monto`, como se solicitó, sin verificar estado.
+                        const monto = parseFloat(abono.monto) || 0;
+                        const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        if (tipo === 'abono mensual') {
-                            monthlyData[fecha.month].ingresos_abonos_mensuales += monto;
-                        } else if (tipo === 'honorario siniestros') {
-                            monthlyData[fecha.month].ingresos_honorarios_siniestros += monto;
-                        } else if (tipo === 'honorario juridico' || tipo === 'regulacion de honorarios') { // Sé flexible con los nombres
-                            monthlyData[fecha.month].ingresos_honorarios_juridicos += monto;
+                        const categoria = tipoIngresoMap[tipoNormalizado];
+                        if (categoria) {
+                            monthlyData[fecha.month][categoria] += monto;
                         }
-                        // Puedes agregar más `else if` para otras categorías de ingresos que tengas
                     }
                 });
                 
-                // 2. CÁLCULO DE EGRESOS (Desde `ingresosEgresosData`)
+                // 2. CÁLCULO DE EGRESOS
                 Object.entries(allData.egresos).forEach(([monthKey, data]) => {
                     const [y, m] = monthKey.split('-').map(Number);
                     if (y === year) {
@@ -254,7 +251,7 @@
                     }
                 });
                 
-                // 3. CÁLCULO DE CASOS NUEVOS (Desde Siniestros y Jurídico, basado en la primera observación)
+                // 3. CÁLCULO DE CASOS NUEVOS (Basado en la primera observación)
                 const getFechaInicio = (caso) => {
                     if (!caso.observaciones || caso.observaciones.length === 0) return null;
                     const fechas = caso.observaciones.map(o => o.fecha).filter(Boolean).sort();
@@ -284,14 +281,13 @@
                 return monthlyData;
             }
 
-            // <-- FUNCIÓN `renderizarDashboard` ACTUALIZADA CON LA NUEVA LÓGICA
+            // <-- FUNCIÓN `renderizarDashboard` ACTUALIZADA
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 
-                // Lógica precisa para contar clientes activos
+                // Lógica precisa para contar clientes activos: solo por tipo "Abono Mensual"
                 const totalCasosActivos = (allData.abonos || []).filter(a => 
-                    a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual' && 
-                    a.estado && a.estado.trim().toLowerCase() === 'activo'
+                    a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual'
                 ).length;
 
                 let kpis;
@@ -377,7 +373,7 @@
                 const isPieChart = ['pie', 'doughnut'].includes(chartType);
                 let datasets, labels, title;
                 
-                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual' && a.estado && a.estado.trim().toLowerCase() === 'activo').length;
+                const abonosActivos = (allData.abonos || []).filter(a => a.tipo && a.tipo.trim().toLowerCase() === 'abono mensual').length;
 
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
