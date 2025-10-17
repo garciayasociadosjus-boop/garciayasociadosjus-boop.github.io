@@ -50,6 +50,9 @@
     .search-container{margin-bottom:20px}
     #searchInput{width:100%;padding:12px;border-radius:8px;border:2px solid #e2e8f0;font-size:1em}
     .filter-buttons{display:flex;gap:10px;flex-wrap:wrap}
+    .type-filter-buttons{display:flex;gap:15px;flex-wrap:wrap;margin-top:10px}
+    .type-filter-buttons label{display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:500}
+    .type-filter-buttons input{width:1.2em;height:1.2em}
     .filter-btn{padding:8px 16px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;transition:.3s;font-size:.9em;font-weight:500}
     .filter-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
     .filter-btn.active{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
@@ -211,6 +214,11 @@
         <div class="search-container">
           <input type="text" id="searchInput" placeholder="🔍 Buscar cliente por nombre...">
         </div>
+        
+        <h4 style="margin-bottom:15px;color:var(--secondary-color);">Filtrar por Tipo:</h4>
+        <div id="typeFilters" class="type-filter-buttons" style="margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px;">
+          </div>
+
         <h4 style="margin-bottom:15px;color:var(--secondary-color);">Filtrar por Estado:</h4>
         <div class="filter-buttons" id="filtersBar">
           <button class="filter-btn active" data-status="todos">Todos (<span id="countTodos">0</span>)</button>
@@ -329,7 +337,8 @@
     let abonosData = [];
     let currentMonth;
     let signatureImage = null;
-    let currentFilter = 'todos';
+    let currentStatusFilter = 'todos';
+    let activeTypeFilters = [];
     let currentSearchTerm = '';
     let isAmountHidden = false;
     let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, bonos: 0, bruto: 0 };
@@ -365,6 +374,8 @@
         btn.classList.add('active');
         filterByStatus(btn.getAttribute('data-status'));
       });
+
+      document.getElementById('typeFilters').addEventListener('change', handleTypeFilterChange);
 
       document.getElementById('abonosTableBody').addEventListener('click', function(event){
         var target = event.target;
@@ -407,6 +418,7 @@
       loadSignature();
       initializeMonth();
       setupModal();
+      renderTypeFilters();
       render();
     });
 
@@ -502,8 +514,40 @@
     }
 
     // ====== FILTROS ======
+    function renderTypeFilters() {
+      const container = document.getElementById('typeFilters');
+      let html = `<label><input type="checkbox" class="type-filter-checkbox" data-type="todos" checked> <strong>Todos los Tipos</strong></label>`;
+      TIPO_OPTIONS.forEach(tipo => {
+        html += `<label><input type="checkbox" class="type-filter-checkbox" data-type="${tipo}" checked> ${tipo}</label>`;
+      });
+      container.innerHTML = html;
+      activeTypeFilters = [...TIPO_OPTIONS];
+    }
+    
+    function handleTypeFilterChange(e) {
+        const checkbox = e.target;
+        if (!checkbox.classList.contains('type-filter-checkbox')) return;
+
+        const type = checkbox.dataset.type;
+        const allCheckboxes = document.querySelectorAll('.type-filter-checkbox');
+        const allTypesCheckbox = document.querySelector('.type-filter-checkbox[data-type="todos"]');
+
+        if (type === 'todos') {
+            activeTypeFilters = checkbox.checked ? [...TIPO_OPTIONS] : [];
+            allCheckboxes.forEach(cb => cb.checked = checkbox.checked);
+        } else {
+            if (checkbox.checked) {
+                if (!activeTypeFilters.includes(type)) activeTypeFilters.push(type);
+            } else {
+                activeTypeFilters = activeTypeFilters.filter(t => t !== type);
+            }
+            allTypesCheckbox.checked = activeTypeFilters.length === TIPO_OPTIONS.length;
+        }
+        render();
+    }
+
     function filterByStatus(status){
-      currentFilter = status;
+      currentStatusFilter = status;
       var info = document.getElementById('filterInfo');
       var monthControls = document.querySelector('.month-navigation');
       
@@ -536,16 +580,16 @@
     }
     
     function getFilteredAbonos(abonos){
-      if(currentFilter === 'todos-terminados') {
+      if(currentStatusFilter === 'todos-terminados') {
           return abonos.filter(function(a) { return a.estado === 'Terminado'; });
       }
-      if(currentFilter === 'todos') return abonos;
-      if(currentFilter === 'pendientes') return abonos.filter(function(a){ 
+      if(currentStatusFilter === 'todos') return abonos;
+      if(currentStatusFilter === 'pendientes') return abonos.filter(function(a){ 
         return a.estado==='Pendiente'||a.estado==='Falta de Pago'||a.estado==='Ejecución de Honorarios'; 
       });
       return abonos.filter(function(a){
         var estado = (a.estado||'').toLowerCase().replace(/ /g,'-');
-        return estado === currentFilter;
+        return estado === currentStatusFilter;
       });
     }
 
@@ -675,6 +719,32 @@
     }
 
     // ====== RENDER ======
+    function render(){
+      let sourceData;
+      if (currentStatusFilter === 'todos-terminados') {
+        sourceData = abonosData.filter(a => a.estado === 'Terminado');
+      } else {
+        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      }
+      
+      let searchedData = sourceData;
+      if (currentSearchTerm) {
+          searchedData = sourceData.filter(a => (a.cliente || '').toLowerCase().includes(currentSearchTerm.toLowerCase()));
+      }
+      
+      let dataAfterTypeFilter = searchedData;
+      if (activeTypeFilters.length > 0 && activeTypeFilters.length < TIPO_OPTIONS.length) {
+        dataAfterTypeFilter = searchedData.filter(a => activeTypeFilters.includes(a.tipo));
+      }
+
+      var finalDataForTable = getFilteredAbonos(dataAfterTypeFilter);
+      
+      renderTable(finalDataForTable);
+      renderDashboard(dataAfterTypeFilter);
+      updateFilterCounts(dataAfterTypeFilter);
+      updateAlertBanner(dataAfterTypeFilter);
+    }
+    
     function formatCurrency(v){ 
       return new Intl.NumberFormat('es-AR',{
         style:'currency',
@@ -710,30 +780,6 @@
       });
     }
 
-    function render(){
-      let sourceData;
-      if (currentFilter === 'todos-terminados') {
-        sourceData = abonosData.filter(a => a.estado === 'Terminado');
-      } else {
-        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      }
-      
-      let searchedData = sourceData;
-      if (currentSearchTerm) {
-          searchedData = sourceData.filter(function(a) {
-              return (a.cliente || '').toLowerCase().includes(currentSearchTerm.toLowerCase());
-          });
-      }
-
-      var filtered = getFilteredAbonos(searchedData);
-      renderTable(filtered);
-      
-      var abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      renderDashboard(abonosMes);
-      updateFilterCounts(abonosMes);
-      updateAlertBanner(abonosMes);
-    }
-    
     function renderDashboard(abonos){
       var honorariosCobrados = abonos.filter(function(a){ 
         return (a.estado==='Pagado' || a.estado === 'Terminado') && a.tipo !== 'Pago de Bonos y AP'; 
@@ -804,7 +850,7 @@
       var body = document.getElementById('abonosTableBody');
       body.innerHTML = '';
       if(abonos.length===0){
-        var msg = currentFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
+        var msg = currentStatusFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
         if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.'
         body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
@@ -953,8 +999,8 @@
     }
 
     function printTable(){
-      var ft = (currentFilter==='todos') ? '' : ' ('+currentFilter.replace(/-/g,' ')+')';
-      var title = 'Resumen de Abonos - '+ (currentFilter === 'todos-terminados' ? 'Todos los Terminados' : MONTHS[currentMonth.month]+' '+currentMonth.year+ft);
+      var ft = (currentStatusFilter==='todos') ? '' : ' ('+currentStatusFilter.replace(/-/g,' ')+')';
+      var title = 'Resumen de Abonos - '+ (currentStatusFilter === 'todos-terminados' ? 'Todos los Terminados' : MONTHS[currentMonth.month]+' '+currentMonth.year+ft);
       var h = document.getElementById('table-title');
       h.textContent = title; h.style.display='block';
       window.print();
@@ -1096,7 +1142,7 @@
 
     function exportToExcel(){
       let data;
-      if (currentFilter === 'todos-terminados') {
+      if (currentStatusFilter === 'todos-terminados') {
         data = abonosData.filter(a => a.estado === 'Terminado');
       } else {
         const abonosMes = getAbonosForMonth(currentMonth.month, currentMonth.year);
@@ -1123,14 +1169,14 @@
       });
       var ws = XLSX.utils.json_to_sheet(rows);
       var wb = XLSX.utils.book_new();
-      var sheetName = (currentFilter==='todos') ? 'Todos' : (currentFilter.replace(/-/g,' '));
+      var sheetName = (currentStatusFilter==='todos') ? 'Todos' : (currentStatusFilter.replace(/-/g,' '));
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       
       var fileName;
-      if (currentFilter === 'todos-terminados') {
+      if (currentStatusFilter === 'todos-terminados') {
         fileName = 'Todos_los_Terminados.xlsx';
       } else {
-        fileName = 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentFilter+'.xlsx';
+        fileName = 'Abonos_'+MONTHS[currentMonth.month]+'_'+currentMonth.year+'_'+currentStatusFilter+'.xlsx';
       }
       XLSX.writeFile(wb, fileName);
     }
@@ -1254,6 +1300,3 @@
   
 </body>
 </html>
-}
-haceme un resumen de los clientes que estan con falta de pago del mes de septiembre de 2025.
-Quiero los nombres y la suma total que deben.
