@@ -79,13 +79,13 @@
                 </div>
                 <div class="form-group"><label for="yearFilter">Año de Análisis:</label><select id="yearFilter"></select></div>
                 <div class="form-group"><label for="monthFilter">Período Mensual:</label><select id="monthFilter"></select></div>
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="includeSiniestros" style="cursor:pointer; display:flex; align-items:center; gap:5px; padding-top: 1.2em;">
                         <input type="checkbox" id="includeSiniestros" checked style="width: 18px; height: 18px; cursor:pointer;">
                         Incluir Siniestros en Promedio
                     </label>
                 </div>
-                 <div style="display:flex; gap:10px;">
+                <div style="display:flex; gap:10px;">
                     <button class="btn btn-primary" id="syncButton">🔄 Cargar Datos Locales</button>
                     <button id="saveToDriveBtn" class="btn btn-warning" style="display:none;">📤 Guardar Respaldo en Drive</button>
                 </div>
@@ -105,6 +105,7 @@
                     <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
                     <div class="card"><h3 >Abonos en el Período</h3><div class="value" id="kpiCasos"></div></div>
+                    <div class="card"><h3 >Regulación de Honorarios</h3><div class="value" id="kpiRegulacionHonorarios"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Caso</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
@@ -153,15 +154,15 @@
             const monthFilterEl = document.getElementById('monthFilter');
             const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
             const metricsSelectorEl = document.getElementById('metricsSelector');
-            // === NUEVA REFERENCIA A ELEMENTO ===
             const includeSiniestrosCheck = document.getElementById('includeSiniestros');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+            // === LISTA DE MÉTRICAS MODIFICADA ===
             const metricOptions = {
                 ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
-                ingresos_honorarios_juridicos: { label: '⚖️ Honorarios Jurídicos', color: '#4f46e5' },
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
+                ingresos_regulacion_honorarios: { label: '⚖️ Regulación Honorarios', color: '#4f46e5' },
                 egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
                 abonos_activos_count: { label: '📂 Abonos en el Mes', color: '#1e293b' },
@@ -221,17 +222,12 @@
                 return parseFloat(montoLimpio) || 0;
             }
 
+            // === LÓGICA DE PROCESAMIENTO MODIFICADA ===
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_juridicos: 0, ingresos_honorarios_siniestros: 0,
+                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
-                
-                const parseDate = (dateStr) => {
-                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-                    const [y, m, d] = dateStr.split('-').map(Number);
-                    return { year: y, month: m - 1 };
-                };
                 
                 const getMesDelAbono = (abono) => {
                     if (abono.mesServicio && typeof abono.mesServicio.month === 'number' && abono.mesServicio.year === year) {
@@ -263,7 +259,7 @@
                                 } else if (tipoNormalizado === 'honorario siniestro') {
                                     monthlyData[mes].ingresos_honorarios_siniestros += monto;
                                 } else if (tipoNormalizado === 'regulacion honorarios') {
-                                    monthlyData[mes].ingresos_honorarios_juridicos += monto;
+                                    monthlyData[mes].ingresos_regulacion_honorarios += monto;
                                 }
                             }
                         }
@@ -284,7 +280,8 @@
                 const getFechaInicio = (caso) => {
                     if (!caso.observaciones || caso.observaciones.length === 0) return null;
                     const fechas = caso.observaciones.map(o => o.fecha).filter(Boolean).sort();
-                    return fechas.length > 0 ? parseDate(fechas[0]) : null;
+                    const [y, m, d] = fechas.length > 0 ? fechas[0].split('-').map(Number) : [null, null, null];
+                    return y ? { year: y, month: m - 1 } : null;
                 };
                 allData.siniestros.forEach(caso => {
                     const fechaInicio = getFechaInicio(caso);
@@ -302,68 +299,58 @@
                 return monthlyData;
             }
             
+            // === RENDERIZADO DEL DASHBOARD MODIFICADO ===
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 let kpis;
-                let abonosDelPeriodo = 0;
 
                 if (selectedMonth === 'todos') {
                     document.getElementById('kpiTitle').textContent = 'Análisis Anual';
                     document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
                     kpis = data.reduce((acc, monthData) => {
-                        acc.ingresos += monthData.ingresos_totales; 
-                        acc.egresos += monthData.egresos_totales; 
-                        acc.nuevos_casos += monthData.nuevos_casos;
-                        acc.nuevos_casos_juridico += monthData.nuevos_casos_juridico;
-                        acc.abonos_activos += monthData.abonos_activos_count; // Sumamos todos los abonos del año
+                        Object.keys(monthData).forEach(key => acc[key] = (acc[key] || 0) + monthData[key]);
                         return acc;
-                    }, { ingresos: 0, egresos: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos: 0 });
-                    abonosDelPeriodo = kpis.abonos_activos;
+                    }, {});
                 } else {
                     const monthIndex = parseInt(selectedMonth) - 1;
                     document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
                     document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
-                    kpis = { 
-                        ingresos: data[monthIndex].ingresos_totales, 
-                        egresos: data[monthIndex].egresos_totales, 
-                        nuevos_casos: data[monthIndex].nuevos_casos,
-                        nuevos_casos_juridico: data[monthIndex].nuevos_casos_juridico
-                    };
-                    abonosDelPeriodo = data[monthIndex].abonos_activos_count;
+                    kpis = data[monthIndex];
                 }
-
-                const balance = kpis.ingresos - kpis.egresos;
-                document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos);
-                document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos);
+                
+                const balance = kpis.ingresos_totales - kpis.egresos_totales;
+                document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos_totales);
+                document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos_totales);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = abonosDelPeriodo;
+                document.getElementById('kpiCasos').textContent = kpis.abonos_activos_count;
                 document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
                 document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico;
+                document.getElementById('kpiRegulacionHonorarios').textContent = formatCurrency(kpis.ingresos_regulacion_honorarios);
                 
-                // === LÓGICA DE CÁLCULO MODIFICADA ===
-                let totalCasosParaPromedio = abonosDelPeriodo + kpis.nuevos_casos_juridico;
+                let totalCasosParaPromedio = kpis.abonos_activos_count + kpis.nuevos_casos_juridico;
                 if (includeSiniestrosCheck.checked) {
                     totalCasosParaPromedio += kpis.nuevos_casos;
                 }
 
-                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency((kpis.ingresos / totalCasosParaPromedio)) : formatCurrency(0);
+                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency((kpis.ingresos_totales / totalCasosParaPromedio)) : formatCurrency(0);
             }
 
+            // === RENDERIZADO DEL GRÁFICO MODIFICADO ===
             function renderizarGraficoIngresos(data) {
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
                 const annualTotals = data.reduce((acc, month) => {
                     acc.abonos += month.ingresos_abonos_mensuales; 
-                    acc.juridico += month.ingresos_honorarios_juridicos; 
                     acc.siniestros += month.ingresos_honorarios_siniestros; 
+                    acc.regulacion += month.ingresos_regulacion_honorarios;
                     return acc;
-                }, { abonos: 0, juridico: 0, siniestros: 0 });
+                }, { abonos: 0, siniestros: 0, regulacion: 0 });
                 
                 const labels = []; const chartData = []; const colors = [];
                 if(annualTotals.abonos > 0) { labels.push('Abonos Mensuales'); chartData.push(annualTotals.abonos); colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3'); }
-                if(annualTotals.juridico > 0) { labels.push('Honorarios Jurídicos'); chartData.push(annualTotals.juridico); colors.push(metricOptions.ingresos_honorarios_juridicos.color + 'B3'); }
-                if(annualTotals.siniestros > 0) { labels.push('Honorarios Siniestros'); chartData.push(annualTotals.siniestros); colors.push(metricОptions.ingresos_honorarios_siniestros.color + 'B3'); }
+                if(annualTotals.siniestros > 0) { labels.push('Honorarios Siniestros'); chartData.push(annualTotals.siniestros); colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3'); }
+                if(annualTotals.regulacion > 0) { labels.push('Regulación de Honorarios'); chartData.push(annualTotals.regulacion); colors.push(metricOptions.ingresos_regulacion_honorarios.color + 'B3'); }
 
                 ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: labels, datasets: [{ data: chartData, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
             }
@@ -420,9 +407,7 @@
             yearFilterEl.addEventListener('change', render);
             monthFilterEl.addEventListener('change', () => renderizarDashboard(processedDataForYear));
             chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
-            // === NUEVO EVENT LISTENER ===
             includeSiniestrosCheck.addEventListener('change', () => renderizarDashboard(processedDataForYear));
-
 
             document.querySelectorAll('.tab-button').forEach(button => button.addEventListener('click', () => {
                 document.querySelectorAll('.tab-button, .tab-pane').forEach(el => el.classList.remove('active'));
