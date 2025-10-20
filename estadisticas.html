@@ -158,7 +158,6 @@
             const includeSiniestrosCheck = document.getElementById('includeSiniestros');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-            // === MÉTRICAS ACTUALIZADAS ===
             const metricOptions = {
                 ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
@@ -223,7 +222,6 @@
                 return parseFloat(montoLimpio) || 0;
             }
 
-            // === LÓGICA DE PROCESAMIENTO FINAL ===
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0, ingresos_bonos_ap: 0,
@@ -302,7 +300,6 @@
                 return monthlyData;
             }
             
-            // === RENDERIZADO DEL DASHBOARD FINAL ===
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 let kpis;
@@ -340,7 +337,6 @@
                 document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency(((kpis.ingresos_totales || 0) / totalCasosParaPromedio)) : formatCurrency(0);
             }
 
-            // === RENDERIZADO DEL GRÁFICO FINAL ===
             function renderizarGraficoIngresos(data) {
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
@@ -422,7 +418,7 @@
                 document.getElementById(button.dataset.tab).classList.add('active');
             }));
 
-            // --- Código de Google Drive sin cambios ---
+            // --- CÓDIGO DE GOOGLE DRIVE ---
             const DATA_FILE_NAME = 'datos_consolidados_estudio.json';
             let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
             function gapiLoaded() { gapi.load('client', initializeGapiClient); }
@@ -448,30 +444,80 @@
                     if(dataFileId) { updateStatus('Archivo de respaldo encontrado. Listo para cargar.', 'success'); } else { updateStatus('No se encontró respaldo en Drive. Puedes guardar uno nuevo.', 'warning'); }
                 } catch (err) { updateStatus('Error buscando archivo en Drive.', 'warning'); }
             }
+            
+            // === FUNCIÓN DE GUARDADO CORREGIDA Y MEJORADA ===
             async function saveDataToDrive() {
                 if (!confirm('¿Guardar una copia de los datos actuales en Google Drive? Esto sobreescribirá el respaldo anterior.')) return;
+                
                 try {
-                    const snapshot = { siniestros: allData.siniestros, juridica: allData.juridica, abonos: allData.abonos, egresos: allData.egresos };
-                    const content = JSON.stringify(snapshot); const boundary = 'b'; const metadata = { name: DATA_FILE_NAME, mimeType: 'application/json' };
-                    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-                    const req = await gapi.client.request({
-                        path: dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files', method: dataFileId ? 'PATCH' : 'POST', params: { uploadType: 'multipart' },
-                        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: body });
-                    dataFileId = req.result.id; updateStatus('✅ Respaldo guardado en Drive con éxito.');
-                } catch (err) { updateStatus('❌ Error al guardar en Drive.', 'warning'); }
+                    updateStatus('📤 Guardando en Drive...', 'success');
+
+                    const snapshot = {
+                        siniestros: allData.siniestros,
+                        juridica: allData.juridica,
+                        abonos: allData.abonos,
+                        egresos: allData.egresos
+                    };
+                    const fileContent = JSON.stringify(snapshot);
+                    
+                    const boundary = '-------314159265358979323846';
+                    const delimiter = "\r\n--" + boundary + "\r\n";
+                    const close_delim = "\r\n--" + boundary + "--";
+
+                    const metadata = {
+                        name: DATA_FILE_NAME,
+                        mimeType: 'application/json'
+                    };
+
+                    const multipartRequestBody =
+                        delimiter +
+                        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                        JSON.stringify(metadata) +
+                        delimiter +
+                        'Content-Type: ' + metadata.mimeType + '\r\n\r\n' +
+                        fileContent +
+                        close_delim;
+
+                    const method = dataFileId ? 'PATCH' : 'POST';
+                    const path = dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files';
+
+                    const request = await gapi.client.request({
+                        path: path,
+                        method: method,
+                        params: { uploadType: 'multipart' },
+                        headers: {
+                            'Content-Type': 'multipart/related; boundary=' + boundary
+                        },
+                        body: multipartRequestBody
+                    });
+
+                    dataFileId = request.result.id;
+                    updateStatus('✅ Respaldo guardado en Drive con éxito.');
+
+                } catch (err) {
+                    console.error("Error detallado al guardar en Drive:", err);
+                    const errorDetails = err.result ? (err.result.error ? err.result.error.message : 'Respuesta de error sin mensaje.') : (err.message || 'Error desconocido.');
+                    updateStatus(`❌ Error al guardar: ${errorDetails}`, 'warning');
+                }
             }
+
             async function loadDataFromDrive() {
                 if (!dataFileId) { alert("No se encontró un archivo de respaldo en Drive para cargar. Guarda uno primero."); return; }
                 try {
                     updateStatus('📥 Cargando desde Drive...', 'success');
                     const resp = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                    const loaded = resp.result;
+                    // Si resp.result es un string, hay que parsearlo. Si ya es objeto, funciona igual.
+                    const loaded = typeof resp.result === 'string' ? JSON.parse(resp.result) : resp.result;
                     allData.siniestros = loaded.siniestros || []; allData.juridica = loaded.juridica || [];
                     allData.abonos = loaded.abonos || []; allData.egresos = loaded.egresos || {};
                     updateStatus('✅ Respaldo cargado de Drive. Procesando...');
                     poblarSelectores();
                     render();
-                } catch (err) { updateStatus('❌ Error al cargar desde Drive.', 'warning'); }
+                } catch (err) { 
+                     console.error("Error detallado al cargar de Drive:", err);
+                    const errorDetails = err.result ? (err.result.error ? err.result.error.message : 'Respuesta de error sin mensaje.') : (err.message || 'Error desconocido.');
+                    updateStatus(`❌ Error al cargar: ${errorDetails}`, 'warning');
+                }
             }
             document.getElementById('loadFromDriveBtn').addEventListener('click', loadDataFromDrive);
             document.getElementById('saveToDriveBtn').addEventListener('click', saveDataToDrive);
