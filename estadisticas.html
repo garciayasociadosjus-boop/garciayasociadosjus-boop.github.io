@@ -157,7 +157,6 @@
             const includeSiniestrosCheck = document.getElementById('includeSiniestros');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-            // === LISTA DE MÉTRICAS MODIFICADA ===
             const metricOptions = {
                 ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
@@ -222,7 +221,7 @@
                 return parseFloat(montoLimpio) || 0;
             }
 
-            // === LÓGICA DE PROCESAMIENTO MODIFICADA ===
+            // === LÓGICA DE PROCESAMIENTO CORREGIDA ===
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
                     ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0,
@@ -235,7 +234,7 @@
                     }
                     if (abono.fechaPago) {
                         const d = new Date(abono.fechaPago + 'T00:00:00');
-                        if (d.getFullYear() === year) return d.getMonth();
+                        if (!isNaN(d) && d.getFullYear() === year) return d.getMonth();
                     }
                     return -1;
                 };
@@ -245,21 +244,25 @@
                     if (mes !== -1) {
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        if (tipoNormalizado === 'abono mensual') {
+                        // Solo contamos como "abono activo" el que es específicamente un abono mensual
+                        if (tipoNormalizado.includes('abono mensual')) {
                             monthlyData[mes].abonos_activos_count++;
                         }
 
+                        // Verificamos si el dinero ingresó
                         if (['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
-                            if (tipoNormalizado !== 'pago de bonos y ap') {
+                            // Excluimos explícitamente los bonos y AP del total de honorarios
+                            if (!tipoNormalizado.includes('pago de bonos y ap')) {
                                 const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
                                 monthlyData[mes].ingresos_totales += monto;
                                 
-                                if (tipoNormalizado === 'abono mensual') {
-                                    monthlyData[mes].ingresos_abonos_mensuales += monto;
-                                } else if (tipoNormalizado === 'honorario siniestro') {
+                                // Clasificamos el ingreso usando 'includes' para más flexibilidad
+                                if (tipoNormalizado.includes('siniestro')) {
                                     monthlyData[mes].ingresos_honorarios_siniestros += monto;
-                                } else if (tipoNormalizado === 'regulacion honorarios') {
+                                } else if (tipoNormalizado.includes('regulacion')) {
                                     monthlyData[mes].ingresos_regulacion_honorarios += monto;
+                                } else if (tipoNormalizado.includes('abono mensual')) {
+                                    monthlyData[mes].ingresos_abonos_mensuales += monto;
                                 }
                             }
                         }
@@ -299,7 +302,6 @@
                 return monthlyData;
             }
             
-            // === RENDERIZADO DEL DASHBOARD MODIFICADO ===
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 let kpis;
@@ -336,7 +338,6 @@
                 document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency((kpis.ingresos_totales / totalCasosParaPromedio)) : formatCurrency(0);
             }
 
-            // === RENDERIZADO DEL GRÁFICO MODIFICADO ===
             function renderizarGraficoIngresos(data) {
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
@@ -374,7 +375,10 @@
 
                 if(isPieChart) {
                     labels = selectedMetrics.map(key => metricOptions[key].label);
-                    const annualTotals = selectedMetrics.map(key => Math.max(0, processedDataForYear.reduce((sum, month) => sum + month[key], 0)));
+                    const annualTotals = processedDataForYear.reduce((acc, month) => {
+                        selectedMetrics.forEach((key, i) => acc[i] = (acc[i] || 0) + (month[key] || 0));
+                        return acc;
+                    }, []);
                     datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff' }];
                     title = `Distribución Anual de ${yearFilterEl.value}`;
                 } else {
