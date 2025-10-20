@@ -106,6 +106,7 @@
                     <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
                     <div class="card"><h3 >Abonos en el Período</h3><div class="value" id="kpiCasos"></div></div>
                     <div class="card"><h3 >Regulación de Honorarios</h3><div class="value" id="kpiRegulacionHonorarios"></div></div>
+                    <div class="card"><h3 >Otros Ingresos</h3><div class="value" id="kpiOtrosIngresos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
                     <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
                     <div class="card"><h3 >Ingreso Prom./Caso</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
@@ -157,11 +158,13 @@
             const includeSiniestrosCheck = document.getElementById('includeSiniestros');
             const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+            // === MÉTRICAS ACTUALIZADAS CON "OTROS" ===
             const metricOptions = {
                 ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
                 ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
                 ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
                 ingresos_regulacion_honorarios: { label: '⚖️ Regulación Honorarios', color: '#4f46e5' },
+                ingresos_otros: { label: '❓ Otros Ingresos', color: '#64748b' },
                 egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
                 balance: { label: '💰 Balance Mensual', color: '#6366f1' },
                 abonos_activos_count: { label: '📂 Abonos en el Mes', color: '#1e293b' },
@@ -210,7 +213,7 @@
                 if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
                 monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
                 mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index + 1}">${mes}</option>`);
-                metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `<label><input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 4 ? 'checked' : ''}> ${label}</label>`).join('');
+                metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `<label><input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 5 ? 'checked' : ''}> ${label}</label>`).join('');
                 document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
             }
 
@@ -221,10 +224,10 @@
                 return parseFloat(montoLimpio) || 0;
             }
 
-            // === LÓGICA DE PROCESAMIENTO CORREGIDA ===
+            // === LÓGICA DE PROCESAMIENTO MÁS ROBUSTA Y CON DIAGNÓSTICO ===
             function procesarDatos(year) {
                 const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0,
+                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0, ingresos_otros: 0,
                     egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
                 }));
                 
@@ -244,25 +247,23 @@
                     if (mes !== -1) {
                         const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
                         
-                        // Solo contamos como "abono activo" el que es específicamente un abono mensual
                         if (tipoNormalizado.includes('abono mensual')) {
                             monthlyData[mes].abonos_activos_count++;
                         }
 
-                        // Verificamos si el dinero ingresó
                         if (['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
-                            // Excluimos explícitamente los bonos y AP del total de honorarios
                             if (!tipoNormalizado.includes('pago de bonos y ap')) {
                                 const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
                                 monthlyData[mes].ingresos_totales += monto;
                                 
-                                // Clasificamos el ingreso usando 'includes' para más flexibilidad
                                 if (tipoNormalizado.includes('siniestro')) {
                                     monthlyData[mes].ingresos_honorarios_siniestros += monto;
-                                } else if (tipoNormalizado.includes('regulacion')) {
+                                } else if (tipoNormalizado.includes('regulacion') || tipoNormalizado.includes('regulación')) {
                                     monthlyData[mes].ingresos_regulacion_honorarios += monto;
                                 } else if (tipoNormalizado.includes('abono mensual')) {
                                     monthlyData[mes].ingresos_abonos_mensuales += monto;
+                                } else {
+                                    monthlyData[mes].ingresos_otros += monto;
                                 }
                             }
                         }
@@ -302,6 +303,7 @@
                 return monthlyData;
             }
             
+            // === RENDERIZADO DEL DASHBOARD ACTUALIZADO ===
             function renderizarDashboard(data) {
                 const selectedMonth = monthFilterEl.value;
                 let kpis;
@@ -320,24 +322,26 @@
                     kpis = data[monthIndex];
                 }
                 
-                const balance = kpis.ingresos_totales - kpis.egresos_totales;
-                document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos_totales);
-                document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos_totales);
+                const balance = (kpis.ingresos_totales || 0) - (kpis.egresos_totales || 0);
+                document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos_totales || 0);
+                document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos_totales || 0);
                 document.getElementById('kpiBalance').textContent = formatCurrency(balance);
                 document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = kpis.abonos_activos_count;
-                document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos;
-                document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico;
-                document.getElementById('kpiRegulacionHonorarios').textContent = formatCurrency(kpis.ingresos_regulacion_honorarios);
+                document.getElementById('kpiCasos').textContent = kpis.abonos_activos_count || 0;
+                document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos || 0;
+                document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico || 0;
+                document.getElementById('kpiRegulacionHonorarios').textContent = formatCurrency(kpis.ingresos_regulacion_honorarios || 0);
+                document.getElementById('kpiOtrosIngresos').textContent = formatCurrency(kpis.ingresos_otros || 0);
                 
-                let totalCasosParaPromedio = kpis.abonos_activos_count + kpis.nuevos_casos_juridico;
+                let totalCasosParaPromedio = (kpis.abonos_activos_count || 0) + (kpis.nuevos_casos_juridico || 0);
                 if (includeSiniestrosCheck.checked) {
-                    totalCasosParaPromedio += kpis.nuevos_casos;
+                    totalCasosParaPromedio += (kpis.nuevos_casos || 0);
                 }
 
-                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency((kpis.ingresos_totales / totalCasosParaPromedio)) : formatCurrency(0);
+                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency(((kpis.ingresos_totales || 0) / totalCasosParaPromedio)) : formatCurrency(0);
             }
 
+            // === RENDERIZADO DEL GRÁFICO ACTUALIZADO ===
             function renderizarGraficoIngresos(data) {
                 if (ingresosChartInstance) ingresosChartInstance.destroy();
                 const ctx = document.getElementById('ingresosChart').getContext('2d');
@@ -345,13 +349,15 @@
                     acc.abonos += month.ingresos_abonos_mensuales; 
                     acc.siniestros += month.ingresos_honorarios_siniestros; 
                     acc.regulacion += month.ingresos_regulacion_honorarios;
+                    acc.otros += (month.ingresos_otros || 0);
                     return acc;
-                }, { abonos: 0, siniestros: 0, regulacion: 0 });
+                }, { abonos: 0, siniestros: 0, regulacion: 0, otros: 0 });
                 
                 const labels = []; const chartData = []; const colors = [];
                 if(annualTotals.abonos > 0) { labels.push('Abonos Mensuales'); chartData.push(annualTotals.abonos); colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3'); }
                 if(annualTotals.siniestros > 0) { labels.push('Honorarios Siniestros'); chartData.push(annualTotals.siniestros); colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3'); }
                 if(annualTotals.regulacion > 0) { labels.push('Regulación de Honorarios'); chartData.push(annualTotals.regulacion); colors.push(metricOptions.ingresos_regulacion_honorarios.color + 'B3'); }
+                if(annualTotals.otros > 0) { labels.push('Otros Ingresos'); chartData.push(annualTotals.otros); colors.push(metricOptions.ingresos_otros.color + 'B3'); }
 
                 ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: labels, datasets: [{ data: chartData, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
             }
@@ -385,7 +391,7 @@
                     labels = mesesLabels;
                     datasets = selectedMetrics.map(key => ({
                         label: metricOptions[key].label,
-                        data: processedDataForYear.map(month => month[key]),
+                        data: processedDataForYear.map(month => month[key] || 0),
                         borderColor: metricOptions[key].color, backgroundColor: metricOptions[key].color + '33', tension: 0.1, fill: chartType === 'line' || chartType === 'radar'
                     }));
                     title = `Comparativa Mensual - ${yearFilterEl.value}`;
