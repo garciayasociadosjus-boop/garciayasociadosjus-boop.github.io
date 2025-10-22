@@ -520,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDataLoaded(loadedArticles, mode, file) {
         if (!Array.isArray(loadedArticles)) return;
         
-        const newArticles = loadedArticles.map(item => ({...item, id: item.id || crypto.randomUUID()}));
+        const newArticles = loadedArticles.map(item => ({...item, id: item.id || crypto.randomVUID()}));
         
         if (mode === 'replace') {
             articles = newArticles;
@@ -636,9 +636,9 @@ function handleAuthClick() {
         document.getElementById('loadFromDriveBtn').addEventListener('click', loadSelectedFileFromDrive);
         document.getElementById('saveAsDriveBtn').addEventListener('click', saveAsNewFileToDrive);
 
-        // ================== CAMBIO 2: LISTENER AGREGADO ==================
+        // ================== CAMBIO 2 (JS-LISTENER) ==================
         document.getElementById('deleteFromDriveBtn').addEventListener('click', deleteSelectedFileFromDrive);
-        // ===============================================================
+        // ==========================================================
 
         await listJsonFilesFromDrive();
     };
@@ -762,13 +762,13 @@ async function saveAsNewFileToDrive() {
         window.handleDataLoadedFromDrive(window.driveArticles, 'replace', {id: newFile.id, name: fileName});
         
         updateDriveStatus(`✅ Archivo "${fileName}" creado y guardado con éxito.`, true);
-    } catch (err)
+    } catch (err) {
         console.error("Error guardando como nuevo:", err);
         updateDriveStatus(`❌ Error al crear el archivo: ${err.message}`, false);
     }
 }
 
-// ================== CAMBIO 3: FUNCIÓN AGREGADA ==================
+// ================== CAMBIO 3 (FUNCIÓN NUEVA) ==================
 async function deleteSelectedFileFromDrive() {
     const selector = document.getElementById('driveFileSelector');
     const fileId = selector.value;
@@ -794,17 +794,19 @@ async function deleteSelectedFileFromDrive() {
         
         updateDriveStatus(`✅ Archivo "${fileName}" eliminado con éxito.`, true);
         
-        // 3. AVISO: Debido a la estructura original del código, si borrás
-        // el archivo que tenías cargado (ej: "Ley 123.json"), el botón "Guardar en Drive"
-        // seguirá activo para "Ley 123.json" hasta que cargues un archivo nuevo.
-        // Esto es solo visual, el archivo en Drive ya no existe.
+        // 3. (Opcional) Limpiar el estado si el archivo borrado era el que estaba cargado
+        // Usamos la misma lógica (rota) que ya existe en saveDataToDrive
+        if (window.handleDataLoadedFromDrive.currentLoadedFile && window.handleDataLoadedFromDrive.currentLoadedFile.id === fileId) {
+            window.handleDataLoadedFromDrive.currentLoadedFile = { id: null, name: null };
+            // El botón 'Guardar' puede quedar activo visualmente hasta que cargues otra ley
+        }
 
     } catch (err) {
         console.error("Error eliminando archivo:", err);
         updateDriveStatus(`❌ Error al eliminar: ${err.message}`, false);
     }
 }
-// ===============================================================
+// ==============================================================
 </script>
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
