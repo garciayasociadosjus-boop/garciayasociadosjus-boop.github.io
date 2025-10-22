@@ -178,7 +178,8 @@
             <div style="display: flex; gap: 10px;">
                 <select id="driveFileSelector" style="flex-grow: 1;"></select>
                 <button id="loadFromDriveBtn" class="btn btn-default">Cargar</button>
-            </div>
+                <button id="deleteFromDriveBtn" class="btn btn-action" title="Eliminar ley seleccionada de Drive">🗑️ Eliminar</button>
+                </div>
         </div>
         
         <div class="controls">
@@ -302,7 +303,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let articles = [];
     let editIndex = null;
-    let currentLoadedFile = { id: null, name: null };
+    
+    // ================== CORRECCIÓN DE SCOPE 1 ==================
+    // Hacemos estas variables globales para que ambos scripts puedan acceder a ellas
+    window.currentLoadedFile = { id: null, name: null };
+    
+    window.updateSaveButtonState = function() {
+        if (window.currentLoadedFile.id) {
+            saveToDriveBtn.disabled = false;
+            saveToDriveBtn.title = `Guardar cambios en ${window.currentLoadedFile.name}`;
+        } else {
+            saveToDriveBtn.disabled = true;
+            saveToDriveBtn.title = 'Cargue un único archivo de Drive para activar esta opción';
+        }
+    }
+    // ===========================================================
     
     function initializeApp() {
         loadArticles();
@@ -462,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!data.ley || !data.articulo || !data.titulo || !data.palabraClave) { alert('Los campos Ley, Artículo, Título y Palabra Clave son obligatorios.'); return; }
         if (editIndex !== null) articles[editIndex] = data; else articles.push(data);
         saveArticles(); populateFilters(); filterAndRender(); closeEditModal();
-        updateSaveButtonState();
+        window.updateSaveButtonState(); // Usamos la función global
     }
     
     function exportData(type) {
@@ -493,8 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (confirm('Esto reemplazará todos los artículos actuales. ¿Continuar?')) {
                             articles = imported.map(item => ({...item, id: item.id || crypto.randomUUID()}));
                             saveArticles(); populateFilters(); filterAndRender();
-                            currentLoadedFile = { id: null, name: null };
-                            updateSaveButtonState();
+                            window.currentLoadedFile = { id: null, name: null }; // Usamos la variable global
+                            window.updateSaveButtonState(); // Usamos la función global
                             alert('Artículos importados con éxito. Puede guardarlos en Drive usando el botón "Guardar como Nueva Ley".');
                         }
                     } else { throw new Error('Formato de archivo inválido.'); }
@@ -506,16 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
         input.click();
     }
     
-    function updateSaveButtonState() {
-        if (currentLoadedFile.id) {
-            saveToDriveBtn.disabled = false;
-            saveToDriveBtn.title = `Guardar cambios en ${currentLoadedFile.name}`;
-        } else {
-            saveToDriveBtn.disabled = true;
-            saveToDriveBtn.title = 'Cargue un único archivo de Drive para activar esta opción';
-        }
-    }
-    
     function handleDataLoaded(loadedArticles, mode, file) {
         if (!Array.isArray(loadedArticles)) return;
         
@@ -523,18 +528,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (mode === 'replace') {
             articles = newArticles;
-            currentLoadedFile = file;
+            window.currentLoadedFile = file; // Usamos la variable global
         } else { // append
             const currentIds = new Set(articles.map(a => a.id));
             const articlesToAdd = newArticles.filter(a => !currentIds.has(a.id));
             articles.push(...articlesToAdd);
-            currentLoadedFile = { id: null, name: null }; // Multiple files loaded, disable direct save
+            window.currentLoadedFile = { id: null, name: null }; // Usamos la variable global
         }
         
         saveArticles(); 
         populateFilters(); 
         filterAndRender();
-        updateSaveButtonState();
+        window.updateSaveButtonState(); // Usamos la función global
     }
 
     function setupEventListeners() {
@@ -585,6 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function getSampleData() { return []; }
     
+    // Exponemos la función principal de carga para el script de Drive
     window.handleDataLoadedFromDrive = handleDataLoaded;
     initializeApp();
 });
@@ -632,8 +638,15 @@ function handleAuthClick() {
         document.getElementById('connectDriveBtn').style.display = 'none';
         document.getElementById('saveToDriveBtn').style.display = 'inline-flex';
         document.getElementById('saveAsDriveBtn').style.display = 'inline-flex';
+        
+        // --- Conectamos los listeners de los botones de Drive ---
         document.getElementById('loadFromDriveBtn').addEventListener('click', loadSelectedFileFromDrive);
         document.getElementById('saveAsDriveBtn').addEventListener('click', saveAsNewFileToDrive);
+        document.getElementById('saveToDriveBtn').addEventListener('click', saveDataToDrive); // <- Listener que faltaba
+        
+        // ================== NUEVO LISTENER AQUÍ ==================
+        document.getElementById('deleteFromDriveBtn').addEventListener('click', deleteSelectedFileFromDrive);
+        // =========================================================
 
         await listJsonFilesFromDrive();
     };
@@ -706,6 +719,44 @@ async function loadSelectedFileFromDrive() {
     }
 }
 
+// ================== NUEVA FUNCIÓN AQUÍ ==================
+async function deleteSelectedFileFromDrive() {
+    const selector = document.getElementById('driveFileSelector');
+    const fileId = selector.value;
+    if (!fileId) {
+        alert("Por favor, seleccione un archivo de la lista para eliminar.");
+        return;
+    }
+    const fileName = selector.options[selector.selectedIndex].text;
+
+    if (!confirm(`¿Está seguro que desea eliminar permanentemente el archivo "${fileName}" de su Google Drive?\n\n¡Esta acción no se puede deshacer!`)) {
+        return;
+    }
+
+    updateDriveStatus(`Eliminando "${fileName}" de Drive...`, false);
+    try {
+        // 1. Llamar a la API de Drive para borrar el archivo
+        await gapi.client.drive.files.delete({
+            fileId: fileId
+        });
+        
+        // 2. Quitar el archivo del dropdown
+        selector.options[selector.selectedIndex].remove();
+        
+        updateDriveStatus(`✅ Archivo "${fileName}" eliminado con éxito.`, true);
+        
+        // 3. Si era el archivo cargado, limpiar el estado
+        if (window.currentLoadedFile && window.currentLoadedFile.id === fileId) {
+            window.currentLoadedFile = { id: null, name: null };
+            window.updateSaveButtonState(); // Actualiza el estado del botón "Guardar"
+        }
+    } catch (err) {
+        console.error("Error eliminando archivo:", err);
+        updateDriveStatus(`❌ Error al eliminar: ${err.message}`, false);
+    }
+}
+// =======================================================
+
 async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
     const boundary = '-------314159265358979323846';
     const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
@@ -721,8 +772,11 @@ async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpda
 }
 
 async function saveDataToDrive() {
-    const fileId = window.handleDataLoadedFromDrive.currentLoadedFile?.id;
-    const fileName = window.handleDataLoadedFromDrive.currentLoadedFile?.name;
+    // ================== CORRECCIÓN DE SCOPE 2 ==================
+    const fileId = window.currentLoadedFile?.id;
+    const fileName = window.currentLoadedFile?.name;
+    // ===========================================================
+    
     if (!fileId) {
         alert("No hay un archivo único cargado para guardar. Use 'Guardar como...' para crear un archivo nuevo.");
         return;
@@ -754,6 +808,7 @@ async function saveAsNewFileToDrive() {
         document.getElementById('driveFileSelector').value = newFile.id;
         
         // Actualizar el estado del archivo cargado
+        // (Esto usa la función global expuesta en el primer script, lo cual es correcto)
         window.handleDataLoadedFromDrive(window.driveArticles, 'replace', {id: newFile.id, name: fileName});
         
         updateDriveStatus(`✅ Archivo "${fileName}" creado y guardado con éxito.`, true);
@@ -764,6 +819,6 @@ async function saveAsNewFileToDrive() {
 }
 </script>
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></s' + 'cript>
 </body>
 </html>
