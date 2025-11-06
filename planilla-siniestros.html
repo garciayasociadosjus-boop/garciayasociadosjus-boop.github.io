@@ -69,7 +69,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .complete-btn:hover{background:#c7c7c7}
 .review-item.completed .complete-btn{background:#2ecc71;color:#fff}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000}
-.modal.active{display:flex;align-items:center;justify-content:center}
+.modal.active{display:flex;align-items:center;justify:content:center}
 .modal-content{background:#fff;border-radius:14px;padding:28px;max-width:900px;width:95%;max-height:90vh;overflow:auto}
 #alertModal .modal-content{border-top:10px solid var(--danger-color)}
 #alertModal h2{color:var(--danger-color);text-align:center;margin-bottom:20px}
@@ -81,7 +81,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 .editable-field{cursor:pointer;padding:2px 4px;margin:-2px -4px}
 .editable-field:hover{background:#eef5ff;border-radius:4px}
 .history-item{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #667eea;border-radius:6px;padding:12px;margin-bottom:10px;font-size:.9rem}
-.history-item.completed{opacity:.6}
+
+/* --- INICIO MODIFICACIÓN TAREA 4: Estilo para tareas completadas --- */
+.history-item.completed {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+}
+.history-item.completed > div:not(:last-child) { /* Tacha todo menos los botones */
+    text-decoration: line-through;
+    color: #777;
+}
+.history-item.completed .history-date,
+.history-item.completed .history-revision-date {
+    text-decoration: none; /* No tachar las fechas */
+}
+.history-item.completed .private-note-details {
+    display: none; /* Ocultar notas privadas */
+}
+/* --- FIN MODIFICACIÓN TAREA 4 --- */
+
 .history-date{font-size:.9em;font-weight:600;color:#667eea;margin-bottom:4px}
 .history-revision-date{color:#c0392b;font-size:.85em;margin-top:4px}
 .private-note-details{margin-top:10px}
@@ -174,7 +192,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 
     <div class="filter-bar">
       <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Cliente, DNI, reclamo..." onkeyup="renderAllSiniestrosList()"></div>
-      <div class="form-group"><label>Estado</label><select id="estadoFilter" onchange="renderAllSiniestrosList()"><option value="">Todos</option><option value="RECHAZADO">Rechazado</option><option value="SIN INICIAR">Sin iniciar</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option></select></div>
+      <div class="form-group"><label>Estado</label><select id="estadoFilter" onchange="renderAllSiniestrosList()"><option value="">Todos (Activos)</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option></select></div>
     </div>
 
     <div class="card">
@@ -227,12 +245,12 @@ function addEventToGoogleCalendar(siniestro,item,type){ if(!gapi.client.getToken
 
 function saveData(){ try{ localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); }catch(e){ console.error('Error al guardar:',e); updateDataStatus('❌ Error al guardar datos',true); }}
 function loadData(){ try{ const saved=localStorage.getItem('planilla_siniestros_data'); if(saved){ siniestrosData=JSON.parse(saved); siniestrosData=sanitizeData(siniestrosData); }else{ siniestrosData=[]; updateDataStatus('📋 Planilla lista para usar'); }}catch(e){ console.error('Error al cargar:',e); siniestrosData=[]; updateDataStatus('❌ Error al cargar datos',true); }}
-function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach(s=>{ if(!s||typeof s!=='object')return; s.id=s.id||generateId(s); s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
+function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach(s=>{ if(!s||typeof s!=='object')return; s.id=s.id||generateId(s); s.genero=s.genero||'Masculino'; // --- MODIFICACIÓN TAREA 1: Añadir genero por defecto ---
+    s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
 function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
 const todayYMD = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
 
-// --- FUNCIÓN CORREGIDA ---
 function formatDate(d) {
     if (!d) return 'No definida';
     const date = new Date(d);
@@ -259,20 +277,223 @@ function getDisplayName(s){ return`${s.cliente||'S/N'} - Reclamo: ${s.numeroRecl
 function formatCurrency(v){ if(v==null||v==='')return'S/D'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
 function toggleVisibility(id){ const el=document.getElementById(id),icon=el.previousElementSibling.querySelector('.toggle-icon'); const isFlex=el.classList.contains('weekly-glance'); if(getComputedStyle(el).display==='none'){el.style.display=isFlex?'flex':'block';icon.textContent='➖';}else{el.style.display='none';icon.textContent='➕';}}
 function updateSiniestroNextRevision(s){ if(!s)return; const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;if(future[0].textoPrivado)s.observacion+=` (Privado: ${future[0].textoPrivado})`;}else{s.fechaRevision='';s.observacion='No hay tareas pendientes';}}
-function toggleCompleted(e,sid,oid,type='task'){ e.stopPropagation(); const s=siniestrosData.find(x=>x.id===sid); if(!s)return; let list; if(type==='task')list=s.observaciones; else if(type==='mediacion')list=s.mediaciones_list; else if(type==='vencimiento')list=s.vencimientos_list; if(list){const item=list.find(y=>y.id===oid);if(item)item.completed=!item.completed;} if(type==='task')updateSiniestroNextRevision(s); saveData(); renderAll(); }
+
+// --- INICIO MODIFICACIÓN TAREA 4: Refrescar modal al completar tarea ---
+function toggleCompleted(e,sid,oid,type='task'){ 
+    e.stopPropagation(); 
+    const s=siniestrosData.find(x=>x.id===sid); 
+    if(!s)return; 
+    let list; 
+    if(type==='task')list=s.observaciones; 
+    else if(type==='mediacion')list=s.mediaciones_list; 
+    else if(type==='vencimiento')list=s.vencimientos_list; 
+    if(list){
+        const item=list.find(y=>y.id===oid);
+        if(item)item.completed=!item.completed;
+    } 
+    if(type==='task')updateSiniestroNextRevision(s); 
+    saveData(); 
+    renderAll(); 
+
+    // --- INICIO DE MODIFICACIÓN ---
+    // Refrescar el modal de info si está abierto
+    const infoModal = document.getElementById('siniestroInfoModal');
+    if (infoModal.classList.contains('active')) {
+        // Buscamos el ID del siniestro que está mostrando el modal
+        // Lo hacemos buscando el botón de eliminar, que tiene el ID
+        const deleteButton = infoModal.querySelector('.action-buttons .btn-danger');
+        if (deleteButton) {
+            // Extraemos el ID del siniestro del onclick del botón
+            const onclickString = deleteButton.getAttribute('onclick');
+            const match = onclickString.match(/'([^']+)'/);
+            if (match && match[1] === sid) {
+                // Si el modal abierto es el del siniestro que estamos editando,
+                // refrescamos solo la lista de historial
+                const historyListEl = document.getElementById(`history-list-${sid}`);
+                const currentSiniestro = siniestrosData.find(x => x.id === sid);
+                if (historyListEl && currentSiniestro) {
+                    historyListEl.innerHTML = renderHistoryList(currentSiniestro);
+                }
+            }
+        }
+    }
+    // --- FIN DE MODIFICACIÓN ---
+}
+// --- FIN MODIFICACIÓN TAREA 4 ---
+
 function renderAll(){ try{ siniestrosData.forEach(updateSiniestroNextRevision); renderWeeklyGlance(); renderAdvanceNotices(); renderDashboardLists(); renderAllSiniestrosList(); }catch(e){ console.error('Error al renderizar:',e); updateDataStatus('❌ Error al actualizar la vista',true); }}
 function renderWeeklyGlance(){ const container=document.getElementById('weeklyGlanceContainer'); if(!container)return; const counts=Array(7).fill(0); const today=new Date(); today.setHours(0,0,0,0); const allItems=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({reviewDate:o.proximaRevision})),...(s.mediaciones_list||[]).filter(m=>m.fecha&&!m.completed).map(m=>({reviewDate:m.fecha})),...(s.vencimientos_list||[]).filter(v=>v.fecha&&!v.completed).map(v=>({reviewDate:v.fecha}))]); allItems.forEach(item=>{if(!item.reviewDate)return; const diffDays=Math.round((new Date(item.reviewDate+'T00:00:00')-today)/864e5); if(diffDays>=0&&diffDays<7)counts[diffDays]++;}); const dayNames=['D','L','M','M','J','V','S']; let html=''; for(let i=0;i<7;i++){ const date=new Date(today); date.setDate(today.getDate()+i); const isoDateString=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; const hasTasks=counts[i]>0; html+=`<div class="day-circle ${hasTasks?'has-tasks':''} ${i===0?'is-today':''}" title="${date.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})}" ${hasTasks?`onclick="showTasksForDate('${isoDateString}')"`:''}> <span class="day-name">${dayNames[date.getDay()]} ${date.getDate()}</span> <span class="day-count">${counts[i]}</span> </div>`; } container.innerHTML=html||'<p>No hay tareas en los próximos 7 días.</p>'; }
 function renderAdvanceNotices(){ const container=document.getElementById('advanceNoticeContainer'); if(!container)return; const itemsToNotice=[]; siniestrosData.forEach(s=>{ const criticalItems=[...(s.mediaciones_list||[]).map(item=>({...item,dueDate:item.fecha,type:'mediacion',text:`MEDIACIÓN: ${item.texto}`})),...(s.vencimientos_list||[]).map(item=>({...item,dueDate:item.fecha,type:'vencimiento',text:`VENCIMIENTO: ${item.texto}`}))]; criticalItems.forEach(item=>{ const noticeDays=parseInt(item.avisoPrevio,10); if(!item.completed&&noticeDays>0&&item.dueDate){ const daysDifference=getDaysDifference(item.dueDate); if(daysDifference>0&&daysDifference<=noticeDays)itemsToNotice.push({siniestro:s,item,daysDifference}); }}); }); itemsToNotice.sort((a,b)=>a.item.dueDate.localeCompare(b.item.dueDate)); document.getElementById('advanceNoticeCount').textContent=itemsToNotice.length; if(itemsToNotice.length===0){container.innerHTML='<p style="text-align:center;color:#666;">No hay avisos previos.</p>';return;} container.innerHTML=itemsToNotice.map(({siniestro,item,daysDifference})=>{ const dateInfo=`Vence en ${daysDifference} día${daysDifference>1?'s':''} (${formatDate(item.dueDate)})`; return`<div class="review-item" onclick="showSiniestroModal('${siniestro.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(siniestro)}</div><div class="review-obs">${item.text}</div></div></div>`; }).join(''); }
-function showTasksForDate(dateString){ const formattedDate=formatDate(dateString); const modal=document.getElementById('dailyTasksModal'); const tasksForDate=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision===dateString).map(o=>({...o,siniestro:s,type:'task'})),...(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha===dateString).map(m=>({...m,siniestro:s,type:'mediacion'})),...(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha===dateString).map(v=>({...v,siniestro:s,type:'vencimiento'}))]); const content=` <span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para ${formattedDate}</h2> <div class="reviews-list" style="max-height:60vh;"> ${tasksForDate.length===0?'<p style="text-align:center;color:#666;">No hay tareas para esta fecha.</p>':tasksForDate.map(item=>{ const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; let timeLabel='',label=''; if(item.type==='mediacion'){timeLabel=formatTime(item.hora);label='MEDIACIÓN:';} if(item.type==='vencimiento'){label='VENCIMIENTO:';} return`<div class="review-item"> <button class="complete-btn" onclick="${toggleFunc}">✔</button> <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"> <div class="review-date">${timeLabel}</div> <div class="review-client">${item.siniestro.cliente}</div> <div class="review-obs"><b>${label}</b> ${item.texto}</div> ${item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''} </div> </div>`; }).join('')} </div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); }
+function showTasksForDate(dateString){ const formattedDate=formatDate(dateString); const modal=document.getElementById('dailyTasksModal'); const tasksForDate=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision===dateString).map(o=>({...o,siniestro:s,type:'task'})),...(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha===dateString).map(m=>({...m,siniestro:s,type:'mediacion'})),...(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha===dateString).map(v=>({...v,siniestro:s,type:'vencimiento'}))]); const content=` <span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para ${formattedDate}</h2> <div class="reviews-list" style="max-height:60vh;"> ${tasksForDate.length===0?'<p style="text-align:center;color:#666;">No hay tareas para esta fecha.</p>':tasksForDate.map(item=>{ const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; let timeLabel='',label=''; if(item.type==='mediacion'){timeLabel=formatTime(item.hora);label='MEDIACIÓN:';} if(item.type==='vencimiento'){label='VENCIMIENTO:';} return`<div class="review-item ${item.completed ? 'completed' : ''}"> <button class="complete-btn" onclick="${toggleFunc}">✔</button> <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"> <div class="review-date">${timeLabel}</div> <div class="review-client">${item.siniestro.cliente}</div> <div class="review-obs"><b>${label}</b> ${item.texto}</div> ${item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''} </div> </div>`; }).join('')} </div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); }
 function renderDashboardLists(){ const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'}))); const mediaciones=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha}))); const vencimientos=siniestrosData.flatMap(s=>(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha).map(v=>({...v,siniestro:s,type:'vencimiento',proximaRevision:v.fecha}))); const allItems=[...tasks,...mediaciones,...vencimientos]; const today=allItems.filter(t=>isToday(t.proximaRevision)); const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); renderReviewList('todayReviews',today,'No hay eventos para hoy','today'); renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue'); renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming'); }
 function renderReviewList(id,items,empty,type){ const c=document.getElementById(id); if(!c)return; const listColor=(id==='todayReviews'||id==='overdueReviews'||id==='upcomingReviews')?'var(--light-text)':'rgba(0,0,0,0.6)'; if(!items.length){c.innerHTML=`<p style="color:${listColor};text-align:center;">${empty}</p>`;return;} c.innerHTML=items.map(item=>{ let dateInfo=formatDate(item.proximaRevision); if(type==='today')dateInfo='HOY'; else if(type==='overdue')dateInfo=`VENCIDA - ${dateInfo}`; else dateInfo=`En ${getDaysDifference(item.proximaRevision)} días - ${dateInfo}`; let label='',timeLabel=''; if(item.type==='mediacion'){label='MEDIACIÓN:';timeLabel=formatTime(item.hora);} if(item.type==='vencimiento'){label='VENCIMIENTO:';} const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''; return`<div class="review-item"><button class="complete-btn" onclick="${toggleFunc}">✔</button><div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"><div class="review-date">${dateInfo} ${timeLabel}</div><div class="review-client">${item.siniestro.cliente}</div><div class="review-obs"><b>${label}</b> ${item.texto}</div>${privateNoteHtml}</div></div>`; }).join(''); }
-function renderAllSiniestrosList(){ const sterm=document.getElementById('searchInput').value.toLowerCase(); const estado=document.getElementById('estadoFilter').value; const filtrados=siniestrosData.filter(s=>{ const searchString=Object.values(s).flat().join(' ').toLowerCase(); const matchS=!sterm||searchString.includes(sterm); const matchE=!estado||s.estado===estado; return matchS&&matchE; }).sort((a,b)=>(a.fechaRevision||'9999').localeCompare(b.fechaRevision||'9999')); const container=document.getElementById('allSiniestros'); if(!container)return; container.innerHTML=filtrados.length?filtrados.map(s=>{ const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision); const cls=`review-item ${!pending?'completed':''} ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`; const lastWorkedObs=(s.observaciones||[]).filter(o=>o.fechaTrabajado).sort((a,b)=>b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0]; const lastWorkedDate=lastWorkedObs?lastWorkedObs.fechaTrabajado:null; return`<div class="${cls}" onclick="showSiniestroModal('${s.id}')"><div class="review-item-content"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>${lastWorkedDate?`<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>`:''}</div><div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div><div class="review-obs">${s.observacion}</div></div></div>`; }).join(''):'<p>No se encontraron siniestros.</p>'; }
-function showNewSiniestroModal(){ const modal=document.getElementById('newSiniestroModal'); const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" required></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); }
-function addNewSiniestro(e){ e.preventDefault(); const newSiniestro={id:generateId({cliente:document.getElementById('newCliente').value}),cliente:document.getElementById('newCliente').value,dni:document.getElementById('newDni').value,celular:document.getElementById('newCelular').value,mailCliente:document.getElementById('newMailCliente').value,estado:document.getElementById('newEstado').value,aseguradoEn:document.getElementById('newAseguradoEn').value,contra:document.getElementById('newContra').value,numeroReclamo:document.getElementById('newNumeroReclamo').value,presupuesto:document.getElementById('newPresupuesto').value,indemnizacion:document.getElementById('newIndemnizacion').value,honorarios:document.getElementById('newHonorarios').value,honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,productor:'',productorPorcentaje:'',productorImporte:'',observaciones:[],mediaciones_list:[],vencimientos_list:[],cobradoCliente:'No',cobradoEstudio:'No',fechaCobro:''}; siniestrosData.push(newSiniestro); saveData(); renderAll(); closeModal('newSiniestroModal'); }
+
+// --- INICIO MODIFICACIÓN TAREA 3: Filtrar siniestros finalizados ---
+function renderAllSiniestrosList(){ 
+    const sterm=document.getElementById('searchInput').value.toLowerCase(); 
+    const estado=document.getElementById('estadoFilter').value; 
+    
+    const filtrados=siniestrosData.filter(s=>{ 
+        const searchString=Object.values(s).flat().join(' ').toLowerCase(); 
+        const matchS=!sterm||searchString.includes(sterm); 
+        
+        // --- Lógica de filtrado de estado modificada ---
+        let matchE;
+        if (estado === "") { 
+            // Si el filtro es "Todos (Activos)", excluir finalizados
+            matchE = s.estado !== 'FINALIZADA' && s.estado !== 'FINALIZADA P';
+        } else {
+            // Si se selecciona un estado específico, mostrar solo ese
+            matchE = s.estado === estado;
+        }
+        // --- Fin lógica de filtrado ---
+        
+        return matchS&&matchE; 
+    }).sort((a,b)=>(a.fechaRevision||'9999').localeCompare(b.fechaRevision||'9999')); 
+    
+    const container=document.getElementById('allSiniestros'); 
+    if(!container)return; 
+    container.innerHTML=filtrados.length?filtrados.map(s=>{ 
+        const pending=(s.observaciones||[]).some(o=>!o.completed&&o.proximaRevision); 
+        // --- Modificación Tarea 3: Diferenciar visualmente finalizados ---
+        let cls = `review-item ${isToday(s.fechaRevision)?'today':''} ${isPastDue(s.fechaRevision)?'overdue':''}`;
+        if (s.estado === 'FINALIZADA' || s.estado === 'FINALIZADA P') {
+            cls = 'review-item completed'; // Reutiliza el estilo 'completed' para atenuarlos
+        } else if (!pending) {
+            cls = 'review-item completed'; // Mantiene atenuado si no hay tareas pendientes
+        }
+        
+        const lastWorkedObs=(s.observaciones||[]).filter(o=>o.fechaTrabajado).sort((a,b)=>b.fechaTrabajado.localeCompare(a.fechaTrabajado))[0]; 
+        const lastWorkedDate=lastWorkedObs?lastWorkedObs.fechaTrabajado:null; 
+        
+        return`<div class="${cls}" onclick="showSiniestroModal('${s.id}')"><div class="review-item-content"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div class="review-date">Próx. Tarea: ${formatDate(s.fechaRevision)}</div>${lastWorkedDate?`<div class="review-date" style="color:#27ae60;">Trabajado: ${formatDate(lastWorkedDate)}</div>`:''}</div><div class="review-client">${s.cliente} - Reclamo: ${s.numeroReclamo||'S/N'}</div><div class="review-obs">${s.observacion}</div></div></div>`; 
+    }).join(''):'<p>No se encontraron siniestros.</p>'; 
+}
+// --- FIN MODIFICACIÓN TAREA 3 ---
+
+// --- INICIO MODIFICACIÓN TAREA 1: Agregar Género ---
+function showNewSiniestroModal(){ 
+    const modal=document.getElementById('newSiniestroModal'); 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    modal.querySelector('.modal-content').innerHTML=content; 
+    modal.classList.add('active'); 
+}
+
+// --- INICIO MODIFICACIÓN TAREA 2: Autocompletar cliente ---
+function autocompletarCliente(nombre) {
+    if (!nombre) return;
+    const nombreLower = nombre.toLowerCase();
+    const clienteExistente = siniestrosData.find(s => s.cliente && s.cliente.toLowerCase() === nombreLower);
+    
+    if (clienteExistente) {
+        if (confirm('Cliente existente. ¿Desea autocompletar los datos?')) {
+            document.getElementById('newGenero').value = clienteExistente.genero || 'Masculino';
+            document.getElementById('newDni').value = clienteExistente.dni || '';
+            document.getElementById('newCelular').value = clienteExistente.celular || '';
+            document.getElementById('newMailCliente').value = clienteExistente.mailCliente || '';
+            document.getElementById('newAseguradoEn').value = clienteExistente.aseguradoEn || '';
+        }
+    }
+}
+// --- FIN MODIFICACIÓN TAREA 2 ---
+
+
+function addNewSiniestro(e){ 
+    e.preventDefault(); 
+    const newSiniestro={
+        id:generateId({cliente:document.getElementById('newCliente').value}),
+        cliente:document.getElementById('newCliente').value,
+        genero:document.getElementById('newGenero').value, // --- MODIFICACIÓN TAREA 1: Guardar género ---
+        dni:document.getElementById('newDni').value,
+        celular:document.getElementById('newCelular').value,
+        mailCliente:document.getElementById('newMailCliente').value,
+        estado:document.getElementById('newEstado').value,
+        aseguradoEn:document.getElementById('newAseguradoEn').value,
+        contra:document.getElementById('newContra').value,
+        numeroReclamo:document.getElementById('newNumeroReclamo').value,
+        presupuesto:document.getElementById('newPresupuesto').value,
+        indemnizacion:document.getElementById('newIndemnizacion').value,
+        honorarios:document.getElementById('newHonorarios').value,
+        honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,
+        productor:'',
+        productorPorcentaje:'',
+        productorImporte:'',
+        observaciones:[],
+        mediaciones_list:[],
+        vencimientos_list:[],
+        cobradoCliente:'No',
+        cobradoEstudio:'No',
+        fechaCobro:''
+    }; 
+    siniestrosData.push(newSiniestro); 
+    saveData(); 
+    renderAll(); 
+    closeModal('newSiniestroModal'); 
+}
+// --- FIN MODIFICACIÓN TAREA 1 ---
+
 function showSiniestroSelectorModal(){ const modal=document.getElementById('siniestroSelectorModal'); modal.querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2>Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" class="form-control" onchange="loadSiniestroInfo()"><option value="">-- Seleccionar --</option>${[...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||'')).map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('')}</select></div><div style="text-align:center;margin-top:20px;"><button class="btn" onclick="closeModal('siniestroSelectorModal')">Cancelar</button></div>`; modal.classList.add('active'); }
 function loadSiniestroInfo(){ const id=document.getElementById('siniestroSelector').value; if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);} }
 function closeModal(id){ const modal=document.getElementById(id); if(modal)modal.classList.remove('active'); editingSiniestroId=null; editingField=null; }
-function showSiniestroModal(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; updateSiniestroNextRevision(s); const aseguradoras=[...new Set(siniestrosData.map(s=>s.aseguradoEn).filter(Boolean))]; const contras=[...new Set(siniestrosData.map(s=>s.contra).filter(Boolean))]; const datalistsHTML=`<datalist id="aseguradorasList">${aseguradoras.map(a=>`<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c=>`<option value="${c}"></option>`).join('')}</datalist>`; const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2> <div class="info-grid">${Object.entries({cliente:'Cliente (Titular)',dni:'DNI (Titular)',celular:'Celular',mailCliente:'Mail Cliente',estado:'Estado',conductorNombre:'Nombre Conductor',conductorDni:'DNI Conductor',aseguradoEn:'Aseguradora Cliente',polizaCliente:'Póliza Cliente',marcaCliente:'Marca Veh. Cliente',modeloCliente:'Modelo Veh. Cliente',dominioCliente:'Dominio Veh. Cliente',anoCliente:'Año Veh. Cliente',contra:'Aseguradora Tercero',numeroReclamo:'N° Reclamo',fechaSiniestro:'Fecha Siniestro',horaSiniestro:'Hora Siniestro',lugarSiniestro:'Lugar Siniestro',nombreTercero:'Nombre Tercero',mailTercero:'Mail Tercero',telefonoTercero:'Teléfono Tercero',marcaTercero:'Marca Veh. Tercero',modeloTercero:'Modelo Veh. Tercero',dominioTercero:'Dominio Veh. Tercero',anoTercero:'Año Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura'}).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(s[k]):(k.includes('fecha')?formatDate(s[k]):(s[k]||'S/D'))}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; document.getElementById('siniestroInfoModal').classList.add('active'); }
+
+// --- INICIO MODIFICACIÓN TAREA 1: Mostrar y editar Género ---
+function showSiniestroModal(id){ 
+    const s=siniestrosData.find(x=>x.id===id); 
+    if(!s)return; 
+    updateSiniestroNextRevision(s); 
+    const aseguradoras=[...new Set(siniestrosData.map(s=>s.aseguradoEn).filter(Boolean))]; 
+    const contras=[...new Set(siniestrosData.map(s=>s.contra).filter(Boolean))]; 
+    const datalistsHTML=`<datalist id="aseguradorasList">${aseguradoras.map(a=>`<option value="${a}"></option>`).join('')}</datalist><datalist id="contrasList">${contras.map(c=>`<option value="${c}"></option>`).join('')}</datalist>`; 
+    
+    // Lista de campos a mostrar
+    const fieldsToShow = {
+        cliente:'Cliente (Titular)',
+        genero:'Género', // --- Campo añadido ---
+        dni:'DNI (Titular)',
+        celular:'Celular',
+        mailCliente:'Mail Cliente',
+        estado:'Estado',
+        conductorNombre:'Nombre Conductor',
+        conductorDni:'DNI Conductor',
+        aseguradoEn:'Aseguradora Cliente',
+        polizaCliente:'Póliza Cliente',
+        marcaCliente:'Marca Veh. Cliente',
+        modeloCliente:'Modelo Veh. Cliente',
+        dominioCliente:'Dominio Veh. Cliente',
+        anoCliente:'Año Veh. Cliente',
+        contra:'Aseguradora Tercero',
+        numeroReclamo:'N° Reclamo',
+        fechaSiniestro:'Fecha Siniestro',
+        horaSiniestro:'Hora Siniestro',
+        lugarSiniestro:'Lugar Siniestro',
+        nombreTercero:'Nombre Tercero',
+        mailTercero:'Mail Tercero',
+        telefonoTercero:'Teléfono Tercero',
+        marcaTercero:'Marca Veh. Tercero',
+        modeloTercero:'Modelo Veh. Tercero',
+        dominioTercero:'Dominio Veh. Tercero',
+        anoTercero:'Año Veh. Tercero',
+        presupuesto:'Presupuesto',
+        indemnizacion:'Indemnización',
+        honorarios:'Honorarios',
+        honorariosPorcentaje:'Honorarios %',
+        acuerdo:'Acuerdo',
+        fechaPago:'Fecha Pago Cliente',
+        factura:'Factura'
+    };
+
+    const formatGenero = (val) => {
+        if (val === 'Femenino') return 'Sra. (Femenino)';
+        if (val === 'Masculino') return 'Sr. (Masculino)';
+        return val || 'S/D';
+    };
+    
+    const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2> <div class="info-grid">${Object.entries(fieldsToShow).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(s[k]):(k.includes('fecha')?formatDate(s[k]):(k === 'genero' ? formatGenero(s[k]) : (s[k]||'S/D')))}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; 
+    document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
+    document.getElementById('siniestroInfoModal').classList.add('active'); 
+}
+// --- FIN MODIFICACIÓN TAREA 1 ---
+
 function renderHistoryList(s){ const tasks=(s.observaciones||[]).map(o=>({...o,type:'task',date:o.proximaRevision})); const mediaciones=(s.mediaciones_list||[]).map(m=>({...m,type:'mediacion',date:m.fecha})); const vencimientos=(s.vencimientos_list||[]).map(v=>({...v,type:'vencimiento',date:v.fecha})); const allEvents=[...tasks,...mediaciones,...vencimientos].sort((a,b)=>(b.date||'').localeCompare(a.date||'')); return allEvents.length?allEvents.map(item=>{ let tagClass,tagText,itemClass,dateLabel,dateValue,deleteFunc,timeValue=''; switch(item.type){ case'task':tagClass='tag-task';tagText='TAREA';dateLabel='Creación';dateValue=item.fecha;deleteFunc=`deleteObs('${s.id}','${item.id}')`;break; case'mediacion':tagClass='tag-mediacion';tagText='MEDIACIÓN';itemClass='history-item-mediacion';dateLabel='Fecha';dateValue=item.fecha;timeValue=formatTime(item.hora);deleteFunc=`deleteMediacion('${s.id}','${item.id}')`;break; case'vencimiento':tagClass='tag-vencimiento';tagText='VENCIMIENTO';itemClass='history-item-vencimiento';dateLabel='Fecha';dateValue=item.fecha;deleteFunc=`deleteVencimiento('${s.id}','${item.id}')`;break; } const toggleFunc = `toggleCompleted(event, '${s.id}', '${item.id}', '${item.type}')`; const toggleButtonHtml = item.completed ? `<button class="btn btn-warning btn-sm" onclick="${toggleFunc}">🔄 Deshacer</button>` : `<button class="btn btn-success btn-sm" onclick="${toggleFunc}">✅ Completar</button>`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>`:''; return`<div class="history-item ${itemClass||''} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex;align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type==='task'&&item.fechaTrabajado?`<div class="history-date" style="color:#27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>`:''}<div>${item.texto}</div>${privateNoteHtml}${item.type==='task'?`<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>`:''}<div style="margin-top:6px;display:flex;gap:6px;">${toggleButtonHtml}${item.type==='task'?`<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>`:''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`; }).join(''):'<p style="font-size:.8em;">Sin eventos.</p>'; }
 function editObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); const el=document.getElementById(`task-item-${o.id}`); if(el)el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.textoPrivado||''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`; }
 function saveObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;o.textoPrivado=document.getElementById(`edit-obs-private-${o.id}`).value;o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value; updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
@@ -282,7 +503,7 @@ function deleteVencimiento(sid,vid){ if(!confirm('¿Eliminar vencimiento?'))retu
 function addMediacion(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); const newMediacion={id:generateId({}),fecha:document.getElementById('newMediacionDate').value,hora:document.getElementById('newMediacionTime').value,texto:document.getElementById('newMediacionText').value,completed:false,alertaMostrada:false,avisoPrevio:document.getElementById('newMediacionAvisoPrevio').value}; s.mediaciones_list.push(newMediacion); saveData(); addEventToGoogleCalendar(s,newMediacion,'Mediación'); renderAll(); showSiniestroModal(sid); }
 function deleteMediacion(sid,mid){ if(!confirm('¿Eliminar mediación?'))return; const s=siniestrosData.find(x=>x.id===sid); s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid); saveData(); renderAll(); showSiniestroModal(sid); }
 
-// --- FUNCIÓN 'editField' MODIFICADA CON LÓGICA DE CÁLCULO ---
+// --- INICIO MODIFICACIÓN TAREA 1: Editar Género ---
 function editField(sid,field,element){ 
     if(editingField)return; 
     editingSiniestroId=sid; 
@@ -290,7 +511,8 @@ function editField(sid,field,element){
     const s=siniestrosData.find(x=>x.id===sid),currentValue=s[field]||''; 
     let inputType='text'; 
     
-    if(field==='cobradoCliente'||field==='cobradoEstudio')inputType='select'; 
+    // --- Campo 'genero' añadido a la lógica del select ---
+    if(field==='cobradoCliente'||field==='cobradoEstudio'||field==='genero')inputType='select'; 
     else if(/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero|honorariosPorcentaje|productorPorcentaje|productorImporte/.test(field))inputType='number'; 
     else if(field.includes('fecha'))inputType='date'; 
     else if(field==='horaSiniestro')inputType='time'; 
@@ -299,13 +521,19 @@ function editField(sid,field,element){
     const input=document.createElement(inputType==='select'?'select':'input'); 
     
     if(inputType==='select'){
-        ['Sí','No'].forEach(opt=>{const o=document.createElement('option');o.value=o.textContent=opt;if(opt===currentValue)o.selected=true;input.appendChild(o);});
+        if(field==='cobradoCliente'||field==='cobradoEstudio') {
+            ['Sí','No'].forEach(opt=>{const o=document.createElement('option');o.value=o.textContent=opt;if(opt===currentValue)o.selected=true;input.appendChild(o);});
+        } else if (field === 'genero') {
+            [{v:'Masculino',t:'Sr. (Masculino)'},{v:'Femenino',t:'Sra. (Femenino)'},{v:'Otro',t:'Otro'}].forEach(opt=>{
+                const o=document.createElement('option');o.value=opt.v;o.textContent=opt.t;if(opt.v===currentValue)o.selected=true;input.appendChild(o);
+            });
+        }
     } else {
         input.type=inputType;
         input.value=currentValue;
     } 
+    // --- Fin lógica 'genero' ---
     
-    // Configuraciones para los nuevos campos numéricos
     if (field === 'honorariosPorcentaje' || field === 'productorPorcentaje') {
         input.min = "0"; input.max = "100"; input.step = "0.01";
     } else if (/presupuesto|indemnizacion|honorarios|productorImporte/.test(field)) {
@@ -317,28 +545,23 @@ function editField(sid,field,element){
     if(field==='contra')input.setAttribute('list','contrasList'); 
     if(/marca/.test(field))input.setAttribute('list','marcasVehiculosList'); 
     
-    // --- Lógica de guardado y cálculo ---
     const save = () => {
         const s = siniestrosData.find(x => x.id === editingSiniestroId);
         if (!s) return;
 
         const fieldToSave = editingField;
         const newValue = input.value;
-        s[fieldToSave] = newValue; // Guarda el valor que se acaba de editar
+        s[fieldToSave] = newValue; 
 
         const indemnizacion = parseFloat(s.indemnizacion) || 0;
 
-        // --- INICIO: LÓGICA DE AUTOMATIZACIÓN ---
         if (fieldToSave === 'honorariosPorcentaje') {
-            // Tarea: Cambiar % Honorarios -> Actualizar Importe Honorarios
             const porcentaje = parseFloat(newValue) || 0;
             s.honorarios = (indemnizacion * porcentaje / 100).toFixed(2);
         } else if (fieldToSave === 'productorPorcentaje') {
-            // Tarea: Cambiar % Productor -> Actualizar Importe Productor
             const porcentaje = parseFloat(newValue) || 0;
             s.productorImporte = (indemnizacion * porcentaje / 100).toFixed(2);
         } else if (fieldToSave === 'indemnizacion') {
-            // Tarea: Cambiar Indemnización -> Actualizar ambos importes
             const honorariosPorc = parseFloat(s.honorariosPorcentaje) || 0;
             const productorPorc = parseFloat(s.productorPorcentaje) || 0;
             
@@ -349,12 +572,11 @@ function editField(sid,field,element){
                 s.productorImporte = (indemnizacion * productorPorc / 100).toFixed(2);
             }
         }
-        // --- FIN: LÓGICA DE AUTOMATIZACIÓN ---
 
         saveData();
         editingSiniestroId = null;
         editingField = null;
-        showSiniestroModal(sid); // Re-renderiza el modal para mostrar los valores actualizados
+        showSiniestroModal(sid); 
     };
     
     input.addEventListener('blur',save);
@@ -366,14 +588,15 @@ function editField(sid,field,element){
     const valLength=input.value.length;
     input.setSelectionRange(valLength,valLength); 
 }
+// --- FIN MODIFICACIÓN TAREA 1 ---
 
 function deleteSiniestro(id){ if(!confirm('¿Eliminar siniestro y todo su historial?'))return; siniestrosData=siniestrosData.filter(s=>s.id!==id); saveData(); renderAll(); closeModal('siniestroInfoModal'); }
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
+function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
-function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
+function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
 function updateClock(){ const now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(); const hD=(h%12)*30+m*0.5,mD=m*6+s*0.1,sD=s*6; const hourHand=document.querySelector('.hour-hand'),minHand=document.querySelector('.min-hand'),secondHand=document.querySelector('.second-hand'),digitalClock=document.getElementById('digital-clock'); if(hourHand)hourHand.style.transform=`rotate(${hD}deg)`; if(minHand)minHand.style.transform=`rotate(${mD}deg)`; if(secondHand)secondHand.style.transform=`rotate(${sD}deg)`; if(digitalClock)digitalClock.innerHTML=`${now.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function mostrarAlertaDeMediaciones(mediacionesPorAlertar){ if(mediacionesPorAlertar.length===0)return; const modal=document.getElementById('alertModal'); if(modal.classList.contains('active'))return; const content=`<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height:60vh;">${mediacionesPorAlertar.map(alert=>`<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size:1.1em;color:var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center;margin-top:15px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}','${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}','${alert.item.id}')">🗓️ Posponer</button></div></div></div>`).join('')}</div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); mediacionesPorAlertar.forEach(alerta=>{const s=siniestrosData.find(s=>s.id===alerta.siniestro.id); const m=s.mediaciones_list.find(m=>m.id===alerta.item.id); if(m)m.alertaMostrada=true;}); saveData(); }
 function revisarMediacionesVencidasAlCargar(){ const ahora=new Date(),horaActual=`${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`; const mediacionesVencidas=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&m.hora&&m.hora<=horaActual&&!m.completed&&!m.alertaMostrada).map(m=>({siniestro:s,item:m}))); mostrarAlertaDeMediaciones(mediacionesVencidas); }
@@ -382,19 +605,120 @@ function marcarMediacionCompleta(sid,mid){const s=siniestrosData.find(x=>x.id===
 function showRescheduleModal(sid,mid){ const modal=document.getElementById('rescheduleModal'),s=siniestrosData.find(x=>x.id===sid),m=s.mediaciones_list.find(y=>y.id===mid); const content=`<span class="close" onclick="closeModal('rescheduleModal')">&times;</span><h3>Reprogramar Mediación</h3><p><b>Caso:</b> ${s.cliente}</p><div class="form-group" style="margin-top:15px;"><label for="rescheduleDate">Nueva Fecha</label><input type="date" id="rescheduleDate" value="${m.fecha}" class="form-control"></div><div class="form-group"><label for="rescheduleTime">Nueva Hora</label><input type="time" id="rescheduleTime" value="${m.hora}" class="form-control"></div><div style="text-align:center;margin-top:20px;"><button class="btn btn-success" onclick="confirmReschedule('${sid}','${mid}')">Confirmar</button></div>`; modal.querySelector('.modal-content').innerHTML=content; closeModal('alertModal'); modal.classList.add('active'); }
 function confirmReschedule(sid,mid){ const s=siniestrosData.find(x=>x.id===sid); if(s){const m=s.mediaciones_list.find(y=>y.id===mid); if(m){m.fecha=document.getElementById('rescheduleDate').value;m.hora=document.getElementById('rescheduleTime').value;m.alertaMostrada=false;}} saveData(); renderAll(); closeModal('rescheduleModal'); updateDataStatus(`✅ Mediación reprogramada para el ${formatDate(document.getElementById('rescheduleDate').value)}`); }
 
-// --- INICIO: FUNCIONES DE CARTA PATROCINIO ---
-function startLetterGeneration(siniestroId) { const s = siniestrosData.find(x => x.id === siniestroId); if (!s) return; const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); const modal = document.getElementById('letterGenerationModal'); modal.querySelector('.modal-content').innerHTML = ` <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2> <p style="font-size:.9em;margin-bottom:20px;">Verifica y completa los datos. La IA redactará la carta.</p> <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')"> <div class="info-grid"> <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div> <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div> <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div> <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div> <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div> <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div> <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div> <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div> <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div> <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div> <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${vehiculoTerceroString}" placeholder="Marca, Modelo, Año, Dominio"></div> </div> <div class="form-section" style="border-left:4px solid var(--secondary-color);margin-top:15px;"><div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0;"><input type="checkbox" id="conductorEsTitular" onchange="toggleConductorFields(!this.checked)" style="width:auto;" checked><label for="conductorEsTitular" style="margin-bottom:0;font-weight:700;">¿El conductor es el titular?</label></div><div id="conductorFields" style="display:none;margin-top:15px;border-top:1px dashed #ccc;padding-top:15px;"><p style="font-size:.9em;margin-bottom:10px;">Completa los datos del conductor.</p><div class="info-grid"><div class="form-group"><label>Nombre Conductor</label><input type="text" id="letterConductorNombre" value="${s.conductorNombre || ''}"></div><div class="form-group"><label>DNI Conductor</label><input type="text" id="letterConductorDni" value="${s.conductorDni || ''}"></div></div></div></div> <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó prioridad, etc." required></textarea></div></div> <div class="form-section" style="border-left:4px solid var(--warning-color);margin-top:15px;"><div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0;"><input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width:auto;"><label for="checkLesiones" style="margin-bottom:0;font-weight:700;">¿Hubo Lesiones?</label></div><div id="lesionesFields" style="display:none;margin-top:15px;border-top:1px dashed #ccc;padding-top:15px;"><p style="font-size:.9em;margin-bottom:10px;">Completa datos de lesiones (opcional).</p><div class="form-group"><label>Descripción de lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div><div class="form-group"><label>Monto reclamado por Lesiones</label><input type="number" id="letterLesionesMonto" placeholder="0"></div></div></div> <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div> </form>`; modal.classList.add('active'); }
+// --- INICIO: MODIFICACIÓN TAREA 1 (Género) en CARTA PATROCINIO ---
+function startLetterGeneration(siniestroId) { 
+    const s = siniestrosData.find(x => x.id === siniestroId); 
+    if (!s) return; 
+    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); 
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); 
+    
+    // --- Lógica para pre-seleccionar el género ---
+    const isFemenino = s.genero === 'Femenino' ? 'selected' : '';
+    const isMasculino = s.genero === 'Masculino' ? 'selected' : '';
+    const isOtro = s.genero === 'Otro' ? 'selected' : '';
+
+    const modal = document.getElementById('letterGenerationModal'); 
+    modal.querySelector('.modal-content').innerHTML = ` <span class="close" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="margin-bottom:14px;">✉️ Generar Carta de Patrocinio</h2> <p style="font-size:.9em;margin-bottom:20px;">Verifica y completa los datos. La IA redactará la carta.</p> <form id="letterForm" onsubmit="processLetterData(event, '${siniestroId}')"> <div class="info-grid"> <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div> <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div> <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div> <div class="form-group"><label>Género de TU CLIENTE</label><select id="letterGeneroCliente"><option value="Masculino" ${isMasculino}>Sr. (Masculino)</option><option value="Femenino" ${isFemenino}>Sra. (Femenino)</option><option value="Otro" ${isOtro}>Otro</option></select></div> <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div> <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div> <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div> <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div> <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div> <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div> <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div> <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${vehiculoTerceroString}" placeholder="Marca, Modelo, Año, Dominio"></div> </div> <div class="form-section" style="border-left:4px solid var(--secondary-color);margin-top:15px;"><div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0;"><input type="checkbox" id="conductorEsTitular" onchange="toggleConductorFields(!this.checked)" style="width:auto;" checked><label for="conductorEsTitular" style="margin-bottom:0;font-weight:700;">¿El conductor es el titular?</label></div><div id="conductorFields" style="display:none;margin-top:15px;border-top:1px dashed #ccc;padding-top:15px;"><p style="font-size:.9em;margin-bottom:10px;">Completa los datos del conductor.</p><div class="info-grid"><div class="form-group"><label>Nombre Conductor</label><input type="text" id="letterConductorNombre" value="${s.conductorNombre || ''}"></div><div class="form-group"><label>DNI Conductor</label><input type="text" id="letterConductorDni" value="${s.conductorDni || ''}"></div></div></div></div> <div class="form-section" style="margin-top:15px;"><div class="form-group"><label>Relato de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente." required></textarea></div><div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó prioridad, etc." required></textarea></div></div> <div class="form-section" style="border-left:4px solid var(--warning-color);margin-top:15px;"><div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0;"><input type="checkbox" id="checkLesiones" onchange="toggleLesiones(this.checked)" style="width:auto;"><label for="checkLesiones" style="margin-bottom:0;font-weight:700;">¿Hubo Lesiones?</label></div><div id="lesionesFields" style="display:none;margin-top:15px;border-top:1px dashed #ccc;padding-top:15px;"><p style="font-size:.9em;margin-bottom:10px;">Completa datos de lesiones (opcional).</p><div class="form-group"><label>Descripción de lesiones</label><textarea id="letterLesionesDesc" rows="2"></textarea></div><div class="form-group"><label>Monto reclamado por Lesiones</label><input type="number" id="letterLesionesMonto" placeholder="0"></div></div></div> <div style="text-align:center;margin-top:20px;"><button class="btn btn-success" type="submit">🤖 Generar con IA</button></div> </form>`; 
+    modal.classList.add('active'); 
+}
+// --- FIN MODIFICACIÓN TAREA 1 ---
+
 function toggleLesiones(checked){ document.getElementById('lesionesFields').style.display=checked?'block':'none'; }
 function toggleConductorFields(show){ document.getElementById('conductorFields').style.display=show?'block':'none'; }
-async function processLetterData(event,siniestroId){ event.preventDefault(); const s=siniestrosData.find(x=>x.id===siniestroId); if(!s){alert("Error: Siniestro no encontrado.");return;} const hayLesiones=document.getElementById('checkLesiones').checked; const montoLesiones=parseFloat(document.getElementById('letterLesionesMonto').value)||0; const montoMateriales=parseFloat(s.presupuesto)||0; let relatoOriginal=document.getElementById('letterRelato').value; if(!document.getElementById('conductorEsTitular').checked){const nombreConductor=document.getElementById('letterConductorNombre').value;const dniConductor=document.getElementById('letterConductorDni').value;let infoConductor=`Aclaración: El vehículo de mi mandante era conducido por ${nombreConductor}`;if(dniConductor){infoConductor+=`, DNI N° ${dniConductor}`;}infoConductor+='. ';relatoOriginal=infoConductor+relatoOriginal;} const data={siniestro:s,lugarEmision:document.getElementById('letterLugar').value,destinatario:document.getElementById('letterDestinatario').value,destinatarioDomicilio:document.getElementById('letterDestinatarioDom').value,polizaCliente:document.getElementById('letterPolizaCliente').value,aseguradoraCliente:document.getElementById('letterAseguradoraCliente').value,fechaSiniestro:formatDate(document.getElementById('letterFechaSiniestro').value),horaSiniestro:document.getElementById('letterHoraSiniestro').value,lugarSiniestro:document.getElementById('letterLugarSiniestro').value,vehiculoCliente:document.getElementById('letterVehiculoCliente').value,partesDanadas:document.getElementById('letterPartesDanadas').value,nombreTercero:document.getElementById('letterNombreTercero').value,vehiculoTercero:document.getElementById('letterVehiculoTercero').value,relato:relatoOriginal,infracciones:document.getElementById('letterInfracciones').value,hayLesiones:hayLesiones,lesionesDesc:hayLesiones?document.getElementById('letterLesionesDesc').value:'',montoLesiones:montoLesiones,montoTotal:montoMateriales+montoLesiones}; const modalContent=document.getElementById('letterGenerationModal').querySelector('.modal-content'); modalContent.innerHTML=`<h2 style="text-align:center;margin-bottom:20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center;margin-bottom:10px;font-style:italic;color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`; const progressBar=document.getElementById('progressBar'); const progressText=document.getElementById('progress-text'); let width=0; const interval=setInterval(()=>{width+=5;if(width>=95)return; progressBar.style.width=width+'%'; if(width>30&&width<70)progressText.textContent="Analizando mecánica del hecho..."; else if(width>=70)progressText.textContent="Dando formato legal...";},150); const result=await callAIApi(data); clearInterval(interval); progressBar.style.width='100%'; let resultHTML; if(result.success){ progressText.textContent="¡Generado con éxito!"; resultHTML=` <div class="print-area"> <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2> <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea> </div> <div class="action-buttons no-print" style="margin-top:15px;"> <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button> <button class="btn" onclick="window.print()">🖨️ Imprimir</button> <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button> <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button> </div>`; }else{ progressText.textContent="Error en la generación"; resultHTML=` <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="color:var(--danger-color);text-align:center;">❌ Ocurrió un Error</h2> <p style="margin-top:15px;font-size:1em;text-align:center;">No se pudo generar la carta. Motivo:</p> <textarea readonly style="width:100%;height:200px;margin-top:10px;background-color:#f3f3f3;border:1px solid #ccc;padding:10px;font-family:monospace;">${result.error}</textarea> <div class="action-buttons no-print" style="margin-top:15px;"> <button class="btn btn-warning" onclick="closeModal('letterGenerationModal')">Cerrar</button> </div>`; } modalContent.innerHTML=resultHTML; }
-async function callAIApi(data){ console.log("Enviando datos al servidor:",data); 
+
+// --- INICIO: MODIFICACIÓN TAREA 1 (Género) en CARTA PATROCINIO ---
+async function processLetterData(event,siniestroId){ 
+    event.preventDefault(); 
+    const s=siniestrosData.find(x=>x.id===siniestroId); 
+    if(!s){alert("Error: Siniestro no encontrado.");return;} 
+    const hayLesiones=document.getElementById('checkLesiones').checked; 
+    const montoLesiones=parseFloat(document.getElementById('letterLesionesMonto').value)||0; 
+    const montoMateriales=parseFloat(s.presupuesto)||0; 
+    let relatoOriginal=document.getElementById('letterRelato').value; 
+    if(!document.getElementById('conductorEsTitular').checked){const nombreConductor=document.getElementById('letterConductorNombre').value;const dniConductor=document.getElementById('letterConductorDni').value;let infoConductor=`Aclaración: El vehículo de mi mandante era conducido por ${nombreConductor}`;if(dniConductor){infoConductor+=`, DNI N° ${dniConductor}`;}infoConductor+='. ';relatoOriginal=infoConductor+relatoOriginal;} 
+    
+    // --- Objeto de datos enviado a la IA, ahora incluye 'generoCliente' ---
+    const data={
+        siniestro:s,
+        lugarEmision:document.getElementById('letterLugar').value,
+        destinatario:document.getElementById('letterDestinatario').value,
+        destinatarioDomicilio:document.getElementById('letterDestinatarioDom').value,
+        generoCliente: document.getElementById('letterGeneroCliente').value, // --- CAMPO AÑADIDO ---
+        polizaCliente:document.getElementById('letterPolizaCliente').value,
+        aseguradoraCliente:document.getElementById('letterAseguradoraCliente').value,
+        fechaSiniestro:formatDate(document.getElementById('letterFechaSiniestro').value),
+        horaSiniestro:document.getElementById('letterHoraSiniestro').value,
+        lugarSiniestro:document.getElementById('letterLugarSiniestro').value,
+        vehiculoCliente:document.getElementById('letterVehiculoCliente').value,
+        partesDanadas:document.getElementById('letterPartesDanadas').value,
+        nombreTercero:document.getElementById('letterNombreTercero').value,
+        vehiculoTercero:document.getElementById('letterVehiculoTercero').value,
+        relato:relatoOriginal,
+        infracciones:document.getElementById('letterInfracciones').value,
+        hayLesiones:hayLesiones,
+        lesionesDesc:hayLesiones?document.getElementById('letterLesionesDesc').value:'',
+        montoLesiones:montoLesiones,
+        montoTotal:montoMateriales+montoLesiones
+    }; 
+    // --- FIN MODIFICACIÓN ---
+    
+    const modalContent=document.getElementById('letterGenerationModal').querySelector('.modal-content'); 
+    modalContent.innerHTML=`<h2 style="text-align:center;margin-bottom:20px;">🧠 Redactando con IA...</h2><p id="progress-text" style="text-align:center;margin-bottom:10px;font-style:italic;color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`; 
+    const progressBar=document.getElementById('progressBar'); 
+    const progressText=document.getElementById('progress-text'); 
+    let width=0; 
+    const interval=setInterval(()=>{width+=5;if(width>=95)return; progressBar.style.width=width+'%'; if(width>30&&width<70)progressText.textContent="Analizando mecánica del hecho..."; else if(width>=70)progressText.textContent="Dando formato legal...";},150); 
+    const result=await callAIApi(data); 
+    clearInterval(interval); 
+    progressBar.style.width='100%'; 
+    let resultHTML; 
+    if(result.success){ 
+        progressText.textContent="¡Generado con éxito!"; 
+        resultHTML=` <div class="print-area"> <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="margin-bottom:14px;">✅ Carta de Patrocinio Generada</h2> <textarea id="generatedLetterText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea> </div> <div class="action-buttons no-print" style="margin-top:15px;"> <button class="btn btn-info" onclick="copyToClipboard('generatedLetterText')">📋 Copiar Texto</button> <button class="btn" onclick="window.print()">🖨️ Imprimir</button> <button class="btn btn-danger" onclick="downloadAsPDF()">📄 Descargar PDF</button> <button class="btn btn-success" onclick="downloadAsWord()">📄 Descargar Word</button> </div>`; 
+    }else{ 
+        progressText.textContent="Error en la generación"; 
+        resultHTML=` <span class="close no-print" onclick="closeModal('letterGenerationModal')">&times;</span> <h2 style="color:var(--danger-color);text-align:center;">❌ Ocurrió un Error</h2> <p style="margin-top:15px;font-size:1em;text-align:center;">No se pudo generar la carta. Motivo:</p> <textarea readonly style="width:100%;height:200px;margin-top:10px;background-color:#f3f3f3;border:1px solid #ccc;padding:10px;font-family:monospace;">${result.error}</textarea> <div class="action-buttons no-print" style="margin-top:15px;"> <button class="btn btn-warning" onclick="closeModal('letterGenerationModal')">Cerrar</button> </div>`; 
+    } 
+    modalContent.innerHTML=resultHTML; 
+}
+
+async function callAIApi(data){ 
+    console.log("Enviando datos al servidor:",data); 
     
     // !!!!!!!!!! ESTA ES LA LÍNEA QUE CAMBIÉ !!!!!!!!!!
     const API_URL='https://portal-backend-1-8jx9.onrender.com/api/generar-carta';
     // !!!!!!!!!! ------------------------------ !!!!!!!!!!
 
-    const controller=new AbortController(); const timeoutId=setTimeout(()=>controller.abort(),60000); try{ const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:controller.signal}); clearTimeout(timeoutId); if(!response.ok){ const errorText=await response.text(); let errorJson; try{ errorJson=JSON.parse(errorText); throw new Error(errorJson.detalle||errorJson.error||'Error desconocido del servidor.'); }catch(e){ throw new Error(errorText||`Error del servidor: ${response.status}`); }} const generatedLetter=await response.text(); return{success:true,letter:generatedLetter}; }catch(error){ clearTimeout(timeoutId); console.error("Error al llamar a la API:",error); let errorMessage=`ERROR: No se pudo conectar con el servidor para generar la carta.`; if(error.name==='AbortError'){ errorMessage=`ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; }else{ errorMessage+=`\n\nDetalles: ${error.message}`; } return{success:false,error:errorMessage}; }}
-function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapapeles.'); }
+    const controller=new AbortController(); 
+    const timeoutId=setTimeout(()=>controller.abort(),60000); 
+    try{ 
+        const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:controller.signal}); 
+        clearTimeout(timeoutId); 
+        if(!response.ok){ 
+            const errorText=await response.text(); 
+            let errorJson; 
+            try{ 
+                errorJson=JSON.parse(errorText); 
+                throw new Error(errorJson.detalle||errorJson.error||'Error desconocido del servidor.'); 
+            }catch(e){ 
+                throw new Error(errorText||`Error del servidor: ${response.status}`); 
+            }
+        } 
+        const generatedLetter=await response.text(); 
+        return{success:true,letter:generatedLetter}; 
+    }catch(error){ 
+        clearTimeout(timeoutId); 
+        console.error("Error al llamar a la API:",error); 
+        let errorMessage=`ERROR: No se pudo conectar con el servidor para generar la carta.`; 
+        if(error.name==='AbortError'){ 
+            errorMessage=`ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; 
+        }else{ 
+            errorMessage+=`\n\nDetalles: ${error.message}`; 
+        } 
+        return{success:false,error:errorMessage}; 
+    }
+}
+function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
 function downloadAsPDF(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedLetterText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('CartaDePatrocinio.pdf'); }
 function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
 // --- FIN: FUNCIONES DE CARTA PATROCINIO ---
