@@ -212,9 +212,23 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <div id="letterGenerationModal" class="modal"><div class="modal-content"></div></div>
 <div id="dailyTasksModal" class="modal"><div class="modal-content"></div></div>
 
+<!-- INICIO: Nuevo Modal de Confirmación -->
+<div id="confirmModal" class="modal" style="z-index: 1001;">
+    <div class="modal-content" style="max-width: 450px; border-top: 8px solid var(--warning-color);">
+        <h2 id="confirmTitle" style="color: var(--dark-text); font-size: 1.4em; text-align: center; margin-bottom: 15px;">Cliente Existente</h2>
+        <p id="confirmMessage" style="font-size: 1em; color: #555; text-align: center; margin-bottom: 25px;">¿Está seguro?</p>
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button id="confirmBtnYes" class="btn btn-success">Sí, autocompletar</button>
+            <button id="confirmBtnNo" class="btn btn-danger">Cancelar</button>
+        </div>
+    </div>
+</div>
+<!-- FIN: Nuevo Modal de Confirmación -->
+
 <script>
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null;
+let onConfirmCallback = null; // Variable global para guardar el callback
 
 // --- INICIO: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 let tokenClient, gapiReady = false, gisReady = false, gdDataFileId = null;
@@ -242,6 +256,38 @@ async function saveToDrive(){ if(!gapi.client.getToken()?.access_token){alert('N
 async function loadFromDrive(){ if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo.');return;} if(!confirm('¿Reemplazar datos locales con la copia de Drive?'))return; updateDriveStatus('📥 Cargando desde Drive...'); try{ const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'}); const imported=JSON.parse(response.body); if(!Array.isArray(imported))throw new Error('Formato inválido.'); siniestrosData=sanitizeData(imported); saveData(); renderAll(); updateDriveStatus('✅ Datos cargados desde Drive.'); }catch(e){ console.error("Error cargando datos:",e); updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`); }}
 function addEventToGoogleCalendar(siniestro,item,type){ if(!gapi.client.getToken()?.access_token){updateDriveStatus('⚠️ No conectado a Google. Evento no agendado.');return;} const title=`${type}: ${siniestro.cliente}`; const description=`Caso: ${siniestro.cliente} vs ${siniestro.contra||'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo||'S/N'}\n\nDescripción: ${item.texto}`; const isAllDay=type==='Vencimiento'; let start,end; if(isAllDay){ start={date:item.fecha}; end={date:item.fecha}; }else{ const eventStartTime=new Date(`${item.fecha}T${item.hora}:00`); const eventEndTime=new Date(eventStartTime.getTime()+36e5); start={dateTime:eventStartTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; end={dateTime:eventEndTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; } const event={summary:title,description:description,start:start,end:end}; updateDriveStatus(`🗓️ Agendando ${type} en Google Calendar...`); gapi.client.calendar.events.insert({calendarId:'primary',resource:event}).then(r=>{console.log('Evento creado:',r.result);updateDriveStatus(`✅ ${type} agendado en Google Calendar.`);}).catch(e=>{console.error("Error creando evento:",e);updateDriveStatus(`❌ Error al crear evento: ${e.result?.error?.message||'Error'}`);});}
 // --- FIN: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
+
+// --- INICIO: Función de Modal de Confirmación ---
+function showConfirmModal(message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmMessage').textContent = message;
+    
+    onConfirmCallback = onConfirm; // Guardamos la función a ejecutar
+
+    const btnYes = document.getElementById('confirmBtnYes');
+    const btnNo = document.getElementById('confirmBtnNo');
+
+    // Limpiamos listeners viejos
+    btnYes.onclick = null;
+    btnNo.onclick = null;
+
+    // Asignamos nuevos listeners
+    btnYes.onclick = () => {
+        if (typeof onConfirmCallback === 'function') {
+            onConfirmCallback();
+        }
+        closeModal('confirmModal');
+        onConfirmCallback = null; // Limpiamos el callback
+    };
+
+    btnNo.onclick = () => {
+        closeModal('confirmModal');
+        onConfirmCallback = null; // Limpiamos el callback
+    };
+
+    modal.classList.add('active');
+}
+// --- FIN: Función de Modal de Confirmación ---
 
 function saveData(){ try{ localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); }catch(e){ console.error('Error al guardar:',e); updateDataStatus('❌ Error al guardar datos',true); }}
 function loadData(){ try{ const saved=localStorage.getItem('planilla_siniestros_data'); if(saved){ siniestrosData=JSON.parse(saved); siniestrosData=sanitizeData(siniestrosData); }else{ siniestrosData=[]; updateDataStatus('📋 Planilla lista para usar'); }}catch(e){ console.error('Error al cargar:',e); siniestrosData=[]; updateDataStatus('❌ Error al cargar datos',true); }}
@@ -386,13 +432,19 @@ function autocompletarCliente(nombre) {
     const clienteExistente = siniestrosData.find(s => s.cliente && s.cliente.toLowerCase() === nombreLower);
     
     if (clienteExistente) {
-        if (confirm('Cliente existente. ¿Desea autocompletar los datos?')) {
+        // Reemplazamos el confirm() nativo por el modal personalizado
+        const message = 'Cliente existente. ¿Desea autocompletar los datos?';
+        
+        const autocompletarAccion = () => {
             document.getElementById('newGenero').value = clienteExistente.genero || 'Masculino';
             document.getElementById('newDni').value = clienteExistente.dni || '';
             document.getElementById('newCelular').value = clienteExistente.celular || '';
             document.getElementById('newMailCliente').value = clienteExistente.mailCliente || '';
             document.getElementById('newAseguradoEn').value = clienteExistente.aseguradoEn || '';
-        }
+        };
+
+        // Mostramos el modal personalizado
+        showConfirmModal(message, autocompletarAccion);
     }
 }
 // --- FIN MODIFICACIÓN TAREA 2 ---
