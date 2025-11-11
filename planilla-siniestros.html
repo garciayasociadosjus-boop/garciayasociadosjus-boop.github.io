@@ -229,9 +229,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <div id="alertModal" class="modal"><div class="modal-content"></div></div>
 <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
 <div id="letterGenerationModal" class="modal"><div class="modal-content"></div></div>
+<div id="convenioGenerationModal" class="modal"><div class="modal-content"></div></div>
 <div id="dailyTasksModal" class="modal"><div class="modal-content"></div></div>
 
-<!-- INICIO: Nuevo Modal de Confirmación -->
 <div id="confirmModal" class="modal" style="z-index: 1001;">
     <div class="modal-content" style="max-width: 450px; border-top: 8px solid var(--warning-color);">
         <h2 id="confirmTitle" style="color: var(--dark-text); font-size: 1.4em; text-align: center; margin-bottom: 15px;">Cliente Existente</h2>
@@ -242,8 +242,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
         </div>
     </div>
 </div>
-<!-- FIN: Nuevo Modal de Confirmación -->
-
 <script>
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null;
@@ -436,10 +434,10 @@ function renderAllSiniestrosList(){
 }
 // --- FIN MODIFICACIÓN TAREA 3 ---
 
-// --- INICIO MODIFICACIÓN TAREA 1: Agregar Género ---
+// --- INICIO: MODIFICACIÓN "CUOTA LITIS %" ---
 function showNewSiniestroModal(){ 
     const modal=document.getElementById('newSiniestroModal'); 
-    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
     modal.querySelector('.modal-content').innerHTML=content; 
     modal.classList.add('active'); 
 }
@@ -486,6 +484,7 @@ function addNewSiniestro(e){
         indemnizacion:document.getElementById('newIndemnizacion').value,
         honorarios:document.getElementById('newHonorarios').value,
         honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,
+        cuotaLitisPorcentaje:document.getElementById('newCuotaLitisPorcentaje').value, // --- CAMPO NUEVO ---
         productor:'',
         productorPorcentaje:'',
         productorImporte:'',
@@ -501,13 +500,13 @@ function addNewSiniestro(e){
     renderAll(); 
     closeModal('newSiniestroModal'); 
 }
-// --- FIN MODIFICACIÓN TAREA 1 ---
+// --- FIN: MODIFICACIÓN "CUOTA LITIS %" ---
 
 function showSiniestroSelectorModal(){ const modal=document.getElementById('siniestroSelectorModal'); modal.querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2>Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" class="form-control" onchange="loadSiniestroInfo()"><option value="">-- Seleccionar --</option>${[...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||'')).map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('')}</select></div><div style="text-align:center;margin-top:20px;"><button class="btn" onclick="closeModal('siniestroSelectorModal')">Cancelar</button></div>`; modal.classList.add('active'); }
 function loadSiniestroInfo(){ const id=document.getElementById('siniestroSelector').value; if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);} }
 function closeModal(id){ const modal=document.getElementById(id); if(modal)modal.classList.remove('active'); editingSiniestroId=null; editingField=null; }
 
-// --- INICIO MODIFICACIÓN TAREA 1: Mostrar y editar Género ---
+// --- INICIO: MODIFICACIÓN "CUOTA LITIS %" ---
 function showSiniestroModal(id){ 
     const s=siniestrosData.find(x=>x.id===id); 
     if(!s)return; 
@@ -524,6 +523,7 @@ function showSiniestroModal(id){
         celular:'Celular',
         mailCliente:'Mail Cliente',
         estado:'Estado',
+        cuotaLitisPorcentaje:'Pacto Cuota Litis %', // --- CAMPO NUEVO ---
         conductorNombre:'Nombre Conductor',
         conductorDni:'DNI Conductor',
         aseguradoEn:'Aseguradora Cliente',
@@ -559,11 +559,11 @@ function showSiniestroModal(id){
         return val || 'S/D';
     };
     
-    const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2> <div class="info-grid">${Object.entries(fieldsToShow).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(s[k]):(k.includes('fecha')?formatDate(s[k]):(k === 'genero' ? formatGenero(s[k]) : (s[k]||'S/D')))}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; 
+    const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2> <div class="info-grid">${Object.entries(fieldsToShow).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(s[k]):(k.includes('fecha')?formatDate(s[k]):(k === 'genero' ? formatGenero(s[k]) : (s[k]||'S/D')))}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')">⚖️ Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; 
     document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
     document.getElementById('siniestroInfoModal').classList.add('active'); 
 }
-// --- FIN MODIFICACIÓN TAREA 1 ---
+// --- FIN: MODIFICACIÓN "CUOTA LITIS %" ---
 
 function renderHistoryList(s){ const tasks=(s.observaciones||[]).map(o=>({...o,type:'task',date:o.proximaRevision})); const mediaciones=(s.mediaciones_list||[]).map(m=>({...m,type:'mediacion',date:m.fecha})); const vencimientos=(s.vencimientos_list||[]).map(v=>({...v,type:'vencimiento',date:v.fecha})); const allEvents=[...tasks,...mediaciones,...vencimientos].sort((a,b)=>(b.date||'').localeCompare(a.date||'')); return allEvents.length?allEvents.map(item=>{ let tagClass,tagText,itemClass,dateLabel,dateValue,deleteFunc,timeValue=''; switch(item.type){ case'task':tagClass='tag-task';tagText='TAREA';dateLabel='Creación';dateValue=item.fecha;deleteFunc=`deleteObs('${s.id}','${item.id}')`;break; case'mediacion':tagClass='tag-mediacion';tagText='MEDIACIÓN';itemClass='history-item-mediacion';dateLabel='Fecha';dateValue=item.fecha;timeValue=formatTime(item.hora);deleteFunc=`deleteMediacion('${s.id}','${item.id}')`;break; case'vencimiento':tagClass='tag-vencimiento';tagText='VENCIMIENTO';itemClass='history-item-vencimiento';dateLabel='Fecha';dateValue=item.fecha;deleteFunc=`deleteVencimiento('${s.id}','${item.id}')`;break; } const toggleFunc = `toggleCompleted(event, '${s.id}', '${item.id}', '${item.type}')`; const toggleButtonHtml = item.completed ? `<button class="btn btn-warning btn-sm" onclick="${toggleFunc}">🔄 Deshacer</button>` : `<button class="btn btn-success btn-sm" onclick="${toggleFunc}">✅ Completar</button>`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<details class="private-note-details"><summary class="private-note-summary">🔒 Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>`:''; return`<div class="history-item ${itemClass||''} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex;align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type==='task'&&item.fechaTrabajado?`<div class="history-date" style="color:#27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>`:''}<div>${item.texto}</div>${privateNoteHtml}${item.type==='task'?`<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>`:''}<div style="margin-top:6px;display:flex;gap:6px;">${toggleButtonHtml}${item.type==='task'?`<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>`:''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`; }).join(''):'<p style="font-size:.8em;">Sin eventos.</p>'; }
 function editObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); const el=document.getElementById(`task-item-${o.id}`); if(el)el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.textoPrivado||''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`; }
@@ -574,7 +574,7 @@ function deleteVencimiento(sid,vid){ if(!confirm('¿Eliminar vencimiento?'))retu
 function addMediacion(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); const newMediacion={id:generateId({}),fecha:document.getElementById('newMediacionDate').value,hora:document.getElementById('newMediacionTime').value,texto:document.getElementById('newMediacionText').value,completed:false,alertaMostrada:false,avisoPrevio:document.getElementById('newMediacionAvisoPrevio').value}; s.mediaciones_list.push(newMediacion); saveData(); addEventToGoogleCalendar(s,newMediacion,'Mediación'); renderAll(); showSiniestroModal(sid); }
 function deleteMediacion(sid,mid){ if(!confirm('¿Eliminar mediación?'))return; const s=siniestrosData.find(x=>x.id===sid); s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid); saveData(); renderAll(); showSiniestroModal(sid); }
 
-// --- INICIO MODIFICACIÓN TAREA 1: Editar Género ---
+// --- INICIO: MODIFICACIÓN "CUOTA LITIS %" ---
 function editField(sid,field,element){ 
     if(editingField)return; 
     editingSiniestroId=sid; 
@@ -584,7 +584,8 @@ function editField(sid,field,element){
     
     // --- Campo 'genero' añadido a la lógica del select ---
     if(field==='cobradoCliente'||field==='cobradoEstudio'||field==='genero')inputType='select'; 
-    else if(/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero|honorariosPorcentaje|productorPorcentaje|productorImporte/.test(field))inputType='number'; 
+    // --- CAMPO NUEVO AÑADIDO A LA LÓGICA 'number' ---
+    else if(/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero|honorariosPorcentaje|productorPorcentaje|productorImporte|cuotaLitisPorcentaje/.test(field))inputType='number'; 
     else if(field.includes('fecha'))inputType='date'; 
     else if(field==='horaSiniestro')inputType='time'; 
     else if(/mail/.test(field))inputType='email'; 
@@ -605,7 +606,8 @@ function editField(sid,field,element){
     } 
     // --- Fin lógica 'genero' ---
     
-    if (field === 'honorariosPorcentaje' || field === 'productorPorcentaje') {
+    // --- CAMPO NUEVO AÑADIDO A LA LÓGICA 'porcentaje' ---
+    if (field === 'honorariosPorcentaje' || field === 'productorPorcentaje' || field === 'cuotaLitisPorcentaje') {
         input.min = "0"; input.max = "100"; input.step = "0.01";
     } else if (/presupuesto|indemnizacion|honorarios|productorImporte/.test(field)) {
         input.step = "0.01";
@@ -659,15 +661,15 @@ function editField(sid,field,element){
     const valLength=input.value.length;
     input.setSelectionRange(valLength,valLength); 
 }
-// --- FIN MODIFICACIÓN TAREA 1 ---
+// --- FIN: MODIFICACIÓN "CUOTA LITIS %" ---
 
 function deleteSiniestro(id){ if(!confirm('¿Eliminar siniestro y todo su historial?'))return; siniestrosData=siniestrosData.filter(s=>s.id!==id); saveData(); renderAll(); closeModal('siniestroInfoModal'); }
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
+function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
-function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
+function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
 function updateClock(){ const now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(); const hD=(h%12)*30+m*0.5,mD=m*6+s*0.1,sD=s*6; const hourHand=document.querySelector('.hour-hand'),minHand=document.querySelector('.min-hand'),secondHand=document.querySelector('.second-hand'),digitalClock=document.getElementById('digital-clock'); if(hourHand)hourHand.style.transform=`rotate(${hD}deg)`; if(minHand)minHand.style.transform=`rotate(${mD}deg)`; if(secondHand)secondHand.style.transform=`rotate(${sD}deg)`; if(digitalClock)digitalClock.innerHTML=`${now.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function mostrarAlertaDeMediaciones(mediacionesPorAlertar){ if(mediacionesPorAlertar.length===0)return; const modal=document.getElementById('alertModal'); if(modal.classList.contains('active'))return; const content=`<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height:60vh;">${mediacionesPorAlertar.map(alert=>`<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size:1.1em;color:var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center;margin-top:15px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}','${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}','${alert.item.id}')">🗓️ Posponer</button></div></div></div>`).join('')}</div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); mediacionesPorAlertar.forEach(alerta=>{const s=siniestrosData.find(s=>s.id===alerta.siniestro.id); const m=s.mediaciones_list.find(m=>m.id===alerta.item.id); if(m)m.alertaMostrada=true;}); saveData(); }
 function revisarMediacionesVencidasAlCargar(){ const ahora=new Date(),horaActual=`${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`; const mediacionesVencidas=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&m.hora&&m.hora<=horaActual&&!m.completed&&!m.alertaMostrada).map(m=>({siniestro:s,item:m}))); mostrarAlertaDeMediaciones(mediacionesVencidas); }
@@ -739,7 +741,7 @@ async function processLetterData(event,siniestroId){
     const progressText=document.getElementById('progress-text'); 
     let width=0; 
     const interval=setInterval(()=>{width+=5;if(width>=95)return; progressBar.style.width=width+'%'; if(width>30&&width<70)progressText.textContent="Analizando mecánica del hecho..."; else if(width>=70)progressText.textContent="Dando formato legal...";},150); 
-    const result=await callAIApi(data); 
+    const result=await callAIApi(data, '/api/generar-carta'); // Ruta de la API
     clearInterval(interval); 
     progressBar.style.width='100%'; 
     let resultHTML; 
@@ -753,46 +755,172 @@ async function processLetterData(event,siniestroId){
     modalContent.innerHTML=resultHTML; 
 }
 
-async function callAIApi(data){ 
-    console.log("Enviando datos al servidor:",data); 
-    
-    // !!!!!!!!!! ESTA ES LA LÍNEA QUE CAMBIÉ !!!!!!!!!!
-    const API_URL='https://portal-backend-1-8jx9.onrender.com/api/generar-carta';
-    // !!!!!!!!!! ------------------------------ !!!!!!!!!!
+// --- INICIO: NUEVAS FUNCIONES PARA CONVENIO DE HONORARIOS ---
+function startConvenioGeneration(siniestroId) {
+    const s = siniestrosData.find(x => x.id === siniestroId); 
+    if (!s) return; 
 
-    const controller=new AbortController(); 
-    const timeoutId=setTimeout(()=>controller.abort(),60000); 
-    try{ 
-        const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:controller.signal}); 
+    // Pre-poblamos los datos del tercero
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.dominioTercero].filter(Boolean).join(', ');
+
+    const modal = document.getElementById('convenioGenerationModal'); 
+    modal.querySelector('.modal-content').innerHTML = `
+        <span class="close" onclick="closeModal('convenioGenerationModal')">&times;</span>
+        <h2 style="margin-bottom:14px;">⚖️ Generar Convenio de Honorarios</h2>
+        <p style="font-size:.9em;margin-bottom:20px;">Verifica los datos autocompletados y completa el domicilio del cliente.</p>
+        <form id="convenioForm" onsubmit="processConvenioData(event, '${siniestroId}')">
+            
+            <h4 style="margin-top:10px;margin-bottom:5px;">Datos del Cliente</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Cliente</label><input type="text" id="convClienteNombre" value="${s.cliente || ''}" readonly style="background:#eee;"></div>
+                <div class="form-group"><label>DNI</label><input type="text" id="convClienteDNI" value="${s.dni || ''}" readonly style="background:#eee;"></div>
+                <div class="form-group"><label>Domicilio del Cliente (¡Completar!)</label><input type="text" id="convClienteDomicilio" placeholder="Ej: Calle N° 123, Localidad" required></div>
+            </div>
+
+            <h4 style="margin-top:15px;margin-bottom:5px;">Datos del Siniestro y Tercero</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Fecha Siniestro</label><input type="date" id="convFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div>
+                <div class="form-group"><label>Lugar Siniestro</label><input type="text" id="convLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Calle 1 y Calle 2" required></div>
+                <div class="form-group"><label>Vehículo Tercero (Datos)</label><input type="text" id="convVehiculoTercero" value="${vehiculoTerceroString}" required></div>
+                <div class="form-group"><label>Aseguradora Tercero</label><input type="text" id="convAseguradoraTercero" value="${s.contra || ''}" required></div>
+            </div>
+            
+            <h4 style="margin-top:15px;margin-bottom:5px;">Datos del Acuerdo</h4>
+            <div class="info-grid">
+                <div class="form-group"><label>Lugar de Firma</label><input type="text" id="convLugarFirma" value="Quilmes" required></div>
+                <div class="form-group"><label>Pacto Cuota Litis (%)</label><input type="number" id="convCuotaLitis" value="${s.cuotaLitisPorcentaje || '10'}" required step="0.01" min="0" max="100"></div>
+                <div class="form-group"><label>Tipo de Daños</label><input type="text" id="convTipoDanos" value="daños materiales y lesiones" placeholder="Ej: daños materiales" required></div>
+            </div>
+
+            <div style="text-align:center;margin-top:20px;">
+                <button class="btn btn-success" type="submit">🤖 Generar Convenio con IA</button>
+            </div>
+        </form>`;
+    modal.classList.add('active'); 
+}
+
+async function processConvenioData(event, siniestroId) {
+    event.preventDefault();
+    const s = siniestrosData.find(x => x.id === siniestroId); 
+    if (!s) { alert("Error: Siniestro no encontrado."); return; }
+
+    // Recolectamos todos los datos del formulario
+    const data = {
+        siniestro: s, // Pasamos el siniestro original por si la IA necesita más datos
+        clienteNombre: document.getElementById('convClienteNombre').value,
+        clienteDNI: document.getElementById('convClienteDNI').value,
+        clienteDomicilio: document.getElementById('convClienteDomicilio').value,
+        
+        fechaSiniestro: document.getElementById('convFechaSiniestro').value,
+        lugarSiniestro: document.getElementById('convLugarSiniestro').value,
+        vehiculoTercero: document.getElementById('convVehiculoTercero').value,
+        aseguradoraTercero: document.getElementById('convAseguradoraTercero').value,
+        
+        lugarFirma: document.getElementById('convLugarFirma').value,
+        cuotaLitisPorcentaje: document.getElementById('convCuotaLitis').value,
+        tipoDanos: document.getElementById('convTipoDanos').value,
+        
+        fechaFirma: new Date().toISOString().split('T')[0] // Fecha de hoy
+    };
+
+    const modalContent = document.getElementById('convenioGenerationModal').querySelector('.modal-content'); 
+    modalContent.innerHTML = `<h2 style="text-align:center;margin-bottom:20px;">🧠 Redactando Convenio...</h2><p id="progress-text" style="text-align:center;margin-bottom:10px;font-style:italic;color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`; 
+    
+    const progressBar = document.getElementById('progressBar'); 
+    const progressText = document.getElementById('progress-text'); 
+    let width = 0; 
+    const interval = setInterval(() => { width += 5; if (width >= 95) return; progressBar.style.width = width + '%'; if (width > 40) progressText.textContent = "Aplicando formato legal..."; }, 150); 
+
+    // --- LLAMADA A LA NUEVA RUTA DE API ---
+    const result = await callAIApi(data, '/api/generar-convenio'); 
+    
+    clearInterval(interval); 
+    progressBar.style.width = '100%'; 
+    let resultHTML; 
+
+    if (result.success) { 
+        progressText.textContent = "¡Generado con éxito!"; 
+        resultHTML = `
+            <div class="print-area">
+                <span class="close no-print" onclick="closeModal('convenioGenerationModal')">&times;</span>
+                <h2 style="margin-bottom:14px;">✅ Convenio Generado</h2>
+                <textarea id="generatedConvenioText" readonly style="width:100%;height:45vh;font-family:monospace;font-size:0.9em;padding:10px;border:1px solid #ccc;border-radius:8px;">${result.letter}</textarea>
+            </div>
+            <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-info" onclick="copyToClipboard('generatedConvenioText')">📋 Copiar Texto</button>
+                <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+                <button class="btn btn-danger" onclick="downloadAsPDFConvenio()">📄 Descargar PDF</button>
+                <button class="btn btn-success" onclick="downloadAsWordConvenio()">📄 Descargar Word</button>
+            </div>`; 
+    } else { 
+        progressText.textContent = "Error en la generación"; 
+        resultHTML = `
+            <span class="close no-print" onclick="closeModal('convenioGenerationModal')">&times;</span>
+            <h2 style="color:var(--danger-color);text-align:center;">❌ Ocurrió un Error</h2>
+            <p style="margin-top:15px;font-size:1em;text-align:center;">No se pudo generar el convenio. Motivo:</p>
+            <textarea readonly style="width:100%;height:200px;margin-top:10px;background-color:#f3f3f3;border:1px solid #ccc;padding:10px;font-family:monospace;">${result.error}</textarea>
+            <div class="action-buttons no-print" style="margin-top:15px;">
+                <button class="btn btn-warning" onclick="closeModal('convenioGenerationModal')">Cerrar</button>
+            </div>`; 
+    } 
+    modalContent.innerHTML = resultHTML;
+}
+// --- FIN: NUEVAS FUNCIONES PARA CONVENIO DE HONORARIOS ---
+
+
+async function callAIApi(data, apiPath){ 
+    console.log("Enviando datos al servidor:", data, "a", apiPath); 
+    
+    // NOTA: Esta URL base debe ser la de tu servidor (Render, etc.)
+    const API_URL_BASE = 'https://portal-backend-1-8jx9.onrender.com';
+    const API_URL = API_URL_BASE + apiPath; // Ej: /api/generar-carta o /api/generar-convenio
+
+    const controller = new AbortController(); 
+    const timeoutId = setTimeout(() => controller.abort(), 60000); 
+    try { 
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+            signal: controller.signal
+        }); 
         clearTimeout(timeoutId); 
-        if(!response.ok){ 
-            const errorText=await response.text(); 
+
+        if (!response.ok) { 
+            const errorText = await response.text(); 
             let errorJson; 
-            try{ 
-                errorJson=JSON.parse(errorText); 
-                throw new Error(errorJson.detalle||errorJson.error||'Error desconocido del servidor.'); 
-            }catch(e){ 
-                throw new Error(errorText||`Error del servidor: ${response.status}`); 
+            try { 
+                errorJson = JSON.parse(errorText); 
+                throw new Error(errorJson.detalle || errorJson.error || 'Error desconocido del servidor.'); 
+            } catch (e) { 
+                throw new Error(errorText || `Error del servidor: ${response.status}`); 
             }
         } 
-        const generatedLetter=await response.text(); 
-        return{success:true,letter:generatedLetter}; 
-    }catch(error){ 
+        
+        const generatedLetter = await response.text(); 
+        return {success: true, letter: generatedLetter}; 
+
+    } catch (error) { 
         clearTimeout(timeoutId); 
-        console.error("Error al llamar a la API:",error); 
-        let errorMessage=`ERROR: No se pudo conectar con el servidor para generar la carta.`; 
-        if(error.name==='AbortError'){ 
-            errorMessage=`ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; 
-        }else{ 
-            errorMessage+=`\n\nDetalles: ${error.message}`; 
+        console.error("Error al llamar a la API:", error); 
+        let errorMessage = `ERROR: No se pudo conectar con el servidor (${apiPath}).`; 
+        if (error.name === 'AbortError') { 
+            errorMessage = `ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; 
+        } else { 
+            errorMessage += `\n\nDetalles: ${error.message}`; 
         } 
-        return{success:false,error:errorMessage}; 
+        return {success: false, error: errorMessage}; 
     }
 }
 function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
 function downloadAsPDF(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedLetterText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('CartaDePatrocinio.pdf'); }
 function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
-// --- FIN: FUNCIONES DE CARTA PATROCINIO ---
+
+// --- INICIO: Funciones de descarga para Convenio ---
+function downloadAsPDFConvenio(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedConvenioText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('ConvenioDeHonorarios.pdf'); }
+function downloadAsWordConvenio(){ const text=document.getElementById('generatedConvenioText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'ConvenioDeHonorarios.doc'); }
+// --- FIN: Funciones de descarga para Convenio ---
+
 </script>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
