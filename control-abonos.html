@@ -84,7 +84,8 @@
     .status-span.pago-parcial{background:var(--info-color)}
     .status-span.ejecución-de-honorarios{background:#8e44ad;color:#fff!important}
     .editable{cursor:pointer;position:relative}
-    .editable:hover::after{content:'✏️';position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:.9em;opacity:.7}
+    /* === MODIFICACIÓN 1: Mover el lápiz fuera de la celda === */
+    .editable:hover::after{content:'✏️';position:absolute;right:-22px;top:50%;transform:translateY(-50%);font-size:1.1em;opacity:.8; z-index: 10;}
     .obs-btn{background:var(--info-color);color:#fff;border:none;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.8em}
     .obs-btn:hover{opacity:0.8}
     .obs-btn.has-obs {background-color: var(--warning-color); border: 1px solid var(--secondary-color); color: white;}
@@ -269,7 +270,7 @@
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
         <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
-        <div class="form-group"><label>Forma de Pago</label><input type="text" id="formaPago"></div>
+        <div class="form-group"><label>Forma de Pago</label><select id="formaPago"></select></div>
         <div class="form-group"><label>Estado</label><select id="estado"></select></div>
         <div id="pagoMontoParcialDiv" class="form-group" style="display:none;">
           <label>Monto Pagado Parcialmente</label>
@@ -345,6 +346,8 @@
     let currentObsId = null;
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
+    // === MODIFICACIÓN 3.2: Definir opciones de forma de pago ===
+    const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
     // ====== INIT ======
@@ -681,6 +684,41 @@
               registrosAgregados++;
             }
           });
+          
+          // === MODIFICACIÓN 2: Arrastrar "Pago de Bonos y AP" y "Honorarios Siniestro" pendientes ===
+          var otrosPagos = clienteRecords.filter(function(r){ 
+            return (r.tipo === 'Pago de Bonos y AP' || r.tipo === 'Honorarios Siniestro');
+          });
+          
+          otrosPagos.forEach(function(record) {
+            var montoRestante = 0, observacionOtro = '';
+            
+            if (record.estado === 'Pago Parcial') {
+              montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
+              observacionOtro = 'Saldo pendiente de ' + record.tipo + ': ' + formatCurrency(montoRestante);
+            } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
+              montoRestante = parseFloat(record.monto) || 0;
+              observacionOtro = record.tipo + ' pendiente: ' + formatCurrency(montoRestante);
+            }
+            
+            if (montoRestante > 0) {
+              addAbono({ 
+                cliente: cliente, 
+                telefono: telefono, 
+                tipo: record.tipo, 
+                monto: montoRestante, 
+                montoBase: montoRestante, 
+                deudaAcumulada: 0, // No acumula deuda
+                fechaPago: '', 
+                estado: 'Pendiente', 
+                observaciones: observacionOtro, 
+                mesServicio: mesServicioNuevo 
+              });
+              registrosAgregados++;
+            }
+          });
+          // === FIN MODIFICACIÓN 2 ===
+          
           if (registrosAgregados > 0) { added++; }
         }
       });
@@ -885,7 +923,8 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="text">'+(abono.formaPago||'N/A')+'</td>'+
+          // === MODIFICACIÓN 3.3: Actualizar la celda de la tabla para que sea un select ===
+          '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="select" data-options=\''+JSON.stringify(FORMA_PAGO_OPTIONS)+'\'>'+(abono.formaPago||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td class="no-print"><div class="action-buttons">'+
             '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Ver/Editar Observaciones">📝</button>'+
@@ -949,9 +988,12 @@
     function setupModal(){
       var tipo = document.getElementById('tipo');
       var estado = document.getElementById('estado');
-      tipo.innerHTML=''; estado.innerHTML='';
+      // === MODIFICACIÓN 3.4: Preparar el select de forma de pago en el modal ===
+      var formaPago = document.getElementById('formaPago');
+      tipo.innerHTML=''; estado.innerHTML=''; formaPago.innerHTML='';
       TIPO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; tipo.appendChild(o); });
       ESTADO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; estado.appendChild(o); });
+      FORMA_PAGO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; formaPago.appendChild(o); });
     }
 
     function openModal(){
@@ -975,7 +1017,7 @@
         tipo: document.getElementById('tipo').value,
         monto: parseFloat(document.getElementById('monto').value),
         fechaPago: document.getElementById('fechaPago').value,
-        formaPago: document.getElementById('formaPago').value,
+        formaPago: document.getElementById('formaPago').value, // El valor vendrá del select
         estado: document.getElementById('estado').value,
         observaciones: document.getElementById('observaciones').value,
         mesServicio: {
@@ -1183,6 +1225,7 @@
   </script>
   
   <script>
+    // === LÓGICA DE GOOGLE DRIVE (SIN MODIFICACIONES) ===
     const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
     const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
