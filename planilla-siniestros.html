@@ -137,6 +137,33 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 @media (max-width:780px){.reviews-list{max-height:300px}.action-buttons .btn{flex:1 1 100%}}
 @media print{body *{visibility:hidden}.print-area,.print-area *{visibility:visible}.print-area{position:absolute;left:0;top:0;width:100%;padding:20px}.btn,.no-print{display:none!important}#generatedLetterText{white-space:pre-wrap}}
 
+/* INICIO: ESTILOS DE LA NAVEGACIÓN SEMANAL (copiados de Planilla Jurídica) */
+.weekly-navigation-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    margin-bottom: 10px;
+}
+.weekly-navigation-container button {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 2.5em;
+    cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
+}
+.weekly-navigation-container button:hover {
+    color: var(--secondary-color);
+}
+.weekly-navigation-container span {
+    font-weight: 600;
+    color: var(--dark-text);
+    font-size: 1.1em;
+}
+/* FIN: ESTILOS DE LA NAVEGACIÓN SEMANAL */
+
 .weekly-glance{display:flex;justify-content:space-around;padding:15px 0 5px 0;gap:10px;flex-wrap:wrap;transition:all .4s ease-in-out}
 .day-circle{display:flex;flex-direction:column;align-items:center;justify-content:center;width:70px;height:70px;border-radius:50%;background:#f0f4f7;border:2px solid #e1e8ed;transition:all .3s ease}
 .day-circle.has-tasks{background:#fff9e6;border-color:var(--warning-color);font-weight:700;cursor:pointer}
@@ -171,11 +198,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
     <div id="driveStatus" class="data-status" style="display:none;"></div>
 
     <section class="card" style="margin-bottom: 30px;">
-        <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
-            🗓️ Resumen de la Próxima Semana
+        <h3 onclick="toggleVisibility('weeklyGlanceSection')" style="cursor: pointer; user-select: none;">
+            🗓️ Resumen Semanal de Tareas
             <span class="toggle-icon">➖</span>
         </h3>
-        <div id="weeklyGlanceContainer" class="weekly-glance"></div>
+        <div id="weeklyGlanceSection" style="display: block;">
+            <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
+            <div class="weekly-navigation-container">
+                <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
+                <span id="weekRange">Próxima Semana</span>
+                <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
+            </div>
+            <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
+            <div id="weeklyGlanceContainer" class="weekly-glance"></div>
+        </div>
     </section>
     
     <section class="card" style="margin-bottom: 30px; background-color: #e7f5ff;">
@@ -208,7 +244,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 
     <div class="filter-bar">
       <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Cliente, DNI, reclamo..." onkeyup="renderAllSiniestrosList()"></div>
-      <div class="form-group"><label>Estado</label><select id="estadoFilter" onchange="renderAllSiniestrosList()"><option value="">Todos (Activos)</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option></select></div>
+      <div class="form-group"><label>Estado</label><select id="estadoFilter" onchange="renderAllSiniestrosList()">
+        <option value="">Todos (Activos)</option>
+        <option value="FINALIZADA">Finalizada</option>
+        <option value="FINALIZADA P">Finalizada P</option>
+        <option value="RECHAZADO">Rechazado</option>
+        <option value="SIN INICIAR">Sin iniciar</option>
+        <option value="EJECUCION">Ejecución</option>
+        <option value="DEMORADA">Demorada</option>
+        <option value="MEDIACIONES">Mediaciones</option><!-- Estado Mediaciones agregado -->
+      </select></div>
     </div>
 
     <div class="card">
@@ -243,6 +288,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null;
 let onConfirmCallback = null;
+let weeklyGlanceStartDate = new Date(); // Inicialización para la navegación semanal
 
 // --- INICIO: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 let tokenClient, gapiReady = false, gisReady = false, gdDataFileId = null;
@@ -252,6 +298,8 @@ const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.google
 const GD_DATA_FILE = 'datos_planilla_siniestros.json';
 
 document.addEventListener('DOMContentLoaded', ()=>{ 
+    // Asegurarse de que la fecha de inicio es hoy al cargar la página
+    weeklyGlanceStartDate.setHours(0, 0, 0, 0); 
     loadData(); 
     renderAll(); 
     updateClock(); 
@@ -333,7 +381,7 @@ function getDaysDifference(d){ if(!d)return 999; return Math.ceil((new Date(d)-n
 function generateId(it){ return`EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1e3)}`; }
 function getDisplayName(s){ return`${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`; }
 function formatCurrency(v){ if(v==null||v==='')return'S/D'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
-function toggleVisibility(id){ const el=document.getElementById(id),icon=el.previousElementSibling.querySelector('.toggle-icon'); const isFlex=el.classList.contains('weekly-glance'); if(getComputedStyle(el).display==='none'){el.style.display=isFlex?'flex':'block';icon.textContent='➖';}else{el.style.display='none';icon.textContent='➕';}}
+function toggleVisibility(id){ const el=document.getElementById(id),icon=el.previousElementSibling.querySelector('.toggle-icon'); const isSection=id.includes('weeklyGlanceSection'); if(getComputedStyle(el).display==='none'){el.style.display=isSection?'block':'block';icon.textContent='➖';}else{el.style.display='none';icon.textContent='➕';}}
 function updateSiniestroNextRevision(s){ if(!s)return; const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;if(future[0].textoPrivado)s.observacion+=` (Privado: ${future[0].textoPrivado})`;}else{s.fechaRevision='';s.observacion='No hay tareas pendientes';}}
 
 function toggleCompleted(e,sid,oid,type='task'){ 
@@ -369,8 +417,89 @@ function toggleCompleted(e,sid,oid,type='task'){
     }
 }
 
-function renderAll(){ try{ siniestrosData.forEach(updateSiniestroNextRevision); renderWeeklyGlance(); renderAdvanceNotices(); renderDashboardLists(); renderAllSiniestrosList(); }catch(e){ console.error('Error al renderizar:',e); updateDataStatus('❌ Error al actualizar la vista',true); }}
-function renderWeeklyGlance(){ const container=document.getElementById('weeklyGlanceContainer'); if(!container)return; const counts=Array(7).fill(0); const today=new Date(); today.setHours(0,0,0,0); const allItems=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({reviewDate:o.proximaRevision})),...(s.mediaciones_list||[]).filter(m=>m.fecha&&!m.completed).map(m=>({reviewDate:m.fecha})),...(s.vencimientos_list||[]).filter(v=>v.fecha&&!v.completed).map(v=>({reviewDate:v.fecha}))]); allItems.forEach(item=>{if(!item.reviewDate)return; const diffDays=Math.round((new Date(item.reviewDate+'T00:00:00')-today)/864e5); if(diffDays>=0&&diffDays<7)counts[diffDays]++;}); const dayNames=['D','L','M','M','J','V','S']; let html=''; for(let i=0;i<7;i++){ const date=new Date(today); date.setDate(today.getDate()+i); const isoDateString=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; const hasTasks=counts[i]>0; html+=`<div class="day-circle ${hasTasks?'has-tasks':''} ${i===0?'is-today':''}" title="${date.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})}" ${hasTasks?`onclick="showTasksForDate('${isoDateString}')"`:''}> <span class="day-name">${dayNames[date.getDay()]} ${date.getDate()}</span> <span class="day-count">${counts[i]}</span> </div>`; } container.innerHTML=html||'<p>No hay tareas en los próximos 7 días.</p>'; }
+function renderAll(){ 
+    try{ 
+        siniestrosData.forEach(updateSiniestroNextRevision); 
+        renderWeeklyGlance(weeklyGlanceStartDate); // Usa la fecha de inicio
+        renderAdvanceNotices(); 
+        renderDashboardLists(); 
+        renderAllSiniestrosList(); 
+    }catch(e){ 
+        console.error('Error al renderizar:',e); 
+        updateDataStatus('❌ Error al actualizar la vista',true); 
+    }
+}
+
+// --- FUNCIONES DE NAVEGACIÓN SEMANAL ---
+function nextWeek() {
+    // Avanza 7 días
+    weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() + 7);
+    renderWeeklyGlance(weeklyGlanceStartDate);
+}
+
+function prevWeek() {
+    // Retrocede 7 días
+    weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() - 7);
+    renderWeeklyGlance(weeklyGlanceStartDate);
+}
+// ---------------------------------------
+
+function renderWeeklyGlance(startDate){ 
+    const container=document.getElementById('weeklyGlanceContainer'); 
+    const rangeDisplay = document.getElementById('weekRange');
+    if(!container || !rangeDisplay) return; 
+
+    const counts=Array(7).fill(0); 
+    const today=new Date(); 
+    today.setHours(0,0,0,0); 
+    
+    // Clonamos la fecha de inicio para no modificar la original
+    const currentStart = new Date(startDate);
+    currentStart.setHours(0, 0, 0, 0);
+
+    // Determinamos el rango de días a mostrar (7 días a partir de currentStart)
+    const rangeEnd = new Date(currentStart);
+    rangeEnd.setDate(rangeEnd.getDate() + 6);
+            
+    // Actualizar el rango de visualización
+    const startStr = currentStart.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+    const endStr = rangeEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    rangeDisplay.textContent = `${startStr} - ${endStr}`;
+
+    const allItems=siniestrosData.flatMap(s=>[
+        ...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({reviewDate:o.proximaRevision})),
+        ...(s.mediaciones_list||[]).filter(m=>m.fecha&&!m.completed).map(m=>({reviewDate:m.fecha})),
+        ...(s.vencimientos_list||[]).filter(v=>v.fecha&&!v.completed).map(v=>({reviewDate:v.fecha}))
+    ]); 
+    
+    allItems.forEach(item=>{
+        if(!item.reviewDate)return; 
+        const itemDate=new Date(item.reviewDate+'T00:00:00');
+        // Calcular la diferencia de días entre el ítem y el inicio del rango
+        const diffDays=Math.round((itemDate - currentStart)/864e5); 
+
+        if(diffDays>=0&&diffDays<7)counts[diffDays]++;
+    }); 
+    
+    const dayNames=['D','L','M','M','J','V','S']; 
+    let html=''; 
+    for(let i=0;i<7;i++){ 
+        const date=new Date(currentStart); 
+        date.setDate(currentStart.getDate()+i); 
+        const dayOfWeek=date.getDay(); 
+        const dayName=dayNames[dayOfWeek]; 
+        const dateNumber=date.getDate();
+        const isoDateString=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; 
+        
+        // Determinamos si el día actual de la iteración es HOY
+        const isTheActualToday = date.toDateString() === today.toDateString();
+
+        const hasTasks=counts[i]>0; 
+        html+=`<div class="day-circle ${hasTasks?'has-tasks':''} ${isTheActualToday?'is-today':''}" title="${date.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})}" ${hasTasks?`onclick="showTasksForDate('${isoDateString}')"`:''}> <span class="day-name">${dayName} ${dateNumber}</span> <span class="day-count">${counts[i]}</span> </div>`; 
+    } 
+    container.innerHTML=html||'<p style="text-align: center; color: #666; margin-top: 10px;">No hay tareas programadas en este rango de 7 días.</p>'; 
+}
+
 function renderAdvanceNotices(){ const container=document.getElementById('advanceNoticeContainer'); if(!container)return; const itemsToNotice=[]; siniestrosData.forEach(s=>{ const criticalItems=[...(s.mediaciones_list||[]).map(item=>({...item,dueDate:item.fecha,type:'mediacion',text:`MEDIACIÓN: ${item.texto}`})),...(s.vencimientos_list||[]).map(item=>({...item,dueDate:item.fecha,type:'vencimiento',text:`VENCIMIENTO: ${item.texto}`}))]; criticalItems.forEach(item=>{ const noticeDays=parseInt(item.avisoPrevio,10); if(!item.completed&&noticeDays>0&&item.dueDate){ const daysDifference=getDaysDifference(item.dueDate); if(daysDifference>0&&daysDifference<=noticeDays)itemsToNotice.push({siniestro:s,item,daysDifference}); }}); }); itemsToNotice.sort((a,b)=>a.item.dueDate.localeCompare(b.item.dueDate)); document.getElementById('advanceNoticeCount').textContent=itemsToNotice.length; if(itemsToNotice.length===0){container.innerHTML='<p style="text-align:center;color:#666;">No hay avisos previos.</p>';return;} container.innerHTML=itemsToNotice.map(({siniestro,item,daysDifference})=>{ const dateInfo=`Vence en ${daysDifference} día${daysDifference>1?'s':''} (${formatDate(item.dueDate)})`; return`<div class="review-item" onclick="showSiniestroModal('${siniestro.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(siniestro)}</div><div class="review-obs">${item.text}</div></div></div>`; }).join(''); }
 function showTasksForDate(dateString){ const formattedDate=formatDate(dateString); const modal=document.getElementById('dailyTasksModal'); const tasksForDate=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision===dateString).map(o=>({...o,siniestro:s,type:'task'})),...(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha===dateString).map(m=>({...m,siniestro:s,type:'mediacion'})),...(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha===dateString).map(v=>({...v,siniestro:s,type:'vencimiento'}))]); const content=` <span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para ${formattedDate}</h2> <div class="reviews-list" style="max-height:60vh;"> ${tasksForDate.length===0?'<p style="text-align:center;color:#666;">No hay tareas para esta fecha.</p>':tasksForDate.map(item=>{ const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; let timeLabel='',label=''; if(item.type==='mediacion'){timeLabel=formatTime(item.hora);label='MEDIACIÓN:';} if(item.type==='vencimiento'){label='VENCIMIENTO:';} return`<div class="review-item ${item.completed ? 'completed' : ''}"> <button class="complete-btn" onclick="${toggleFunc}">✔</button> <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"> <div class="review-date">${timeLabel}</div> <div class="review-client">${item.siniestro.cliente}</div> <div class="review-obs"><b>${label}</b> ${item.texto}</div> ${item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''} </div> </div>`; }).join('')} </div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); }
 function renderDashboardLists(){ const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'}))); const mediaciones=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha}))); const vencimientos=siniestrosData.flatMap(s=>(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha).map(v=>({...v,siniestro:s,type:'vencimiento',proximaRevision:v.fecha}))); const allItems=[...tasks,...mediaciones,...vencimientos]; const today=allItems.filter(t=>isToday(t.proximaRevision)); const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); renderReviewList('todayReviews',today,'No hay eventos para hoy','today'); renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue'); renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming'); }
@@ -414,7 +543,7 @@ function renderAllSiniestrosList(){
 
 function showNewSiniestroModal(){ 
     const modal=document.getElementById('newSiniestroModal'); 
-    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
     modal.querySelector('.modal-content').innerHTML=content; 
     modal.classList.add('active'); 
 }
@@ -655,7 +784,10 @@ function startLetterGeneration(siniestroId) {
         ? `<button class="btn btn-warning" type="button" onclick="showSavedLetter('${siniestroId}')">📂 Ver Carta Guardada Anteriormente</button>` 
         : '';
 
-    const conductorEsTitular = (!s.conductorNombre || s.conductorNombre === s.cliente);
+    // Lógica para determinar si el conductor es el titular al cargar el formulario
+    let conductorNombreInicial = s.conductorNombre || s.cliente;
+    let conductorDniInicial = s.conductorDni || s.dni;
+    const conductorEsTitular = (s.conductorNombre === s.cliente && s.conductorDni === s.dni) || (!s.conductorNombre && !s.conductorDni);
     const checkState = conductorEsTitular ? 'checked' : '';
     const displayStyle = conductorEsTitular ? 'none' : 'block';
 
@@ -747,6 +879,9 @@ async function processLetterData(event,siniestroId){
     if (esTitular) {
         conductorNombreFinal = s.cliente;
         conductorDniFinal = s.dni;
+        // Limpiar campos de conductor del siniestro si el titular es el conductor
+        s.conductorNombre = '';
+        s.conductorDni = '';
     } else {
         conductorNombreFinal = document.getElementById('letterConductorNombre').value;
         conductorDniFinal = document.getElementById('letterConductorDni').value;
@@ -758,8 +893,9 @@ async function processLetterData(event,siniestroId){
         
         s.conductorNombre = conductorNombreFinal;
         s.conductorDni = conductorDniFinal;
-        saveData(); 
     }
+
+    saveData(); // Guardar cualquier actualización de conductor/titular
 
     const data={
         siniestro:s,
@@ -776,12 +912,25 @@ async function processLetterData(event,siniestroId){
         partesDanadas:document.getElementById('letterPartesDanadas').value,
         nombreTercero:document.getElementById('letterNombreTercero').value,
         vehiculoTercero:document.getElementById('letterVehiculoTercero').value,
-        relato:relatoOriginal,
+        relato:relatoOriginal, // Relato con info del conductor incrustada si aplica
         infracciones:document.getElementById('letterInfracciones').value,
         hayLesiones:hayLesiones,
         lesionesDesc:hayLesiones?document.getElementById('letterLesionesDesc').value:'',
         montoLesiones:montoLesiones,
-        montoTotal:montoMateriales+montoLesiones
+        montoTotal:montoMateriales+montoLesiones,
+        // Datos del abogado para refuerzo
+        abogado_data: {
+            nombre: 'Dra. Camila Florencia Rodríguez García',
+            matricula: 'T° XII, F° 383, del C.A.Q.',
+            cuit: '27-38843361-8',
+            domicilio_procesal: 'Zapiola N° 662, Bernal, Partido de Quilmes'
+        },
+        // Refuerzo de conductor para la IA
+        conductor: {
+            nombre: conductorNombreFinal,
+            dni: conductorDniFinal,
+            esTitular: esTitular 
+        }
     }; 
     
     const modalContent=document.getElementById('letterGenerationModal').querySelector('.modal-content'); 
@@ -790,7 +939,7 @@ async function processLetterData(event,siniestroId){
     const progressBar=document.getElementById('progressBar'); 
     const progressText=document.getElementById('progress-text'); 
     let width=0; 
-    const interval=setInterval(()=>{width+=5;if(width>=95)return; progressBar.style.width=width+'%'; if(width>30&&width<70)progressText.textContent="Analizando mecánica del hecho..."; else if(width>=70)progressText.textContent="Dando formato legal...";},150); 
+    const interval=setInterval(()=>{width+=5;if(width>=95)return; progressBar.style.width=width+'%'; if(width>30&&width<70)progressText.textContent="Analizando mecánica del hecho y ajustando tono legal..."; else if(width>=70)progressText.textContent="Dando formato legal y finalizando...";},150); 
     
     const result=await callAIApi(data, '/api/generar-carta'); 
     clearInterval(interval); 
