@@ -232,6 +232,32 @@
         .document-list .spinner { display: block; margin: 20px auto; width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
+        /* ESTILOS DE LA NUEVA NAVEGACIÓN SEMANAL */
+        .weekly-navigation-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            margin-bottom: 10px;
+        }
+        .weekly-navigation-container button {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            font-size: 2.5em;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+        .weekly-navigation-container button:hover {
+            color: var(--secondary-color);
+        }
+        .weekly-navigation-container span {
+            font-weight: 600;
+            color: var(--dark-text);
+            font-size: 1.1em;
+        }
+
         .weekly-glance {
             display: flex;
             justify-content: space-around;
@@ -313,11 +339,20 @@
             <div id="driveStatus" class="data-status" style="display: none; background: #cfe2ff; color: #084298;"></div>
 
             <section class="card" style="margin-bottom: 30px;">
-                <h3 onclick="toggleVisibility('weeklyGlanceContainer')" style="cursor: pointer; user-select: none;">
-                    🗓️ Resumen de la Próxima Semana
+                <h3 onclick="toggleVisibility('weeklyGlanceSection')" style="cursor: pointer; user-select: none;">
+                    🗓️ Resumen Semanal de Tareas
                     <span class="toggle-icon">➖</span>
                 </h3>
-                <div id="weeklyGlanceContainer" class="weekly-glance"></div>
+                <div id="weeklyGlanceSection" style="display: block;">
+                    <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
+                    <div class="weekly-navigation-container">
+                        <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
+                        <span id="weekRange">Próxima Semana</span>
+                        <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
+                    </div>
+                    <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
+                    <div id="weeklyGlanceContainer" class="weekly-glance"></div>
+                </div>
             </section>
             
             <section class="card" style="margin-bottom: 30px; background-color: #e7f5ff;">
@@ -398,8 +433,10 @@
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
+        // Variables de estado principal
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
+        let weeklyGlanceStartDate = new Date(); // Variable para controlar el inicio de la semana visible
 
         // ========= FUNCIONES AUXILIARES Y DE FORMATO =========
         function saveData() {
@@ -475,7 +512,7 @@
             const icon = element.previousElementSibling.querySelector('.toggle-icon');
             if (!element || !icon) return;
             
-            const displayStyle = elementId.includes('weeklyGlance') ? 'flex' : 'block';
+            const displayStyle = elementId.includes('weeklyGlance') ? 'block' : 'block';
 
             if (getComputedStyle(element).display === 'none') {
                 element.style.display = displayStyle;
@@ -522,19 +559,54 @@
                 updateClientNextRevision(c);
                 updateAudienciasSummary(c);
             });
-            renderWeeklyGlance();
+            // Al inicio, aseguramos que la fecha de inicio sea hoy (o el último inicio guardado)
+            if (!weeklyGlanceStartDate) {
+                weeklyGlanceStartDate = new Date();
+                weeklyGlanceStartDate.setHours(0, 0, 0, 0);
+            }
+            renderWeeklyGlance(weeklyGlanceStartDate);
             renderAdvanceNotices();
             renderDashboardLists();
             renderAllClientsList();
         }
 
-        function renderWeeklyGlance() {
+        // --- FUNCIONES DE NAVEGACIÓN SEMANAL ---
+        function nextWeek() {
+            // Avanza 7 días
+            weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() + 7);
+            renderWeeklyGlance(weeklyGlanceStartDate);
+        }
+
+        function prevWeek() {
+            // Retrocede 7 días
+            weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() - 7);
+            renderWeeklyGlance(weeklyGlanceStartDate);
+        }
+        // ---------------------------------------
+
+        function renderWeeklyGlance(startDate) {
             const container = document.getElementById('weeklyGlanceContainer');
-            if (!container) return;
+            const rangeDisplay = document.getElementById('weekRange');
+            if (!container || !rangeDisplay) return;
 
             const counts = Array(7).fill(0);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+
+            // Clonamos la fecha de inicio para no modificar la original
+            const currentStart = new Date(startDate);
+            currentStart.setHours(0, 0, 0, 0);
+
+            // Determinamos el rango de días a mostrar (7 días a partir de currentStart)
+            const rangeStart = new Date(currentStart);
+            const rangeEnd = new Date(currentStart);
+            rangeEnd.setDate(rangeEnd.getDate() + 6);
+            
+            // Actualizar el rango de visualización
+            const startStr = rangeStart.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+            const endStr = rangeEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+            rangeDisplay.textContent = `${startStr} - ${endStr}`;
+
 
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
@@ -546,9 +618,12 @@
             allSchedulableItems.forEach(item => {
                 if (!item.reviewDate) return;
                 const itemDate = new Date(item.reviewDate + 'T00:00:00');
-                const diffTime = itemDate - today;
+                
+                // Calcular la diferencia de días entre el ítem y el inicio del rango
+                const diffTime = itemDate - currentStart;
                 const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
+                // Si el ítem cae dentro de los 7 días del rango
                 if (diffDays >= 0 && diffDays < 7) {
                     counts[diffDays]++;
                 }
@@ -557,16 +632,20 @@
             const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
             let html = '';
             for (let i = 0; i < 7; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() + i);
+                const date = new Date(currentStart); // Clonamos el inicio del rango
+                date.setDate(currentStart.getDate() + i); // Le sumamos el índice
                 const dayOfWeek = date.getDay();
                 const dayName = dayNames[dayOfWeek];
                 const dateNumber = date.getDate();
                 const isoDateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                
+                // Determinamos si el día actual de la iteración es HOY
+                const isTheActualToday = date.toDateString() === today.toDateString();
+
 
                 const hasTasks = counts[i] > 0;
                 const hasTasksClass = hasTasks ? 'has-tasks' : '';
-                const isTodayClass = i === 0 ? 'is-today' : '';
+                const isTodayClass = isTheActualToday ? 'is-today' : ''; // Solo si coincide con el "hoy" real
                 const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
                 const onClickAction = hasTasks ? `onclick="showTasksForDate('${isoDateString}')"` : '';
 
@@ -577,7 +656,7 @@
                     </div>
                 `;
             }
-            container.innerHTML = html || '<p>No hay tareas en los próximos 7 días.</p>';
+            container.innerHTML = html || '<p style="text-align: center; color: #666; margin-top: 10px;">No hay tareas programadas en este rango de 7 días.</p>';
         }
 
         function renderAdvanceNotices() {
@@ -820,7 +899,7 @@
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
             const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
-            const combinedHistory = [...tasks, ...audiences, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
+            const combinedHistory = [...tasks, ...audiencias, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
                 let itemDate = '', workedDate = '', tagType, tagText, itemContent, editButton = '';
@@ -1204,7 +1283,7 @@
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({ client: client, reviewText: obs.texto, type: 'task' }));
                 const audiences = (client.audiencias_list || []).filter(aud => !aud.completed && aud.fecha === dateString).map(aud => ({ client: client, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, type: 'audience' }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => !venc.completed && venc.fecha === dateString).map(venc => ({ client: client, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, type: 'vencimiento' }));
-                return [...tasks, ...audiences, ...vencimientos];
+                return [...tasks, ...audiencias, ...vencimientos];
             });
 
             const formattedDate = formatDate(dateString);
@@ -1255,6 +1334,10 @@
         function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         
         document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar la fecha de inicio del resumen semanal a HOY
+            weeklyGlanceStartDate = new Date();
+            weeklyGlanceStartDate.setHours(0, 0, 0, 0);
+
             const digitalClockElement = document.getElementById('digital-clock');
             const hourHand = document.querySelector('.hour-hand');
             const minHand = document.querySelector('.min-hand');
@@ -1284,8 +1367,7 @@
         });
     </script>
     
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <!-- Bloque de funciones de Google Drive/Calendar movido para asegurar el ámbito global -->
     <script>
         const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
@@ -1365,5 +1447,8 @@
         async function getOrCreateFolder(name,parentId=null){let query=`mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`;if(parentId)query+=` and '${parentId}' in parents`;const response=await gapi.client.drive.files.list({q:query,fields:'files(id)'});if(response.result.files&&response.result.files.length>0)return response.result.files[0].id;const fileMetadata={name,mimeType:'application/vnd.google-apps.folder',...(parentId&&{parents:[parentId]})};const newFolder=await gapi.client.drive.files.create({resource:fileMetadata,fields:'id'});return newFolder.result.id}
         async function uploadDocumentContent(content,fileName,mimeType,parentId){const boundary='-------314159265358979323846';const metadata={name:fileName,mimeType:mimeType,...(parentId&&{parents:[parentId]})};const base64Data=content.split(',')[1];const requestBody=[`--${boundary}`,'Content-Type: application/json; charset=UTF-8','',JSON.stringify(metadata),`--${boundary}`,`Content-Type: ${mimeType}`,'Content-Transfer-Encoding: base64','',base64Data,`--${boundary}--`].join('\r\n');const request=await gapi.client.request({path:'/upload/drive/v3/files',method:'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary="${boundary}"`},body:requestBody});return request.result.id}
     </script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
