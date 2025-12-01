@@ -463,7 +463,14 @@
         }
 
         function sanitizeData(data) {
+            let fixedIds = 0;
             (data || []).forEach(c => {
+                // FIX CRÍTICO: Eliminar comillas simples de los IDs que rompen el HTML onclick
+                if (c.id && (c.id.includes("'") || c.id.includes('"'))) {
+                    c.id = c.id.replace(/['"]/g, '');
+                    fixedIds++;
+                }
+                
                 c.id = c.id || generateId(c);
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
@@ -487,6 +494,11 @@
                 });
                 updateClientNextRevision(c);
             });
+            
+            if (fixedIds > 0) {
+                console.log(`Se repararon ${fixedIds} IDs corruptos que bloqueaban la interfaz.`);
+                saveData(); // Guardar la corrección inmediatamente
+            }
             return data;
         }
 
@@ -504,7 +516,13 @@
         function isToday(dateString) { return dateString && dateString === todayYMD; }
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
-        function generateId(item) { return `EVT_${(item.nombre || 'N').slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; }
+        
+        // FIX CRÍTICO: Generación de IDs segura sin caracteres especiales
+        function generateId(item) {
+            const cleanName = (item.nombre || 'N').replace(/[^a-zA-Z0-9]/g, ''); // Solo letras y numeros
+            return `EVT_${cleanName.slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; 
+        }
+        
         function getDisplayName(c) { return `${c.nombre || 'Sin Nombre'} | ${c.caratula || 'Sin Carátula'} | Exp: ${c.expediente || 'S/N'}`; }
         
         function toggleVisibility(elementId) {
@@ -810,89 +828,99 @@
         }
 
         function showClientModal(clientId) {
-            const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            updateClientNextRevision(client);
-            const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
-            const content = `
-                <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
-                <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
-                    ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
-                    <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
-                </div></div>
-                ${renderLastPaymentSummary(client)}
-                <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
-                
-                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                    <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                        <h4>📝 Agregar Tarea</h4>
-                        <form onsubmit="addObservation(event, '${client.id}')">
-                            <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
-                            <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
-                            <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
-                            <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
-                        </form>
+            try {
+                const client = clientsData.find(c => c.id === clientId); 
+                if (!client) {
+                    console.error("Cliente no encontrado:", clientId);
+                    alert("Error: No se encontró el caso solicitado. Intente recargar la página.");
+                    return;
+                }
+                updateClientNextRevision(client);
+                const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
+                const content = `
+                    <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
+                    <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
+                        ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
+                        <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
+                    </div></div>
+                    ${renderLastPaymentSummary(client)}
+                    <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <h4>📝 Agregar Tarea</h4>
+                            <form onsubmit="addObservation(event, '${client.id}')">
+                                <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
+                                <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
+                                <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
+                                <button type="submit" class="btn btn-success">💾 Guardar Tarea</button>
+                            </form>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                                <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
+                                <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                    <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
+                                    <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
+                                    <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
+                                    <div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
+                                    <button type="submit" class="btn btn-success">💾 Agendar</button>
+                                </form>
+                            </div>
+                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                                <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4>
+                                <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                    <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
+                                    <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
+                                    <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
+                                    <div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
+                                    <button type="submit" class="btn btn-success">💾 Agendar</button>
+                                </form>
+                            </div>
+                            
+                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
+                                <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Registrar Pagos</h4>
+                                <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
+                                        <div>
+                                            <h5>Bono Ley</h5>
+                                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoLeyPago" id="newBonoLeyPagoSi" value="Si"> <label for="newBonoLeyPagoSi">Sí</label> <input type="radio" name="bonoLeyPago" id="newBonoLeyPagoNo" value="No" checked> <label for="newBonoLeyPagoNo">No</label></div></div>
+                                            <div class="form-group"><label>A cargo de:</label><select id="newBonoLeyCargo"><option>Estudio</option><option>Cliente</option></select></div>
+                                            <div class="form-group"><label>Importe $:</label><input type="number" id="newBonoLeyImporte" step="0.01" placeholder="0.00"></div>
+                                            <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="newBonoLeyFecha"></div>
+                                        </div>
+                                        <div>
+                                            <h5>Aportes</h5>
+                                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="aportePago" id="newAportePagoSi" value="Si"> <label for="newAportePagoSi">Sí</label> <input type="radio" name="aportePago" id="newAportePagoNo" value="No" checked> <label for="newAportePagoNo">No</label></div></div>
+                                            <div class="form-group"><label>A cargo de:</label><select id="newAporteCargo"><option>Estudio</option><option>Cliente</option></select></div>
+                                            <div class="form-group"><label>Importe $:</label><input type="number" id="newAporteImporte" step="0.01" placeholder="0.00"></div>
+                                            <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="newAporteFecha"></div>
+                                        </div>
+                                        <div>
+                                            <h5>Ius Previsional</h5>
+                                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="iusPago" id="newIusPagoSi" value="Si"> <label for="newIusPagoSi">Sí</label> <input type="radio" name="iusPago" id="newIusPagoNo" value="No" checked> <label for="newIusPagoNo">No</label></div></div>
+                                            <div class="form-group"><label>A cargo de:</label><select id="newIusCargo"><option>Estudio</option><option>Cliente</option></select></div>
+                                            <div class="form-group"><label>Importe $:</label><input type="number" id="newIusImporte" step="0.01" placeholder="0.00"></div>
+                                            <div class="form-group"><label>Fecha Ius:</label><input type="date" id="newIusFecha"></div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
+                                    <button type="submit" class="btn btn-success">💾 Guardar Registro</button>
+                                </form>
+                                <div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div>
+                            </div>
+                            
+                        </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
-                            <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
-                                <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
-                                <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
-                                <div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
-                                <button type="submit" class="btn btn-success">💾 Agendar</button>
-                            </form>
-                        </div>
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Vencimiento</h4>
-                            <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
-                                <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
-                                <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
-                                <div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
-                                <button type="submit" class="btn btn-success">💾 Agendar</button>
-                            </form>
-                        </div>
-                        
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
-                            <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Registrar Pagos</h4>
-                            <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
-                                    <div>
-                                        <h5>Bono Ley</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="bonoLeyPago" id="newBonoLeyPagoSi" value="Si"> <label for="newBonoLeyPagoSi">Sí</label> <input type="radio" name="bonoLeyPago" id="newBonoLeyPagoNo" value="No" checked> <label for="newBonoLeyPagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newBonoLeyCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newBonoLeyImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="newBonoLeyFecha"></div>
-                                    </div>
-                                    <div>
-                                        <h5>Aportes</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="aportePago" id="newAportePagoSi" value="Si"> <label for="newAportePagoSi">Sí</label> <input type="radio" name="aportePago" id="newAportePagoNo" value="No" checked> <label for="newAportePagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newAporteCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newAporteImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="newAporteFecha"></div>
-                                    </div>
-                                    <div>
-                                        <h5>Ius Previsional</h5>
-                                        <div class="form-group"><label>Pago:</label><div><input type="radio" name="iusPago" id="newIusPagoSi" value="Si"> <label for="newIusPagoSi">Sí</label> <input type="radio" name="iusPago" id="newIusPagoNo" value="No" checked> <label for="newIusPagoNo">No</label></div></div>
-                                        <div class="form-group"><label>A cargo de:</label><select id="newIusCargo"><option>Estudio</option><option>Cliente</option></select></div>
-                                        <div class="form-group"><label>Importe $:</label><input type="number" id="newIusImporte" step="0.01" placeholder="0.00"></div>
-                                        <div class="form-group"><label>Fecha Ius:</label><input type="date" id="newIusFecha"></div>
-                                    </div>
-                                </div>
-                                <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
-                                <button type="submit" class="btn btn-success">💾 Guardar Registro</button>
-                            </form>
-                            <div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div>
-                        </div>
-                        
-                    </div>
-                </div>
-
-                <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
-            document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
-            document.getElementById('clientInfoModal').classList.add('active');
+                    <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
+                document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
+                document.getElementById('clientInfoModal').classList.add('active');
+            } catch (err) {
+                console.error("Error al mostrar modal del cliente:", err);
+                alert("Ocurrió un error al intentar abrir la ficha. Por favor revise la consola para más detalles.");
+            }
         }
 
         function renderHistoryList(client) {
@@ -1283,7 +1311,7 @@
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({ client: client, reviewText: obs.texto, type: 'task' }));
                 const audiences = (client.audiencias_list || []).filter(aud => !aud.completed && aud.fecha === dateString).map(aud => ({ client: client, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, type: 'audience' }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => !venc.completed && venc.fecha === dateString).map(venc => ({ client: client, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, type: 'vencimiento' }));
-                return [...tasks, ...audiencias, ...vencimientos];
+                return [...tasks, ...audiences, ...vencimientos];
             });
 
             const formattedDate = formatDate(dateString);
