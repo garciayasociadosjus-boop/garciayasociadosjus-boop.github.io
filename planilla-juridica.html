@@ -925,8 +925,11 @@
 
         function renderHistoryList(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
-            const audiences = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
+            // Corrección: Cambiado 'audiences' a 'audiencias' para coincidir con lo que el código espera y evitar ReferenceError
+            const audiencias = (client.audiencias_list || []).map(aud => ({ ...aud, date: aud.fecha, type: 'audience' }));
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
+            
+            // Corrección: Usar 'audiencias' aquí también
             const combinedHistory = [...tasks, ...audiencias, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
             
             return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
