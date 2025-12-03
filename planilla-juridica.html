@@ -344,13 +344,9 @@
                     <span class="toggle-icon">➖</span>
                 </h3>
                 <div id="weeklyGlanceSection" style="display: block;">
-                    <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
                     <div class="weekly-navigation-container">
-                        <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
-                        <span id="weekRange">Próxima Semana</span>
-                        <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
-                    </div>
-                    <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
+                        <button onclick="prevWeek()">&#x25C0;</button> <span id="weekRange">Próxima Semana</span>
+                        <button onclick="nextWeek()">&#x25B6;</button> </div>
                     <div id="weeklyGlanceContainer" class="weekly-glance"></div>
                 </div>
             </section>
@@ -394,7 +390,7 @@
 
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
-                <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
+                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div> <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
             </section>
 
             <section class="card">
@@ -472,6 +468,10 @@
                 }
                 
                 c.id = c.id || generateId(c);
+                // NUEVOS CAMPOS
+                c.titulo = c.titulo || 'SR/SRA'; // Valor por defecto
+                c.materia = c.materia || 'FAMILIA'; // Valor por defecto
+
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
                 c.vencimientos_list = Array.isArray(c.vencimientos_list) ? c.vencimientos_list : [];
@@ -757,10 +757,15 @@
         function renderAllClientsList() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const estadoFilter = document.getElementById('estadoFilter').value;
+            const materiaFilter = document.getElementById('materiaFilter').value; // NUEVO FILTRO DE MATERIA
+
             const filteredData = clientsData.filter(c => {
-                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado}`.toLowerCase();
-                return (!searchTerm || searchString.includes(searchTerm)) && (!estadoFilter || c.estado === estadoFilter);
+                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
+                return (!searchTerm || searchString.includes(searchTerm)) 
+                    && (!estadoFilter || c.estado === estadoFilter)
+                    && (!materiaFilter || c.materia === materiaFilter); // APLICAR FILTRO DE MATERIA
             }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
+            
             document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
                 const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
                 const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
@@ -836,11 +841,41 @@
                     return;
                 }
                 updateClientNextRevision(client);
-                const fieldsToShow = {nombre: 'Nombre', dni: 'DNI', telefono: 'Teléfono', caratula: 'Carátula', expediente: 'N° Expediente', juzgado: 'Juzgado', direccionJuzgado: 'Dirección Juzgado', telJuzgado: 'Tel. Juzgado', estado: 'Estado', notas: '📌 Notas'};
+                
+                // CAMPOS A MOSTRAR (AÑADIDOS: titulo, materia)
+                const fieldsToShow = {
+                    titulo: 'Título (Sr/Sra)', // NUEVO
+                    materia: 'Materia', // NUEVO
+                    nombre: 'Nombre', 
+                    dni: 'DNI', 
+                    telefono: 'Teléfono', 
+                    caratula: 'Carátula', 
+                    expediente: 'N° Expediente', 
+                    juzgado: 'Juzgado', 
+                    direccionJuzgado: 'Dirección Juzgado', 
+                    telJuzgado: 'Tel. Juzgado', 
+                    estado: 'Estado', 
+                    notas: '📌 Notas'
+                };
+                
+                const getFieldHTML = (key, label) => {
+                    if (key === 'materia') {
+                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['FAMILIA', 'CIVIL', 'PENAL'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                    }
+                    if (key === 'titulo') {
+                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['SR/SRA', 'SR', 'SRA', 'DR', 'DRA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                    }
+                    if (key === 'estado') {
+                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['EJECUCION', 'FINALIZADA', 'FINALIZADA PARCIAL', 'DEMORADA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                    }
+                    return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                };
+
+
                 const content = `
                     <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
                     <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
-                        ${Object.entries(fieldsToShow).map(([key, label]) => `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`).join('')}
+                        ${Object.entries(fieldsToShow).map(([key, label]) => getFieldHTML(key, label)).join('')}
                         <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
                     </div></div>
                     ${renderLastPaymentSummary(client)}
@@ -1004,6 +1039,36 @@
             fieldElement.appendChild(inputElement);
             inputElement.focus();
         }
+        
+        // NUEVA FUNCIÓN PARA EDITAR CAMPOS TIPO SELECT
+        function editFieldSelect(clientId, fieldName, options) {
+            if (editingField) return;
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            editingClientId = clientId; editingField = fieldName;
+            const fieldElement = document.getElementById(`field-${fieldName}`);
+            const currentValue = client[fieldName] || options[0]; // Usar la primera opción como fallback
+            
+            const selectElement = document.createElement('select');
+            selectElement.style.cssText = 'width: 100%; padding: 4px; font-family: inherit; font-size: inherit; border: 1px solid var(--primary-color); border-radius: 4px;';
+            
+            options.forEach(optionValue => {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.textContent = optionValue;
+                if (optionValue === currentValue) {
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
+            });
+            
+            selectElement.addEventListener('blur', saveFieldSelect);
+            selectElement.addEventListener('change', saveFieldSelect); // Guardar al cambiar para selects
+            
+            fieldElement.innerHTML = '';
+            fieldElement.appendChild(selectElement);
+            selectElement.focus();
+        }
 
         function saveField() {
             if (!editingClientId || !editingField) return;
@@ -1011,6 +1076,21 @@
             const input = document.getElementById(`field-${editingField}`)?.querySelector('input, textarea');
             if (client && input) {
                 client[editingField] = input.value;
+                saveData();
+            }
+            const tempId = editingClientId;
+            editingClientId = null; editingField = null;
+            renderAll();
+            showClientModal(tempId);
+        }
+        
+        // NUEVA FUNCIÓN PARA GUARDAR CAMPOS TIPO SELECT
+        function saveFieldSelect() {
+            if (!editingClientId || !editingField) return;
+            const client = clientsData.find(c => c.id === editingClientId);
+            const select = document.getElementById(`field-${editingField}`)?.querySelector('select');
+            if (client && select) {
+                client[editingField] = select.value;
                 saveData();
             }
             const tempId = editingClientId;
@@ -1350,6 +1430,8 @@
                     return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`;
                 }).join(' \n ');
                 return {
+                    'Título': c.titulo, // EXCEL AÑADIDO
+                    'Materia': c.materia, // EXCEL AÑADIDO
                     'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs
                 }
             });
@@ -1361,7 +1443,10 @@
         function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
         function importData(){document.getElementById('importInput').click()}
         function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
-        function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
+        function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;
+            // AÑADIDO: titulo y materia a la impresión
+            const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({titulo:'Título',materia:'Materia',nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;
+            const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -1383,9 +1468,13 @@
             }
             updateClock(); setInterval(updateClock, 1000);
 
-            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
+            // MODIFICADO: Añadidos campos titulo y materia
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
-            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } const newClient = { id: generateId({}), nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
+            document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } 
+                // NUEVOS CAMPOS AÑADIDOS
+                const newClient = { id: generateId({}), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
+                const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
@@ -1398,7 +1487,6 @@
         });
     </script>
     
-    <!-- Bloque de funciones de Google Drive/Calendar movido para asegurar el ámbito global -->
     <script>
         const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
