@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planilla Jurídica - Familia</title>
+    <!-- Librerías para Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Librerías para PDF y Word -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+    
     <style>
         :root {
             --primary-color: #2980b9;
@@ -173,6 +179,11 @@
         .editable-field { cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s ease; min-height: 20px; }
         .editable-field:hover { background-color: #e8f4fd; color: #2980b9; }
         
+        /* Estilos del generador de convenios */
+        .progress-bar-container{width:80%;margin:20px auto;height:20px;background-color:#ecf0f1;border-radius:10px;overflow:hidden}
+        .progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--secondary-color),var(--primary-color));transition:width .2s ease-out}
+        .total-display { background: #dff9fb; border: 2px solid #b2bec3; padding: 15px; text-align: center; border-radius: 8px; margin-top: 10px; font-size: 1.2em; color: var(--dark-text); font-weight: bold; }
+
         .summary-note {
             background: #fffbe6;
             border: 1px solid #ffe58f;
@@ -316,6 +327,7 @@
             .print-area .info-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; }
             .print-area .history-item { border: 1px solid #eee; padding: 8px; margin-bottom: 5px; page-break-inside: avoid; }
             .print-area .btn, .print-area .no-print { display: none; }
+            #generatedConvenioText { white-space: pre-wrap; font-family: 'Times New Roman', serif; }
         }
     </style>
 </head>
@@ -344,9 +356,13 @@
                     <span class="toggle-icon">➖</span>
                 </h3>
                 <div id="weeklyGlanceSection" style="display: block;">
+                    <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
                     <div class="weekly-navigation-container">
-                        <button onclick="prevWeek()">&#x25C0;</button> <span id="weekRange">Próxima Semana</span>
-                        <button onclick="nextWeek()">&#x25B6;</button> </div>
+                        <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
+                        <span id="weekRange">Próxima Semana</span>
+                        <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
+                    </div>
+                    <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
                     <div id="weeklyGlanceContainer" class="weekly-glance"></div>
                 </div>
             </section>
@@ -390,7 +406,8 @@
 
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
-                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div> <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
+                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div>
+                <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
             </section>
 
             <section class="card">
@@ -427,6 +444,8 @@
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
+    <!-- MODAL NUEVO: GENERACIÓN DE CONVENIO -->
+    <div id="convenioGenerationModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
         // Variables de estado principal
@@ -469,8 +488,8 @@
                 
                 c.id = c.id || generateId(c);
                 // NUEVOS CAMPOS
-                c.titulo = c.titulo || 'SR/SRA'; // Valor por defecto
-                c.materia = c.materia || 'FAMILIA'; // Valor por defecto
+                c.titulo = c.titulo || 'SR/SRA'; 
+                c.materia = c.materia || 'FAMILIA'; 
 
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
@@ -517,9 +536,8 @@
         function isPastDue(dateString) { return dateString && dateString < todayYMD; }
         function getDaysDifference(dateString) { if (!dateString) return 999; const today = new Date(todayYMD); const target = new Date(dateString); return Math.ceil((target - today) / (1000 * 60 * 60 * 24)); }
         
-        // FIX CRÍTICO: Generación de IDs segura sin caracteres especiales
         function generateId(item) {
-            const cleanName = (item.nombre || 'N').replace(/[^a-zA-Z0-9]/g, ''); // Solo letras y numeros
+            const cleanName = (item.nombre || 'N').replace(/[^a-zA-Z0-9]/g, ''); 
             return `EVT_${cleanName.slice(0,3).toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; 
         }
         
@@ -529,9 +547,7 @@
             const element = document.getElementById(elementId);
             const icon = element.previousElementSibling.querySelector('.toggle-icon');
             if (!element || !icon) return;
-            
             const displayStyle = elementId.includes('weeklyGlance') ? 'block' : 'block';
-
             if (getComputedStyle(element).display === 'none') {
                 element.style.display = displayStyle;
                 icon.textContent = '➖';
@@ -577,7 +593,6 @@
                 updateClientNextRevision(c);
                 updateAudienciasSummary(c);
             });
-            // Al inicio, aseguramos que la fecha de inicio sea hoy (o el último inicio guardado)
             if (!weeklyGlanceStartDate) {
                 weeklyGlanceStartDate = new Date();
                 weeklyGlanceStartDate.setHours(0, 0, 0, 0);
@@ -590,13 +605,11 @@
 
         // --- FUNCIONES DE NAVEGACIÓN SEMANAL ---
         function nextWeek() {
-            // Avanza 7 días
             weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() + 7);
             renderWeeklyGlance(weeklyGlanceStartDate);
         }
 
         function prevWeek() {
-            // Retrocede 7 días
             weeklyGlanceStartDate.setDate(weeklyGlanceStartDate.getDate() - 7);
             renderWeeklyGlance(weeklyGlanceStartDate);
         }
@@ -611,20 +624,16 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Clonamos la fecha de inicio para no modificar la original
             const currentStart = new Date(startDate);
             currentStart.setHours(0, 0, 0, 0);
 
-            // Determinamos el rango de días a mostrar (7 días a partir de currentStart)
             const rangeStart = new Date(currentStart);
             const rangeEnd = new Date(currentStart);
             rangeEnd.setDate(rangeEnd.getDate() + 6);
             
-            // Actualizar el rango de visualización
             const startStr = rangeStart.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
             const endStr = rangeEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
             rangeDisplay.textContent = `${startStr} - ${endStr}`;
-
 
             const allSchedulableItems = clientsData.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
@@ -636,12 +645,8 @@
             allSchedulableItems.forEach(item => {
                 if (!item.reviewDate) return;
                 const itemDate = new Date(item.reviewDate + 'T00:00:00');
-                
-                // Calcular la diferencia de días entre el ítem y el inicio del rango
                 const diffTime = itemDate - currentStart;
                 const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
-                // Si el ítem cae dentro de los 7 días del rango
                 if (diffDays >= 0 && diffDays < 7) {
                     counts[diffDays]++;
                 }
@@ -650,29 +655,20 @@
             const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
             let html = '';
             for (let i = 0; i < 7; i++) {
-                const date = new Date(currentStart); // Clonamos el inicio del rango
-                date.setDate(currentStart.getDate() + i); // Le sumamos el índice
+                const date = new Date(currentStart);
+                date.setDate(currentStart.getDate() + i);
                 const dayOfWeek = date.getDay();
                 const dayName = dayNames[dayOfWeek];
                 const dateNumber = date.getDate();
                 const isoDateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                
-                // Determinamos si el día actual de la iteración es HOY
                 const isTheActualToday = date.toDateString() === today.toDateString();
-
-
                 const hasTasks = counts[i] > 0;
                 const hasTasksClass = hasTasks ? 'has-tasks' : '';
-                const isTodayClass = isTheActualToday ? 'is-today' : ''; // Solo si coincide con el "hoy" real
+                const isTodayClass = isTheActualToday ? 'is-today' : '';
                 const title = date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
                 const onClickAction = hasTasks ? `onclick="showTasksForDate('${isoDateString}')"` : '';
 
-                html += `
-                    <div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}>
-                        <span class="day-name">${dayName} ${dateNumber}</span>
-                        <span class="day-count">${counts[i]}</span>
-                    </div>
-                `;
+                html += `<div class="day-circle ${hasTasksClass} ${isTodayClass}" title="${title}" ${onClickAction}><span class="day-name">${dayName} ${dateNumber}</span><span class="day-count">${counts[i]}</span></div>`;
             }
             container.innerHTML = html || '<p style="text-align: center; color: #666; margin-top: 10px;">No hay tareas programadas en este rango de 7 días.</p>';
         }
@@ -680,15 +676,12 @@
         function renderAdvanceNotices() {
             const container = document.getElementById('advanceNoticeContainer');
             if (!container) return;
-
             const itemsToNotice = [];
-            
             clientsData.forEach(client => {
                 const criticalItems = [
                     ...(client.audiencias_list || []).map(item => ({...item, dueDate: item.fecha, type: 'audience', text: `AUDIENCIA: ${item.texto}` })),
                     ...(client.vencimientos_list || []).map(item => ({...item, dueDate: item.fecha, type: 'vencimiento', text: `VENCIMIENTO: ${item.texto}` }))
                 ];
-
                 criticalItems.forEach(item => {
                     const noticeDays = parseInt(item.avisoPrevio, 10);
                     if (!item.completed && noticeDays > 0 && item.dueDate) {
@@ -699,27 +692,15 @@
                     }
                 });
             });
-
             itemsToNotice.sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
             document.getElementById('advanceNoticeCount').textContent = itemsToNotice.length;
-
             if (itemsToNotice.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #666;">No hay avisos previos para los próximos días.</p>';
                 return;
             }
-
             container.innerHTML = itemsToNotice.map(({ client, item, daysDifference }) => {
-                const dateInfo = daysDifference === 0 
-                    ? '<span style="color: var(--danger-color);">Vence HOY</span>' 
-                    : `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
-                
-                return `<div class="review-item" onclick="showClientModal('${client.id}')">
-                            <div class="review-item-content">
-                                <div class="review-date">${dateInfo}</div>
-                                <div class="review-client">${getDisplayName(client)}</div>
-                                <div class="review-obs">${item.text}</div>
-                            </div>
-                        </div>`;
+                const dateInfo = daysDifference === 0 ? '<span style="color: var(--danger-color);">Vence HOY</span>' : `Vence en ${daysDifference} día${daysDifference > 1 ? 's' : ''} (${formatDate(item.dueDate)})`;
+                return `<div class="review-item" onclick="showClientModal('${client.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(client)}</div><div class="review-obs">${item.text}</div></div></div>`;
             }).join('');
         }
 
@@ -757,13 +738,13 @@
         function renderAllClientsList() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const estadoFilter = document.getElementById('estadoFilter').value;
-            const materiaFilter = document.getElementById('materiaFilter').value; // NUEVO FILTRO DE MATERIA
+            const materiaFilter = document.getElementById('materiaFilter').value;
 
             const filteredData = clientsData.filter(c => {
                 const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
                 return (!searchTerm || searchString.includes(searchTerm)) 
                     && (!estadoFilter || c.estado === estadoFilter)
-                    && (!materiaFilter || c.materia === materiaFilter); // APLICAR FILTRO DE MATERIA
+                    && (!materiaFilter || c.materia === materiaFilter); 
             }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
             
             document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
@@ -842,10 +823,9 @@
                 }
                 updateClientNextRevision(client);
                 
-                // CAMPOS A MOSTRAR (AÑADIDOS: titulo, materia)
                 const fieldsToShow = {
-                    titulo: 'Título (Sr/Sra)', // NUEVO
-                    materia: 'Materia', // NUEVO
+                    titulo: 'Título (Sr/Sra)',
+                    materia: 'Materia',
                     nombre: 'Nombre', 
                     dni: 'DNI', 
                     telefono: 'Teléfono', 
@@ -949,7 +929,7 @@
                         </div>
                     </div>
 
-                    <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
+                    <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn btn-warning" onclick="startConvenioGeneration('${client.id}')">⚖️ Generar Convenio</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
                 document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
                 document.getElementById('clientInfoModal').classList.add('active');
             } catch (err) {
@@ -957,6 +937,206 @@
                 alert("Ocurrió un error al intentar abrir la ficha. Por favor revise la consola para más detalles.");
             }
         }
+
+        // --- INICIO: Lógica para Generar Convenio ---
+        function startConvenioGeneration(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+
+            const modal = document.getElementById('convenioGenerationModal');
+            // Formulario para pedir los datos faltantes
+            const content = `
+                <span class="close" onclick="closeModal('convenioGenerationModal')">&times;</span>
+                <h2 style="margin-bottom: 15px;">⚖️ Generar Convenio de Honorarios</h2>
+                <form id="convenioForm" onsubmit="processConvenioData(event, '${clientId}')">
+                    <div class="info-grid">
+                        <div class="form-group"><label>Cliente</label><input type="text" value="${getDisplayName(client)}" readonly style="background:#eee;"></div>
+                        <div class="form-group"><label>DNI</label><input type="text" value="${client.dni || 'S/D'}" readonly style="background:#eee;"></div>
+                        <div class="form-group"><label>Domicilio Real del Cliente *</label><input type="text" id="convDomicilio" placeholder="Calle, N°, Localidad" required></div>
+                        <div class="form-group"><label>Objeto del Proceso *</label><input type="text" id="convObjeto" placeholder="Ej: DIVORCIO, ALIMENTOS" required></div>
+                        <div class="form-group"><label>Cantidad de JUS *</label><input type="number" id="convCantJus" step="0.5" value="1" required oninput="calculateConvenioTotal()"></div>
+                        <div class="form-group"><label>Valor del JUS ($) *</label><input type="number" id="convValorJus" value="44330" required oninput="calculateConvenioTotal()"></div>
+                        <div class="form-group"><label>Bonificación (%)</label><input type="number" id="convBonificacion" value="0" min="0" max="100" oninput="calculateConvenioTotal()"></div>
+                    </div>
+                    
+                    <div class="total-display" id="convTotalDisplay">
+                        Monto Total: $44.330,00
+                    </div>
+
+                    <div style="text-align:center; margin-top:20px;">
+                        <button type="submit" class="btn btn-success">🤖 Generar Convenio</button>
+                    </div>
+                </form>
+            `;
+            modal.querySelector('.modal-content').innerHTML = content;
+            modal.classList.add('active');
+            calculateConvenioTotal(); // Calcular inicial
+        }
+
+        function calculateConvenioTotal() {
+            const cant = parseFloat(document.getElementById('convCantJus').value) || 0;
+            const valor = parseFloat(document.getElementById('convValorJus').value) || 0;
+            const bonif = parseFloat(document.getElementById('convBonificacion').value) || 0;
+            
+            let total = cant * valor;
+            if (bonif > 0) {
+                total = total - (total * (bonif / 100));
+            }
+            
+            const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+            document.getElementById('convTotalDisplay').textContent = `Monto Total Mensual: ${formatter.format(total)}`;
+        }
+
+        async function processConvenioData(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId);
+            
+            // Recopilar datos del formulario
+            const domicilio = document.getElementById('convDomicilio').value;
+            const objeto = document.getElementById('convObjeto').value;
+            const cantJus = document.getElementById('convCantJus').value;
+            const valorJus = document.getElementById('convValorJus').value;
+            const bonif = document.getElementById('convBonificacion').value;
+            
+            // Calcular montos finales
+            const cantVal = parseFloat(cantJus);
+            const valorVal = parseFloat(valorJus);
+            const bonifVal = parseFloat(bonif);
+            let montoNum = cantVal * valorVal;
+            if (bonifVal > 0) montoNum = montoNum - (montoNum * (bonifVal/100));
+            
+            // Formateadores
+            const moneyFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+            const montoTexto = moneyFormatter.format(montoNum);
+            const valorJusTexto = moneyFormatter.format(valorVal);
+            const numeroALetras = (num) => { 
+                // Función muy básica de conversión, idealmente usar librería externa o servicio
+                // Por simplicidad, devolveremos el número formateado, pero en un caso real se usaría algo como 'numero-a-letras'
+                return num.toString(); 
+            }; 
+
+            // Datos fijos del estudio (tomados de tu descripción)
+            const estudio = {
+                nombre: "Estudio García & Asociados",
+                abogado: "Dra. CAMILA FLORENCIA RODRIGUEZ GARCIA",
+                matricula: "Tº XII Fº 383, del Colegio de Abogados del Departamento Judicial de Quilmes",
+                domicilio: "calle Zapiola N° 662 Bernal"
+            };
+
+            const fechaDia = new Date().getDate();
+            const fechaMes = new Date().toLocaleDateString('es-AR', { month: 'long' });
+            const fechaAnio = new Date().getFullYear();
+            
+            const tituloCliente = client.titulo === 'SR/SRA' ? 'Sr./Sra.' : (client.titulo || 'Sr./Sra.');
+
+            // TEXTO DEL CONVENIO (TEMPLATE LITERAL)
+            const convenioTexto = `CONVENIO DE HONORARIOS PROFESIONALES
+
+Entre el ${estudio.nombre}, representado en este acto por la ${estudio.abogado} abogada inscripta en el ${estudio.matricula}, con domicilio en la ${estudio.domicilio}, en adelante denominado EL ESTUDIO, y por la otra parte el ${tituloCliente} ${client.nombre} DNI: ${client.dni || '..................'} en adelante denominado EL CLIENTE, con domicilio en calle ${domicilio.toUpperCase()}, convienen en celebrar el presente convenio de honorarios el que se regirá por las siguientes cláusulas y condiciones.--------------------------------
+
+PRIMERA. OBJETO:
+EL CLIENTE encomienda a EL ESTUDIO, y este acepta:
+ a) La apertura del expediente de ${objeto.toUpperCase()} con diseño de una estrategia para el caso concreto.
+ b) Asesoramiento jurídico integral a fines de acompañarlo en el proceso.
+
+SEGUNDA. HONORARIOS:
+Con relación a los honorarios profesionales se pacta con EL CLIENTE que el trabajo encomendado en el punto a) se abonará de la siguiente manera:
+
+ ABONO MENSUAL (Punto b): Se pacta un abono mensual y consecutivo de ${cantJus.toUpperCase()} JUS ARANCELARIOS.
+     Considerando el valor del JUS de ${valorJusTexto} (pesos...), el monto fijo mensual asciende a ${montoTexto} (pesos...), a ser abonado del 1 al 10 de cada mes, hasta la finalización del proceso de ${objeto}. (Los montos están sujetos a modificaciones según lo dicte la Suprema Corte de Justicia de la Provincia de Buenos Aires).${bonifVal > 0 ? `\n     * Se aplicó una bonificación del ${bonifVal}% sobre el valor original.` : ''}
+
+ HONORARIOS FINALES (Punto a): Una vez dictada la sentencia judicial que ponga fin al proceso de ${objeto}, EL CLIENTE abonará la REGULACIÓN DE HONORARIOS que fije el Juzgado interviniente, la cual se pagará en cuotas mensuales y consecutivas, a ser convenidas al momento de la regulación.
+
+TERCERA: GASTOS:
+Por la presente “EL CLIENTE” reconoce que todos los gastos que se generen atinentes al asesoramiento que realizará “EL ESTUDIO” y la totalidad de aportes e impuestos de ley serán solventados por “EL CLIENTE”.
+
+CUARTA:
+En el caso que EL CLIENTE, rescinda, o deje sin efecto y sin causa justificada el presente contrato, continúa en su obligación de abonarle los honorarios convenidos a EL ESTUDIO, de acuerdo a los parámetros de la cláusula segunda del presente.--------------------------------
+
+QUINTA:
+EL CLIENTE: Se compromete por el presente a poner a disposición de EL ESTUDIO, en forma inmediata la totalidad de la documentación que este le requiera.---------------------------------------------
+
+SEXTA:
+Las partes pautan que la mora se producirá de pleno derecho y en forma automática, y sin necesidad de interpelación judicial, ni extrajudicial alguna, de acuerdo a lo normado por el Art. 886 del Código Civil y Comercial. Para cuyo caso se aplicará la tasa activa del Banco Provincia de Buenos Aires, al día del efectivo pago.---------------------------------------------
+
+SEPTIMA:
+El contrato se considerará resuelto de pleno derecho en el caso que EL CLIENTE incumpla en cualquiera de las obligaciones que se compromete por el presente, pudiendo en este caso EL ESTUDIO hacer el reclamo por los daños y perjuicios que se le hayan ocasionado.-------------------------------------------------------------------------
+
+OCTAVA:
+En el caso que EL CLIENTE incumpla en tiempo o forma con el pago de los honorarios profesionales fijados en el presente, EL ESTUDIO podrá ejercer la opción normada en el Art. 54 de la ley 14.967. A tales efectos las partes acuerdan al presente convenio el carácter de título ejecutivo, en los términos de los Art. 518 subsiguiente y concordantes del C.P.C.C. de la Provincia de Buenos Aires, debiendo ser integrado con la documentación que acredite el requerimiento de pago por medio fehaciente.--------------------------------------------------------------
+
+NOVENA:
+Para todos los efectos del presente convenio, las partes constituyen domicilio especial en los ut-supra referenciados; lugares estos en donde se tendrán por válidas y eficaces todas las notificaciones que se efectúen. Asimismo, acuerdan que será competente para conocer en cualquier cuestión vinculada al presente convenio la justicia ordinaria en lo Civil y Comercial del Departamento Judicial de Quilmes, haciendo desde ya renuncia expresa a cualquier otro fuero o jurisdicción que pudiere corresponderles.---------------------------------------------------------
+
+En prueba de conformidad, previa lectura y ratificación de las cláusulas que anteceden, firman las partes dos ejemplares de idéntico tenor y a un solo efecto, en el Partido de Quilmes, a los ${fechaDia} días del mes de ${fechaMes} de ${fechaAnio}.`;
+
+            // Mostrar el resultado (simulando "IA" con barra de progreso como en Siniestros)
+            const modalContent = document.getElementById('convenioGenerationModal').querySelector('.modal-content');
+            modalContent.innerHTML = `<h2 style="text-align:center;margin-bottom:20px;">🧠 Redactando Convenio...</h2><p id="progress-text" style="text-align:center;margin-bottom:10px;font-style:italic;color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
+            
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progress-text');
+            let width = 0;
+            const interval = setInterval(() => { 
+                width += 5; 
+                if (width >= 100) {
+                    clearInterval(interval);
+                    showGeneratedConvenio(convenioTexto);
+                } else {
+                    progressBar.style.width = width + '%';
+                    if (width > 30 && width < 70) progressText.textContent = "Calculando valores JUS y aplicando bonificaciones...";
+                    else if (width >= 70) progressText.textContent = "Aplicando formato legal...";
+                }
+            }, 50); // Rápido porque es local
+        }
+
+        function showGeneratedConvenio(text) {
+            const modalContent = document.getElementById('convenioGenerationModal').querySelector('.modal-content');
+            modalContent.innerHTML = `
+                <div class="print-area">
+                    <span class="close no-print" onclick="closeModal('convenioGenerationModal')">&times;</span>
+                    <h2 style="margin-bottom:14px;">✅ Convenio Generado</h2>
+                    <textarea id="generatedConvenioText" readonly style="width:100%;height:45vh;font-family:'Times New Roman', serif;font-size:1.1em;padding:15px;border:1px solid #ccc;border-radius:8px;line-height:1.5;">${text}</textarea>
+                </div>
+                <div class="action-buttons no-print" style="margin-top:15px;">
+                    <button class="btn btn-info" onclick="copyToClipboard('generatedConvenioText')">📋 Copiar Texto</button>
+                    <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
+                    <button class="btn btn-danger" onclick="downloadAsPDFConvenio()">📄 Descargar PDF</button>
+                    <button class="btn btn-success" onclick="downloadAsWordConvenio()">📄 Descargar Word</button>
+                    <button class="btn btn-warning" onclick="closeModal('convenioGenerationModal')">Cerrar</button>
+                </div>`;
+        }
+
+        function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); alert('✅ Texto copiado al portapeles.'); }
+        
+        function downloadAsPDFConvenio(){ 
+            const {jsPDF} = window.jspdf; 
+            const doc = new jsPDF({orientation:'p', unit:'mm', format:'a4'}); 
+            const text = document.getElementById('generatedConvenioText').value; 
+            
+            // Configurar fuente para que parezca más formal
+            doc.setFont("times", "normal");
+            doc.setFontSize(12);
+            
+            const splitText = doc.splitTextToSize(text, 170); // Margen
+            const pageHeight = doc.internal.pageSize.getHeight(); 
+            let y = 20; 
+            
+            for(let i=0; i<splitText.length; i++){ 
+                if (y > pageHeight - 20) { doc.addPage(); y = 20; } 
+                doc.text(splitText[i], 20, y); 
+                y += 6; 
+            } 
+            doc.save('Convenio_Honorarios.pdf'); 
+        }
+        
+        function downloadAsWordConvenio(){ 
+            const text = document.getElementById('generatedConvenioText').value; 
+            const content = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Times New Roman',serif;font-size:12pt;line-height:1.5;} pre{white-space:pre-wrap; font-family:'Times New Roman',serif;}</style></head><body><pre>${text}</pre></body></html>`; 
+            const blob = htmlDocx.asBlob(content); 
+            saveAs(blob, 'Convenio_Honorarios.doc'); 
+        }
+        // --- FIN: Lógica para Generar Convenio ---
 
         function renderHistoryList(client) {
             const tasks = (client.observaciones || []).map(obs => ({ ...obs, date: obs.proximaRevision, type: 'task' }));
