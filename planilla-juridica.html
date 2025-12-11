@@ -23,6 +23,7 @@
             --light-text: #ffffff;
             --border-radius: 12px;
             --shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --justina-color: #8e44ad;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -329,6 +330,128 @@
             .print-area .btn, .print-area .no-print { display: none; }
             #generatedConvenioText { white-space: pre-wrap; font-family: 'Times New Roman', serif; }
         }
+
+        /* --- ESTILOS DE JUSTINA (Asistente) --- */
+        .justina-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .justina-fab {
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            color: white;
+            font-size: 30px;
+            border: 2px solid white;
+        }
+        .justina-fab:hover { transform: scale(1.1); }
+        .justina-chat-window {
+            display: none;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .justina-header {
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .justina-header h3 { margin: 0; font-size: 1.1em; }
+        .justina-messages {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .message.bot {
+            background: #e8eaf6;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+        .message.user {
+            background: #8e44ad;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .justina-input-area {
+            padding: 10px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 8px;
+        }
+        .justina-input-area input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        .justina-input-area button {
+            background: #8e44ad;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        .quick-actions {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding: 5px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .quick-btn {
+            background: white;
+            border: 1px solid #8e44ad;
+            color: #8e44ad;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .quick-btn:hover { background: #8e44ad; color: white; }
     </style>
 </head>
 <body>
@@ -415,6 +538,32 @@
                 <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
             </section>
         </main>
+    </div>
+
+    <!-- UI DE JUSTINA -->
+    <div class="justina-container">
+        <div class="justina-chat-window" id="justinaWindow">
+            <div class="justina-header">
+                <h3>👩‍⚖️ Justina (Asistente)</h3>
+                <span style="cursor:pointer;" onclick="toggleJustina()">✖</span>
+            </div>
+            <div class="quick-actions">
+                <button class="quick-btn" onclick="sendQuickMessage('Resumen de hoy')">📅 Hoy</button>
+                <button class="quick-btn" onclick="sendQuickMessage('Próximos días')">🔮 Futuro</button>
+                <button class="quick-btn" onclick="sendQuickMessage('Audiencias')">🏛️ Audiencias</button>
+                <button class="quick-btn" onclick="sendQuickMessage('Nuevo cliente')">➕ Cliente</button>
+            </div>
+            <div class="justina-messages" id="justinaMessages">
+                <!-- Mensajes aquí -->
+            </div>
+            <div class="justina-input-area">
+                <input type="text" id="justinaInput" placeholder="Pregúntale a Justina..." onkeypress="handleJustinaEnter(event)">
+                <button onclick="processJustinaInput()">➤</button>
+            </div>
+        </div>
+        <div class="justina-fab" onclick="toggleJustina()" title="Hablar con Justina">
+            🤖
+        </div>
     </div>
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
@@ -1198,295 +1347,153 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
         
-        function editField(clientId, fieldName) {
-            if (editingField) return;
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            editingClientId = clientId; editingField = fieldName;
-            const fieldElement = document.getElementById(`field-${fieldName}`);
-            const currentValue = client[fieldName] || '';
-            const inputElement = (fieldName === 'notas') ? document.createElement('textarea') : document.createElement('input');
-            inputElement.value = currentValue;
-            
-            if (fieldName === 'notas') {
-                inputElement.style.cssText = 'width: 100%; height: 120px; font-family: inherit; font-size: inherit;';
-            } else {
-                inputElement.type = 'text';
+        // === LOGICA DE JUSTINA (ASISTENTE VIRTUAL) ===
+        function toggleJustina() {
+            const w = document.getElementById('justinaWindow');
+            if(w.style.display === 'flex') w.style.display = 'none';
+            else {
+                w.style.display = 'flex';
+                initJustina();
             }
-            
-            inputElement.addEventListener('blur', saveField);
-            inputElement.addEventListener('keydown', e => { if (e.key === 'Enter' && fieldName !== 'notas') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { editingClientId = null; editingField = null; showClientModal(clientId); } });
-            
-            fieldElement.innerHTML = '';
-            fieldElement.appendChild(inputElement);
-            inputElement.focus();
         }
-        
-        // NUEVA FUNCIÓN PARA EDITAR CAMPOS TIPO SELECT
-        function editFieldSelect(clientId, fieldName, options) {
-            if (editingField) return;
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            editingClientId = clientId; editingField = fieldName;
-            const fieldElement = document.getElementById(`field-${fieldName}`);
-            const currentValue = client[fieldName] || options[0]; // Usar la primera opción como fallback
+
+        function addJustinaMessage(text, sender) {
+            const container = document.getElementById('justinaMessages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            msgDiv.innerHTML = text;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function initJustina() {
+            const container = document.getElementById('justinaMessages');
+            if (container.children.length === 0) {
+                const hour = new Date().getHours();
+                let saludo = "Buenos días";
+                if (hour >= 13) saludo = "Buenas tardes";
+                if (hour >= 20) saludo = "Buenas noches";
+                
+                const tareasHoy = clientsData.filter(c => isToday(c.proximaRevision)).length;
+                
+                addJustinaMessage(`¡${saludo} Dra. Camila! Soy Justina, su asistente jurídica.<br><br>Hoy tiene <b>${tareasHoy} tareas</b> pendientes de revisión. ¿En qué puedo ayudarle?`, 'bot');
+            }
+        }
+
+        function handleJustinaEnter(e) {
+            if (e.key === 'Enter') processJustinaInput();
+        }
+
+        function sendQuickMessage(text) {
+            const input = document.getElementById('justinaInput');
+            input.value = text;
+            processJustinaInput();
+        }
+
+        function processJustinaInput() {
+            const input = document.getElementById('justinaInput');
+            const text = input.value.trim();
+            if (!text) return;
             
-            const selectElement = document.createElement('select');
-            selectElement.style.cssText = 'width: 100%; padding: 4px; font-family: inherit; font-size: inherit; border: 1px solid var(--primary-color); border-radius: 4px;';
-            
-            options.forEach(optionValue => {
-                const option = document.createElement('option');
-                option.value = optionValue;
-                option.textContent = optionValue;
-                if (optionValue === currentValue) {
-                    option.selected = true;
+            addJustinaMessage(text, 'user');
+            input.value = '';
+
+            setTimeout(() => {
+                const lowerText = text.toLowerCase();
+                let response = "";
+
+                // Lógica de "Inteligencia" básica
+                if (lowerText.includes('hola') || lowerText.includes('buenos días')) {
+                    response = "¡Hola Dra.! Lista para trabajar.";
+                } 
+                else if (lowerText.includes('resumen') || lowerText.includes('hoy')) {
+                    const hoy = clientsData.filter(c => isToday(c.proximaRevision));
+                    if (hoy.length === 0) response = "No tiene tareas marcadas para hoy. ¡Día despejado!";
+                    else {
+                        response = `Tiene ${hoy.length} tareas para hoy:<br>`;
+                        hoy.forEach(c => response += `• ${getDisplayName(c)}<br>`);
+                    }
                 }
-                selectElement.appendChild(option);
-            });
-            
-            selectElement.addEventListener('blur', saveFieldSelect);
-            selectElement.addEventListener('change', saveFieldSelect); // Guardar al cambiar para selects
-            
-            fieldElement.innerHTML = '';
-            fieldElement.appendChild(selectElement);
-            selectElement.focus();
+                else if (lowerText.includes('próximos') || lowerText.includes('mañana') || lowerText.includes('semana')) {
+                    const future = clientsData.filter(c => !c.completed && getDaysDifference(c.proximaRevision) > 0 && getDaysDifference(c.proximaRevision) <= 7);
+                    if (future.length === 0) response = "No veo tareas urgentes para los próximos 7 días.";
+                    else {
+                        response = "En la próxima semana:<br>";
+                        future.forEach(c => response += `• ${formatDate(c.proximaRevision)}: ${getDisplayName(c)}<br>`);
+                    }
+                }
+                else if (lowerText.includes('audiencia')) {
+                    const auds = [];
+                    clientsData.forEach(c => {
+                        (c.audiencias_list || []).forEach(a => {
+                            if (!a.completed && getDaysDifference(a.fecha) >= 0) {
+                                auds.push({ client: c, ...a });
+                            }
+                        });
+                    });
+                    
+                    if (auds.length === 0) response = "No hay audiencias pendientes registradas.";
+                    else {
+                        auds.sort((a,b) => a.fecha.localeCompare(b.fecha));
+                        response = "Sus próximas audiencias:<br>";
+                        auds.forEach(a => response += `• <b>${formatDate(a.fecha)} ${formatTime(a.hora)}</b>: ${getDisplayName(a.client)}<br>`);
+                    }
+                }
+                else if (lowerText.includes('nuevo cliente') || lowerText.includes('agregar caso')) {
+                    response = "Entendido, abriendo formulario de nuevo caso.";
+                    showNewClientModal();
+                }
+                else if (lowerText.includes('tarea') || lowerText.includes('historial') || lowerText.includes('agregar')) {
+                    // Intento de encontrar nombre
+                    const words = lowerText.split(' ');
+                    let foundClient = null;
+                    // Buscar coincidencia en nombres
+                    for (let w of words) {
+                        if (w.length > 3) {
+                            foundClient = clientsData.find(c => c.nombre.toLowerCase().includes(w));
+                            if (foundClient) break;
+                        }
+                    }
+                    
+                    if (foundClient) {
+                        response = `Abriendo la ficha de <b>${foundClient.nombre}</b> para que agregue la tarea.`;
+                        showClientModal(foundClient.id);
+                    } else {
+                        response = "Para agregar una tarea, dígame el apellido del cliente (ej: 'tarea Perez'). O abra la ficha manualmente.";
+                    }
+                }
+                else if (lowerText.includes('buscar') || lowerText.includes('busca')) {
+                     const words = lowerText.split(' ');
+                     // Tomar la última palabra como búsqueda simple
+                     const query = words[words.length - 1];
+                     const found = clientsData.filter(c => c.nombre.toLowerCase().includes(query));
+                     if(found.length === 1) {
+                         response = `Encontré a ${found[0].nombre}. Abriendo ficha...`;
+                         showClientModal(found[0].id);
+                     } else if (found.length > 1) {
+                         response = `Encontré ${found.length} casos con ese nombre. Por favor use el buscador general para filtrar.`;
+                     } else {
+                         response = "No encontré a nadie con ese nombre.";
+                     }
+                }
+                else {
+                    response = "No estoy segura de cómo hacer eso aún, Dra. Intente con 'resumen', 'audiencias' o 'nuevo cliente'.";
+                }
+
+                addJustinaMessage(response, 'bot');
+            }, 500);
         }
 
-        function saveField() {
-            if (!editingClientId || !editingField) return;
-            const client = clientsData.find(c => c.id === editingClientId);
-            const input = document.getElementById(`field-${editingField}`)?.querySelector('input, textarea');
-            if (client && input) {
-                client[editingField] = input.value;
-                saveData();
-            }
-            const tempId = editingClientId;
-            editingClientId = null; editingField = null;
-            renderAll();
-            showClientModal(tempId);
-        }
-        
-        // NUEVA FUNCIÓN PARA GUARDAR CAMPOS TIPO SELECT
-        function saveFieldSelect() {
-            if (!editingClientId || !editingField) return;
-            const client = clientsData.find(c => c.id === editingClientId);
-            const select = document.getElementById(`field-${editingField}`)?.querySelector('select');
-            if (client && select) {
-                client[editingField] = select.value;
-                saveData();
-            }
-            const tempId = editingClientId;
-            editingClientId = null; editingField = null;
-            renderAll();
-            showClientModal(tempId);
+        // === FUNCIONES FALTANTES AGREGADAS ===
+        function deleteClient(id) { 
+            if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { 
+                clientsData = clientsData.filter(c => c.id !== id); 
+                saveData(); 
+                renderAll(); 
+                closeModal('clientInfoModal'); 
+            } 
         }
 
-        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
-        
-        async function addAudience(event, clientId) {
-            event.preventDefault();
-            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
-            const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
-            const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
-            if (success) { client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
-        }
-        
-        async function addVencimiento(event, clientId) {
-            event.preventDefault();
-            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
-            const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, avisoPrevio: document.getElementById('newVencimientoAvisoPrevio').value, completed: false };
-            const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
-            if (success) { client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); }
-        }
-        
-        function addBonoAporte(event, clientId) {
-            event.preventDefault();
-            const client = clientsData.find(c => c.id === clientId); if (!client) return;
-
-            const bonoLeyPago = document.querySelector('input[name="bonoLeyPago"]:checked').value;
-            const bonoLeyFecha = document.getElementById('newBonoLeyFecha').value;
-            if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
-
-            const aportePago = document.querySelector('input[name="aportePago"]:checked').value;
-            const aporteFecha = document.getElementById('newAporteFecha').value;
-            if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
-
-            const iusPago = document.querySelector('input[name="iusPago"]:checked').value;
-            const iusFecha = document.getElementById('newIusFecha').value;
-            if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
-
-            const newBA = {
-                id: generateId({}),
-                bonoLeyPago, bonoLeyFecha,
-                bonoLeyCargo: document.getElementById('newBonoLeyCargo').value,
-                bonoLeyImporte: document.getElementById('newBonoLeyImporte').value,
-                aportePago, aporteFecha,
-                aporteCargo: document.getElementById('newAporteCargo').value,
-                aporteImporte: document.getElementById('newAporteImporte').value,
-                iusPago, iusFecha,
-                iusCargo: document.getElementById('newIusCargo').value,
-                iusImporte: document.getElementById('newIusImporte').value,
-                observacion: document.getElementById('newBAObservacion').value
-            };
-            
-            client.bonos_aportes_list.push(newBA);
-            saveData(); renderAll(); showClientModal(clientId);
-        }
-
-        function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
-        function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
-        
-        function editItem(clientId, itemId, itemType) {
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
-            const item = list.find(i => i.id === itemId);
-            if (!item) return;
-
-            const itemElement = document.getElementById(`${itemType}-item-${itemId}`);
-            const avisoOptions = ['0', '1', '2', '3', '7'].map(val => 
-                `<option value="${val}" ${item.avisoPrevio === val ? 'selected' : ''}>
-                    ${{0: 'Sin aviso', 1: '1 día antes', 2: '2 días antes', 3: '3 días antes', 7: '1 semana antes'}[val]}
-                </option>`
-            ).join('');
-
-            itemElement.innerHTML = `
-                <div class="form-group">
-                    <label>Descripción</label>
-                    <textarea id="edit-text-${itemId}" rows="2" class="form-group input">${item.texto}</textarea>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="form-group">
-                        <label>Fecha</label>
-                        <input type="date" id="edit-date-${itemId}" value="${item.fecha}" class="form-group input">
-                    </div>
-                    <div class="form-group">
-                        <label>Hora</label>
-                        <input type="time" id="edit-time-${itemId}" value="${item.hora}" class="form-group input">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Aviso Previo</label>
-                    <select id="edit-aviso-${itemId}">${avisoOptions}</select>
-                </div>
-                <button class="btn btn-success btn-sm" onclick="saveItemEdit('${clientId}', '${itemId}', '${itemType}')">Guardar</button>
-                <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
-        }
-        
-        function saveItemEdit(clientId, itemId, itemType) {
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
-            const item = list.find(i => i.id === itemId);
-            if (!item) return;
-
-            item.texto = document.getElementById(`edit-text-${itemId}`).value;
-            item.fecha = document.getElementById(`edit-date-${itemId}`).value;
-            item.hora = document.getElementById(`edit-time-${itemId}`).value;
-            item.avisoPrevio = document.getElementById(`edit-aviso-${itemId}`).value;
-
-            if (itemType === 'audience') { updateAudienciasSummary(client); }
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
-
-        function editBonoAporte(clientId, baId) {
-            const client = clientsData.find(c => c.id === clientId);
-            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
-            if (!ba) return;
-
-            const itemElement = document.getElementById(`bono_aporte-item-${baId}`);
-            const formHtml = `
-                <div style="padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                        <div>
-                            <h5>Bono Ley</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editBonoLeyPago-${baId}" value="Si" ${ (ba.bonoLeyPago || ba.bonoPago) === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editBonoLeyPago-${baId}" value="No" ${ (ba.bonoLeyPago || ba.bonoPago) !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editBonoLeyCargo-${baId}"><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editBonoLeyImporte-${baId}" value="${ba.bonoLeyImporte || ba.bonoImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="editBonoLeyFecha-${baId}" value="${ba.bonoLeyFecha || ba.bonoFecha || ''}"></div>
-                        </div>
-                        <div>
-                            <h5>Aportes</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editAportePago-${baId}" value="Si" ${ba.aportePago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editAportePago-${baId}" value="No" ${ba.aportePago !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editAporteCargo-${baId}"><option ${ba.aporteCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.aporteCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editAporteImporte-${baId}" value="${ba.aporteImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="editAporteFecha-${baId}" value="${ba.aporteFecha || ''}"></div>
-                        </div>
-                        <div>
-                            <h5>Ius Previsional</h5>
-                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editIusPago-${baId}" value="Si" ${ba.iusPago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editIusPago-${baId}" value="No" ${ba.iusPago !== 'Si' ? 'checked' : ''}> No</div></div>
-                            <div class="form-group"><label>A cargo de:</label><select id="editIusCargo-${baId}"><option ${ba.iusCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.iusCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
-                            <div class="form-group"><label>Importe $:</label><input type="number" id="editIusImporte-${baId}" value="${ba.iusImporte || ''}" step="0.01" placeholder="0.00"></div>
-                            <div class="form-group"><label>Fecha Ius:</label><input type="date" id="editIusFecha-${baId}" value="${ba.iusFecha || ''}"></div>
-                        </div>
-                    </div>
-                    <div class="form-group"><label>Observación General</label><textarea id="editBAObservacion-${baId}" rows="2">${ba.observacion || ''}</textarea></div>
-                    <button class="btn btn-success btn-sm" onclick="saveBonoAporteEdit('${clientId}', '${baId}')">Guardar Cambios</button>
-                    <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
-                </div>`;
-            itemElement.innerHTML = formHtml;
-        }
-
-        function saveBonoAporteEdit(clientId, baId) {
-            const client = clientsData.find(c => c.id === clientId);
-            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
-            if (!ba) return;
-
-            const bonoLeyPago = document.querySelector(`input[name="editBonoLeyPago-${baId}"]:checked`).value;
-            const bonoLeyFecha = document.getElementById(`editBonoLeyFecha-${baId}`).value;
-            if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
-
-            const aportePago = document.querySelector(`input[name="editAportePago-${baId}"]:checked`).value;
-            const aporteFecha = document.getElementById(`editAporteFecha-${baId}`).value;
-            if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
-
-            const iusPago = document.querySelector(`input[name="editIusPago-${baId}"]:checked`).value;
-            const iusFecha = document.getElementById(`editIusFecha-${baId}`).value;
-            if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
-
-            ba.bonoLeyPago = bonoLeyPago;
-            ba.bonoLeyCargo = document.getElementById(`editBonoLeyCargo-${baId}`).value;
-            ba.bonoLeyImporte = document.getElementById(`editBonoLeyImporte-${baId}`).value;
-            ba.bonoLeyFecha = bonoLeyFecha;
-
-            ba.aportePago = aportePago;
-            ba.aporteCargo = document.getElementById(`editAporteCargo-${baId}`).value;
-            ba.aporteImporte = document.getElementById(`editAporteImporte-${baId}`).value;
-            ba.aporteFecha = aporteFecha;
-
-            ba.iusPago = iusPago;
-            ba.iusCargo = document.getElementById(`editIusCargo-${baId}`).value;
-            ba.iusImporte = document.getElementById(`editIusImporte-${baId}`).value;
-            ba.iusFecha = iusFecha;
-            
-            ba.observacion = document.getElementById(`editBAObservacion-${baId}`).value;
-
-            saveData();
-            renderAll();
-            showClientModal(clientId);
-        }
-
-        function deleteItem(clientId, itemId, itemType) { 
-            const client = clientsData.find(c => c.id === clientId); if(!client) return; 
-            const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento', bono_aporte: 'registro de pagos'}[itemType]; 
-            if (!confirm(`¿Estás seguro de que quieres eliminar este/a ${itemName}?`)) return; 
-            if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); 
-            else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); 
-            else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId);
-            else if(itemType === 'bono_aporte') client.bonos_aportes_list = client.bonos_aportes_list.filter(item => item.id !== itemId);
-            updateClientNextRevision(client); 
-            updateAudienciasSummary(client); 
-            saveData(); 
-            renderAll(); 
-            showClientModal(clientId); 
-        }
-
-        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
-        
         function marcarEventoCompleto(event, clientId, eventId, eventType) {
             event?.stopPropagation();
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
@@ -1503,7 +1510,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 showClientModal(clientId);
             }
         }
-        
+
         function marcarAlertaCompleta(clientId, eventId, eventType) {
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             let eventItem;
@@ -1528,7 +1535,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
         }
-        
+
         function revisarAlertas() {
             const audienciasPorAlertar = clientsData.flatMap(client => 
                 (client.audiencias_list || [])
@@ -1543,7 +1550,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
             if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
         }
-        
+
         function iniciarVigilanteDeAlertas() {
             setTimeout(revisarAlertas, 2000);
             setInterval(revisarAlertas, 60000);
@@ -1612,8 +1619,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`;
                 }).join(' \n ');
                 return {
-                    'Título': c.titulo, // EXCEL AÑADIDO
-                    'Materia': c.materia, // EXCEL AÑADIDO
+                    'Título': c.titulo,
+                    'Materia': c.materia,
                     'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs
                 }
             });
@@ -1626,7 +1633,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function importData(){document.getElementById('importInput').click()}
         function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
         function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;
-            // AÑADIDO: titulo y materia a la impresión
             const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({titulo:'Título',materia:'Materia',nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;
             const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
@@ -1663,6 +1669,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             
             // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
             setTimeout(() => { unsavedChanges = false; }, 1000); 
+            
+            // INICIAR JUSTINA (SALUDO)
+            setTimeout(initJustina, 1500);
         });
         
         // NUEVO LISTENER PARA EVITAR SALIR SIN GUARDAR
