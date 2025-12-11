@@ -452,10 +452,12 @@
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
         let weeklyGlanceStartDate = new Date(); // Variable para controlar el inicio de la semana visible
+        let unsavedChanges = false; // NUEVA VARIABLE PARA CONTROLAR CAMBIOS
 
         // ========= FUNCIONES AUXILIARES Y DE FORMATO =========
         function saveData() {
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            unsavedChanges = true; // MARCAR QUE HAY CAMBIOS SIN SUBIR
             updateDataStatus('✅ Datos guardados localmente');
         }
 
@@ -1658,11 +1660,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
+            
+            // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
+            setTimeout(() => { unsavedChanges = false; }, 1000); 
         });
         
-        window.addEventListener('click', e => { 
-            if (e.target.classList.contains('modal')) {
-                closeModal(e.target.id); 
+        // NUEVO LISTENER PARA EVITAR SALIR SIN GUARDAR
+        window.addEventListener('beforeunload', (e) => {
+            if (unsavedChanges) {
+                e.preventDefault();
+                e.returnValue = ''; // Requerido por Chrome
             }
         });
     </script>
@@ -1732,8 +1739,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
 
         async function findDataFile(){updateDriveStatus('🔎 Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDriveStatus('✅ Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).',true)}}catch(e){console.error("Error buscando archivo:",e);updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`,true)}}
-        async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;updateDriveStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDriveStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
-        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();updateDriveStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
+        async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('💾 Guardando en Drive...',false);const content=JSON.stringify(clientsData);const metadata={name:GD_DATA_FILE,mimeType:'application/json'};try{let request;if(gdDataFileId){request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content})}else{request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'})}const response=await request;if(response.result.id)gdDataFileId=response.result.id;
+        unsavedChanges = false; // RESTABLECER BANDERA AL GUARDAR EN DRIVE
+        updateDriveStatus('✅ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDriveStatus(`❌ Error al guardar: ${errorMsg}`,true)}}
+        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('📥 Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();
+        unsavedChanges = false; // AL CARGAR DE DRIVE, ESTAMOS SINCRONIZADOS
+        updateDriveStatus('✅ Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
         async function showDocumentModal(clientId){if(!gapi.client.getToken()?.access_token)return alert('Conecta con Google Drive primero.');currentClientIdForDocs=clientId;localFilesForUpload=[];const client=clientsData.find(c=>c.id===clientId);if(!client)return;document.getElementById('documentModalTitle').innerText=`Documentos de: ${getDisplayName(client)}`;document.getElementById('documentModal').classList.add('active');renderLocalFileList();await renderDriveFileList();setupDragAndDrop()}
         function setupDragAndDrop(){const area=document.getElementById('uploadArea');['dragenter','dragover','dragleave','drop'].forEach(eName=>area.addEventListener(eName,e=>{e.preventDefault();e.stopPropagation()},false));['dragenter','dragover'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#eef5ff',false));['dragleave','drop'].forEach(eName=>area.addEventListener(eName,()=>area.style.background='#f9f9f9',false));area.addEventListener('drop',e=>processFiles(e.dataTransfer.files),false)}
         function processFiles(files){for(const file of files){const reader=new FileReader();reader.onload=e=>{localFilesForUpload.push({id:'local_'+Date.now(),name:file.name,type:file.type,size:file.size,dataUrl:e.target.result});renderLocalFileList()};reader.readAsDataURL(file)}}
