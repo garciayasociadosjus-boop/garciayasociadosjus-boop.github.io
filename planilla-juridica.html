@@ -964,7 +964,8 @@
             return `<div><h4 style="margin-top:20px;">Historial Completo de Pagos</h4>${itemsHtml}</div>`;
         }
 
-        function showClientModal(clientId) {
+        // Modificamos showClientModal para aceptar la accion 'audiencia'
+        function showClientModal(clientId, action = null) {
             try {
                 const client = clientsData.find(c => c.id === clientId); 
                 if (!client) {
@@ -1024,7 +1025,7 @@
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <div class="form-group" id="audiencia-card" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
                                 <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
                                 <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
                                     <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
@@ -1083,6 +1084,16 @@
                     <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn btn-warning" onclick="startConvenioGeneration('${client.id}')">⚖️ Generar Convenio</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
                 document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
                 document.getElementById('clientInfoModal').classList.add('active');
+
+                // AUTO-OPEN PARA ACCIONES DE JUSTINA
+                if(action === 'audiencia') {
+                   setTimeout(() => {
+                        const form = document.getElementById('audiencia-form-fields');
+                        if(form.style.display === 'none') toggleFormVisibility('audiencia-form-fields');
+                        document.getElementById('audiencia-card').scrollIntoView({ behavior: 'smooth' });
+                        document.getElementById('newAudienceText').focus();
+                   }, 500);
+                }
             } catch (err) {
                 console.error("Error al mostrar modal del cliente:", err);
                 alert("Ocurrió un error al intentar abrir la ficha. Por favor revise la consola para más detalles.");
@@ -1350,7 +1361,7 @@
                     resumen += `No tiene tareas urgentes hoy. ¡Todo al día!<br>`;
                 }
                 
-                resumen += `<br><i>Puede pedirme "Ver agenda", "Buscar a Pérez" o "Ayuda".</i>`;
+                resumen += `<br><i>Puede pedirme "Ver agenda", "Buscar a Pérez" o "Agendar audiencia a López".</i>`;
                 
                 addJustinaMessage(resumen, 'bot');
             }
@@ -1366,7 +1377,7 @@
             processJustinaInput();
         }
 
-        // NUEVA LÓGICA DE PROCESAMIENTO (INTENT DETECTION)
+        // NUEVA LÓGICA DE PROCESAMIENTO (INTENT DETECTION) - VERSIÓN CORREGIDA Y MEJORADA
         function processJustinaInput() {
             const input = document.getElementById('justinaInput');
             const text = input.value.trim();
@@ -1375,7 +1386,6 @@
             addJustinaMessage(text, 'user');
             input.value = '';
 
-            // Simular pensamiento breve
             setTimeout(() => {
                 const response = detectIntentAndExecute(text);
                 addJustinaMessage(response, 'bot');
@@ -1383,19 +1393,18 @@
         }
 
         function detectIntentAndExecute(text) {
-            // Normalizar texto: minúsculas y sin tildes para facilitar búsqueda
             const cleanText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             
-            // 1. AYUDA / CAPACIDADES
+            // 1. AYUDA
             if (cleanText.match(/(ayuda|que sabes hacer|que puedes hacer|comandos|hola|buen dia)/)) {
                 return `<b>👋 Hola, puedo ayudarte con:</b><br><br>
                 1. 📅 <b>Agenda:</b> "Ver agenda", "Qué tengo hoy", "Próximas revisiones", "Vencimientos".<br>
                 2. 🔍 <b>Buscar:</b> "Buscar a Pérez", "Ver caso Gómez".<br>
                 3. 🏛️ <b>Audiencias:</b> "¿Tengo audiencias?", "Próximas audiencias".<br>
-                4. 📝 <b>Gestión:</b> "Nuevo cliente", "Agregar tarea a López".`;
+                4. 📝 <b>Gestión:</b> "Nuevo cliente", "Agendar audiencia a López".`;
             }
 
-            // 2. AGENDA FUTURA / PRÓXIMAS REVISIONES
+            // 2. AGENDA FUTURA (ARREGLADO: Ordena correctamente por fecha)
             if (cleanText.match(/(proximas|futuro|mañana|semana|vencimientos|pendientes|revisar|agenda)/)) {
                 return getUpcomingReviews();
             }
@@ -1410,7 +1419,7 @@
             }
 
             // 4. AUDIENCIAS
-            if (cleanText.includes('audiencia')) {
+            if (cleanText.includes('audiencia') && !cleanText.includes('agendar') && !cleanText.includes('nueva')) {
                 const auds = [];
                 clientsData.forEach(c => {
                     (c.audiencias_list || []).forEach(a => {
@@ -1434,36 +1443,47 @@
                 return "📝 Abriendo formulario para nuevo caso...";
             }
 
-            // 6. BUSCAR CLIENTE ESPECÍFICO O AGREGAR TAREA
-            // Detectar nombre propio potencial (palabras de más de 3 letras que no sean comandos)
-            const words = cleanText.split(' ');
-            const ignoreWords = ['busc', 'ver', 'caso', 'de', 'el', 'la', 'ficha', 'expediente', 'para', 'agregar', 'tarea', 'nota', 'historia'];
-            let potentialName = words.find(w => w.length > 3 && !ignoreWords.some(ig => w.includes(ig)));
+            // 6. ACCIONES ESPECÍFICAS (AGENDAR AUDIENCIA / TAREA A CLIENTE)
+            // Lógica mejorada: Busca el nombre dentro de la frase
+            const actionMatch = cleanText.match(/(agendar|nueva|crear|agregar|buscar|ver) (audiencia|tarea|nota|caso|ficha|cliente) (a|para|de)?\s*(.*)/);
+            
+            if (actionMatch && actionMatch[4]) {
+                const intentAction = actionMatch[1]; // agendar, crear...
+                const intentType = actionMatch[2]; // audiencia, tarea...
+                const potentialName = actionMatch[4].trim(); // El nombre buscado
 
-            if (potentialName) {
-                // Buscar coincidencia parcial
-                const found = clientsData.filter(c => c.nombre.toLowerCase().includes(potentialName) || (c.caratula && c.caratula.toLowerCase().includes(potentialName)));
-                
-                if (found.length === 1) {
-                    if (cleanText.includes('tarea') || cleanText.includes('nota') || cleanText.includes('agregar')) {
-                        // Intención: Agregar tarea
-                        showClientModal(found[0].id);
-                        // Pequeño hack para enfocar el campo de tarea si fuera posible, por ahora solo abrimos ficha
-                        return `📂 Abriendo ficha de <b>${found[0].nombre}</b> para que edites.`;
-                    } else {
-                        // Intención: Solo ver
-                        showClientModal(found[0].id);
-                        return `🔍 Aquí tienes el caso de <b>${found[0].nombre}</b>.`;
-                    }
-                } else if (found.length > 1) {
-                    let resp = `🤔 Encontré ${found.length} coincidencias para "${potentialName}":<br>`;
-                    found.forEach(c => resp += `• <a href="#" onclick="showClientModal('${c.id}')">${getDisplayName(c)}</a><br>`);
-                    return resp;
+                if (potentialName.length > 2) {
+                     const found = clientsData.filter(c => c.nombre.toLowerCase().includes(potentialName) || (c.caratula && c.caratula.toLowerCase().includes(potentialName)));
+                     
+                     if (found.length === 1) {
+                         const client = found[0];
+                         if (intentType.includes('audiencia')) {
+                             showClientModal(client.id, 'audiencia'); // Abre ficha y despliega form audiencia
+                             return `✅ Entendido. Abriendo ficha de <b>${client.nombre}</b> para agendar la audiencia.`;
+                         } else {
+                             showClientModal(client.id);
+                             return `🔍 Aquí tienes el caso de <b>${client.nombre}</b>.`;
+                         }
+                     } else if (found.length > 1) {
+                         let resp = `🤔 Encontré varios clientes con "${potentialName}":<br>`;
+                         found.forEach(c => resp += `• <a href="#" onclick="showClientModal('${c.id}')">${getDisplayName(c)}</a><br>`);
+                         return resp;
+                     } else {
+                         return `🚫 No encontré ningún cliente llamado "${potentialName}". ¿Está bien escrito?`;
+                     }
                 }
             }
 
-            // DEFAULT
-            return "🤷‍♀️ No entendí bien esa orden. Intenta con 'Ayuda' para ver qué puedo hacer.";
+            // 7. BÚSQUEDA GENÉRICA (Si solo escribe un nombre)
+            if (!cleanText.includes(' ')) {
+                const found = clientsData.filter(c => c.nombre.toLowerCase().includes(cleanText) || (c.caratula && c.caratula.toLowerCase().includes(cleanText)));
+                if (found.length === 1) {
+                    showClientModal(found[0].id);
+                    return `🔍 Abriendo caso: <b>${found[0].nombre}</b>`;
+                }
+            }
+
+            return "🤷‍♀️ No entendí bien esa orden. Intenta ser más específico, por ejemplo: 'Agendar audiencia a Pérez'.";
         }
 
         function getUpcomingReviews() {
@@ -1472,10 +1492,10 @@
             
             if (future.length === 0) return "✅ No hay revisiones pendientes para el futuro próximo.";
             
-            future.sort((a,b) => a.proximaRevision.localeCompare(b.proximaRevision));
+            // ORDENAMIENTO POR FECHA REAL (Fix anterior)
+            future.sort((a,b) => new Date(a.proximaRevision) - new Date(b.proximaRevision));
             
             let resp = "<b>🔮 Agenda Futura (Próximos casos):</b><br>";
-            // Mostrar solo los primeros 7 para no saturar el chat
             future.slice(0, 7).forEach(c => {
                 const dias = getDaysDifference(c.proximaRevision);
                 resp += `• En ${dias} días (${formatDate(c.proximaRevision)}): <a href="#" onclick="showClientModal('${c.id}')">${c.nombre}</a><br>`;
