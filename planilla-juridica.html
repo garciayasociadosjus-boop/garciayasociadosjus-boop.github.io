@@ -23,7 +23,6 @@
             --light-text: #ffffff;
             --border-radius: 12px;
             --shadow: 0 10px 30px rgba(0,0,0,0.1);
-            --justina-color: #8e44ad;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -330,128 +329,6 @@
             .print-area .btn, .print-area .no-print { display: none; }
             #generatedConvenioText { white-space: pre-wrap; font-family: 'Times New Roman', serif; }
         }
-
-        /* --- ESTILOS DE JUSTINA (Asistente) --- */
-        .justina-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-        }
-        .justina-fab {
-            width: 65px;
-            height: 65px;
-            background: linear-gradient(135deg, #8e44ad, #9b59b6);
-            border-radius: 50%;
-            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.3s ease;
-            color: white;
-            font-size: 30px;
-            border: 2px solid white;
-        }
-        .justina-fab:hover { transform: scale(1.1); }
-        .justina-chat-window {
-            display: none;
-            width: 350px;
-            height: 500px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            margin-bottom: 15px;
-            flex-direction: column;
-            overflow: hidden;
-            border: 1px solid #e0e0e0;
-            animation: slideUp 0.3s ease;
-        }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .justina-header {
-            background: linear-gradient(135deg, #8e44ad, #9b59b6);
-            color: white;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .justina-header h3 { margin: 0; font-size: 1.1em; }
-        .justina-messages {
-            flex-grow: 1;
-            padding: 15px;
-            overflow-y: auto;
-            background: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .message {
-            max-width: 85%;
-            padding: 10px 14px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-        .message.bot {
-            background: #e8eaf6;
-            color: #333;
-            align-self: flex-start;
-            border-bottom-left-radius: 2px;
-        }
-        .message.user {
-            background: #8e44ad;
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 2px;
-        }
-        .justina-input-area {
-            padding: 10px;
-            background: white;
-            border-top: 1px solid #eee;
-            display: flex;
-            gap: 8px;
-        }
-        .justina-input-area input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            outline: none;
-        }
-        .justina-input-area button {
-            background: #8e44ad;
-            color: white;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.2em;
-        }
-        .quick-actions {
-            display: flex;
-            gap: 5px;
-            overflow-x: auto;
-            padding: 5px 15px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #eee;
-        }
-        .quick-btn {
-            background: white;
-            border: 1px solid #8e44ad;
-            color: #8e44ad;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.75em;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .quick-btn:hover { background: #8e44ad; color: white; }
     </style>
 </head>
 <body>
@@ -538,32 +415,6 @@
                 <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
             </section>
         </main>
-    </div>
-
-    <!-- UI DE JUSTINA -->
-    <div class="justina-container">
-        <div class="justina-chat-window" id="justinaWindow">
-            <div class="justina-header">
-                <h3>👩‍⚖️ Justina (Asistente)</h3>
-                <span style="cursor:pointer;" onclick="toggleJustina()">✖</span>
-            </div>
-            <div class="quick-actions">
-                <button class="quick-btn" onclick="sendQuickMessage('Resumen de hoy')">📅 Hoy</button>
-                <button class="quick-btn" onclick="sendQuickMessage('Próximos días')">🔮 Futuro</button>
-                <button class="quick-btn" onclick="sendQuickMessage('Audiencias')">🏛️ Audiencias</button>
-                <button class="quick-btn" onclick="sendQuickMessage('Nuevo cliente')">➕ Cliente</button>
-            </div>
-            <div class="justina-messages" id="justinaMessages">
-                <!-- Mensajes aquí -->
-            </div>
-            <div class="justina-input-area">
-                <input type="text" id="justinaInput" placeholder="Pregúntale a Justina..." onkeypress="handleJustinaEnter(event)">
-                <button onclick="processJustinaInput()">➤</button>
-            </div>
-        </div>
-        <div class="justina-fab" onclick="toggleJustina()" title="Hablar con Justina">
-            🤖
-        </div>
     </div>
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
@@ -964,8 +815,7 @@
             return `<div><h4 style="margin-top:20px;">Historial Completo de Pagos</h4>${itemsHtml}</div>`;
         }
 
-        // Modificamos showClientModal para aceptar la accion 'audiencia'
-        function showClientModal(clientId, action = null) {
+        function showClientModal(clientId) {
             try {
                 const client = clientsData.find(c => c.id === clientId); 
                 if (!client) {
@@ -1025,7 +875,7 @@
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-                            <div class="form-group" id="audiencia-card" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
+                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
                                 <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon">➕</span> Agendar Audiencia</h4>
                                 <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
                                     <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
@@ -1084,16 +934,6 @@
                     <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')">📁 Documentos</button><button class="btn btn-warning" onclick="startConvenioGeneration('${client.id}')">⚖️ Generar Convenio</button><button class="btn" onclick="printClientSheet('${client.id}')">🖨️ Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')">📜 Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')">🗑️ Eliminar</button></div>`;
                 document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
                 document.getElementById('clientInfoModal').classList.add('active');
-
-                // AUTO-OPEN PARA ACCIONES DE JUSTINA
-                if(action === 'audiencia') {
-                   setTimeout(() => {
-                        const form = document.getElementById('audiencia-form-fields');
-                        if(form.style.display === 'none') toggleFormVisibility('audiencia-form-fields');
-                        document.getElementById('audiencia-card').scrollIntoView({ behavior: 'smooth' });
-                        document.getElementById('newAudienceText').focus();
-                   }, 500);
-                }
             } catch (err) {
                 console.error("Error al mostrar modal del cliente:", err);
                 alert("Ocurrió un error al intentar abrir la ficha. Por favor revise la consola para más detalles.");
@@ -1191,10 +1031,48 @@
             
             const tituloCliente = client.titulo === 'SR/SRA' ? 'Sr./Sra.' : (client.titulo || 'Sr./Sra.');
 
-            // TEXTO DEL CONVENIO (TEMPLATE LITERAL CORREGIDO)
-            const convenioTexto = `CONVENIO DE HONORARIOS PROFESIONALES\n\nEntre el ${estudio.nombre}, representado en este acto por la ${estudio.abogado} abogada inscripta en el ${estudio.matricula}, con domicilio en la ${estudio.domicilio}, en adelante denominado EL ESTUDIO, y por la otra parte el ${tituloCliente} ${client.nombre} DNI: ${client.dni || '..................'} en adelante denominado EL CLIENTE, con domicilio en calle ${domicilio.toUpperCase()}, convienen en celebrar el presente convenio de honorarios el que se regirá por las siguientes cláusulas y condiciones.--------------------------------\n\nPRIMERA. OBJETO:\nEL CLIENTE encomienda a EL ESTUDIO, y este acepta:\n a) La apertura del expediente de ${objeto.toUpperCase()} con diseño de una estrategia para el caso concreto.\n b) Asesoramiento jurídico integral a fines de acompañarlo en el proceso.\n\nSEGUNDA. HONORARIOS:\nCon relación a los honorarios profesionales se pacta con EL CLIENTE que el trabajo encomendado en el punto a) se abonará de la siguiente manera:\n\n ABONO MENSUAL (Punto b): Se pacta un abono mensual y consecutivo de ${cantJus.toUpperCase()} JUS ARANCELARIOS.\n     Considerando el valor del JUS de ${valorJusTexto} (pesos...), el monto fijo mensual asciende a ${montoTexto} (pesos...), a ser abonado del 1 al 10 de cada mes, hasta la finalización del proceso de ${objeto}. (Los montos están sujetos a modificaciones según lo dicte la Suprema Corte de Justicia de la Provincia de Buenos Aires).${bonifVal > 0 ? `\n     * Se aplicó una bonificación del ${bonifVal}% sobre el valor original.` : ''}\n\n HONORARIOS FINALES (Punto a): Una vez dictada la sentencia judicial que ponga fin al proceso de ${objeto}, EL CLIENTE abonará la REGULACIÓN DE HONORARIOS que fije el Juzgado interviniente, la cual se pagará en cuotas mensuales y consecutivas, a ser convenidas al momento de la regulación.\n\nTERCERA: GASTOS:\nPor la presente “EL CLIENTE” reconoce que todos los gastos que se generen atinentes al asesoramiento que realizará “EL ESTUDIO” y la totalidad de aportes e impuestos de ley serán solventados por “EL CLIENTE”.\n\nCUARTA:\nEn el caso que EL CLIENTE, rescinda, o deje sin efecto y sin causa justificada el presente contrato, continúa en su obligación de abonarle los honorarios convenidos a EL ESTUDIO, de acuerdo a los parámetros de la cláusula segunda del presente.--------------------------------\n\nQUINTA:\nEL CLIENTE: Se compromete por el presente a poner a disposición de EL ESTUDIO, en forma inmediata la totalidad de la documentación que este le requiera.---------------------------------------------\n\nSEXTA:\nLas partes pautan que la mora se producirá de pleno derecho y en forma automática, y sin necesidad de interpelación judicial, ni extrajudicial alguna, de acuerdo a lo normado por el Art. 886 del Código Civil y Comercial. Para cuyo caso se aplicará la tasa activa del Banco Provincia de Buenos Aires, al día del efectivo pago.---------------------------------------------\n\nSEPTIMA:\nEl contrato se considerará resuelto de pleno derecho en el caso que EL CLIENTE incumpla en cualquiera de las obligaciones que se compromete por el presente, pudiendo en este caso EL ESTUDIO hacer el reclamo por los daños y perjuicios que se le hayan ocasionado.-------------------------------------------------------------------------\n\nOCTAVA:\nEn el caso que EL CLIENTE incumpla en tiempo o forma con el pago de los honorarios profesionales fijados en el presente, EL ESTUDIO podrá ejercer la opción normada en el Art. 54 de la ley 14.967. A tales efectos las partes acuerdan al presente convenio el carácter de título ejecutivo, en los términos de los Art. 518 subsiguiente y concordantes del C.P.C.C. de la Provincia de Buenos Aires, debiendo ser integrado con la documentación que acredite el requerimiento de pago por medio fehaciente.--------------------------------------------------------------\n\nNOVENA:\nPara todos los efectos del presente convenio, las partes constituyen domicilio especial en los ut-supra referenciados; lugares estos en donde se tendrán por válidas y eficaces todas las notificaciones que se efectúen. Asimismo, acuerdan que será competente para conocer en cualquier cuestión vinculada al presente convenio la justicia ordinaria en lo Civil y Comercial del Departamento Judicial de Quilmes, haciendo desde ya renuncia expresa a cualquier otro fuero o jurisdicción que pudiere corresponderles.---------------------------------------------------------\n\nEn prueba de conformidad, previa lectura y ratificación de las cláusulas que anteceden, firman las partes dos ejemplares de idéntico tenor y a un solo efecto, en el Partido de Quilmes, a los ${fechaDia} días del mes de ${fechaMes} de ${fechaAnio}.`;
+            // TEXTO DEL CONVENIO (TEMPLATE LITERAL)
+            const convenioTexto = `CONVENIO DE HONORARIOS PROFESIONALES
 
-            // Mostrar el resultado
+Entre el ${estudio.nombre}, representado en este acto por la ${estudio.abogado} abogada inscripta en el ${estudio.matricula}, con domicilio en la ${estudio.domicilio}, en adelante denominado EL ESTUDIO, y por la otra parte el ${tituloCliente} ${client.nombre} DNI: ${client.dni || '..................'} en adelante denominado EL CLIENTE, con domicilio en calle ${domicilio.toUpperCase()}, convienen en celebrar el presente convenio de honorarios el que se regirá por las siguientes cláusulas y condiciones.--------------------------------
+
+PRIMERA. OBJETO:
+EL CLIENTE encomienda a EL ESTUDIO, y este acepta:
+ a) La apertura del expediente de ${objeto.toUpperCase()} con diseño de una estrategia para el caso concreto.
+ b) Asesoramiento jurídico integral a fines de acompañarlo en el proceso.
+
+SEGUNDA. HONORARIOS:
+Con relación a los honorarios profesionales se pacta con EL CLIENTE que el trabajo encomendado en el punto a) se abonará de la siguiente manera:
+
+ ABONO MENSUAL (Punto b): Se pacta un abono mensual y consecutivo de ${cantJus.toUpperCase()} JUS ARANCELARIOS.
+     Considerando el valor del JUS de ${valorJusTexto} (pesos...), el monto fijo mensual asciende a ${montoTexto} (pesos...), a ser abonado del 1 al 10 de cada mes, hasta la finalización del proceso de ${objeto}. (Los montos están sujetos a modificaciones según lo dicte la Suprema Corte de Justicia de la Provincia de Buenos Aires).${bonifVal > 0 ? `\n     * Se aplicó una bonificación del ${bonifVal}% sobre el valor original.` : ''}
+
+ HONORARIOS FINALES (Punto a): Una vez dictada la sentencia judicial que ponga fin al proceso de ${objeto}, EL CLIENTE abonará la REGULACIÓN DE HONORARIOS que fije el Juzgado interviniente, la cual se pagará en cuotas mensuales y consecutivas, a ser convenidas al momento de la regulación.
+
+TERCERA: GASTOS:
+Por la presente “EL CLIENTE” reconoce que todos los gastos que se generen atinentes al asesoramiento que realizará “EL ESTUDIO” y la totalidad de aportes e impuestos de ley serán solventados por “EL CLIENTE”.
+
+CUARTA:
+En el caso que EL CLIENTE, rescinda, o deje sin efecto y sin causa justificada el presente contrato, continúa en su obligación de abonarle los honorarios convenidos a EL ESTUDIO, de acuerdo a los parámetros de la cláusula segunda del presente.--------------------------------
+
+QUINTA:
+EL CLIENTE: Se compromete por el presente a poner a disposición de EL ESTUDIO, en forma inmediata la totalidad de la documentación que este le requiera.---------------------------------------------
+
+SEXTA:
+Las partes pautan que la mora se producirá de pleno derecho y en forma automática, y sin necesidad de interpelación judicial, ni extrajudicial alguna, de acuerdo a lo normado por el Art. 886 del Código Civil y Comercial. Para cuyo caso se aplicará la tasa activa del Banco Provincia de Buenos Aires, al día del efectivo pago.---------------------------------------------
+
+SEPTIMA:
+El contrato se considerará resuelto de pleno derecho en el caso que EL CLIENTE incumpla en cualquiera de las obligaciones que se compromete por el presente, pudiendo en este caso EL ESTUDIO hacer el reclamo por los daños y perjuicios que se le hayan ocasionado.-------------------------------------------------------------------------
+
+OCTAVA:
+En el caso que EL CLIENTE incumpla en tiempo o forma con el pago de los honorarios profesionales fijados en el presente, EL ESTUDIO podrá ejercer la opción normada en el Art. 54 de la ley 14.967. A tales efectos las partes acuerdan al presente convenio el carácter de título ejecutivo, en los términos de los Art. 518 subsiguiente y concordantes del C.P.C.C. de la Provincia de Buenos Aires, debiendo ser integrado con la documentación que acredite el requerimiento de pago por medio fehaciente.--------------------------------------------------------------
+
+NOVENA:
+Para todos los efectos del presente convenio, las partes constituyen domicilio especial en los ut-supra referenciados; lugares estos en donde se tendrán por válidas y eficaces todas las notificaciones que se efectúen. Asimismo, acuerdan que será competente para conocer en cualquier cuestión vinculada al presente convenio la justicia ordinaria en lo Civil y Comercial del Departamento Judicial de Quilmes, haciendo desde ya renuncia expresa a cualquier otro fuero o jurisdicción que pudiere corresponderles.---------------------------------------------------------
+
+En prueba de conformidad, previa lectura y ratificación de las cláusulas que anteceden, firman las partes dos ejemplares de idéntico tenor y a un solo efecto, en el Partido de Quilmes, a los ${fechaDia} días del mes de ${fechaMes} de ${fechaAnio}.`;
+
+            // Mostrar el resultado (simulando "IA" con barra de progreso como en Siniestros)
             const modalContent = document.getElementById('convenioGenerationModal').querySelector('.modal-content');
             modalContent.innerHTML = `<h2 style="text-align:center;margin-bottom:20px;">🧠 Redactando Convenio...</h2><p id="progress-text" style="text-align:center;margin-bottom:10px;font-style:italic;color:#555;">Iniciando proceso...</p><div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>`;
             
@@ -1320,210 +1198,295 @@
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
         
-        // === LOGICA DE JUSTINA (ASISTENTE VIRTUAL MEJORADO) ===
-        function toggleJustina() {
-            const w = document.getElementById('justinaWindow');
-            if(w.style.display === 'flex') w.style.display = 'none';
-            else {
-                w.style.display = 'flex';
-                initJustina();
-                document.getElementById('justinaInput').focus();
-            }
-        }
-
-        function addJustinaMessage(text, sender) {
-            const container = document.getElementById('justinaMessages');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `message ${sender}`;
-            msgDiv.innerHTML = text;
-            container.appendChild(msgDiv);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function initJustina() {
-            const container = document.getElementById('justinaMessages');
-            if (container.children.length === 0) {
-                const hour = new Date().getHours();
-                let saludo = "Buenos días";
-                if (hour >= 13) saludo = "Buenas tardes";
-                if (hour >= 20) saludo = "Buenas noches";
-                
-                const tareasHoy = clientsData.filter(c => isToday(c.proximaRevision) && !c.completed).length;
-                const tareasVencidas = clientsData.filter(c => isPastDue(c.proximaRevision) && !c.completed).length;
-                
-                let resumen = `¡${saludo} Dra. Camila! Soy Justina, su asistente.<br><br>`;
-                
-                if (tareasHoy > 0 || tareasVencidas > 0) {
-                    resumen += `Tengo para reportar:<br>`;
-                    if (tareasHoy > 0) resumen += `• <b>${tareasHoy}</b> tareas para hoy.<br>`;
-                    if (tareasVencidas > 0) resumen += `• <b style="color:var(--danger-color);">${tareasVencidas}</b> tareas vencidas.<br>`;
-                } else {
-                    resumen += `No tiene tareas urgentes hoy. ¡Todo al día!<br>`;
-                }
-                
-                resumen += `<br><i>Puede pedirme "Ver agenda", "Buscar a Pérez" o "Agendar audiencia a López".</i>`;
-                
-                addJustinaMessage(resumen, 'bot');
-            }
-        }
-
-        function handleJustinaEnter(e) {
-            if (e.key === 'Enter') processJustinaInput();
-        }
-
-        function sendQuickMessage(text) {
-            const input = document.getElementById('justinaInput');
-            input.value = text;
-            processJustinaInput();
-        }
-
-        // NUEVA LÓGICA DE PROCESAMIENTO (INTENT DETECTION) - VERSIÓN CORREGIDA Y MEJORADA
-        function processJustinaInput() {
-            const input = document.getElementById('justinaInput');
-            const text = input.value.trim();
-            if (!text) return;
+        function editField(clientId, fieldName) {
+            if (editingField) return;
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            editingClientId = clientId; editingField = fieldName;
+            const fieldElement = document.getElementById(`field-${fieldName}`);
+            const currentValue = client[fieldName] || '';
+            const inputElement = (fieldName === 'notas') ? document.createElement('textarea') : document.createElement('input');
+            inputElement.value = currentValue;
             
-            addJustinaMessage(text, 'user');
-            input.value = '';
-
-            setTimeout(() => {
-                const response = detectIntentAndExecute(text);
-                addJustinaMessage(response, 'bot');
-            }, 600);
-        }
-
-        function detectIntentAndExecute(text) {
-            const cleanText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (fieldName === 'notas') {
+                inputElement.style.cssText = 'width: 100%; height: 120px; font-family: inherit; font-size: inherit;';
+            } else {
+                inputElement.type = 'text';
+            }
             
-            // 1. AYUDA
-            if (cleanText.match(/(ayuda|que sabes hacer|que puedes hacer|comandos|hola|buen dia)/)) {
-                return `<b>👋 Hola, puedo ayudarte con:</b><br><br>
-                1. 📅 <b>Agenda:</b> "Ver agenda", "Qué tengo hoy", "Próximas revisiones", "Vencimientos".<br>
-                2. 🔍 <b>Buscar:</b> "Buscar a Pérez", "Ver caso Gómez".<br>
-                3. 🏛️ <b>Audiencias:</b> "¿Tengo audiencias?", "Próximas audiencias".<br>
-                4. 📝 <b>Gestión:</b> "Nuevo cliente", "Agendar audiencia a López".`;
-            }
-
-            // 2. AGENDA FUTURA (ARREGLADO: Ordena correctamente por fecha)
-            if (cleanText.match(/(proximas|futuro|mañana|semana|vencimientos|pendientes|revisar|agenda)/)) {
-                return getUpcomingReviews();
-            }
-
-            // 3. RESUMEN DE HOY
-            if (cleanText.match(/(hoy|dia|resumen)/)) {
-                const hoy = clientsData.filter(c => isToday(c.proximaRevision) && !c.completed);
-                if (hoy.length === 0) return "✅ No tiene tareas pendientes para hoy.";
-                let resp = `<b>📅 Tareas para Hoy (${hoy.length}):</b><br>`;
-                hoy.forEach(c => resp += `• <a href="#" onclick="showClientModal('${c.id}')">${getDisplayName(c)}</a><br>`);
-                return resp;
-            }
-
-            // 4. AUDIENCIAS
-            if (cleanText.includes('audiencia') && !cleanText.includes('agendar') && !cleanText.includes('nueva')) {
-                const auds = [];
-                clientsData.forEach(c => {
-                    (c.audiencias_list || []).forEach(a => {
-                        if (!a.completed && getDaysDifference(a.fecha) >= 0) {
-                            auds.push({ client: c, ...a });
-                        }
-                    });
-                });
-                
-                if (auds.length === 0) return "🏛️ No encontré audiencias pendientes en el futuro próximo.";
-                auds.sort((a,b) => a.fecha.localeCompare(b.fecha));
-                let resp = "<b>🏛️ Próximas Audiencias:</b><br>";
-                auds.slice(0, 5).forEach(a => resp += `• ${formatDate(a.fecha)} ${formatTime(a.hora)}: <b>${getDisplayName(a.client)}</b><br>`);
-                if (auds.length > 5) resp += `<i>...y ${auds.length - 5} más.</i>`;
-                return resp;
-            }
-
-            // 5. NUEVO CLIENTE
-            if (cleanText.match(/(nuevo|agregar|crear) (cliente|caso|expediente)/)) {
-                showNewClientModal();
-                return "📝 Abriendo formulario para nuevo caso...";
-            }
-
-            // 6. ACCIONES ESPECÍFICAS (AGENDAR AUDIENCIA / TAREA A CLIENTE)
-            // Lógica mejorada: Busca el nombre dentro de la frase
-            const actionMatch = cleanText.match(/(agendar|nueva|crear|agregar|buscar|ver) (audiencia|tarea|nota|caso|ficha|cliente) (a|para|de)?\s*(.*)/);
+            inputElement.addEventListener('blur', saveField);
+            inputElement.addEventListener('keydown', e => { if (e.key === 'Enter' && fieldName !== 'notas') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { editingClientId = null; editingField = null; showClientModal(clientId); } });
             
-            if (actionMatch && actionMatch[4]) {
-                const intentAction = actionMatch[1]; // agendar, crear...
-                const intentType = actionMatch[2]; // audiencia, tarea...
-                const potentialName = actionMatch[4].trim(); // El nombre buscado
-
-                if (potentialName.length > 2) {
-                     const found = clientsData.filter(c => c.nombre.toLowerCase().includes(potentialName) || (c.caratula && c.caratula.toLowerCase().includes(potentialName)));
-                     
-                     if (found.length === 1) {
-                         const client = found[0];
-                         if (intentType.includes('audiencia')) {
-                             showClientModal(client.id, 'audiencia'); // Abre ficha y despliega form audiencia
-                             return `✅ Entendido. Abriendo ficha de <b>${client.nombre}</b> para agendar la audiencia.`;
-                         } else {
-                             showClientModal(client.id);
-                             return `🔍 Aquí tienes el caso de <b>${client.nombre}</b>.`;
-                         }
-                     } else if (found.length > 1) {
-                         let resp = `🤔 Encontré varios clientes con "${potentialName}":<br>`;
-                         found.forEach(c => resp += `• <a href="#" onclick="showClientModal('${c.id}')">${getDisplayName(c)}</a><br>`);
-                         return resp;
-                     } else {
-                         return `🚫 No encontré ningún cliente llamado "${potentialName}". ¿Está bien escrito?`;
-                     }
-                }
-            }
-
-            // 7. BÚSQUEDA GENÉRICA (Si solo escribe un nombre)
-            if (!cleanText.includes(' ')) {
-                const found = clientsData.filter(c => c.nombre.toLowerCase().includes(cleanText) || (c.caratula && c.caratula.toLowerCase().includes(cleanText)));
-                if (found.length === 1) {
-                    showClientModal(found[0].id);
-                    return `🔍 Abriendo caso: <b>${found[0].nombre}</b>`;
-                }
-            }
-
-            return "🤷‍♀️ No entendí bien esa orden. Intenta ser más específico, por ejemplo: 'Agendar audiencia a Pérez'.";
-        }
-
-        function getUpcomingReviews() {
-            // Filtrar tareas desde MAÑANA en adelante
-            const future = clientsData.filter(c => !c.completed && getDaysDifference(c.proximaRevision) > 0);
-            
-            if (future.length === 0) return "✅ No hay revisiones pendientes para el futuro próximo.";
-            
-            // ORDENAMIENTO POR FECHA REAL (Fix anterior)
-            future.sort((a,b) => new Date(a.proximaRevision) - new Date(b.proximaRevision));
-            
-            let resp = "<b>🔮 Agenda Futura (Próximos casos):</b><br>";
-            future.slice(0, 7).forEach(c => {
-                const dias = getDaysDifference(c.proximaRevision);
-                resp += `• En ${dias} días (${formatDate(c.proximaRevision)}): <a href="#" onclick="showClientModal('${c.id}')">${c.nombre}</a><br>`;
-            });
-            
-            if (future.length > 7) resp += `<i>... y ${future.length - 7} casos más.</i>`;
-            return resp;
+            fieldElement.innerHTML = '';
+            fieldElement.appendChild(inputElement);
+            inputElement.focus();
         }
         
-        function findClientAndOpen(query) {
-             const found = clientsData.find(c => c.nombre.toLowerCase().includes(query) || c.caratula.toLowerCase().includes(query));
-             if (found) {
-                 showClientModal(found.id);
-                 return true;
-             }
-             return false;
+        // NUEVA FUNCIÓN PARA EDITAR CAMPOS TIPO SELECT
+        function editFieldSelect(clientId, fieldName, options) {
+            if (editingField) return;
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            editingClientId = clientId; editingField = fieldName;
+            const fieldElement = document.getElementById(`field-${fieldName}`);
+            const currentValue = client[fieldName] || options[0]; // Usar la primera opción como fallback
+            
+            const selectElement = document.createElement('select');
+            selectElement.style.cssText = 'width: 100%; padding: 4px; font-family: inherit; font-size: inherit; border: 1px solid var(--primary-color); border-radius: 4px;';
+            
+            options.forEach(optionValue => {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.textContent = optionValue;
+                if (optionValue === currentValue) {
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
+            });
+            
+            selectElement.addEventListener('blur', saveFieldSelect);
+            selectElement.addEventListener('change', saveFieldSelect); // Guardar al cambiar para selects
+            
+            fieldElement.innerHTML = '';
+            fieldElement.appendChild(selectElement);
+            selectElement.focus();
         }
 
-        // === FUNCIONES FALTANTES AGREGADAS ===
-        function deleteClient(id) { 
-            if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { 
-                clientsData = clientsData.filter(c => c.id !== id); 
-                saveData(); 
-                renderAll(); 
-                closeModal('clientInfoModal'); 
-            } 
+        function saveField() {
+            if (!editingClientId || !editingField) return;
+            const client = clientsData.find(c => c.id === editingClientId);
+            const input = document.getElementById(`field-${editingField}`)?.querySelector('input, textarea');
+            if (client && input) {
+                client[editingField] = input.value;
+                saveData();
+            }
+            const tempId = editingClientId;
+            editingClientId = null; editingField = null;
+            renderAll();
+            showClientModal(tempId);
+        }
+        
+        // NUEVA FUNCIÓN PARA GUARDAR CAMPOS TIPO SELECT
+        function saveFieldSelect() {
+            if (!editingClientId || !editingField) return;
+            const client = clientsData.find(c => c.id === editingClientId);
+            const select = document.getElementById(`field-${editingField}`)?.querySelector('select');
+            if (client && select) {
+                client[editingField] = select.value;
+                saveData();
+            }
+            const tempId = editingClientId;
+            editingClientId = null; editingField = null;
+            renderAll();
+            showClientModal(tempId);
         }
 
+        async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        
+        async function addAudience(event, clientId) {
+            event.preventDefault();
+            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
+            const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
+            if (success) { client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
+        }
+        
+        async function addVencimiento(event, clientId) {
+            event.preventDefault();
+            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+            const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, avisoPrevio: document.getElementById('newVencimientoAvisoPrevio').value, completed: false };
+            const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
+            if (success) { client.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showClientModal(clientId); }
+        }
+        
+        function addBonoAporte(event, clientId) {
+            event.preventDefault();
+            const client = clientsData.find(c => c.id === clientId); if (!client) return;
+
+            const bonoLeyPago = document.querySelector('input[name="bonoLeyPago"]:checked').value;
+            const bonoLeyFecha = document.getElementById('newBonoLeyFecha').value;
+            if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
+
+            const aportePago = document.querySelector('input[name="aportePago"]:checked').value;
+            const aporteFecha = document.getElementById('newAporteFecha').value;
+            if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
+
+            const iusPago = document.querySelector('input[name="iusPago"]:checked').value;
+            const iusFecha = document.getElementById('newIusFecha').value;
+            if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
+
+            const newBA = {
+                id: generateId({}),
+                bonoLeyPago, bonoLeyFecha,
+                bonoLeyCargo: document.getElementById('newBonoLeyCargo').value,
+                bonoLeyImporte: document.getElementById('newBonoLeyImporte').value,
+                aportePago, aporteFecha,
+                aporteCargo: document.getElementById('newAporteCargo').value,
+                aporteImporte: document.getElementById('newAporteImporte').value,
+                iusPago, iusFecha,
+                iusCargo: document.getElementById('newIusCargo').value,
+                iusImporte: document.getElementById('newIusImporte').value,
+                observacion: document.getElementById('newBAObservacion').value
+            };
+            
+            client.bonos_aportes_list.push(newBA);
+            saveData(); renderAll(); showClientModal(clientId);
+        }
+
+        function editObs(clientId, obsId) { const obs = clientsData.find(c => c.id === clientId)?.observaciones.find(o => o.id === obsId); if(!obs) return; const itemElement = document.getElementById(`task-item-${obsId}`); itemElement.innerHTML = `<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${obsId}" rows="2" class="form-group input">${obs.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${obsId}" rows="2" class="form-group input">${obs.textoPrivado || ''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${obsId}" value="${obs.proximaRevision}" class="form-group input"></div><button class="btn btn-success btn-sm" onclick="saveObsEdit('${clientId}', '${obsId}')">Guardar</button><button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`; }
+        function saveObsEdit(clientId, obsId) { const client = clientsData.find(c => c.id === clientId); const obs = client?.observaciones.find(o => o.id === obsId); if(!obs) return; obs.texto = document.getElementById(`edit-obs-text-${obsId}`).value; obs.textoPrivado = document.getElementById(`edit-obs-private-${obsId}`).value; obs.proximaRevision = document.getElementById(`edit-obs-revision-${obsId}`).value; updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
+        
+        function editItem(clientId, itemId, itemType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const item = list.find(i => i.id === itemId);
+            if (!item) return;
+
+            const itemElement = document.getElementById(`${itemType}-item-${itemId}`);
+            const avisoOptions = ['0', '1', '2', '3', '7'].map(val => 
+                `<option value="${val}" ${item.avisoPrevio === val ? 'selected' : ''}>
+                    ${{0: 'Sin aviso', 1: '1 día antes', 2: '2 días antes', 3: '3 días antes', 7: '1 semana antes'}[val]}
+                </option>`
+            ).join('');
+
+            itemElement.innerHTML = `
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="edit-text-${itemId}" rows="2" class="form-group input">${item.texto}</textarea>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Fecha</label>
+                        <input type="date" id="edit-date-${itemId}" value="${item.fecha}" class="form-group input">
+                    </div>
+                    <div class="form-group">
+                        <label>Hora</label>
+                        <input type="time" id="edit-time-${itemId}" value="${item.hora}" class="form-group input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Aviso Previo</label>
+                    <select id="edit-aviso-${itemId}">${avisoOptions}</select>
+                </div>
+                <button class="btn btn-success btn-sm" onclick="saveItemEdit('${clientId}', '${itemId}', '${itemType}')">Guardar</button>
+                <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>`;
+        }
+        
+        function saveItemEdit(clientId, itemId, itemType) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const list = itemType === 'audience' ? client.audiencias_list : client.vencimientos_list;
+            const item = list.find(i => i.id === itemId);
+            if (!item) return;
+
+            item.texto = document.getElementById(`edit-text-${itemId}`).value;
+            item.fecha = document.getElementById(`edit-date-${itemId}`).value;
+            item.hora = document.getElementById(`edit-time-${itemId}`).value;
+            item.avisoPrevio = document.getElementById(`edit-aviso-${itemId}`).value;
+
+            if (itemType === 'audience') { updateAudienciasSummary(client); }
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+
+        function editBonoAporte(clientId, baId) {
+            const client = clientsData.find(c => c.id === clientId);
+            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
+            if (!ba) return;
+
+            const itemElement = document.getElementById(`bono_aporte-item-${baId}`);
+            const formHtml = `
+                <div style="padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h5>Bono Ley</h5>
+                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editBonoLeyPago-${baId}" value="Si" ${ (ba.bonoLeyPago || ba.bonoPago) === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editBonoLeyPago-${baId}" value="No" ${ (ba.bonoLeyPago || ba.bonoPago) !== 'Si' ? 'checked' : ''}> No</div></div>
+                            <div class="form-group"><label>A cargo de:</label><select id="editBonoLeyCargo-${baId}"><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ (ba.bonoLeyCargo || ba.bonoCargo) === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
+                            <div class="form-group"><label>Importe $:</label><input type="number" id="editBonoLeyImporte-${baId}" value="${ba.bonoLeyImporte || ba.bonoImporte || ''}" step="0.01" placeholder="0.00"></div>
+                            <div class="form-group"><label>Fecha Bono Ley:</label><input type="date" id="editBonoLeyFecha-${baId}" value="${ba.bonoLeyFecha || ba.bonoFecha || ''}"></div>
+                        </div>
+                        <div>
+                            <h5>Aportes</h5>
+                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editAportePago-${baId}" value="Si" ${ba.aportePago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editAportePago-${baId}" value="No" ${ba.aportePago !== 'Si' ? 'checked' : ''}> No</div></div>
+                            <div class="form-group"><label>A cargo de:</label><select id="editAporteCargo-${baId}"><option ${ba.aporteCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.aporteCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
+                            <div class="form-group"><label>Importe $:</label><input type="number" id="editAporteImporte-${baId}" value="${ba.aporteImporte || ''}" step="0.01" placeholder="0.00"></div>
+                            <div class="form-group"><label>Fecha Aporte:</label><input type="date" id="editAporteFecha-${baId}" value="${ba.aporteFecha || ''}"></div>
+                        </div>
+                        <div>
+                            <h5>Ius Previsional</h5>
+                            <div class="form-group"><label>Pago:</label><div><input type="radio" name="editIusPago-${baId}" value="Si" ${ba.iusPago === 'Si' ? 'checked' : ''}> Sí <input type="radio" name="editIusPago-${baId}" value="No" ${ba.iusPago !== 'Si' ? 'checked' : ''}> No</div></div>
+                            <div class="form-group"><label>A cargo de:</label><select id="editIusCargo-${baId}"><option ${ba.iusCargo === 'Estudio' ? 'selected' : ''}>Estudio</option><option ${ba.iusCargo === 'Cliente' ? 'selected' : ''}>Cliente</option></select></div>
+                            <div class="form-group"><label>Importe $:</label><input type="number" id="editIusImporte-${baId}" value="${ba.iusImporte || ''}" step="0.01" placeholder="0.00"></div>
+                            <div class="form-group"><label>Fecha Ius:</label><input type="date" id="editIusFecha-${baId}" value="${ba.iusFecha || ''}"></div>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Observación General</label><textarea id="editBAObservacion-${baId}" rows="2">${ba.observacion || ''}</textarea></div>
+                    <button class="btn btn-success btn-sm" onclick="saveBonoAporteEdit('${clientId}', '${baId}')">Guardar Cambios</button>
+                    <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
+                </div>`;
+            itemElement.innerHTML = formHtml;
+        }
+
+        function saveBonoAporteEdit(clientId, baId) {
+            const client = clientsData.find(c => c.id === clientId);
+            const ba = client?.bonos_aportes_list.find(item => item.id === baId);
+            if (!ba) return;
+
+            const bonoLeyPago = document.querySelector(`input[name="editBonoLeyPago-${baId}"]:checked`).value;
+            const bonoLeyFecha = document.getElementById(`editBonoLeyFecha-${baId}`).value;
+            if (bonoLeyPago === 'Si' && !bonoLeyFecha) { alert('Debe ingresar la fecha para el Bono Ley pagado.'); return; }
+
+            const aportePago = document.querySelector(`input[name="editAportePago-${baId}"]:checked`).value;
+            const aporteFecha = document.getElementById(`editAporteFecha-${baId}`).value;
+            if (aportePago === 'Si' && !aporteFecha) { alert('Debe ingresar la fecha para el Aporte pagado.'); return; }
+
+            const iusPago = document.querySelector(`input[name="editIusPago-${baId}"]:checked`).value;
+            const iusFecha = document.getElementById(`editIusFecha-${baId}`).value;
+            if (iusPago === 'Si' && !iusFecha) { alert('Debe ingresar la fecha para el Ius Previsional pagado.'); return; }
+
+            ba.bonoLeyPago = bonoLeyPago;
+            ba.bonoLeyCargo = document.getElementById(`editBonoLeyCargo-${baId}`).value;
+            ba.bonoLeyImporte = document.getElementById(`editBonoLeyImporte-${baId}`).value;
+            ba.bonoLeyFecha = bonoLeyFecha;
+
+            ba.aportePago = aportePago;
+            ba.aporteCargo = document.getElementById(`editAporteCargo-${baId}`).value;
+            ba.aporteImporte = document.getElementById(`editAporteImporte-${baId}`).value;
+            ba.aporteFecha = aporteFecha;
+
+            ba.iusPago = iusPago;
+            ba.iusCargo = document.getElementById(`editIusCargo-${baId}`).value;
+            ba.iusImporte = document.getElementById(`editIusImporte-${baId}`).value;
+            ba.iusFecha = iusFecha;
+            
+            ba.observacion = document.getElementById(`editBAObservacion-${baId}`).value;
+
+            saveData();
+            renderAll();
+            showClientModal(clientId);
+        }
+
+        function deleteItem(clientId, itemId, itemType) { 
+            const client = clientsData.find(c => c.id === clientId); if(!client) return; 
+            const itemName = {task: 'tarea', audience: 'audiencia', vencimiento: 'vencimiento', bono_aporte: 'registro de pagos'}[itemType]; 
+            if (!confirm(`¿Estás seguro de que quieres eliminar este/a ${itemName}?`)) return; 
+            if(itemType === 'task') client.observaciones = client.observaciones.filter(item => item.id !== itemId); 
+            else if(itemType === 'audience') client.audiencias_list = client.audiencias_list.filter(item => item.id !== itemId); 
+            else if(itemType === 'vencimiento') client.vencimientos_list = client.vencimientos_list.filter(item => item.id !== itemId);
+            else if(itemType === 'bono_aporte') client.bonos_aportes_list = client.bonos_aportes_list.filter(item => item.id !== itemId);
+            updateClientNextRevision(client); 
+            updateAudienciasSummary(client); 
+            saveData(); 
+            renderAll(); 
+            showClientModal(clientId); 
+        }
+
+        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
+        
         function marcarEventoCompleto(event, clientId, eventId, eventType) {
             event?.stopPropagation();
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
@@ -1540,7 +1503,7 @@
                 showClientModal(clientId);
             }
         }
-
+        
         function marcarAlertaCompleta(clientId, eventId, eventType) {
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             let eventItem;
@@ -1565,7 +1528,7 @@
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
         }
-
+        
         function revisarAlertas() {
             const audienciasPorAlertar = clientsData.flatMap(client => 
                 (client.audiencias_list || [])
@@ -1580,7 +1543,7 @@
             const eventosHoy = [...audienciasPorAlertar, ...vencimientosPorAlertar];
             if (eventosHoy.length > 0) mostrarAlertaDeEventos(eventosHoy);
         }
-
+        
         function iniciarVigilanteDeAlertas() {
             setTimeout(revisarAlertas, 2000);
             setInterval(revisarAlertas, 60000);
@@ -1637,7 +1600,37 @@
             modal.classList.add('active');
         }
         
-        // ========= ESCUCHADOR PRINCIPAL AL FINAL DEL SCRIPT =========
+        function exportToExcel(){
+            const excelData = clientsData.map(c => {
+                const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado || ''}`).join(' \n ');
+                const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
+                const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');
+                const allBAs = (c.bonos_aportes_list || []).map(ba => {
+                    const bonoLeyStr = `Bono Ley: ${ba.bonoLeyPago || ba.bonoPago || 'No'} (A cargo: ${ba.bonoLeyCargo || ba.bonoCargo}, $${ba.bonoLeyImporte || ba.bonoImporte || 0}, Fecha: ${formatDate(ba.bonoLeyFecha || ba.bonoFecha)})`;
+                    const aporteStr = `Aporte: ${ba.aportePago || 'No'} (A cargo: ${ba.aporteCargo}, $${ba.aporteImporte || 0}, Fecha: ${formatDate(ba.aporteFecha)})`;
+                    const iusStr = `Ius Prev: ${ba.iusPago || 'No'} (A cargo: ${ba.iusCargo}, $${ba.iusImporte || 0}, Fecha: ${formatDate(ba.iusFecha)})`;
+                    return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`;
+                }).join(' \n ');
+                return {
+                    'Título': c.titulo, // EXCEL AÑADIDO
+                    'Materia': c.materia, // EXCEL AÑADIDO
+                    'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs
+                }
+            });
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Casos Familia');
+            XLSX.writeFile(workbook, `Casos_Familia_${getTodayYMD()}.xlsx`);
+        }
+        function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
+        function importData(){document.getElementById('importInput').click()}
+        function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
+        function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;
+            // AÑADIDO: titulo y materia a la impresión
+            const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({titulo:'Título',materia:'Materia',nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;
+            const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
+        function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
+        
         document.addEventListener('DOMContentLoaded', () => {
             // Inicializar la fecha de inicio del resumen semanal a HOY
             weeklyGlanceStartDate = new Date();
@@ -1670,9 +1663,6 @@
             
             // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
             setTimeout(() => { unsavedChanges = false; }, 1000); 
-            
-            // INICIAR JUSTINA (SALUDO)
-            setTimeout(initJustina, 1500);
         });
         
         // NUEVO LISTENER PARA EVITAR SALIR SIN GUARDAR
