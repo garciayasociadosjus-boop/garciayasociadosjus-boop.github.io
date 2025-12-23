@@ -203,13 +203,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
             <span class="toggle-icon">➖</span>
         </h3>
         <div id="weeklyGlanceSection" style="display: block;">
-            <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
             <div class="weekly-navigation-container">
-                <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
-                <span id="weekRange">Próxima Semana</span>
-                <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
-            </div>
-            <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
+                <button onclick="prevWeek()">&#x25C0;</button> <span id="weekRange">Próxima Semana</span>
+                <button onclick="nextWeek()">&#x25B6;</button> </div>
             <div id="weeklyGlanceContainer" class="weekly-glance"></div>
         </div>
     </section>
@@ -252,8 +248,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
         <option value="SIN INICIAR">Sin iniciar</option>
         <option value="EJECUCION">Ejecución</option>
         <option value="DEMORADA">Demorada</option>
-        <option value="MEDIACIONES">Mediaciones</option><!-- Estado Mediaciones agregado -->
-      </select></div>
+        <option value="MEDIACIONES">Mediaciones</option></select></div>
     </div>
 
     <div class="card">
@@ -315,7 +310,43 @@ function handleAuthClick(){ if(tokenClient){ tokenClient.requestAccessToken({pro
 async function tokenResponseCallback(resp){ if(resp.error){ updateDriveStatus('❌ Error de autenticación. Verifique pop-ups.'); return; } try{ gapi.client.setToken({access_token:resp.access_token}); document.getElementById('connectDriveBtn').style.display='none'; document.getElementById('saveToDriveBtn').style.display='inline-block'; document.getElementById('loadFromDriveBtn').style.display='inline-block'; updateDriveStatus('✅ Conectado. Buscando respaldo...'); await findDataFile(); }catch(e){ console.error("Error en callback:",e); updateDriveStatus('❌ Ocurrió un error después de conectar.'); }}
 async function findDataFile(){ updateDriveStatus('🔎 Buscando archivo de Drive...'); try{ const r=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id,name)',spaces:'drive'}); if(r.result.files&&r.result.files.length>0){ gdDataFileId=r.result.files[0].id; updateDriveStatus('✅ Conexión exitosa. Archivo encontrado.'); }else{ updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).'); }}catch(e){ console.error("Error buscando archivo:",e); updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`); }}
 async function saveToDrive(){ if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} if(!confirm('¿Guardar datos en Drive?'))return; updateDriveStatus('💾 Guardando en Drive...'); const content=JSON.stringify(siniestrosData,null,2); try{ let request; if(gdDataFileId){ request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content}); }else{ const metadata={name:GD_DATA_FILE,mimeType:'application/json'}; request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'}); } const response=await request; if(response.result.id)gdDataFileId=response.result.id; updateDriveStatus('✅ Guardado en Drive con éxito.'); }catch(e){ console.error('Error en saveToDrive:',e); updateDriveStatus(`❌ Error al guardar: ${e.result?.error?.message||e.message}`); }}
-async function loadFromDrive(){ if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo.');return;} if(!confirm('¿Reemplazar datos locales con la copia de Drive?'))return; updateDriveStatus('📥 Cargando desde Drive...'); try{ const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'}); const imported=JSON.parse(response.body); if(!Array.isArray(imported))throw new Error('Formato inválido.'); siniestrosData=sanitizeData(imported); saveData(); renderAll(); updateDriveStatus('✅ Datos cargados desde Drive.'); }catch(e){ console.error("Error cargando datos:",e); updateDriveStatus(`❌ Error al cargar: ${e.result?.error?.message||e.message}`); }}
+
+// --- MODIFICADO: Función loadFromDrive con "Cache Buster" para móviles ---
+async function loadFromDrive(){ 
+    if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} 
+    if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo.');return;} 
+    if(!confirm('¿Reemplazar datos locales con la copia de Drive?'))return; 
+    
+    updateDriveStatus('📥 Cargando desde Drive (Sin Caché)...'); 
+    try{ 
+        // USAMOS FETCH CON UN TIMESTAMP PARA EVITAR LA CACHÉ DEL CELULAR
+        const token = gapi.client.getToken().access_token;
+        const url = `https://www.googleapis.com/drive/v3/files/${gdDataFileId}?alt=media&nocache=${Date.now()}`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error de red: ${response.status} ${response.statusText}`);
+        }
+
+        const imported = await response.json();
+
+        if(!Array.isArray(imported))throw new Error('Formato inválido.'); 
+        siniestrosData=sanitizeData(imported); 
+        saveData(); 
+        renderAll(); 
+        updateDriveStatus('✅ Datos cargados desde Drive (Frescos).'); 
+    }catch(e){ 
+        console.error("Error cargando datos:",e); 
+        updateDriveStatus(`❌ Error al cargar: ${e.message}`); 
+    }
+}
+// -------------------------------------------------------------------------
+
 function addEventToGoogleCalendar(siniestro,item,type){ if(!gapi.client.getToken()?.access_token){updateDriveStatus('⚠️ No conectado a Google. Evento no agendado.');return;} const title=`${type}: ${siniestro.cliente}`; const description=`Caso: ${siniestro.cliente} vs ${siniestro.contra||'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo||'S/N'}\n\nDescripción: ${item.texto}`; const isAllDay=type==='Vencimiento'; let start,end; if(isAllDay){ start={date:item.fecha}; end={date:item.fecha}; }else{ const eventStartTime=new Date(`${item.fecha}T${item.hora}:00`); const eventEndTime=new Date(eventStartTime.getTime()+36e5); start={dateTime:eventStartTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; end={dateTime:eventEndTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; } const event={summary:title,description:description,start:start,end:end}; updateDriveStatus(`🗓️ Agendando ${type} en Google Calendar...`); gapi.client.calendar.events.insert({calendarId:'primary',resource:event}).then(r=>{console.log('Evento creado:',r.result);updateDriveStatus(`✅ ${type} agendado en Google Calendar.`);}).catch(e=>{console.error("Error creando evento:",e);updateDriveStatus(`❌ Error al crear evento: ${e.result?.error?.message||'Error'}`);});}
 // --- FIN: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 
@@ -500,7 +531,50 @@ function renderWeeklyGlance(startDate){
     container.innerHTML=html||'<p style="text-align: center; color: #666; margin-top: 10px;">No hay tareas programadas en este rango de 7 días.</p>'; 
 }
 
-function renderAdvanceNotices(){ const container=document.getElementById('advanceNoticeContainer'); if(!container)return; const itemsToNotice=[]; siniestrosData.forEach(s=>{ const criticalItems=[...(s.mediaciones_list||[]).map(item=>({...item,dueDate:item.fecha,type:'mediacion',text:`MEDIACIÓN: ${item.texto}`})),...(s.vencimientos_list||[]).map(item=>({...item,dueDate:item.fecha,type:'vencimiento',text:`VENCIMIENTO: ${item.texto}`}))]; criticalItems.forEach(item=>{ const noticeDays=parseInt(item.avisoPrevio,10); if(!item.completed&&noticeDays>0&&item.dueDate){ const daysDifference=getDaysDifference(item.dueDate); if(daysDifference>0&&daysDifference<=noticeDays)itemsToNotice.push({siniestro:s,item,daysDifference}); }}); }); itemsToNotice.sort((a,b)=>a.item.dueDate.localeCompare(b.item.dueDate)); document.getElementById('advanceNoticeCount').textContent=itemsToNotice.length; if(itemsToNotice.length===0){container.innerHTML='<p style="text-align:center;color:#666;">No hay avisos previos.</p>';return;} container.innerHTML=itemsToNotice.map(({siniestro,item,daysDifference})=>{ const dateInfo=`Vence en ${daysDifference} día${daysDifference>1?'s':''} (${formatDate(item.dueDate)})`; return`<div class="review-item" onclick="showSiniestroModal('${siniestro.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(siniestro)}</div><div class="review-obs">${item.text}</div></div></div>`; }).join(''); }
+function renderAdvanceNotices(){ 
+    const container=document.getElementById('advanceNoticeContainer'); 
+    if(!container)return; 
+    const itemsToNotice=[]; 
+    
+    siniestrosData.forEach(s=>{ 
+        const criticalItems=[
+            ...(s.mediaciones_list||[]).map(item=>({...item,dueDate:item.fecha,type:'mediacion',text:`MEDIACIÓN: ${item.texto}`})),
+            ...(s.vencimientos_list||[]).map(item=>({...item,dueDate:item.fecha,type:'vencimiento',text:`VENCIMIENTO: ${item.texto}`}))
+        ]; 
+        
+        criticalItems.forEach(item=>{ 
+            const noticeDays=parseInt(item.avisoPrevio,10); 
+            if(!item.completed&&noticeDays>0&&item.dueDate){ 
+                const daysDifference=getDaysDifference(item.dueDate); 
+                // MODIFICADO: >= 0 para incluir HOY en la lista de avisos si es necesario
+                if(daysDifference>=0 && daysDifference<=noticeDays) {
+                    itemsToNotice.push({siniestro:s,item,daysDifference}); 
+                }
+            }
+        }); 
+    }); 
+    
+    itemsToNotice.sort((a,b)=>a.item.dueDate.localeCompare(b.item.dueDate)); 
+    document.getElementById('advanceNoticeCount').textContent=itemsToNotice.length; 
+    
+    if(itemsToNotice.length===0){
+        container.innerHTML='<p style="text-align:center;color:#666;">No hay avisos previos.</p>';
+        return;
+    } 
+    
+    container.innerHTML=itemsToNotice.map(({siniestro,item,daysDifference})=>{ 
+        let dateInfo;
+        // MODIFICADO: Mostrar texto especial si es hoy
+        if (daysDifference === 0) {
+            dateInfo = `<span style="color:var(--danger-color); font-weight:800;">¡ES HOY!</span> (${formatDate(item.dueDate)})`;
+        } else {
+            dateInfo = `Vence en ${daysDifference} día${daysDifference>1?'s':''} (${formatDate(item.dueDate)})`;
+        }
+
+        return`<div class="review-item" onclick="showSiniestroModal('${siniestro.id}')"><div class="review-item-content"><div class="review-date">${dateInfo}</div><div class="review-client">${getDisplayName(siniestro)}</div><div class="review-obs">${item.text}</div></div></div>`; 
+    }).join(''); 
+}
+
 function showTasksForDate(dateString){ const formattedDate=formatDate(dateString); const modal=document.getElementById('dailyTasksModal'); const tasksForDate=siniestrosData.flatMap(s=>[...(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision===dateString).map(o=>({...o,siniestro:s,type:'task'})),...(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha===dateString).map(m=>({...m,siniestro:s,type:'mediacion'})),...(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha===dateString).map(v=>({...v,siniestro:s,type:'vencimiento'}))]); const content=` <span class="close" onclick="closeModal('dailyTasksModal')">&times;</span><h2>Tareas para ${formattedDate}</h2> <div class="reviews-list" style="max-height:60vh;"> ${tasksForDate.length===0?'<p style="text-align:center;color:#666;">No hay tareas para esta fecha.</p>':tasksForDate.map(item=>{ const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; let timeLabel='',label=''; if(item.type==='mediacion'){timeLabel=formatTime(item.hora);label='MEDIACIÓN:';} if(item.type==='vencimiento'){label='VENCIMIENTO:';} return`<div class="review-item ${item.completed ? 'completed' : ''}"> <button class="complete-btn" onclick="${toggleFunc}">✔</button> <div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"> <div class="review-date">${timeLabel}</div> <div class="review-client">${item.siniestro.cliente}</div> <div class="review-obs"><b>${label}</b> ${item.texto}</div> ${item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''} </div> </div>`; }).join('')} </div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); }
 function renderDashboardLists(){ const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'}))); const mediaciones=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha}))); const vencimientos=siniestrosData.flatMap(s=>(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha).map(v=>({...v,siniestro:s,type:'vencimiento',proximaRevision:v.fecha}))); const allItems=[...tasks,...mediaciones,...vencimientos]; const today=allItems.filter(t=>isToday(t.proximaRevision)); const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); renderReviewList('todayReviews',today,'No hay eventos para hoy','today'); renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue'); renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming'); }
 function renderReviewList(id,items,empty,type){ const c=document.getElementById(id); if(!c)return; const listColor=(id==='todayReviews'||id==='overdueReviews'||id==='upcomingReviews')?'var(--light-text)':'rgba(0,0,0,0.6)'; if(!items.length){c.innerHTML=`<p style="color:${listColor};text-align:center;">${empty}</p>`;return;} c.innerHTML=items.map(item=>{ let dateInfo=formatDate(item.proximaRevision); if(type==='today')dateInfo='HOY'; else if(type==='overdue')dateInfo=`VENCIDA - ${dateInfo}`; else dateInfo=`En ${getDaysDifference(item.proximaRevision)} días - ${dateInfo}`; let label='',timeLabel=''; if(item.type==='mediacion'){label='MEDIACIÓN:';timeLabel=formatTime(item.hora);} if(item.type==='vencimiento'){label='VENCIMIENTO:';} const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<div class="review-obs-private">🔒 ${item.textoPrivado}</div>`:''; return`<div class="review-item"><button class="complete-btn" onclick="${toggleFunc}">✔</button><div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"><div class="review-date">${dateInfo} ${timeLabel}</div><div class="review-client">${item.siniestro.cliente}</div><div class="review-obs"><b>${label}</b> ${item.texto}</div>${privateNoteHtml}</div></div>`; }).join(''); }
