@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planilla Jurídica - Familia</title>
-    <!-- Librerías para Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Librerías para PDF y Word -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
@@ -329,9 +327,82 @@
             .print-area .btn, .print-area .no-print { display: none; }
             #generatedConvenioText { white-space: pre-wrap; font-family: 'Times New Roman', serif; }
         }
+
+        /* ESTILOS PARA LAS SOLAPAS DE ALIMENTOS */
+        .tabs-header { display: flex; border-bottom: 2px solid var(--primary-color); margin-top: 15px; }
+        .tab-btn { background: #f8f9fa; border: 1px solid #ddd; border-bottom: none; padding: 10px 20px; cursor: pointer; font-weight: bold; color: #666; border-radius: 8px 8px 0 0; margin-right: 5px; transition: 0.3s; }
+        .tab-btn:hover { background: #eef5ff; }
+        .tab-btn.active { background: var(--light-text); color: var(--primary-color); border-top: 3px solid var(--primary-color); border-bottom: 2px solid var(--light-text); margin-bottom: -2px; }
+        .tab-content { display: none; background: var(--light-text); padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 8px 8px 8px; }
+        .tab-content.active { display: block; }
+        .expediente-item { border-left: 4px solid var(--secondary-color); background: #f4f6f9; padding: 15px; margin-bottom: 10px; border-radius: 4px; }
+        .expediente-fecha { font-weight: bold; color: var(--primary-color); margin-bottom: 5px; }
+    </style>
+    <style>
+        /* ===== PANTALLA DE LOGIN ===== */
+        #loginScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #020c24 0%, #081e4b 100%);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
+        }
+        .login-box {
+            background: white; border-radius: 16px; padding: 40px 50px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4); text-align: center;
+            width: 100%; max-width: 420px; animation: loginSlide 0.4s ease;
+        }
+        @keyframes loginSlide { from { transform: translateY(-40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .login-box h1 { font-size: 1.8em; color: #020c24; margin-bottom: 6px; }
+        .login-box p { color: #666; margin-bottom: 28px; font-size: 0.95em; }
+        .login-box input {
+            width: 100%; padding: 14px 16px; border: 2px solid #e0e0e0;
+            border-radius: 10px; font-size: 1.1em; margin-bottom: 16px;
+            transition: border-color 0.3s; text-align: center; letter-spacing: 3px;
+        }
+        .login-box input:focus { outline: none; border-color: #2980b9; }
+        .login-btn {
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #020c24, #2980b9);
+            color: white; border: none; border-radius: 10px; font-size: 1.1em;
+            font-weight: 700; cursor: pointer; transition: all 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(41,128,185,0.4); }
+        .login-error {
+            color: #e74c3c; background: #fef9e7; border: 1px solid #f39c12;
+            border-radius: 8px; padding: 10px; margin-top: 14px;
+            font-size: 0.9em; display: none;
+        }
+        #appContainer { display: none; }
+        /* Badge de sesión en el header */
+        .session-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px; padding: 6px 16px; margin-top: 10px;
+            font-size: 0.9em; color: white;
+        }
+        .session-badge button {
+            background: rgba(231,76,60,0.7); border: none; color: white;
+            border-radius: 12px; padding: 2px 10px; cursor: pointer; font-size: 0.85em;
+        }
+        .session-badge button:hover { background: #e74c3c; }
     </style>
 </head>
 <body>
+
+    <!-- ===== PANTALLA DE LOGIN ===== -->
+    <div id="loginScreen">
+        <div class="login-box">
+            <div style="font-size: 3em; margin-bottom: 10px;">⚖️</div>
+            <h1>García & Asociados</h1>
+            <p>Planilla Jurídica — Ingreso seguro</p>
+            <input type="password" id="loginPassword" placeholder="Clave de acceso"
+                onkeydown="if(event.key==='Enter') doLogin()">
+            <button class="login-btn" onclick="doLogin()">🔐 Ingresar</button>
+            <div class="login-error" id="loginError">❌ Clave incorrecta. Intentá de nuevo.</div>
+        </div>
+    </div>
+
+    <!-- ===== CONTENIDO PRINCIPAL (oculto hasta login) ===== -->
+    <div id="appContainer">
     <div class="container">
         <header class="header">
             <h1>⚖️ Planilla Jurídica - Familia</h1>
@@ -343,6 +414,10 @@
                     <div class="hand second-hand"></div>
                 </div>
                 <div id="digital-clock"></div>
+            </div>
+            <div id="sessionBadge" class="session-badge" style="display:none;">
+                <span id="sessionUserLabel">👤</span>
+                <button onclick="doLogout()">Cerrar sesión</button>
             </div>
         </header>
 
@@ -356,13 +431,9 @@
                     <span class="toggle-icon">➖</span>
                 </h3>
                 <div id="weeklyGlanceSection" style="display: block;">
-                    <!-- CONTENEDOR DE NAVEGACIÓN SEMANAL -->
                     <div class="weekly-navigation-container">
-                        <button onclick="prevWeek()">&#x25C0;</button> <!-- Flecha izquierda -->
-                        <span id="weekRange">Próxima Semana</span>
-                        <button onclick="nextWeek()">&#x25B6;</button> <!-- Flecha derecha -->
-                    </div>
-                    <!-- CONTENEDOR DE CÍRCULOS DE DÍAS -->
+                        <button onclick="prevWeek()">&#x25C0;</button> <span id="weekRange">Próxima Semana</span>
+                        <button onclick="nextWeek()">&#x25B6;</button> </div>
                     <div id="weeklyGlanceContainer" class="weekly-glance"></div>
                 </div>
             </section>
@@ -406,8 +477,9 @@
 
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
-                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div>
+                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select></div>
                 <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
+                <div class="form-group"><label>Filtrar por Socio</label><select id="socioFilter" onchange="renderAllClientsList()"><option value="">Todos los Socios</option><option value="GARCIA">Estudio García</option><option value="ROCABADO">Dr. Rocabado Maximiliano</option><option value="SAGLIMBENI">Sr. Saglimbeni Marcos</option></select></div>
             </section>
 
             <section class="card">
@@ -416,6 +488,8 @@
             </section>
         </main>
     </div>
+
+    </div><!-- /appContainer -->
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
     <input type="file" id="documentUploadInput" style="display: none;" multiple>
@@ -444,10 +518,49 @@
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
-    <!-- MODAL NUEVO: GENERACIÓN DE CONVENIO -->
     <div id="convenioGenerationModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
+        // ===== SISTEMA DE LOGIN =====
+        const USUARIOS = {
+            'garcia2026':     { socio: null,        nombre: '⚖️ Estudio García (Acceso Total)' },
+            'rocabado2026':   { socio: 'ROCABADO',  nombre: '👨‍💼 Dr. Rocabado Maximiliano' },
+            'saglimbeni2026': { socio: 'SAGLIMBENI', nombre: '👨‍💼 Sr. Saglimbeni Marcos' }
+        };
+
+        let sesionActual = null; // null = sin login, { socio, nombre }
+
+        function doLogin() {
+            const pass = document.getElementById('loginPassword').value.trim();
+            const usuario = USUARIOS[pass];
+            if (!usuario) {
+                const err = document.getElementById('loginError');
+                err.style.display = 'block';
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginPassword').focus();
+                return;
+            }
+            sesionActual = usuario;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            // Mostrar badge de sesión
+            document.getElementById('sessionBadge').style.display = 'inline-flex';
+            document.getElementById('sessionUserLabel').textContent = usuario.nombre;
+            // Inicializar la app
+            initApp();
+        }
+
+        function doLogout() {
+            if (!confirm('¿Querés cerrar sesión?')) return;
+            sesionActual = null;
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').style.display = 'none';
+        }
+
+        // ===== FIN LOGIN =====
+
         // Variables de estado principal
         let clientsData = [];
         let editingClientId = null, editingField = null, currentClientIdForDocs = null;
@@ -492,6 +605,7 @@
                 // NUEVOS CAMPOS
                 c.titulo = c.titulo || 'SR/SRA'; 
                 c.materia = c.materia || 'FAMILIA'; 
+                c.socio = c.socio || '';
 
                 c.observaciones = Array.isArray(c.observaciones) ? c.observaciones : [];
                 c.audiencias_list = Array.isArray(c.audiencias_list) ? c.audiencias_list : [];
@@ -637,7 +751,8 @@
             const endStr = rangeEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
             rangeDisplay.textContent = `${startStr} - ${endStr}`;
 
-            const allSchedulableItems = clientsData.flatMap(client => {
+            const socioSesionWG = sesionActual ? sesionActual.socio : null;
+            const allSchedulableItems = (socioSesionWG ? clientsData.filter(c => c.socio === socioSesionWG) : clientsData).flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
@@ -678,8 +793,10 @@
         function renderAdvanceNotices() {
             const container = document.getElementById('advanceNoticeContainer');
             if (!container) return;
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             const itemsToNotice = [];
-            clientsData.forEach(client => {
+            dataFiltrada.forEach(client => {
                 const criticalItems = [
                     ...(client.audiencias_list || []).map(item => ({...item, dueDate: item.fecha, type: 'audience', text: `AUDIENCIA: ${item.texto}` })),
                     ...(client.vencimientos_list || []).map(item => ({...item, dueDate: item.fecha, type: 'vencimiento', text: `VENCIMIENTO: ${item.texto}` }))
@@ -707,7 +824,9 @@
         }
 
         function renderDashboardLists() {
-            const allSchedulableItems = clientsData.flatMap(client => {
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const allSchedulableItems = dataFiltrada.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ id: venc.id, client, reviewDate: venc.fecha, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, isCompletable: true, type: 'vencimiento', completed: venc.completed, item: venc }));
@@ -741,18 +860,35 @@
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const estadoFilter = document.getElementById('estadoFilter').value;
             const materiaFilter = document.getElementById('materiaFilter').value;
+            const socioFilter = document.getElementById('socioFilter') ? document.getElementById('socioFilter').value : '';
+
+            // Filtro de sesión: si hay socio en sesión, solo ve sus casos
+            const socioSesion = sesionActual ? sesionActual.socio : null;
 
             const filteredData = clientsData.filter(c => {
                 const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
-                return (!searchTerm || searchString.includes(searchTerm)) 
+                const pasaSesion = !socioSesion || c.socio === socioSesion;
+                return pasaSesion
+                    && (!searchTerm || searchString.includes(searchTerm))
                     && (!estadoFilter || c.estado === estadoFilter)
-                    && (!materiaFilter || c.materia === materiaFilter); 
+                    && (!materiaFilter || c.materia === materiaFilter)
+                    && (!socioFilter || c.socio === socioFilter);
             }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
             
             document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
                 const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
                 const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
-                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content"><div class="review-date">Próx. Revisión: ${formatDate(c.proximaRevision)}</div>${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}<div class="review-client">${getDisplayName(c)}</div><div class="review-obs">Últ. Tarea: ${c.observacion}</div></div></div>`;
+                const socioLabels = { 'GARCIA': '⚖️ García', 'ROCABADO': '👨‍💼 Rocabado', 'SAGLIMBENI': '👨‍💼 Saglimbeni' };
+                const socioBadge = c.socio ? `<span style="display:inline-block; background:#8e44ad; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${socioLabels[c.socio] || c.socio}</span>` : '';
+                const hijosBadge = (c.hijos && c.hijos.length > 0) ? `<span style="display:inline-block; background:#2980b9; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">👦 ${c.hijos.length} hijo${c.hijos.length > 1 ? 's' : ''}</span>` : '';
+                const convBadge = c.convenio?.tipo ? `<span style="display:inline-block; background:${c.convenio.tipo==='NEGRO'?'#2c3e50':'#2980b9'}; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${c.convenio.tipo==='NEGRO'?'🌑':'☀️'} ${c.convenio.tipo}</span>` : '';
+                const fechaRevStyle = isPastDue(c.proximaRevision) ? 'color:var(--danger-color); font-weight:bold;' : isToday(c.proximaRevision) ? 'color:#e67e22; font-weight:bold;' : '';
+                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content">
+                    <div class="review-date" style="${fechaRevStyle}">${isPastDue(c.proximaRevision)?'⚠️ ':isToday(c.proximaRevision)?'🔔 ':''}Próx. Revisión: ${formatDate(c.proximaRevision)}</div>
+                    ${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}
+                    <div class="review-client">${getDisplayName(c)}${socioBadge}${hijosBadge}${convBadge}</div>
+                    <div class="review-obs">Últ. Tarea: ${c.observacion}</div>
+                </div></div>`;
             }).join('');
         }
 
@@ -815,6 +951,80 @@
             return `<div><h4 style="margin-top:20px;">Historial Completo de Pagos</h4>${itemsHtml}</div>`;
         }
 
+        function renderFichaResumenSuperior(client) {
+            const fmt = v => v ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(parseFloat(String(v).replace(',','.')) || 0) : null;
+
+            // === BADGE CONVENIO ===
+            const cv = client.convenio || {};
+            let convenioHTML = '';
+            if (cv.tipo) {
+                const esNegro = cv.tipo === 'NEGRO';
+                const colorConv = esNegro ? '#2c3e50' : '#2980b9';
+                const iconConv = esNegro ? '🌑' : '☀️';
+                let montoConvStr = '';
+                if (esNegro && cv.abonoMensual) {
+                    montoConvStr = `<span style="font-size:0.85em; opacity:0.85;"> — Abono: ${fmt(cv.abonoMensual)}/mes</span>`;
+                } else if (!esNegro) {
+                    const total = (parseFloat(cv.provisorio1)||0)+(parseFloat(cv.provisorio2)||0)+(parseFloat(cv.provisorio3)||0)+(parseFloat(cv.definitivo)||0);
+                    if (total) montoConvStr = `<span style="font-size:0.85em; opacity:0.85;"> — Total cuotas: ${fmt(total)}</span>`;
+                }
+                const fechaStr = cv.fechaInicio ? `<span style="font-size:0.8em; opacity:0.75; margin-left:8px;">desde ${formatDate(cv.fechaInicio)}</span>` : '';
+                convenioHTML = `
+                <div style="display:inline-flex; align-items:center; gap:6px; background:${colorConv}; color:white; padding:7px 14px; border-radius:20px; font-weight:700; font-size:0.95em;">
+                    ${iconConv} Convenio ${cv.tipo}${montoConvStr}${fechaStr}
+                </div>`;
+            } else {
+                convenioHTML = `<div style="display:inline-flex; align-items:center; gap:6px; background:#bdc3c7; color:white; padding:7px 14px; border-radius:20px; font-size:0.9em;">⚪ Sin convenio cargado</div>`;
+            }
+
+            // === RESUMEN DEMANDADO ===
+            const dem = client.demandado || {};
+            let demandadoHTML = '';
+            if (dem.nombre) {
+                demandadoHTML = `
+                <div style="background:#fff8e1; border:1px solid #f39c12; border-radius:10px; padding:12px 16px; display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+                    <span style="font-weight:700; color:#7f6000;">👤 Demandado:</span>
+                    <span style="font-weight:600;">${dem.nombre}</span>
+                    ${dem.telefono ? `<span style="color:#555;">📞 ${dem.telefono}</span>` : ''}
+                    ${dem.domicilio ? `<span style="color:#555; font-size:0.9em;">🏠 ${dem.domicilio}</span>` : ''}
+                </div>`;
+            }
+
+            // === RESUMEN HIJOS ===
+            const hijos = client.hijos || [];
+            let hijosHTML = '';
+            if (hijos.length > 0) {
+                const hijosChips = hijos.map(h => {
+                    const edadStr = h.edadMeses && parseInt(h.edadMeses) > 0
+                        ? `${h.edad || 0}a ${h.edadMeses}m`
+                        : (h.edad ? `${h.edad} años` : '');
+                    const partidaIcon = h.partidaSiNo === 'Si'
+                        ? `<span title="Tiene partida" style="color:#27ae60; margin-left:4px;">✅</span>`
+                        : `<span title="Sin partida" style="color:#e74c3c; margin-left:4px;">🔴</span>`;
+                    return `
+                    <div style="background:white; border:1px solid #b2d8f7; border-radius:10px; padding:10px 14px; min-width:150px; flex-shrink:0;">
+                        <div style="font-weight:700; color:#1a5276; font-size:0.95em;">👦 ${h.nombre || 'S/N'}</div>
+                        <div style="font-size:0.82em; color:#555; margin-top:3px;">${edadStr ? `🎂 ${edadStr}` : ''} ${h.dni ? `· DNI: ${h.dni}` : ''}</div>
+                        <div style="font-size:0.8em; margin-top:4px;">Partida: ${partidaIcon}</div>
+                    </div>`;
+                }).join('');
+                hijosHTML = `
+                <div style="background:#eaf4fb; border:1px solid #aed6f1; border-radius:10px; padding:12px 16px;">
+                    <div style="font-weight:700; color:#1a5276; margin-bottom:10px;">👦 Hijos (${hijos.length})</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px;">${hijosChips}</div>
+                </div>`;
+            }
+
+            if (!convenioHTML && !demandadoHTML && !hijosHTML) return '';
+
+            return `
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">${convenioHTML}</div>
+                ${demandadoHTML}
+                ${hijosHTML}
+            </div>`;
+        }
+
         function showClientModal(clientId) {
             try {
                 const client = clientsData.find(c => c.id === clientId); 
@@ -827,6 +1037,7 @@
                 
                 const fieldsToShow = {
                     titulo: 'Título (Sr/Sra)',
+                    socio: '👤 Socio Asignado',
                     materia: 'Materia',
                     nombre: 'Nombre', 
                     dni: 'DNI', 
@@ -841,8 +1052,14 @@
                 };
                 
                 const getFieldHTML = (key, label) => {
+                    if (key === 'socio') {
+                        const socioLabels = { 'GARCIA': '⚖️ Estudio García', 'ROCABADO': '👨‍💼 Dr. Rocabado Maximiliano', 'SAGLIMBENI': '👨‍💼 Sr. Saglimbeni Marcos' };
+                        const displayVal = client[key] ? (socioLabels[client[key]] || client[key]) : 'Sin asignar';
+                        return `<div class="info-item" style="border-left: 4px solid #8e44ad; background: #fdf5ff;"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['GARCIA', 'ROCABADO', 'SAGLIMBENI'])"><div class="info-value" style="color:#8e44ad; font-weight:bold;">${displayVal}</div></div></div>`;
+                    }
                     if (key === 'materia') {
-                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['FAMILIA', 'CIVIL', 'PENAL'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                        const materiaDisplay = client[key] === 'OTROS' ? (client.materiaOtros || 'OTROS') : (client[key] || 'S/D');
+                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldMateria('${client.id}')"><div class="info-value">${materiaDisplay}</div></div></div>`;
                     }
                     if (key === 'titulo') {
                         return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['SR/SRA', 'SR', 'SRA', 'DR', 'DRA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
@@ -853,13 +1070,38 @@
                     return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
                 };
 
+                let solapasHTML = `
+                    <div style="margin-top: 25px;">
+                        <div class="tabs-header">
+                            <button class="tab-btn" onclick="switchTab(event, 'tab-hijos')">👦 Hijos</button>
+                            <button class="tab-btn" onclick="switchTab(event, 'tab-demandado')">👤 Demandado</button>
+                            <button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')">🍽️ Necesidades</button>
+                            <button class="tab-btn" onclick="switchTab(event, 'tab-convenio')">💰 Convenio</button>
+                            <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')">📄 Expediente Digital</button>
+                        </div>
+                        <div id="tab-hijos" class="tab-content">${renderTabHijos(client)}</div>
+                        <div id="tab-demandado" class="tab-content">${renderTabDemandado(client)}</div>
+                        <div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>
+                        <div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>
+                        <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
+                    </div>`;
 
                 const content = `
-                    <span class="close" onclick="closeModal('clientInfoModal')">&times;</span><h2>⚖️ ${getDisplayName(client)}</h2>
+                    <span class="close" onclick="closeModal('clientInfoModal')">&times;</span>
+                    <h2>⚖️ ${getDisplayName(client)}</h2>
+
+                    ${renderFichaResumenSuperior(client)}
+
                     <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
                         ${Object.entries(fieldsToShow).map(([key, label]) => getFieldHTML(key, label)).join('')}
-                        <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color: var(--danger-color); font-weight: bold;">${formatDate(client.proximaRevision)}</div></div>
+                        <div class="info-item" style="border-left: 3px solid ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? 'var(--warning-color)' : 'var(--success-color)'}; background: ${isPastDue(client.proximaRevision) ? '#fff5f5' : isToday(client.proximaRevision) ? '#fffbe6' : '#f2fdf5'};">
+                            <div class="info-label">Próxima Tarea</div>
+                            <div class="info-value" style="color: ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? '#e67e22' : 'var(--success-color)'}; font-weight: bold; font-size:1.05em;">
+                                ${isPastDue(client.proximaRevision) ? '⚠️ VENCIDA — ' : isToday(client.proximaRevision) ? '🔔 HOY — ' : '✅ '}${formatDate(client.proximaRevision)}
+                            </div>
+                        </div>
                     </div></div>
+                    ${solapasHTML}
                     ${renderLastPaymentSummary(client)}
                     <div class="history-section"><h4>📝 Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
                     
@@ -955,14 +1197,29 @@
                         <div class="form-group"><label>Cliente</label><input type="text" value="${getDisplayName(client)}" readonly style="background:#eee;"></div>
                         <div class="form-group"><label>DNI</label><input type="text" value="${client.dni || 'S/D'}" readonly style="background:#eee;"></div>
                         <div class="form-group"><label>Domicilio Real del Cliente *</label><input type="text" id="convDomicilio" placeholder="Calle, N°, Localidad" required></div>
-                        <div class="form-group"><label>Objeto del Proceso *</label><input type="text" id="convObjeto" placeholder="Ej: DIVORCIO, ALIMENTOS" required></div>
+                        <div class="form-group"><label>Objeto del Proceso *</label>
+                            <select id="convObjetoSelect" onchange="toggleConvObjetoOtros()" required>
+                                <option value="">-- Seleccionar --</option>
+                                <option value="ALIMENTOS">ALIMENTOS</option>
+                                <option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option>
+                                <option value="FILIACION">FILIACION</option>
+                                <option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option>
+                                <option value="SUCESIONES">SUCESIONES</option>
+                                <option value="DIVORCIOS">DIVORCIOS</option>
+                                <option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option>
+                                <option value="PENAL">PENAL</option>
+                                <option value="OTROS">OTROS</option>
+                            </select>
+                            <input type="text" id="convObjetoOtros" placeholder="Especificar materia..." style="display:none; margin-top:8px;" oninput="calculateConvenioTotal()">
+                            <input type="hidden" id="convObjeto">
+                        </div>
                         <div class="form-group"><label>Cantidad de JUS *</label><input type="number" id="convCantJus" step="0.5" value="1" required oninput="calculateConvenioTotal()"></div>
-                        <div class="form-group"><label>Valor del JUS ($) *</label><input type="number" id="convValorJus" value="44330" required oninput="calculateConvenioTotal()"></div>
+                        <div class="form-group"><label>Valor del JUS ($) *</label><input type="number" id="convValorJus" value="46325" required oninput="calculateConvenioTotal()"></div>
                         <div class="form-group"><label>Bonificación (%)</label><input type="number" id="convBonificacion" value="0" min="0" max="100" oninput="calculateConvenioTotal()"></div>
                     </div>
                     
                     <div class="total-display" id="convTotalDisplay">
-                        Monto Total: $44.330,00
+                        Monto Total: $46.325,00
                     </div>
 
                     <div style="text-align:center; margin-top:20px;">
@@ -973,6 +1230,21 @@
             modal.querySelector('.modal-content').innerHTML = content;
             modal.classList.add('active');
             calculateConvenioTotal(); // Calcular inicial
+        }
+
+        function toggleConvObjetoOtros() {
+            const sel = document.getElementById('convObjetoSelect');
+            const otros = document.getElementById('convObjetoOtros');
+            if (!sel || !otros) return;
+            otros.style.display = sel.value === 'OTROS' ? 'block' : 'none';
+            if (sel.value !== 'OTROS') otros.value = '';
+        }
+
+        function toggleNewMateriaOtros() {
+            const sel = document.getElementById('newMateria');
+            const otros = document.getElementById('newMateriaOtros');
+            if (!sel || !otros) return;
+            otros.style.display = sel.value === 'OTROS' ? 'block' : 'none';
         }
 
         function calculateConvenioTotal() {
@@ -995,7 +1267,9 @@
             
             // Recopilar datos del formulario
             const domicilio = document.getElementById('convDomicilio').value;
-            const objeto = document.getElementById('convObjeto').value;
+            const selectVal = document.getElementById('convObjetoSelect') ? document.getElementById('convObjetoSelect').value : '';
+            const otrosVal = document.getElementById('convObjetoOtros') ? document.getElementById('convObjetoOtros').value : '';
+            const objeto = (selectVal === 'OTROS' ? otrosVal : selectVal) || document.getElementById('convObjeto').value;
             const cantJus = document.getElementById('convCantJus').value;
             const valorJus = document.getElementById('convValorJus').value;
             const bonif = document.getElementById('convBonificacion').value;
@@ -1198,6 +1472,17 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); editingClientId = null; editingField = null; }
         
+        // Cerrar modal al hacer clic fuera del contenido
+        document.addEventListener('click', function(e) {
+            const modalsToClose = ['clientInfoModal', 'newClientModal', 'clientSelectorModal', 'dailyTasksModal', 'rescheduleModal', 'convenioGenerationModal'];
+            modalsToClose.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal && modal.classList.contains('active') && e.target === modal) {
+                    closeModal(modalId);
+                }
+            });
+        });
+        
         function editField(clientId, fieldName) {
             if (editingField) return;
             const client = clientsData.find(c => c.id === clientId);
@@ -1222,7 +1507,43 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             inputElement.focus();
         }
         
-        // NUEVA FUNCIÓN PARA EDITAR CAMPOS TIPO SELECT
+        // NUEVA FUNCIÓN PARA EDITAR MATERIA (con opción OTROS)
+        function editFieldMateria(clientId) {
+            if (editingField) return;
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            editingClientId = clientId; editingField = 'materia';
+            const fieldElement = document.getElementById('field-materia');
+            const materiasOpts = ['ALIMENTOS','CUIDADO PERSONAL','FILIACION','VIOLENCIA FAMILIAR','SUCESIONES','DIVORCIOS','COMUNICACION CON HIJOS','PENAL','OTROS'];
+            const currentVal = client.materia || 'ALIMENTOS';
+            const currentOtros = client.materiaOtros || '';
+
+            const wrapper = document.createElement('div');
+            const sel = document.createElement('select');
+            sel.style.cssText = 'width:100%;padding:4px;font-family:inherit;font-size:inherit;border:1px solid var(--primary-color);border-radius:4px;';
+            materiasOpts.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o; opt.textContent = o;
+                if (o === currentVal) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            const inputOtros = document.createElement('input');
+            inputOtros.type = 'text';
+            inputOtros.placeholder = 'Especificar...';
+            inputOtros.value = currentOtros;
+            inputOtros.style.cssText = 'width:100%;padding:4px;margin-top:6px;font-family:inherit;font-size:inherit;border:1px solid var(--primary-color);border-radius:4px;display:' + (currentVal === 'OTROS' ? 'block' : 'none');
+            sel.addEventListener('change', () => { inputOtros.style.display = sel.value === 'OTROS' ? 'block' : 'none'; });
+            const saveMateriaField = () => {
+                client.materia = sel.value;
+                client.materiaOtros = sel.value === 'OTROS' ? inputOtros.value : '';
+                saveData(); editingClientId = null; editingField = null; renderAll(); showClientModal(clientId);
+            };
+            inputOtros.addEventListener('blur', saveMateriaField);
+            sel.addEventListener('blur', () => { if (sel.value !== 'OTROS') saveMateriaField(); });
+            wrapper.appendChild(sel); wrapper.appendChild(inputOtros);
+            fieldElement.innerHTML = ''; fieldElement.appendChild(wrapper); sel.focus();
+        }
+
         function editFieldSelect(clientId, fieldName, options) {
             if (editingField) return;
             const client = clientsData.find(c => c.id === clientId);
@@ -1612,8 +1933,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     return `[PAGOS] ${bonoLeyStr} | ${aporteStr} | ${iusStr} | Obs: ${ba.observacion || ''}`;
                 }).join(' \n ');
                 return {
-                    'Título': c.titulo, // EXCEL AÑADIDO
-                    'Materia': c.materia, // EXCEL AÑADIDO
+                    'Título': c.titulo,
+                    'Socio': c.socio || 'Sin asignar',
+                    'Materia': c.materia,
                     'Nombre': c.nombre, 'DNI': c.dni, 'Teléfono': c.telefono, 'Carátula': c.caratula, 'Expediente': c.expediente, 'Juzgado': c.juzgado, 'Dirección Juzgado': c.direccionJuzgado, 'Tel. Juzgado': c.telJuzgado, 'Estado': c.estado, 'Notas': c.notas, 'Próxima Revisión': formatDate(c.proximaRevision), 'Última Tarea': c.observacion, 'Resumen de Audiencias': c.audiencias, 'Historial Tareas': allObs, 'Historial Audiencias': allAuds, 'Historial Vencimientos': allVencs, 'Historial Pagos': allBAs
                 }
             });
@@ -1631,7 +1953,658 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         function printClientHistory(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;const historyHTML=renderHistoryList(client);const printContent=`<div class="print-area"><h2>Historial de Actuaciones</h2><h3>${getDisplayName(client)}</h3>${historyHTML}</div>`;const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Historial del Caso</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
         
+        // --- FUNCIONALIDAD DE SOLAPAS ---
+        function switchTab(event, tabId) {
+            const container = event.target.parentElement.parentElement;
+            const clickedTab = container.querySelector('#' + tabId);
+            const isAlreadyActive = clickedTab.classList.contains('active');
+            // Cerrar todas
+            container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            // Si no estaba activa, abrir la clickeada
+            if (!isAlreadyActive) {
+                clickedTab.classList.add('active');
+                event.target.classList.add('active');
+            }
+        }
+
+        function togglePartidaDetails(selectElement) {
+            const detailsDiv = selectElement.parentElement.nextElementSibling;
+            detailsDiv.style.display = selectElement.value === 'Si' ? 'block' : 'none';
+        }
+
+        function calcularEdadHijo() {
+            const fechaEl = document.getElementById('newHijoFechaNac');
+            const edadEl = document.getElementById('newHijoEdad');
+            const mesesEl = document.getElementById('newHijoEdadMeses');
+            if (!fechaEl || !fechaEl.value) return;
+            const hoy = new Date();
+            const nac = new Date(fechaEl.value + 'T00:00:00');
+            let anios = hoy.getFullYear() - nac.getFullYear();
+            let meses = hoy.getMonth() - nac.getMonth();
+            if (meses < 0) { anios--; meses += 12; }
+            if (hoy.getDate() < nac.getDate()) { meses--; if (meses < 0) { anios--; meses += 12; } }
+            if (edadEl) edadEl.value = anios;
+            if (mesesEl) mesesEl.value = meses;
+        }
+
+        // --- TAB CONVENIO ---
+        function renderTabConvenio(client) {
+            const cv = client.convenio || {};
+            const tipo = cv.tipo || '';
+            const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(parseFloat(String(v||0).replace(',','.')) || 0);
+
+            // Totales
+            let totalCliente = 0;
+            if (tipo === 'NEGRO') {
+                totalCliente = parseFloat(cv.abonoMensual) || 0;
+            } else if (tipo === 'BLANCO') {
+                totalCliente = (parseFloat(cv.provisorio1)||0) + (parseFloat(cv.provisorio2)||0) + (parseFloat(cv.provisorio3)||0) + (parseFloat(cv.definitivo)||0);
+            }
+            const pctGarcia     = parseFloat(cv.pctGarcia) || 0;
+            const pctRocabado   = parseFloat(cv.pctRocabado) || 0;
+            const pctSaglimbeni = parseFloat(cv.pctSaglimbeni) || 0;
+            const totalPct      = pctGarcia + pctRocabado + pctSaglimbeni;
+            const montoGarcia     = totalCliente * pctGarcia / 100;
+            const montoRocabado   = totalCliente * pctRocabado / 100;
+            const montoSaglimbeni = totalCliente * pctSaglimbeni / 100;
+
+            const selectorTipo = `
+                <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                    <button onclick="setTipoConvenio('${client.id}', 'NEGRO')"
+                        style="flex:1; min-width:140px; padding:14px; border-radius:10px; border:3px solid ${tipo==='NEGRO'?'#2c3e50':'#ccc'}; background:${tipo==='NEGRO'?'#2c3e50':'#f8f9fa'}; color:${tipo==='NEGRO'?'white':'#555'}; font-weight:700; cursor:pointer; font-size:1em; transition:all 0.2s;">
+                        🌑 EN NEGRO<br><span style="font-size:0.8em; font-weight:400;">Abono mensual</span>
+                    </button>
+                    <button onclick="setTipoConvenio('${client.id}', 'BLANCO')"
+                        style="flex:1; min-width:140px; padding:14px; border-radius:10px; border:3px solid ${tipo==='BLANCO'?'#2980b9':'#ccc'}; background:${tipo==='BLANCO'?'#2980b9':'#f8f9fa'}; color:${tipo==='BLANCO'?'white':'#555'}; font-weight:700; cursor:pointer; font-size:1em; transition:all 0.2s;">
+                        ☀️ EN BLANCO<br><span style="font-size:0.8em; font-weight:400;">Cuotas provisorio + definitivo</span>
+                    </button>
+                </div>`;
+
+            if (!tipo) {
+                return `<div style="padding:10px;">
+                    <p style="color:#666; font-style:italic; margin-bottom:16px;">Seleccioná el tipo de convenio para continuar:</p>
+                    ${selectorTipo}
+                </div>`;
+            }
+
+            const negroSection = tipo === 'NEGRO' ? `
+                <div style="background:#f4f4f4; border:2px solid #2c3e50; border-radius:10px; padding:18px; margin-bottom:18px;">
+                    <h5 style="color:#2c3e50; margin-bottom:14px;">🌑 Abono Mensual</h5>
+                    <div class="info-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
+                        <div class="form-group">
+                            <label>Abono mensual del cliente $</label>
+                            <input type="number" id="cv_abonoMensual" value="${cv.abonoMensual||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha inicio</label>
+                            <input type="date" id="cv_fechaInicio" value="${cv.fechaInicio||''}">
+                        </div>
+                        <div class="form-group" style="grid-column:1/-1;">
+                            <label>Observaciones</label>
+                            <textarea id="cv_obs" rows="2" placeholder="Condiciones, notas...">${cv.obs||cv.obsNegro||''}</textarea>
+                        </div>
+                    </div>
+                </div>` : '';
+
+            const blancoSection = tipo === 'BLANCO' ? `
+                <div style="background:#eaf4fb; border:2px solid #2980b9; border-radius:10px; padding:18px; margin-bottom:18px;">
+                    <h5 style="color:#2980b9; margin-bottom:4px;">☀️ Cuotas del Convenio en Blanco</h5>
+                    <p style="color:#666; font-size:0.85em; margin-bottom:14px;">Ingresá cada importe manualmente.</p>
+                    <div class="info-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
+                        <div class="form-group">
+                            <label>1ª Cuota Provisorio $</label>
+                            <input type="number" id="cv_provisorio1" value="${cv.provisorio1||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                        </div>
+                        <div class="form-group">
+                            <label>2ª Cuota Provisorio $</label>
+                            <input type="number" id="cv_provisorio2" value="${cv.provisorio2||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                        </div>
+                        <div class="form-group">
+                            <label>3ª Cuota Provisorio $</label>
+                            <input type="number" id="cv_provisorio3" value="${cv.provisorio3||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                        </div>
+                        <div class="form-group">
+                            <label>½ Alimento Definitivo $</label>
+                            <input type="number" id="cv_definitivo" value="${cv.definitivo||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha inicio</label>
+                            <input type="date" id="cv_fechaInicio" value="${cv.fechaInicio||''}">
+                        </div>
+                        <div class="form-group" style="grid-column:1/-1;">
+                            <label>Observaciones</label>
+                            <textarea id="cv_obs" rows="2" placeholder="Condiciones, notas...">${cv.obs||cv.obsBlanco||''}</textarea>
+                        </div>
+                    </div>
+                </div>` : '';
+
+            const distribucionSection = `
+                <div style="background:#f3f0ff; border:2px solid #8e44ad; border-radius:10px; padding:18px; margin-bottom:18px;">
+                    <h5 style="color:#8e44ad; margin-bottom:4px;">👥 Distribución entre Socios</h5>
+                    <p style="color:#666; font-size:0.85em; margin-bottom:14px;">
+                        Ingresá el % de cada socio. Total actual: 
+                        <strong id="cv-total-pct" style="color:${totalPct===100?'#27ae60':'#e74c3c'};">${totalPct}%</strong>
+                        ${totalPct !== 100 ? '<span style="color:#e74c3c; font-size:0.85em;"> ⚠️ debe sumar 100%</span>' : '<span style="color:#27ae60; font-size:0.85em;"> ✓</span>'}
+                    </p>
+                    <div style="display:grid; gap:12px;">
+                        <div style="display:grid; grid-template-columns:1fr 80px 140px; gap:10px; align-items:center; background:white; padding:12px; border-radius:8px; border:1px solid #ddd;">
+                            <span style="font-weight:600;">⚖️ Estudio García</span>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="number" id="cv_pctGarcia" value="${cv.pctGarcia||''}" placeholder="0" min="0" max="100" step="0.5"
+                                    style="width:60px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em; text-align:center;"
+                                    oninput="recalcularConvenio()">
+                                <span style="font-weight:600; color:#555;">%</span>
+                            </div>
+                            <div id="cv-monto-garcia" style="font-weight:700; color:#2c3e50; font-size:1.05em; text-align:right;">${fmt(montoGarcia)}</div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 80px 140px; gap:10px; align-items:center; background:white; padding:12px; border-radius:8px; border:1px solid #ddd;">
+                            <span style="font-weight:600;">👨‍💼 Dr. Rocabado</span>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="number" id="cv_pctRocabado" value="${cv.pctRocabado||''}" placeholder="0" min="0" max="100" step="0.5"
+                                    style="width:60px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em; text-align:center;"
+                                    oninput="recalcularConvenio()">
+                                <span style="font-weight:600; color:#555;">%</span>
+                            </div>
+                            <div id="cv-monto-rocabado" style="font-weight:700; color:#2c3e50; font-size:1.05em; text-align:right;">${fmt(montoRocabado)}</div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 80px 140px; gap:10px; align-items:center; background:white; padding:12px; border-radius:8px; border:1px solid #ddd;">
+                            <span style="font-weight:600;">👨‍💼 Sr. Saglimbeni</span>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="number" id="cv_pctSaglimbeni" value="${cv.pctSaglimbeni||''}" placeholder="0" min="0" max="100" step="0.5"
+                                    style="width:60px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em; text-align:center;"
+                                    oninput="recalcularConvenio()">
+                                <span style="font-weight:600; color:#555;">%</span>
+                            </div>
+                            <div id="cv-monto-saglimbeni" style="font-weight:700; color:#2c3e50; font-size:1.05em; text-align:right;">${fmt(montoSaglimbeni)}</div>
+                        </div>
+                    </div>
+                </div>`;
+
+            const resumenSection = `
+                <div style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); color:white; border-radius:12px; padding:20px; margin-bottom:18px;">
+                    <h5 style="margin-bottom:14px; color:white; opacity:0.9;">📊 Resumen</h5>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px;">
+                        <div style="background:rgba(255,255,255,0.12); border-radius:8px; padding:14px; text-align:center;">
+                            <div style="font-size:0.75em; opacity:0.75; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Paga el cliente</div>
+                            <div id="cv-total-cliente" style="font-size:1.35em; font-weight:800;">${fmt(totalCliente)}</div>
+                            <div style="font-size:0.72em; opacity:0.6; margin-top:3px;">${tipo==='NEGRO'?'por mes':'total cuotas'}</div>
+                        </div>
+                        <div style="background:rgba(142,68,173,0.35); border-radius:8px; padding:14px; text-align:center;">
+                            <div style="font-size:0.75em; opacity:0.75; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">⚖️ García</div>
+                            <div id="cv-resumen-garcia" style="font-size:1.35em; font-weight:800;">${fmt(montoGarcia)}</div>
+                            <div style="font-size:0.72em; opacity:0.6; margin-top:3px;">${pctGarcia}%</div>
+                        </div>
+                        <div style="background:rgba(41,128,185,0.35); border-radius:8px; padding:14px; text-align:center;">
+                            <div style="font-size:0.75em; opacity:0.75; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">👨‍💼 Rocabado</div>
+                            <div id="cv-resumen-rocabado" style="font-size:1.35em; font-weight:800;">${fmt(montoRocabado)}</div>
+                            <div style="font-size:0.72em; opacity:0.6; margin-top:3px;">${pctRocabado}%</div>
+                        </div>
+                        <div style="background:rgba(39,174,96,0.35); border-radius:8px; padding:14px; text-align:center;">
+                            <div style="font-size:0.75em; opacity:0.75; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">👨‍💼 Saglimbeni</div>
+                            <div id="cv-resumen-saglimbeni" style="font-size:1.35em; font-weight:800;">${fmt(montoSaglimbeni)}</div>
+                            <div style="font-size:0.72em; opacity:0.6; margin-top:3px;">${pctSaglimbeni}%</div>
+                        </div>
+                    </div>
+                </div>`;
+
+            return `
+            <div style="padding:4px;">
+                ${selectorTipo}
+                ${negroSection}
+                ${blancoSection}
+                ${distribucionSection}
+                ${resumenSection}
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <button class="btn btn-success" onclick="saveConvenio('${client.id}')">💾 Guardar Convenio</button>
+                    <span id="cv-save-msg" style="display:none; color:var(--success-color); font-weight:600;">✅ Guardado</span>
+                </div>
+            </div>`;
+        }
+
+        function setTipoConvenio(clientId, tipo) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.convenio) client.convenio = {};
+            client.convenio.tipo = tipo;
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector(`.tab-btn[onclick*="tab-convenio"]`);
+                if (btn) btn.click();
+            }, 80);
+        }
+
+        function calcularCuotasBlanco() { recalcularConvenio(); }
+
+        function recalcularConvenio() {
+            const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+            const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
+            const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+            let totalCliente = 0;
+            if (document.getElementById('cv_abonoMensual')) {
+                totalCliente = g('cv_abonoMensual');
+            } else if (document.getElementById('cv_provisorio1')) {
+                totalCliente = g('cv_provisorio1') + g('cv_provisorio2') + g('cv_provisorio3') + g('cv_definitivo');
+            }
+
+            const pctG = g('cv_pctGarcia');
+            const pctR = g('cv_pctRocabado');
+            const pctS = g('cv_pctSaglimbeni');
+            const totalPct = pctG + pctR + pctS;
+
+            const mG = totalCliente * pctG / 100;
+            const mR = totalCliente * pctR / 100;
+            const mS = totalCliente * pctS / 100;
+
+            set('cv-total-cliente', totalCliente);
+            set('cv-monto-garcia', mG);
+            set('cv-monto-rocabado', mR);
+            set('cv-monto-saglimbeni', mS);
+            set('cv-resumen-garcia', mG);
+            set('cv-resumen-rocabado', mR);
+            set('cv-resumen-saglimbeni', mS);
+
+            const elPct = document.getElementById('cv-total-pct');
+            if (elPct) {
+                elPct.textContent = totalPct + '%';
+                elPct.style.color = totalPct === 100 ? '#27ae60' : '#e74c3c';
+            }
+        }
+
+        function saveConvenio(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const g = id => document.getElementById(id)?.value || '';
+            if (!client.convenio) client.convenio = {};
+            const tipo = client.convenio.tipo;
+            Object.assign(client.convenio, {
+                tipo,
+                fechaInicio: g('cv_fechaInicio'),
+                obs: g('cv_obs'),
+                pctGarcia: g('cv_pctGarcia'),
+                pctRocabado: g('cv_pctRocabado'),
+                pctSaglimbeni: g('cv_pctSaglimbeni'),
+            });
+            if (tipo === 'NEGRO') {
+                client.convenio.abonoMensual = g('cv_abonoMensual');
+            } else if (tipo === 'BLANCO') {
+                client.convenio.provisorio1 = g('cv_provisorio1');
+                client.convenio.provisorio2 = g('cv_provisorio2');
+                client.convenio.provisorio3 = g('cv_provisorio3');
+                client.convenio.definitivo  = g('cv_definitivo');
+            }
+            saveData();
+            const msg = document.getElementById('cv-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
+        // --- TAB NECESIDADES DEL ALIMENTADO ---
+        function renderTabNecesidades(client) {
+            const nec = client.necesidades || {
+                items: [
+                    { nombre: 'Alimentación', importe: '' },
+                    { nombre: 'Transporte', importe: '' },
+                    { nombre: 'Vestimenta', importe: '' },
+                    { nombre: 'Farmacia', importe: '' },
+                    { nombre: 'Impuestos y servicios', importe: '' },
+                    { nombre: 'Higiene personal', importe: '' }
+                ],
+                extras: []
+            };
+            // Garantizar estructura
+            if (!nec.items) nec.items = [];
+            if (!nec.extras) nec.extras = [];
+
+            const fmt = (v) => {
+                if (!v && v !== 0) return '';
+                const n = parseFloat(String(v).replace(',', '.'));
+                if (isNaN(n)) return v;
+                return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n);
+            };
+
+            const itemsHtml = nec.items.map((item, i) => `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; background:#fff; padding:10px; border-radius:8px; border:1px solid #ddd;">
+                    <span style="flex:1; font-weight:600; color:var(--dark-text);">📌 ${item.nombre}</span>
+                    <input type="number" id="nec-item-${i}" value="${item.importe || ''}" placeholder="$ 0,00" step="0.01" min="0"
+                        style="width:160px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em;"
+                        oninput="recalcularTotalNecesidades()">
+                </div>`).join('');
+
+            const extrasHtml = nec.extras.map((ex, i) => `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; background:#fff; padding:10px; border-radius:8px; border:1px solid #c8e6c9;">
+                    <input type="text" id="nec-extra-nombre-${i}" value="${ex.nombre || ''}" placeholder="Nombre del ítem"
+                        style="flex:1; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em;">
+                    <input type="number" id="nec-extra-importe-${i}" value="${ex.importe || ''}" placeholder="$ 0,00" step="0.01" min="0"
+                        style="width:160px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em;"
+                        oninput="recalcularTotalNecesidades()">
+                    <button class="btn btn-danger btn-sm" onclick="eliminarExtraNecesidad('${client.id}', ${i})">X</button>
+                </div>`).join('');
+
+            return `
+            <div style="margin-bottom:15px;">
+                <p style="color:#666; font-size:0.9em; font-style:italic;">📝 Registrá el importe mensual estimado de cada necesidad. Hacé clic en <strong>Guardar</strong> cuando termines.</p>
+            </div>
+            <div id="nec-items-container">${itemsHtml}</div>
+            <div id="nec-extras-container">${extrasHtml}</div>
+
+            <div style="margin:15px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button class="btn btn-info btn-sm" onclick="agregarExtraNecesidad('${client.id}')">➕ Agregar otro ítem</button>
+                <div id="nec-total-display" style="background:#dff9fb; border:2px solid #b2bec3; padding:10px 20px; border-radius:8px; font-weight:bold; color:var(--dark-text); font-size:1.1em;">
+                    Total: ${fmt(calcularTotalNecesidadesStatic(nec))}
+                </div>
+            </div>
+
+            <button class="btn btn-success" onclick="saveNecesidades('${client.id}')">💾 Guardar Necesidades</button>
+            <span id="nec-save-msg" style="display:none; color:var(--success-color); font-weight:600; margin-left:10px;">✅ Guardado</span>`;
+        }
+
+        function calcularTotalNecesidadesStatic(nec) {
+            let total = 0;
+            (nec.items || []).forEach(i => { total += parseFloat(i.importe) || 0; });
+            (nec.extras || []).forEach(i => { total += parseFloat(i.importe) || 0; });
+            return total;
+        }
+
+        function recalcularTotalNecesidades() {
+            const client_id_attr = document.querySelector('[id^="nec-item-"]');
+            let total = 0;
+            document.querySelectorAll('[id^="nec-item-"]').forEach(el => { total += parseFloat(el.value) || 0; });
+            document.querySelectorAll('[id^="nec-extra-importe-"]').forEach(el => { total += parseFloat(el.value) || 0; });
+            const fmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(total);
+            const el = document.getElementById('nec-total-display');
+            if (el) el.textContent = 'Total: ' + fmt;
+        }
+
+        function saveNecesidades(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const nec = client.necesidades || { items: [], extras: [] };
+            const items = [
+                { nombre: 'Alimentación' }, { nombre: 'Transporte' }, { nombre: 'Vestimenta' },
+                { nombre: 'Farmacia' }, { nombre: 'Impuestos y servicios' }, { nombre: 'Higiene personal' }
+            ];
+            nec.items = items.map((item, i) => ({
+                nombre: item.nombre,
+                importe: document.getElementById(`nec-item-${i}`) ? document.getElementById(`nec-item-${i}`).value : ''
+            }));
+            nec.extras = [];
+            let idx = 0;
+            while (document.getElementById(`nec-extra-nombre-${idx}`)) {
+                nec.extras.push({
+                    nombre: document.getElementById(`nec-extra-nombre-${idx}`).value,
+                    importe: document.getElementById(`nec-extra-importe-${idx}`) ? document.getElementById(`nec-extra-importe-${idx}`).value : ''
+                });
+                idx++;
+            }
+            client.necesidades = nec;
+            saveData();
+            const msg = document.getElementById('nec-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
+        function agregarExtraNecesidad(clientId) {
+            saveNecesidades(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.necesidades) client.necesidades = { items: [], extras: [] };
+            client.necesidades.extras = client.necesidades.extras || [];
+            client.necesidades.extras.push({ nombre: '', importe: '' });
+            saveData();
+            showClientModal(clientId);
+            // Ir a la solapa de necesidades
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-necesidades"]');
+                if (btn) btn.click();
+            }, 100);
+        }
+
+        function eliminarExtraNecesidad(clientId, index) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.necesidades) return;
+            client.necesidades.extras.splice(index, 1);
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-necesidades"]');
+                if (btn) btn.click();
+            }, 100);
+        }
+
+        // --- TAB DEMANDADO ---
+        function renderTabDemandado(client) {
+            const d = client.demandado || {};
+            return `
+            <div class="info-grid">
+                <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="demNombre" value="${d.nombre || ''}"></div>
+                <div class="form-group"><label>DNI</label><input type="text" id="demDNI" value="${d.dni || ''}"></div>
+                <div class="form-group"><label>Domicilio</label><input type="text" id="demDom" value="${d.domicilio || ''}"></div>
+                <div class="form-group"><label>Teléfono</label><input type="text" id="demTel" value="${d.telefono || ''}"></div>
+                <div class="form-group"><label>Mail</label><input type="email" id="demMail" value="${d.mail || ''}"></div>
+                <div class="form-group"><label>Dirección Laboral</label><input type="text" id="demLab" value="${d.direccionLaboral || ''}"></div>
+            </div>
+            <button class="btn btn-success" onclick="saveDemandado('${client.id}')">💾 Guardar Demandado</button>
+            <span id="dem-save-msg" style="display:none; color:var(--success-color); font-weight:600; margin-left:10px;">✅ Guardado</span>`;
+        }
+
+        function saveDemandado(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.demandado = {
+                nombre: document.getElementById('demNombre').value, dni: document.getElementById('demDNI').value,
+                domicilio: document.getElementById('demDom').value, telefono: document.getElementById('demTel').value,
+                mail: document.getElementById('demMail').value, direccionLaboral: document.getElementById('demLab').value
+            };
+            saveData();
+            const msg = document.getElementById('dem-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+            updateDataStatus('✅ Datos del demandado guardados.');
+        }
+
+        // --- TAB EXPEDIENTE DIGITAL ---
+        function renderTabExpediente(client) {
+            const exp = client.expediente_digital || [];
+            const expHtml = exp.sort((a,b) => b.fecha.localeCompare(a.fecha)).map(item => `
+                <div class="expediente-item">
+                    <div class="expediente-fecha">📅 ${formatDate(item.fecha)}</div>
+                    <div style="white-space: pre-wrap; margin-top: 5px;">${item.texto}</div>
+                </div>
+            `).join('');
+
+            return `
+            <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                <h5>Agregar Proveído / Despacho</h5>
+                <div class="form-group"><label>Fecha</label><input type="date" id="newExpFecha"></div>
+                <div class="form-group"><label>Texto</label><textarea id="newExpTexto" rows="4"></textarea></div>
+                <button class="btn btn-success" onclick="saveExpediente('${client.id}')">➕ Guardar en Expediente</button>
+            </div>
+            <div style="margin-top: 20px; max-height: 400px; overflow-y: auto;">
+                ${exp.length === 0 ? '<p style="color:#666; font-style:italic;">No hay actuaciones guardadas.</p>' : expHtml}
+            </div>`;
+        }
+
+        function saveExpediente(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const fecha = document.getElementById('newExpFecha').value;
+            const texto = document.getElementById('newExpTexto').value;
+            if (!fecha || !texto) return alert('Por favor, complete fecha y texto.');
+            
+            if (!client.expediente_digital) client.expediente_digital = [];
+            client.expediente_digital.push({ id: generateId({}), fecha, texto });
+            saveData();
+            showClientModal(clientId); // Recarga el modal para mostrar el nuevo ingreso
+        }
+
+        // --- TAB HIJOS ---
+        function renderTabHijos(client) {
+            const hijos = client.hijos || [];
+            const hijosHtml = hijos.map((h, i) => {
+                const edadDisplay = h.edadMeses ? `${h.edad || 0} años y ${h.edadMeses} meses` : (h.edad ? `${h.edad} años` : 'S/D');
+                const partidaDisplay = h.partidaSiNo === 'Si'
+                    ? `Circ: ${h.circunscripcion || 'S/D'} | Tomo: ${h.tomo || 'S/D'} | N°: ${h.numeroPartida || 'S/D'} | Año: ${h.anioPartida || 'S/D'} | Lugar: ${h.lugarNac || 'S/D'}`
+                    : 'No';
+                return `
+                <div id="hijo-view-${i}" style="border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; background:#fff;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <strong style="color:var(--primary-color);">👦 ${h.nombre || 'Sin nombre'}</strong>
+                        <div>
+                            <button class="btn btn-sm btn-info" onclick="editHijo('${client.id}', ${i})">✏️ Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteHijo('${client.id}', ${i})">X</button>
+                        </div>
+                    </div>
+                    <div class="info-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:8px;">
+                        <div class="info-item"><div class="info-label">DNI</div><div class="info-value">${h.dni || 'S/D'}</div></div>
+                        <div class="info-item"><div class="info-label">Edad</div><div class="info-value">${edadDisplay}</div></div>
+                        <div class="info-item"><div class="info-label">Fecha Nac.</div><div class="info-value">${formatDate(h.fechaNac)}</div></div>
+                        <div class="info-item"><div class="info-label">Domicilio</div><div class="info-value">${h.domicilio || 'S/D'}</div></div>
+                        <div class="info-item" style="grid-column:1/-1; background:#fdf5e6; border-left:3px solid var(--warning-color);">
+                            <div class="info-label">Partida de Nacimiento</div>
+                            <div class="info-value">¿La tiene?: <strong>${h.partidaSiNo}</strong> ${h.partidaSiNo === 'Si' ? ' | ' + partidaDisplay : ''}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `
+            <div style="margin-bottom: 20px;">${hijos.length === 0 ? '<p style="color:#666;font-style:italic;">No hay hijos cargados.</p>' : hijosHtml}</div>
+            <div style="background: #f0f4f7; padding: 15px; border-radius: 8px;">
+                <h5 style="margin-bottom:12px; color:var(--primary-color);">➕ Agregar Hijo</h5>
+                <div class="info-grid">
+                    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="newHijoNombre"></div>
+                    <div class="form-group"><label>DNI</label><input type="text" id="newHijoDni"></div>
+                    <div class="form-group"><label>Domicilio</label><input type="text" id="newHijoDom"></div>
+                    <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newHijoFechaNac" onchange="calcularEdadHijo()"></div>
+                    <div class="form-group"><label>Años</label><input type="number" id="newHijoEdad" min="0" placeholder="0"></div>
+                    <div class="form-group"><label>Meses (para bebés)</label><input type="number" id="newHijoEdadMeses" min="0" max="11" placeholder="0"></div>
+                    <div class="form-group">
+                        <label>¿Tiene Partida de Nacimiento?</label>
+                        <select id="newHijoPartida" onchange="
+                            var d=document.getElementById('partidaDetailsNew');
+                            d.style.display=this.value==='Si'?'block':'none';
+                        ">
+                            <option value="No">No</option>
+                            <option value="Si">Sí</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="partidaDetailsNew" style="display:none; background:#e8f2ff; padding:15px; border-radius:5px; margin:10px 0; border-left:4px solid var(--primary-color);">
+                    <p style="font-weight:600; color:var(--primary-color); margin-bottom:10px;">📄 Datos de la Partida de Nacimiento</p>
+                    <div class="info-grid">
+                        <div class="form-group"><label>Circunscripción</label><input type="text" id="newHijoCircunscripcion" placeholder="Ej: 1ra Sección"></div>
+                        <div class="form-group"><label>Tomo</label><input type="text" id="newHijoTomo" placeholder="Ej: 5"></div>
+                        <div class="form-group"><label>Número</label><input type="text" id="newHijoNumeroPartida" placeholder="Ej: 123"></div>
+                        <div class="form-group"><label>Año</label><input type="text" id="newHijoAnioPartida" placeholder="Ej: 2020"></div>
+                        <div class="form-group"><label>Lugar de Nacimiento</label><input type="text" id="newHijoLugar" placeholder="Ej: Quilmes"></div>
+                    </div>
+                </div>
+                <button class="btn btn-info" onclick="saveHijo('${client.id}')">💾 Guardar Hijo</button>
+            </div>`;
+        }
+
+        function editHijo(clientId, index) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.hijos || !client.hijos[index]) return;
+            const h = client.hijos[index];
+            const el = document.getElementById(`hijo-view-${index}`);
+            if (!el) return;
+            el.innerHTML = `
+                <h6 style="color:var(--primary-color); margin-bottom:10px;">✏️ Editando hijo</h6>
+                <div class="info-grid">
+                    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="editHijoNombre-${index}" value="${h.nombre || ''}"></div>
+                    <div class="form-group"><label>DNI</label><input type="text" id="editHijoDni-${index}" value="${h.dni || ''}"></div>
+                    <div class="form-group"><label>Domicilio</label><input type="text" id="editHijoDom-${index}" value="${h.domicilio || ''}"></div>
+                    <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editHijoFechaNac-${index}" value="${h.fechaNac || ''}"></div>
+                    <div class="form-group"><label>Años</label><input type="number" id="editHijoEdad-${index}" value="${h.edad || 0}" min="0"></div>
+                    <div class="form-group"><label>Meses</label><input type="number" id="editHijoEdadMeses-${index}" value="${h.edadMeses || 0}" min="0" max="11"></div>
+                    <div class="form-group">
+                        <label>¿Tiene Partida?</label>
+                        <select id="editHijoPartida-${index}" onchange="
+                            var d=document.getElementById('editPartidaDetails-${index}');
+                            d.style.display=this.value==='Si'?'block':'none';
+                        ">
+                            <option value="No" ${h.partidaSiNo !== 'Si' ? 'selected' : ''}>No</option>
+                            <option value="Si" ${h.partidaSiNo === 'Si' ? 'selected' : ''}>Sí</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="editPartidaDetails-${index}" style="display:${h.partidaSiNo === 'Si' ? 'block' : 'none'}; background:#e8f2ff; padding:15px; border-radius:5px; margin:10px 0; border-left:4px solid var(--primary-color);">
+                    <p style="font-weight:600; color:var(--primary-color); margin-bottom:10px;">📄 Datos de la Partida</p>
+                    <div class="info-grid">
+                        <div class="form-group"><label>Circunscripción</label><input type="text" id="editHijoCircunsc-${index}" value="${h.circunscripcion || ''}"></div>
+                        <div class="form-group"><label>Tomo</label><input type="text" id="editHijoTomo-${index}" value="${h.tomo || ''}"></div>
+                        <div class="form-group"><label>Número</label><input type="text" id="editHijoNumero-${index}" value="${h.numeroPartida || ''}"></div>
+                        <div class="form-group"><label>Año</label><input type="text" id="editHijoAnio-${index}" value="${h.anioPartida || ''}"></div>
+                        <div class="form-group"><label>Lugar Nac.</label><input type="text" id="editHijoLugar-${index}" value="${h.lugarNac || ''}"></div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <button class="btn btn-success btn-sm" onclick="saveHijoEdit('${clientId}', ${index})">💾 Guardar</button>
+                    <button class="btn btn-sm" onclick="showClientModal('${clientId}')">Cancelar</button>
+                </div>`;
+        }
+
+        function saveHijoEdit(clientId, index) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.hijos || !client.hijos[index]) return;
+            client.hijos[index] = {
+                nombre: document.getElementById(`editHijoNombre-${index}`).value,
+                dni: document.getElementById(`editHijoDni-${index}`).value,
+                domicilio: document.getElementById(`editHijoDom-${index}`).value,
+                fechaNac: document.getElementById(`editHijoFechaNac-${index}`).value,
+                edad: document.getElementById(`editHijoEdad-${index}`).value,
+                edadMeses: document.getElementById(`editHijoEdadMeses-${index}`).value,
+                partidaSiNo: document.getElementById(`editHijoPartida-${index}`).value,
+                circunscripcion: document.getElementById(`editHijoCircunsc-${index}`) ? document.getElementById(`editHijoCircunsc-${index}`).value : '',
+                tomo: document.getElementById(`editHijoTomo-${index}`) ? document.getElementById(`editHijoTomo-${index}`).value : '',
+                numeroPartida: document.getElementById(`editHijoNumero-${index}`) ? document.getElementById(`editHijoNumero-${index}`).value : '',
+                anioPartida: document.getElementById(`editHijoAnio-${index}`) ? document.getElementById(`editHijoAnio-${index}`).value : '',
+                lugarNac: document.getElementById(`editHijoLugar-${index}`) ? document.getElementById(`editHijoLugar-${index}`).value : ''
+            };
+            saveData();
+            showClientModal(clientId);
+        }
+
+        function saveHijo(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.hijos) client.hijos = [];
+            
+            client.hijos.push({
+                nombre: document.getElementById('newHijoNombre').value,
+                dni: document.getElementById('newHijoDni').value,
+                domicilio: document.getElementById('newHijoDom').value,
+                fechaNac: document.getElementById('newHijoFechaNac').value,
+                edad: document.getElementById('newHijoEdad').value,
+                edadMeses: document.getElementById('newHijoEdadMeses').value,
+                partidaSiNo: document.getElementById('newHijoPartida').value,
+                circunscripcion: document.getElementById('newHijoCircunscripcion') ? document.getElementById('newHijoCircunscripcion').value : '',
+                tomo: document.getElementById('newHijoTomo').value,
+                numeroPartida: document.getElementById('newHijoNumeroPartida') ? document.getElementById('newHijoNumeroPartida').value : '',
+                anioPartida: document.getElementById('newHijoAnioPartida') ? document.getElementById('newHijoAnioPartida').value : '',
+                lugarNac: document.getElementById('newHijoLugar').value
+            });
+            saveData();
+            showClientModal(clientId); 
+        }
+
+        function deleteHijo(clientId, index) {
+            if(!confirm('¿Eliminar este registro?')) return;
+            const client = clientsData.find(c => c.id === clientId);
+            if(client && client.hijos) {
+                client.hijos.splice(index, 1);
+                saveData();
+                showClientModal(clientId);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            // Solo mostrar la pantalla de login, la app se inicializa en doLogin()
+        });
+
+        function initApp() {
             // Inicializar la fecha de inicio del resumen semanal a HOY
             weeklyGlanceStartDate = new Date();
             weeklyGlanceStartDate.setHours(0, 0, 0, 0);
@@ -1651,11 +2624,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             updateClock(); setInterval(updateClock, 1000);
 
             // MODIFICADO: Añadidos campos titulo y materia
-            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required><option value="FAMILIA">FAMILIA</option><option value="CIVIL">CIVIL</option><option value="PENAL">PENAL</option></select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required onchange="toggleNewMateriaOtros()"><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select><input type="text" id="newMateriaOtros" placeholder="Especificar materia..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>👤 Socio Asignado *</label><select id="newSocio" required><option value="GARCIA">⚖️ Estudio García</option><option value="ROCABADO">👨‍💼 Dr. Rocabado Maximiliano</option><option value="SAGLIMBENI">👨‍💼 Sr. Saglimbeni Marcos</option></select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } 
                 // NUEVOS CAMPOS AÑADIDOS
-                const newClient = { id: generateId({}), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
+                const newClient = { id: generateId({}), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
                 const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
@@ -1663,7 +2636,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             
             // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
             setTimeout(() => { unsavedChanges = false; }, 1000); 
-        });
+        } // fin initApp()
         
         // NUEVO LISTENER PARA EVITAR SALIR SIN GUARDAR
         window.addEventListener('beforeunload', (e) => {
