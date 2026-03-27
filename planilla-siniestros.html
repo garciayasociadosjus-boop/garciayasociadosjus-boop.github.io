@@ -178,6 +178,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 <body>
 
 <datalist id="marcasVehiculosList"></datalist>
+<datalist id="companiasSegurosList"></datalist>
 
 <div class="container">
   <div class="header">
@@ -283,7 +284,68 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
 let siniestrosData=[];
 let editingSiniestroId=null,editingField=null;
 let onConfirmCallback = null;
-let weeklyGlanceStartDate = new Date(); // Inicialización para la navegación semanal
+let weeklyGlanceStartDate = new Date();
+
+// === TABLA DE HONORARIOS POR COMPAÑÍA (SOLO ADMINISTRATIVO) ===
+const HONORARIOS_POR_COMPANIA = {
+    'ALLIANZ': 15,
+    'ANTARTIDA ARGENTINA SEGUROS': 15,
+    'ARGOS COMPAÑIA ARGENTINA DE SEGUROS GENERALES S.A.': 10,
+    'ATM': 15,
+    'COMPAÑIA DE SEGUROS LA MERCANTIL ANDINA S.A': 15,
+    'COPAN': 12,
+    'EL PROGRESO': 10,
+    'FEDERACION PATRONAL': 15,
+    'INTEGRITY': 15,
+    'IUÑIGO': 15,
+    'LA CAJA': 15,
+    'LA MERIDIONAL': 15,
+    'LIDERAR': 10,
+    'MAPFRE': 10,
+    'PROVINCIA SEGUROS': 10,
+    'RIVADAVIA': 12,
+    'SAN CRISTOBAL': 15,
+    'SANCOR SEGUROS': 10,
+    'SEGURCOOP COOPERATIVA DE SEGUROS LIMITADA': 10,
+    'SWISS MEDICAL': 12,
+    'ZURICH': 15,
+};
+
+// === LISTA DE COMPAÑÍAS DE SEGUROS ===
+const COMPANIAS_SEGUROS = [
+    'ALLIANZ',
+    'ANTARTIDA ARGENTINA SEGUROS',
+    'ARGOS COMPAÑIA ARGENTINA DE SEGUROS GENERALES S.A.',
+    'ATM',
+    'COMPAÑIA DE SEGUROS LA MERCANTIL ANDINA S.A',
+    'COPAN',
+    'EL PROGRESO',
+    'FEDERACION PATRONAL',
+    'INTEGRITY',
+    'IUÑIGO',
+    'LA CAJA',
+    'LA MERIDIONAL',
+    'LIDERAR',
+    'MAPFRE',
+    'PROVINCIA SEGUROS',
+    'RIVADAVIA',
+    'SAN CRISTOBAL',
+    'SANCOR SEGUROS',
+    'SEGURCOOP COOPERATIVA DE SEGUROS LIMITADA',
+    'SWISS MEDICAL',
+    'ZURICH',
+    'OTRAS',
+];
+
+// === LISTA DE MARCAS DE VEHÍCULOS ===
+const MARCAS_VEHICULOS = [
+    'Acura','Alfa Romeo','Audi','BMW','BYD','Chery','Chevrolet','Chrysler',
+    'Citroën','Dodge','Fiat','Ford','Geely','Honda','Hyundai','Infiniti',
+    'Jeep','Kia','Lexus','Lifan','Lincoln','Mahindra','Maserati','Mazda',
+    'Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche',
+    'RAM','Renault','Seat','Skoda','Subaru','Suzuki','Tesla','Toyota',
+    'Volkswagen','Volvo','OTRAS'
+];
 
 // --- INICIO: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 let tokenClient, gapiReady = false, gisReady = false, gdDataFileId = null;
@@ -293,8 +355,25 @@ const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.google
 const GD_DATA_FILE = 'datos_planilla_siniestros.json';
 
 document.addEventListener('DOMContentLoaded', ()=>{ 
-    // Asegurarse de que la fecha de inicio es hoy al cargar la página
     weeklyGlanceStartDate.setHours(0, 0, 0, 0); 
+    // Poblar datalist de marcas
+    const marcasList = document.getElementById('marcasVehiculosList');
+    if (marcasList) {
+        MARCAS_VEHICULOS.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            marcasList.appendChild(opt);
+        });
+    }
+    // Poblar datalist de compañías
+    const companiasList = document.getElementById('companiasSegurosList');
+    if (companiasList) {
+        COMPANIAS_SEGUROS.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            companiasList.appendChild(opt);
+        });
+    }
     loadData(); 
     renderAll(); 
     updateClock(); 
@@ -383,6 +462,20 @@ function showConfirmModal(message, onConfirm) {
 function saveData(){ try{ localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); }catch(e){ console.error('Error al guardar:',e); updateDataStatus('❌ Error al guardar datos',true); }}
 function loadData(){ try{ const saved=localStorage.getItem('planilla_siniestros_data'); if(saved){ siniestrosData=JSON.parse(saved); siniestrosData=sanitizeData(siniestrosData); }else{ siniestrosData=[]; updateDataStatus('📋 Planilla lista para usar'); }}catch(e){ console.error('Error al cargar:',e); siniestrosData=[]; updateDataStatus('❌ Error al cargar datos',true); }}
 function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach(s=>{ if(!s||typeof s!=='object')return; s.id=s.id||generateId(s); s.genero=s.genero||'Masculino';
+    // Nuevos campos cliente
+    s.tipoGestion = s.tipoGestion || '';
+    s.contraOtros = s.contraOtros || '';
+    s.aseguradoEnOtros = s.aseguradoEnOtros || '';
+    s.fechaNacimiento = s.fechaNacimiento || '';
+    s.cuil = s.cuil || '';
+    s.chasis = s.chasis || '';
+    s.motor = s.motor || '';
+    s.colorVehiculo = s.colorVehiculo || '';
+    // Nuevos campos tercero
+    s.polizaTercero = s.polizaTercero || '';
+    s.dniTercero = s.dniTercero || '';
+    s.marcaClienteOtros = s.marcaClienteOtros || '';
+    s.marcaTerceroOtros = s.marcaTerceroOtros || '';
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
 function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
@@ -617,7 +710,7 @@ function renderAllSiniestrosList(){
 
 function showNewSiniestroModal(){ 
     const modal=document.getElementById('newSiniestroModal'); 
-    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn"></div> <div class="form-group"><label>Contra</label><input type="text" id="newContra"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios %</label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newFechaNacimiento"></div> <div class="form-group"><label>CUIL</label><input type="text" id="newCuil" placeholder="20-12345678-9"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Contra (Aseguradora Tercero)</label><input type="text" id="newContra" list="companiasSegurosList" onchange="sugerirHonorariosNuevo()" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Tipo de Gestión</label><select id="newTipoGestion"><option value="">-- Seleccionar --</option><option value="ADMINISTRATIVO">⚙️ Administrativo</option><option value="MEDIACION">⚖️ Mediación</option></select></div> <div class="form-group"><label>N° Póliza Tercero</label><input type="text" id="newPolizaTercero"></div> <div class="form-group"><label>DNI Tercero</label><input type="text" id="newDniTercero"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios % <span id="honorariosSugerenciaLabel" style="color:#27ae60;font-size:0.8em;"></span></label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
     modal.querySelector('.modal-content').innerHTML=content; 
     modal.classList.add('active'); 
 }
@@ -636,9 +729,24 @@ function autocompletarCliente(nombre) {
             document.getElementById('newCelular').value = clienteExistente.celular || '';
             document.getElementById('newMailCliente').value = clienteExistente.mailCliente || '';
             document.getElementById('newAseguradoEn').value = clienteExistente.aseguradoEn || '';
+            if (document.getElementById('newFechaNacimiento')) document.getElementById('newFechaNacimiento').value = clienteExistente.fechaNacimiento || '';
+            if (document.getElementById('newCuil')) document.getElementById('newCuil').value = clienteExistente.cuil || '';
         };
 
         showConfirmModal(message, autocompletarAccion);
+    }
+}
+
+function sugerirHonorariosNuevo() {
+    const contra = document.getElementById('newContra')?.value?.toUpperCase() || '';
+    const label = document.getElementById('honorariosSugerenciaLabel');
+    const input = document.getElementById('newHonorariosPorcentaje');
+    const sugerido = HONORARIOS_POR_COMPANIA[contra] || Object.entries(HONORARIOS_POR_COMPANIA).find(([k]) => contra.includes(k))?.[1];
+    if (sugerido && label && input) {
+        label.textContent = `→ Sugerido: ${sugerido}%`;
+        if (!input.value || input.value == '0') input.value = sugerido;
+    } else if (label) {
+        label.textContent = '';
     }
 }
 
@@ -649,17 +757,25 @@ function addNewSiniestro(e){
         cliente:document.getElementById('newCliente').value,
         genero:document.getElementById('newGenero').value, 
         dni:document.getElementById('newDni').value,
+        fechaNacimiento:document.getElementById('newFechaNacimiento')?.value || '',
+        cuil:document.getElementById('newCuil')?.value || '',
         celular:document.getElementById('newCelular').value,
         mailCliente:document.getElementById('newMailCliente').value,
         estado:document.getElementById('newEstado').value,
         aseguradoEn:document.getElementById('newAseguradoEn').value,
         contra:document.getElementById('newContra').value,
+        tipoGestion:document.getElementById('newTipoGestion')?.value || '',
+        contraOtros:'',
+        polizaTercero:document.getElementById('newPolizaTercero')?.value || '',
+        dniTercero:document.getElementById('newDniTercero')?.value || '',
         numeroReclamo:document.getElementById('newNumeroReclamo').value,
         presupuesto:document.getElementById('newPresupuesto').value,
         indemnizacion:document.getElementById('newIndemnizacion').value,
         honorarios:document.getElementById('newHonorarios').value,
         honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,
         cuotaLitisPorcentaje:document.getElementById('newCuotaLitisPorcentaje').value, 
+        chasis:'', motor:'', colorVehiculo:'',
+        marcaClienteOtros:'', marcaTerceroOtros:'',
         productor:'',
         productorPorcentaje:'',
         productorImporte:'',
@@ -692,6 +808,8 @@ function showSiniestroModal(id){
         cliente:'Cliente (Titular)',
         genero:'Género', 
         dni:'DNI (Titular)',
+        fechaNacimiento:'Fecha de Nacimiento',
+        cuil:'CUIL',
         celular:'Celular',
         mailCliente:'Mail Cliente',
         estado:'Estado',
@@ -704,12 +822,18 @@ function showSiniestroModal(id){
         modeloCliente:'Modelo Veh. Cliente',
         dominioCliente:'Dominio Veh. Cliente',
         anoCliente:'Año Veh. Cliente',
+        colorVehiculo:'Color Veh. Cliente',
+        chasis:'N° Chasis',
+        motor:'N° Motor',
         contra:'Aseguradora Tercero',
+        tipoGestion:'Tipo de Gestión',
         numeroReclamo:'N° Reclamo',
         fechaSiniestro:'Fecha Siniestro',
         horaSiniestro:'Hora Siniestro',
         lugarSiniestro:'Lugar Siniestro',
         nombreTercero:'Nombre Tercero',
+        dniTercero:'DNI Tercero',
+        polizaTercero:'N° Póliza Tercero',
         mailTercero:'Mail Tercero',
         telefonoTercero:'Teléfono Tercero',
         marcaTercero:'Marca Veh. Tercero',
@@ -731,7 +855,102 @@ function showSiniestroModal(id){
         return val || 'S/D';
     };
     
-    const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2> <div class="info-grid">${Object.entries(fieldsToShow).map(([k,l])=>`<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(s[k]):(k.includes('fecha')?formatDate(s[k]):(k === 'genero' ? formatGenero(s[k]) : (s[k]||'S/D')))}</div></div>`).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')">⚖️ Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; 
+    // === PANEL TIPO DE GESTIÓN + HONORARIOS DE REFERENCIA ===
+    const contraDisplay = s.contra === 'OTRAS' ? (s.contraOtros || 'Otras') : (s.contra || '');
+    const honorarioRef = s.contra ? (HONORARIOS_POR_COMPANIA[s.contra.toUpperCase()] ?? HONORARIOS_POR_COMPANIA[Object.keys(HONORARIOS_POR_COMPANIA).find(k => s.contra.toUpperCase().includes(k))] ?? null) : null;
+
+    const tipoGestionPanel = contraDisplay ? `
+    <div style="background:#f0f4ff; border:2px solid #667eea; border-radius:10px; padding:14px 18px; margin-bottom:14px; display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+        <div style="font-weight:700; color:#2c3e50; min-width:160px;">🏢 ${contraDisplay}</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <label style="font-weight:600; font-size:0.85em; color:#555;">Tipo de Gestión:</label>
+            <select id="tipoGestionSelect" onchange="saveTipoGestion('${s.id}', this.value)"
+                style="padding:6px 12px; border:2px solid #667eea; border-radius:6px; font-size:0.9em; cursor:pointer;">
+                <option value="" ${!s.tipoGestion?'selected':''}>-- Seleccionar --</option>
+                <option value="ADMINISTRATIVO" ${s.tipoGestion==='ADMINISTRATIVO'?'selected':''}>⚙️ Administrativo</option>
+                <option value="MEDIACION" ${s.tipoGestion==='MEDIACION'?'selected':''}>⚖️ Mediación</option>
+            </select>
+        </div>
+        ${s.tipoGestion === 'ADMINISTRATIVO' && honorarioRef !== null ? `
+        <div style="background:#27ae60; color:white; padding:6px 14px; border-radius:8px; font-size:0.9em; font-weight:600;">
+            📋 Ref. Administrativo: <strong>${honorarioRef}%</strong>
+            ${(!s.honorariosPorcentaje || s.honorariosPorcentaje == 0) ? `<button onclick="aplicarHonorarioSugerido('${s.id}',${honorarioRef})" style="margin-left:10px; background:rgba(255,255,255,0.25); border:1px solid rgba(255,255,255,0.5); color:white; padding:3px 10px; border-radius:5px; cursor:pointer; font-size:0.85em;">✅ Aplicar</button>` : ''}
+        </div>` : ''}
+        ${s.tipoGestion === 'MEDIACION' ? `
+        <div style="background:#e67e22; color:white; padding:6px 14px; border-radius:8px; font-size:0.9em; font-weight:600;">
+            ⚖️ Mediación — % a negociar (cargalo manualmente)
+        </div>` : ''}
+        ${s.tipoGestion === 'ADMINISTRATIVO' && honorarioRef === null ? `
+        <div style="background:#95a5a6; color:white; padding:6px 14px; border-radius:8px; font-size:0.9em;">
+            Compañía sin % de referencia cargado
+        </div>` : ''}
+    </div>` : '';
+
+    // Función para renderizar campo de marca con select + "OTRAS"
+    const renderMarcaField = (field, label, otrosField) => {
+        const currentVal = s[field] || '';
+        const otrosVal = s[otrosField] || '';
+        const estaEnLista = MARCAS_VEHICULOS.includes(currentVal) || currentVal === '';
+        const displayVal = !estaEnLista ? currentVal : (currentVal || 'S/D');
+        const marcaSelectId = `marcaSelect-${field}`;
+        const otrosInputId = `marcaOtros-${field}`;
+        return `<div class="info-item">
+            <div class="info-label">${label}</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <select id="${marcaSelectId}" style="width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;" onchange="onMarcaSelectChange('${s.id}','${field}','${otrosField}','${marcaSelectId}','${otrosInputId}')">
+                    <option value="">-- Seleccionar marca --</option>
+                    ${MARCAS_VEHICULOS.map(m=>`<option value="${m}" ${(currentVal===m||(!estaEnLista&&m==='OTRAS'))?'selected':''}>${m}</option>`).join('')}
+                </select>
+                <input type="text" id="${otrosInputId}" placeholder="Especificar marca..." value="${!estaEnLista?currentVal:otrosVal}" style="display:${(!estaEnLista||currentVal==='OTRAS')?'block':'none'};width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;" onblur="saveMarcaOtros('${s.id}','${field}','${otrosField}','${marcaSelectId}','${otrosInputId}')">
+            </div>
+        </div>`;
+    };
+
+    const getFieldHtml = (k, l) => {
+        if (k === 'marcaCliente') return renderMarcaField('marcaCliente', l, 'marcaClienteOtros');
+        if (k === 'marcaTercero') return renderMarcaField('marcaTercero', l, 'marcaTerceroOtros');
+        if (k === 'aseguradoEn' || k === 'contra') {
+            const otrosField = k === 'contra' ? 'contraOtros' : 'aseguradoEnOtros';
+            const selectId = k === 'contra' ? 'contraSelect' : 'aseguradoEnSelect';
+            const otrosId = k === 'contra' ? 'contraOtrosInput' : 'aseguradoEnOtrosInput';
+            const currentVal = s[k] || '';
+            const estaEnLista = COMPANIAS_SEGUROS.includes(currentVal) || currentVal === '';
+            return `<div class="info-item">
+                <div class="info-label">${l}</div>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <select id="${selectId}" style="width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
+                        onchange="onCompaniaSelectChange('${s.id}','${selectId}','${otrosId}','${k}','${otrosField}')">
+                        <option value="">-- Seleccionar --</option>
+                        ${COMPANIAS_SEGUROS.map(c=>`<option value="${c}" ${(currentVal===c||(!estaEnLista&&c==='OTRAS'))?'selected':''}>${c}</option>`).join('')}
+                    </select>
+                    <input type="text" id="${otrosId}" placeholder="Especificar compañía..."
+                        value="${!estaEnLista?currentVal:(s[otrosField]||'')}"
+                        style="display:${(!estaEnLista||currentVal==='OTRAS')?'block':'none'};width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
+                        onblur="saveCompaniaOtros('${s.id}','${selectId}','${otrosId}','${k}','${otrosField}')">
+                </div>
+            </div>`;
+        }
+        if (k === 'tipoGestion') {
+            const opciones = [
+                {v:'', t:'-- Sin definir --'},
+                {v:'ADMINISTRATIVO', t:'⚙️ Administrativo'},
+                {v:'MEDIACION', t:'⚖️ Mediación'},
+            ];
+            return `<div class="info-item"><div class="info-label">${l}</div>
+                <select onchange="saveTipoGestion('${s.id}', this.value)" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;">
+                    ${opciones.map(o=>`<option value="${o.v}" ${s.tipoGestion===o.v?'selected':''}>${o.t}</option>`).join('')}
+                </select>
+            </div>`;
+        }
+        const isCurrency = /presupuesto|indemnizacion|honorarios|productorImporte/.test(k);
+        const isDate = k.includes('fecha');
+        const val = isCurrency ? formatCurrency(s[k]) : isDate ? formatDate(s[k]) : (k==='genero'?formatGenero(s[k]):(s[k]||'S/D'));
+        return `<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" id="field-${k}" onclick="editField('${s.id}','${k}',this)">${val}</div></div>`;
+    };
+
+    const html=` <span class="close" onclick="closeModal('siniestroInfoModal')">&times;</span><h2 style="margin-bottom:12px;">🏥 ${s.cliente}</h2>
+    ${tipoGestionPanel}
+    <div class="info-grid">${Object.entries(fieldsToShow).map(([k,l])=>getFieldHtml(k,l)).join('')}<div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value" style="color:#e74c3c;font-weight:700">${formatDate(s.fechaRevision)}</div></div></div> <div class="form-section" style="margin-top:20px;"><h4>💰 Información de Cobro</h4><div class="info-grid"><div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div><div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div><div class="info-item"><div class="info-label">Fecha de Cobro Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div><div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div><div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div></div></div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4>📝 Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon">➕</span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')">🖨️ Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')">✉️ Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')">⚖️ Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')">🗑️ Eliminar</button></div>${datalistsHTML}`; 
     document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
     document.getElementById('siniestroInfoModal').classList.add('active'); 
 }
@@ -754,7 +973,7 @@ function editField(sid,field,element){
     
     if(field==='cobradoCliente'||field==='cobradoEstudio'||field==='genero')inputType='select'; 
     else if(/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero|honorariosPorcentaje|productorPorcentaje|productorImporte|cuotaLitisPorcentaje/.test(field))inputType='number'; 
-    else if(field.includes('fecha'))inputType='date'; 
+    else if(field==='fechaNacimiento'||field.includes('fecha'))inputType='date'; 
     else if(field==='horaSiniestro')inputType='time'; 
     else if(/mail/.test(field))inputType='email'; 
     
@@ -826,6 +1045,78 @@ function editField(sid,field,element){
     input.focus();
     const valLength=input.value.length;
     input.setSelectionRange(valLength,valLength); 
+}
+
+function onCompaniaSelectChange(sid, selectId, otrosId, field, otrosField) {
+    const sel = document.getElementById(selectId);
+    const otros = document.getElementById(otrosId);
+    if (!sel || !otros) return;
+    if (sel.value === 'OTRAS') {
+        otros.style.display = 'block';
+        otros.focus();
+    } else {
+        otros.style.display = 'none';
+        const s = siniestrosData.find(x => x.id === sid);
+        if (s) {
+            s[field || 'contra'] = sel.value;
+            s[otrosField || 'contraOtros'] = '';
+            saveData();
+            showSiniestroModal(sid);
+        }
+    }
+}
+
+function saveCompaniaOtros(sid, selectId, otrosId, field, otrosField) {
+    const otros = document.getElementById(otrosId);
+    const s = siniestrosData.find(x => x.id === sid);
+    if (s && otros && otros.value.trim()) {
+        s[field || 'contra'] = 'OTRAS';
+        s[otrosField || 'contraOtros'] = otros.value.trim();
+        if (!COMPANIAS_SEGUROS.slice(0,-1).includes(otros.value.trim())) {
+            COMPANIAS_SEGUROS.splice(COMPANIAS_SEGUROS.length - 1, 0, otros.value.trim());
+        }
+        saveData();
+        showSiniestroModal(sid);
+    }
+}
+
+function saveTipoGestion(sid, valor) {
+    const s = siniestrosData.find(x => x.id === sid);
+    if (!s) return;
+    s.tipoGestion = valor;
+    saveData();
+    showSiniestroModal(sid);
+}
+
+function onMarcaSelectChange(sid, field, otrosField, selectId, otrosId) {
+    const sel = document.getElementById(selectId);
+    const otros = document.getElementById(otrosId);
+    if (!sel || !otros) return;
+    if (sel.value === 'OTRAS') {
+        otros.style.display = 'block';
+        otros.focus();
+    } else {
+        otros.style.display = 'none';
+        const s = siniestrosData.find(x => x.id === sid);
+        if (s) { s[field] = sel.value; s[otrosField] = ''; saveData(); }
+    }
+}
+
+function saveMarcaOtros(sid, field, otrosField, selectId, otrosId) {
+    const otros = document.getElementById(otrosId);
+    const s = siniestrosData.find(x => x.id === sid);
+    if (s && otros) { s[field] = otros.value; s[otrosField] = otros.value; saveData(); }
+}
+
+function aplicarHonorarioSugerido(sid, porcentaje) {
+    const s = siniestrosData.find(x => x.id === sid);
+    if (!s) return;
+    s.honorariosPorcentaje = porcentaje;
+    const indem = parseFloat(s.indemnizacion) || 0;
+    if (indem > 0) s.honorarios = (indem * porcentaje / 100).toFixed(2);
+    saveData();
+    renderAll();
+    showSiniestroModal(sid);
 }
 
 function deleteSiniestro(id){ if(!confirm('¿Eliminar siniestro y todo su historial?'))return; siniestrosData=siniestrosData.filter(s=>s.id!==id); saveData(); renderAll(); closeModal('siniestroInfoModal'); }
