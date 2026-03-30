@@ -959,14 +959,15 @@
             let convenioHTML = '';
             if (cv.tipo) {
                 const esNegro = cv.tipo === 'NEGRO';
-                const colorConv = esNegro ? '#2c3e50' : '#2980b9';
+                const colorConv = esNegro ? '#2c3e50' : (cv.subtipoBlanco === 'PROVISORIO' ? '#e67e22' : '#27ae60');
                 const iconConv = esNegro ? '🌑' : '☀️';
                 let montoConvStr = '';
                 if (esNegro && cv.abonoMensual) {
                     montoConvStr = `<span style="font-size:0.85em; opacity:0.85;"> — Abono: ${fmt(cv.abonoMensual)}/mes</span>`;
-                } else if (!esNegro) {
-                    const total = (parseFloat(cv.provisorio1)||0)+(parseFloat(cv.provisorio2)||0)+(parseFloat(cv.provisorio3)||0)+(parseFloat(cv.definitivo)||0);
-                    if (total) montoConvStr = `<span style="font-size:0.85em; opacity:0.85;"> — Total cuotas: ${fmt(total)}</span>`;
+                } else if (!esNegro && cv.subtipoBlanco) {
+                    const total = (parseFloat(cv.cuota1)||0)+(parseFloat(cv.cuota2)||0)+(parseFloat(cv.cuota3)||0)+(parseFloat(cv.medioDefinitivo)||0);
+                    const labelSub = cv.subtipoBlanco === 'PROVISORIO' ? 'Provisorio' : 'Definitivo';
+                    if (total) montoConvStr = `<span style="font-size:0.85em; opacity:0.85;"> — ${labelSub} — Total: ${fmt(total)}</span>`;
                 }
                 const fechaStr = cv.fechaInicio ? `<span style="font-size:0.8em; opacity:0.75; margin-left:8px;">desde ${formatDate(cv.fechaInicio)}</span>` : '';
                 convenioHTML = `
@@ -1992,15 +1993,22 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function renderTabConvenio(client) {
             const cv = client.convenio || {};
             const tipo = cv.tipo || '';
+            const subtipoBlanco = cv.subtipoBlanco || ''; // 'PROVISORIO' o 'DEFINITIVO'
             const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(parseFloat(String(v||0).replace(',','.')) || 0);
 
-            // Totales
+            // Totales según subtipo
             let totalCliente = 0;
             if (tipo === 'NEGRO') {
                 totalCliente = parseFloat(cv.abonoMensual) || 0;
             } else if (tipo === 'BLANCO') {
-                totalCliente = (parseFloat(cv.provisorio1)||0) + (parseFloat(cv.provisorio2)||0) + (parseFloat(cv.provisorio3)||0) + (parseFloat(cv.definitivo)||0);
+                // PROVISORIO: 3 cuotas + ½ definitivo
+                // DEFINITIVO: solo 3 cuotas
+                totalCliente = (parseFloat(cv.cuota1)||0) + (parseFloat(cv.cuota2)||0) + (parseFloat(cv.cuota3)||0);
+                if (subtipoBlanco === 'PROVISORIO') {
+                    totalCliente += (parseFloat(cv.medioDefinitivo)||0);
+                }
             }
+
             const pctGarcia     = parseFloat(cv.pctGarcia) || 0;
             const pctRocabado   = parseFloat(cv.pctRocabado) || 0;
             const pctSaglimbeni = parseFloat(cv.pctSaglimbeni) || 0;
@@ -2017,7 +2025,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     </button>
                     <button onclick="setTipoConvenio('${client.id}', 'BLANCO')"
                         style="flex:1; min-width:140px; padding:14px; border-radius:10px; border:3px solid ${tipo==='BLANCO'?'#2980b9':'#ccc'}; background:${tipo==='BLANCO'?'#2980b9':'#f8f9fa'}; color:${tipo==='BLANCO'?'white':'#555'}; font-weight:700; cursor:pointer; font-size:1em; transition:all 0.2s;">
-                        ☀️ EN BLANCO<br><span style="font-size:0.8em; font-weight:400;">Cuotas provisorio + definitivo</span>
+                        ☀️ EN BLANCO<br><span style="font-size:0.8em; font-weight:400;">Cuotas de alimentos</span>
                     </button>
                 </div>`;
 
@@ -2047,37 +2055,99 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     </div>
                 </div>` : '';
 
-            const blancoSection = tipo === 'BLANCO' ? `
-                <div style="background:#eaf4fb; border:2px solid #2980b9; border-radius:10px; padding:18px; margin-bottom:18px;">
-                    <h5 style="color:#2980b9; margin-bottom:4px;">☀️ Cuotas del Convenio en Blanco</h5>
-                    <p style="color:#666; font-size:0.85em; margin-bottom:14px;">Ingresá cada importe manualmente.</p>
-                    <div class="info-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
-                        <div class="form-group">
-                            <label>1ª Cuota Provisorio $</label>
-                            <input type="number" id="cv_provisorio1" value="${cv.provisorio1||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+            // ── BLANCO: primero selector de subtipo, luego campos ──
+            let blancoSection = '';
+            if (tipo === 'BLANCO') {
+                const selectorSubtipo = `
+                    <div style="margin-bottom:16px;">
+                        <p style="font-weight:600; color:#2980b9; margin-bottom:10px;">¿El convenio es sobre cuota provisoria o definitiva?</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button onclick="setSubtipoBlanco('${client.id}', 'PROVISORIO')"
+                                style="flex:1; min-width:160px; padding:12px; border-radius:8px; border:2px solid ${subtipoBlanco==='PROVISORIO'?'#e67e22':'#ccc'}; background:${subtipoBlanco==='PROVISORIO'?'#e67e22':'#f8f9fa'}; color:${subtipoBlanco==='PROVISORIO'?'white':'#555'}; font-weight:700; cursor:pointer; font-size:0.95em; transition:all 0.2s;">
+                                📋 Sobre cuota PROVISORIA<br>
+                                <span style="font-size:0.78em; font-weight:400;">Cuota 1, 2, 3 + ½ definitivo</span>
+                            </button>
+                            <button onclick="setSubtipoBlanco('${client.id}', 'DEFINITIVO')"
+                                style="flex:1; min-width:160px; padding:12px; border-radius:8px; border:2px solid ${subtipoBlanco==='DEFINITIVO'?'#27ae60':'#ccc'}; background:${subtipoBlanco==='DEFINITIVO'?'#27ae60':'#f8f9fa'}; color:${subtipoBlanco==='DEFINITIVO'?'white':'#555'}; font-weight:700; cursor:pointer; font-size:0.95em; transition:all 0.2s;">
+                                ✅ Sobre cuota DEFINITIVA<br>
+                                <span style="font-size:0.78em; font-weight:400;">Solo cuota 1, 2 y 3</span>
+                            </button>
                         </div>
-                        <div class="form-group">
-                            <label>2ª Cuota Provisorio $</label>
-                            <input type="number" id="cv_provisorio2" value="${cv.provisorio2||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
-                        </div>
-                        <div class="form-group">
-                            <label>3ª Cuota Provisorio $</label>
-                            <input type="number" id="cv_provisorio3" value="${cv.provisorio3||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
-                        </div>
-                        <div class="form-group">
-                            <label>½ Alimento Definitivo $</label>
-                            <input type="number" id="cv_definitivo" value="${cv.definitivo||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha inicio</label>
-                            <input type="date" id="cv_fechaInicio" value="${cv.fechaInicio||''}">
-                        </div>
-                        <div class="form-group" style="grid-column:1/-1;">
-                            <label>Observaciones</label>
-                            <textarea id="cv_obs" rows="2" placeholder="Condiciones, notas...">${cv.obs||cv.obsBlanco||''}</textarea>
-                        </div>
-                    </div>
-                </div>` : '';
+                    </div>`;
+
+                if (!subtipoBlanco) {
+                    blancoSection = `
+                        <div style="background:#eaf4fb; border:2px solid #2980b9; border-radius:10px; padding:18px; margin-bottom:18px;">
+                            <h5 style="color:#2980b9; margin-bottom:14px;">☀️ Convenio en Blanco</h5>
+                            ${selectorSubtipo}
+                        </div>`;
+                } else {
+                    const colorSubtipo = subtipoBlanco === 'PROVISORIO' ? '#e67e22' : '#27ae60';
+                    const labelSubtipo = subtipoBlanco === 'PROVISORIO' ? '📋 Sobre cuota PROVISORIA' : '✅ Sobre cuota DEFINITIVA';
+
+                    // Porcentajes de honorarios
+                    const pctSection = `
+                        <div style="background:#fff3e0; border:1px solid #f39c12; border-radius:8px; padding:14px; margin-bottom:14px;">
+                            <p style="font-weight:600; color:#e67e22; margin-bottom:10px; font-size:0.9em;">⚖️ Porcentaje de Honorarios</p>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div class="form-group">
+                                    <label>% Honorarios sobre Provisorio</label>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <input type="number" id="cv_pctHonProvisorio" value="${cv.pctHonProvisorio||''}" placeholder="0" min="0" max="100" step="0.5"
+                                            style="width:80px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em; text-align:center;" oninput="recalcularConvenio()">
+                                        <span style="font-weight:600; color:#555;">%</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>% Honorarios sobre Definitivo</label>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <input type="number" id="cv_pctHonDefinitivo" value="${cv.pctHonDefinitivo||''}" placeholder="0" min="0" max="100" step="0.5"
+                                            style="width:80px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em; text-align:center;" oninput="recalcularConvenio()">
+                                        <span style="font-weight:600; color:#555;">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+
+                    // Campos de cuotas según subtipo
+                    const camposCuotas = `
+                        <div class="info-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
+                            <div class="form-group">
+                                <label>1ª Cuota $</label>
+                                <input type="number" id="cv_cuota1" value="${cv.cuota1||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                            </div>
+                            <div class="form-group">
+                                <label>2ª Cuota $</label>
+                                <input type="number" id="cv_cuota2" value="${cv.cuota2||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                            </div>
+                            <div class="form-group">
+                                <label>3ª Cuota $</label>
+                                <input type="number" id="cv_cuota3" value="${cv.cuota3||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                            </div>
+                            ${subtipoBlanco === 'PROVISORIO' ? `
+                            <div class="form-group">
+                                <label>½ Alimento Definitivo $</label>
+                                <input type="number" id="cv_medioDefinitivo" value="${cv.medioDefinitivo||''}" placeholder="0.00" step="0.01" min="0" oninput="recalcularConvenio()">
+                            </div>` : ''}
+                            <div class="form-group">
+                                <label>Fecha inicio</label>
+                                <input type="date" id="cv_fechaInicio" value="${cv.fechaInicio||''}">
+                            </div>
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label>Observaciones</label>
+                                <textarea id="cv_obs" rows="2" placeholder="Condiciones, notas...">${cv.obs||''}</textarea>
+                            </div>
+                        </div>`;
+
+                    blancoSection = `
+                        <div style="background:#eaf4fb; border:2px solid ${colorSubtipo}; border-radius:10px; padding:18px; margin-bottom:18px;">
+                            <h5 style="color:${colorSubtipo}; margin-bottom:14px;">☀️ Convenio en Blanco — ${labelSubtipo}</h5>
+                            ${selectorSubtipo}
+                            ${pctSection}
+                            ${camposCuotas}
+                        </div>`;
+                }
+            }
 
             const distribucionSection = `
                 <div style="background:#f3f0ff; border:2px solid #8e44ad; border-radius:10px; padding:18px; margin-bottom:18px;">
@@ -2167,6 +2237,21 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (!client) return;
             if (!client.convenio) client.convenio = {};
             client.convenio.tipo = tipo;
+            // Al cambiar de tipo resetear subtipo
+            if (tipo === 'NEGRO') client.convenio.subtipoBlanco = '';
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector(`.tab-btn[onclick*="tab-convenio"]`);
+                if (btn) btn.click();
+            }, 80);
+        }
+
+        function setSubtipoBlanco(clientId, subtipo) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.convenio) client.convenio = {};
+            client.convenio.subtipoBlanco = subtipo;
             saveData();
             showClientModal(clientId);
             setTimeout(() => {
@@ -2181,13 +2266,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const g = id => parseFloat(document.getElementById(id)?.value) || 0;
             const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
-            const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
             let totalCliente = 0;
             if (document.getElementById('cv_abonoMensual')) {
                 totalCliente = g('cv_abonoMensual');
-            } else if (document.getElementById('cv_provisorio1')) {
-                totalCliente = g('cv_provisorio1') + g('cv_provisorio2') + g('cv_provisorio3') + g('cv_definitivo');
+            } else if (document.getElementById('cv_cuota1')) {
+                totalCliente = g('cv_cuota1') + g('cv_cuota2') + g('cv_cuota3');
+                // Si hay campo de medio definitivo (subtipo PROVISORIO), sumarlo
+                if (document.getElementById('cv_medioDefinitivo')) {
+                    totalCliente += g('cv_medioDefinitivo');
+                }
             }
 
             const pctG = g('cv_pctGarcia');
@@ -2220,8 +2308,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const g = id => document.getElementById(id)?.value || '';
             if (!client.convenio) client.convenio = {};
             const tipo = client.convenio.tipo;
+            const subtipoBlanco = client.convenio.subtipoBlanco || '';
             Object.assign(client.convenio, {
                 tipo,
+                subtipoBlanco,
                 fechaInicio: g('cv_fechaInicio'),
                 obs: g('cv_obs'),
                 pctGarcia: g('cv_pctGarcia'),
@@ -2230,11 +2320,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             });
             if (tipo === 'NEGRO') {
                 client.convenio.abonoMensual = g('cv_abonoMensual');
-            } else if (tipo === 'BLANCO') {
-                client.convenio.provisorio1 = g('cv_provisorio1');
-                client.convenio.provisorio2 = g('cv_provisorio2');
-                client.convenio.provisorio3 = g('cv_provisorio3');
-                client.convenio.definitivo  = g('cv_definitivo');
+            } else if (tipo === 'BLANCO' && subtipoBlanco) {
+                client.convenio.cuota1 = g('cv_cuota1');
+                client.convenio.cuota2 = g('cv_cuota2');
+                client.convenio.cuota3 = g('cv_cuota3');
+                client.convenio.pctHonProvisorio = g('cv_pctHonProvisorio');
+                client.convenio.pctHonDefinitivo = g('cv_pctHonDefinitivo');
+                if (subtipoBlanco === 'PROVISORIO') {
+                    client.convenio.medioDefinitivo = g('cv_medioDefinitivo');
+                }
             }
             saveData();
             const msg = document.getElementById('cv-save-msg');
