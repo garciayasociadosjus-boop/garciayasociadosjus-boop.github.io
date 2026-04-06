@@ -466,6 +466,7 @@
                 <button class="btn" onclick="showClientSelectorModal()">👁️ Ver/Editar Caso</button>
                 <button class="btn" onclick="exportToExcel()">📊 Exportar a Excel</button>
                 <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
+                <button class="btn btn-success" onclick="exportDataParaAgente()" style="background: linear-gradient(135deg, #6c3483, #9b59b6);">🤖 Exportar para Agente</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
             </section>
             
@@ -1955,6 +1956,133 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             XLSX.writeFile(workbook, `Casos_Familia_${getTodayYMD()}.xlsx`);
         }
         function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
+
+        function exportDataParaAgente() {
+            function separarNombre(nombreCompleto) {
+                if (!nombreCompleto) return { apellido: '', nombre: '' };
+                const palabras = nombreCompleto.trim().split(/\s+/);
+                if (palabras.length === 1) return { apellido: palabras[0], nombre: '' };
+                return { apellido: palabras[0], nombre: palabras.slice(1).join(' ') };
+            }
+
+            const dataParaAgente = clientsData.map(c => {
+                const { apellido, nombre } = separarNombre(c.nombre);
+                return {
+                    id: c.id,
+                    datos_personales: {
+                        apellido: apellido,
+                        nombre: nombre,
+                        nombre_completo: c.nombre || '',
+                        dni: c.dni || '',
+                        titulo: c.titulo || 'SR/SRA'
+                    },
+                    domicilios: { real: '', constituido: '', electronico: '' },
+                    contacto: { telefono: c.telefono || '', email: '' },
+                    contraparte: {
+                        apellido: (c.demandado && c.demandado.nombre) ? separarNombre(c.demandado.nombre).apellido : '',
+                        nombre: (c.demandado && c.demandado.nombre) ? separarNombre(c.demandado.nombre).nombre : '',
+                        nombre_completo: (c.demandado && c.demandado.nombre) || '',
+                        dni: (c.demandado && c.demandado.dni) || '',
+                        domicilio_real: (c.demandado && c.demandado.domicilio) || '',
+                        domicilio_laboral: (c.demandado && c.demandado.direccionLaboral) || '',
+                        telefono: (c.demandado && c.demandado.telefono) || '',
+                        mail: (c.demandado && c.demandado.mail) || ''
+                    },
+                    hijos: (c.hijos || []).map(h => ({
+                        nombre: h.nombre || '',
+                        dni: h.dni || '',
+                        fecha_nacimiento: h.fechaNac || '',
+                        edad: h.edad || '',
+                        edad_meses: h.edadMeses || '',
+                        domicilio: h.domicilio || '',
+                        partida: h.partidaSiNo || 'No',
+                        partida_datos: h.partidaSiNo === 'Si' ? {
+                            circunscripcion: h.circunscripcion || '',
+                            tomo: h.tomo || '',
+                            numero: h.numeroPartida || '',
+                            anio: h.anioPartida || '',
+                            lugar_nacimiento: h.lugarNac || ''
+                        } : null
+                    })),
+                    caso: {
+                        tipo: (c.materia || '').toLowerCase().replace(/ /g, '_'),
+                        subtipo: c.materia || '',
+                        materia_otros: c.materiaOtros || '',
+                        estado: c.estado || '',
+                        socio: c.socio || '',
+                        notas: c.notas || ''
+                    },
+                    expediente: {
+                        numero: c.expediente || '',
+                        juzgado: c.juzgado || '',
+                        direccion_juzgado: c.direccionJuzgado || '',
+                        tel_juzgado: c.telJuzgado || '',
+                        secretaria: '',
+                        fuero: 'Familia',
+                        departamento_judicial: 'Quilmes',
+                        caratula: c.caratula || ''
+                    },
+                    economico: {
+                        moneda: 'ARS',
+                        tasa_aplicable: 'activa BNA',
+                        convenio_tipo: (c.convenio && c.convenio.tipo) || '',
+                        convenio_subtipo: (c.convenio && c.convenio.subtipoBlanco) || '',
+                        abono_mensual: (c.convenio && c.convenio.abonoMensual) || '',
+                        cuota1: (c.convenio && c.convenio.cuota1) || '',
+                        cuota2: (c.convenio && c.convenio.cuota2) || '',
+                        cuota3: (c.convenio && c.convenio.cuota3) || '',
+                        reg_importe_ius: (c.convenio && c.convenio.reg_importeIUS) || '',
+                        reg_pct_aportes: (c.convenio && c.convenio.reg_pctAportes) || '',
+                        reg_pct_interes: (c.convenio && c.convenio.reg_pctInteres) || '',
+                        reg_cant_cuotas: (c.convenio && c.convenio.reg_cantCuotas) || ''
+                    },
+                    necesidades: (c.necesidades && c.necesidades.items) ? c.necesidades.items.map(n => ({ concepto: n.nombre, importe: n.importe || '0' })) : [],
+                    necesidades_extras: (c.necesidades && c.necesidades.extras) ? c.necesidades.extras.map(n => ({ concepto: n.nombre, importe: n.importe || '0' })) : [],
+                    hechos_resumen: (c.observaciones || []).filter(obs => obs.texto).map(obs => obs.texto).join(' | '),
+                    historial_actuaciones: [
+                        ...(c.observaciones || []).map(obs => ({
+                            fecha: obs.fecha || '', tipo: 'tarea',
+                            descripcion: obs.texto || '',
+                            proxima_revision: obs.proximaRevision || '',
+                            completado: obs.completed || false
+                        })),
+                        ...(c.audiencias_list || []).map(aud => ({
+                            fecha: aud.fecha || '', hora: aud.hora || '',
+                            tipo: 'audiencia', descripcion: aud.texto || '',
+                            completado: aud.completed || false
+                        })),
+                        ...(c.vencimientos_list || []).map(venc => ({
+                            fecha: venc.fecha || '', hora: venc.hora || '',
+                            tipo: 'vencimiento', descripcion: venc.texto || '',
+                            completado: venc.completed || false
+                        }))
+                    ].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+                    pagos: (c.bonos_aportes_list || []).map(ba => ({
+                        fecha: ba.bonoLeyFecha || ba.bonoFecha || ba.aporteFecha || ba.iusFecha || '',
+                        bono_ley_pago: ba.bonoLeyPago || ba.bonoPago || 'No',
+                        bono_ley_importe: ba.bonoLeyImporte || ba.bonoImporte || '0',
+                        bono_ley_cargo: ba.bonoLeyCargo || ba.bonoCargo || '',
+                        aporte_pago: ba.aportePago || 'No',
+                        aporte_importe: ba.aporteImporte || '0',
+                        aporte_cargo: ba.aporteCargo || '',
+                        ius_pago: ba.iusPago || 'No',
+                        ius_importe: ba.iusImporte || '0',
+                        ius_cargo: ba.iusCargo || '',
+                        observacion: ba.observacion || ''
+                    })),
+                    expediente_digital: (c.expediente_digital || []).map(e => ({ fecha: e.fecha || '', texto: e.texto || '' })),
+                    proxima_revision: c.proximaRevision || '',
+                    ultima_observacion: c.observacion || ''
+                };
+            });
+
+            const dataStr = JSON.stringify(dataParaAgente, null, 2);
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob([dataStr], { type: 'application/json' }));
+            link.download = `casos_familia_agente_${getTodayYMD()}.json`;
+            link.click();
+            updateDataStatus('✅ JSON para Agente exportado correctamente.');
+        }
         function importData(){document.getElementById('importInput').click()}
         function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
         function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;
