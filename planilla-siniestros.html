@@ -1467,113 +1467,46 @@ async function processConvenioData(event, siniestroId) {
 }
 
 async function callAIApi(data, apiPath){ 
-    console.log("Generando con OpenAI:", apiPath);
+    console.log("Enviando datos al servidor:", data, "a", apiPath); 
+    
+    const API_URL_BASE = 'https://portal-backend-1-8jx9.onrender.com';
+    const API_URL = API_URL_BASE + apiPath;
 
-    const OPENAI_KEY = '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';
+    const controller = new AbortController(); 
+    const timeoutId = setTimeout(() => controller.abort(), 60000); 
+    try { 
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+            signal: controller.signal
+        }); 
+        clearTimeout(timeoutId); 
 
-    let userPrompt = '';
+        if (!response.ok) { 
+            const errorText = await response.text(); 
+            let errorJson; 
+            try { 
+                errorJson = JSON.parse(errorText); 
+                throw new Error(errorJson.detalle || errorJson.error || 'Error desconocido del servidor.'); 
+            } catch (e) { 
+                throw new Error(errorText || `Error del servidor: ${response.status}`); 
+            }
+        } 
+        
+        const generatedLetter = await response.text(); 
+        return {success: true, letter: generatedLetter}; 
 
-    if (apiPath === '/api/generar-carta') {
-        const s = data.siniestro;
-        const genero = data.generoCliente || s.genero || 'Masculino';
-        const hayLesiones = data.hayLesiones;
-        const montoMateriales = s.presupuesto ? `$${parseFloat(s.presupuesto).toLocaleString('es-AR')}` : 'a determinar';
-        const montoTotal = data.montoTotal ? `$${parseFloat(data.montoTotal).toLocaleString('es-AR')}` : 'a determinar';
-
-        userPrompt = `Redactá una carta de patrocinio formal en español argentino para una aseguradora, con los siguientes datos:
-
-ENCABEZADO:
-- Lugar y fecha: ${data.lugarEmision || 'Quilmes'}, ${new Date().toLocaleDateString('es-AR', {day:'numeric',month:'long',year:'numeric'})}
-- Destinatario: ${data.destinatario || s.contra || 'N/A'}
-- Domicilio destinatario: ${data.destinatarioDomicilio || 'domicilio legal'}
-
-CLIENTE (mandante):
-- Nombre: ${s.cliente || 'N/A'} | DNI: ${s.dni || 'N/A'} | Género: ${genero}
-- Póliza: ${data.polizaCliente || 'N/A'} | Aseguradora: ${data.aseguradoraCliente || 'N/A'}
-
-SINIESTRO:
-- N° Reclamo: ${s.numeroReclamo || 'N/A'}
-- Fecha: ${data.fechaSiniestro || 'N/A'} | Hora: ${data.horaSiniestro || 'N/A'} | Lugar: ${data.lugarSiniestro || 'N/A'}
-- Vehículo cliente: ${data.vehiculoCliente || [s.marcaCliente, s.modeloCliente, s.dominioCliente].filter(Boolean).join(' ') || 'N/A'}
-- Partes dañadas: ${data.partesDanadas || 'N/A'}
-- Tercero: ${data.nombreTercero || s.nombreTercero || 'N/A'} | Vehículo: ${data.vehiculoTercero || [s.marcaTercero, s.modeloTercero, s.dominioTercero].filter(Boolean).join(' ') || 'N/A'}
-${data.conductor && !data.conductor.esTitular ? `- Conductor del vehículo del cliente: ${data.conductor.nombre} (DNI: ${data.conductor.dni})` : ''}
-
-RELATO: ${data.relato || 'N/A'}
-
-INFRACCIONES DEL TERCERO: ${data.infracciones || 'N/A'}
-
-MONTOS:
-- Daños materiales: ${montoMateriales}
-${hayLesiones ? `- Lesiones: ${data.lesionesDesc || 'lesiones sufridas'}. Monto: $${parseFloat(data.montoLesiones||0).toLocaleString('es-AR')}` : ''}
-- Total reclamado: ${montoTotal}
-
-LETRADA PATROCINANTE:
-- Dra. Camila Florencia García
-- C.P.A.C.F. T° 140, F° 85 | C.A.Q. T° XII, F° 383
-- Domicilio procesal: Zapiola N° 662, Bernal, Partido de Quilmes
-- Tel: 11 6806 3444 | Email: garciayasociadosjus@gmail.com | Estudio: García & Asociados
-
-INSTRUCCIONES: Redactá la carta completa y formal. Acreditá la calidad de letrada patrocinante. Describí el hecho con detalle. Reclamá los montos. Cerrá con intimación formal para que la aseguradora reconozca responsabilidad y pague. Firmá con datos completos de la letrada. Usá formato carta legal argentina estándar. SIN markdown ni asteriscos, solo texto plano con saltos de línea.`;
-
-    } else if (apiPath === '/api/generar-convenio') {
-        const s = data.siniestro;
-        userPrompt = `Redactá un Convenio de Honorarios Profesionales en español argentino con estos datos:
-
-PARTES:
-- Cliente: ${data.clienteNombre || s.cliente || 'N/A'}, DNI: ${data.clienteDNI || s.dni || 'N/A'}, domicilio: ${data.clienteDomicilio || 'N/A'}
-- Letrada: Dra. Camila Florencia García, C.P.A.C.F. T° 140, F° 85 | C.A.Q. T° XII, F° 383, domicilio procesal: Zapiola N° 662, Bernal, Partido de Quilmes
-
-CASO:
-- Siniestro: ${data.fechaSiniestro || 'N/A'} en ${data.lugarSiniestro || 'N/A'}
-- Vehículo tercero: ${data.vehiculoTercero || 'N/A'} | Aseguradora tercero: ${data.aseguradoraTercero || 'N/A'}
-- Tipo de daños: ${data.tipoDanos || 'daños materiales y lesiones'}
-
-CONDICIONES:
-- Honorarios: cuota litis del ${data.cuotaLitisPorcentaje || '10'}% sobre lo efectivamente cobrado
-- Lugar de firma: ${data.lugarFirma || 'Quilmes'}
-- Fecha: ${new Date().toLocaleDateString('es-AR', {day:'numeric',month:'long',year:'numeric'})}
-
-INSTRUCCIONES: Redactá el convenio completo y formal conforme al derecho argentino. Incluí cláusulas de objeto, honorarios, gastos, confidencialidad y jurisdicción. Cerrá con espacio para firmas. SIN markdown ni asteriscos, solo texto plano.`;
-    }
-
-    try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                max_tokens: 1500,
-                messages: [
-                    { role: "system", content: "Sos una asistente legal argentina especializada en derecho de seguros y daños. Redactás documentos jurídicos formales, precisos y en español rioplatense. Nunca usás markdown, asteriscos ni formato especial. Solo texto plano con saltos de línea normales." },
-                    { role: "user", content: userPrompt }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Error de API OpenAI: ${response.status} - ${errText}`);
-        }
-
-        const result = await response.json();
-        const generatedText = result.choices && result.choices[0] && result.choices[0].message
-            ? result.choices[0].message.content
-            : '';
-
-        if (!generatedText) throw new Error('La API no devolvió contenido.');
-
-        return { success: true, letter: generatedText };
-
-    } catch (error) {
-        console.error("Error al llamar a OpenAI:", error);
-        return {
-            success: false,
-            error: `ERROR: No se pudo generar el documento.\n\nDetalles: ${error.message}`
-        };
+    } catch (error) { 
+        clearTimeout(timeoutId); 
+        console.error("Error al llamar a la API:", error); 
+        let errorMessage = `ERROR: No se pudo conectar con el servidor (${apiPath}).`; 
+        if (error.name === 'AbortError') { 
+            errorMessage = `ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; 
+        } else { 
+            errorMessage += `\n\nDetalles: ${error.message}`; 
+        } 
+        return {success: false, error: errorMessage}; 
     }
 }
 function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
