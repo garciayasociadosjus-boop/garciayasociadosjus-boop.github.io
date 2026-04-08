@@ -1467,48 +1467,43 @@ async function processConvenioData(event, siniestroId) {
 }
 
 async function callAIApi(data, apiPath){ 
-    console.log("Enviando datos al servidor:", data, "a", apiPath); 
-    
-    const API_URL_BASE = 'https://portal-backend-1-8jx9.onrender.com';
-    const API_URL = API_URL_BASE + apiPath;
+    console.log("Generando con Cloudflare Workers:", apiPath);
 
-    const controller = new AbortController(); 
-    const timeoutId = setTimeout(() => controller.abort(), 60000); 
-    try { 
+    const API_URL = 'https://garcia-ia.garciayasociadosjus.workers.dev' + apiPath;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data),
             signal: controller.signal
-        }); 
-        clearTimeout(timeoutId); 
+        });
+        clearTimeout(timeoutId);
 
-        if (!response.ok) { 
-            const errorText = await response.text(); 
-            let errorJson; 
-            try { 
-                errorJson = JSON.parse(errorText); 
-                throw new Error(errorJson.detalle || errorJson.error || 'Error desconocido del servidor.'); 
-            } catch (e) { 
-                throw new Error(errorText || `Error del servidor: ${response.status}`); 
-            }
-        } 
-        
-        const generatedLetter = await response.text(); 
-        return {success: true, letter: generatedLetter}; 
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error('Error del servidor: ' + response.status + ' - ' + errText);
+        }
 
-    } catch (error) { 
-        clearTimeout(timeoutId); 
-        console.error("Error al llamar a la API:", error); 
-        let errorMessage = `ERROR: No se pudo conectar con el servidor (${apiPath}).`; 
-        if (error.name === 'AbortError') { 
-            errorMessage = `ERROR: La solicitud tardó demasiado (más de 60s) y fue cancelada. Puede que el servidor esté "despertando". Intenta de nuevo en un momento.`; 
-        } else { 
-            errorMessage += `\n\nDetalles: ${error.message}`; 
-        } 
-        return {success: false, error: errorMessage}; 
+        const generatedLetter = await response.text();
+        return {success: true, letter: generatedLetter};
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+        console.error("Error:", error);
+        let errorMessage = 'ERROR: No se pudo generar el documento.';
+        if (error.name === 'AbortError') {
+            errorMessage = 'ERROR: La solicitud tardó demasiado. Intenta de nuevo.';
+        } else {
+            errorMessage += '\n\nDetalles: ' + error.message;
+        }
+        return {success: false, error: errorMessage};
     }
 }
+
 function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
 function downloadAsPDF(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedLetterText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('CartaDePatrocinio.pdf'); }
 function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
