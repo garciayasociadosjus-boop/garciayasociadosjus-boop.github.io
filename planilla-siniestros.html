@@ -195,8 +195,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
   </div>
 
   <div class="main-content">
-    <div id="dataStatus" class="data-status">Cargando datos...</div>
-    <div id="driveStatus" class="data-status" style="display:none;"></div>
+    <div id="dataStatus" class="data-status" style="display:none;"></div>
 
     <section class="card" style="margin-bottom: 30px;">
         <h3 onclick="toggleVisibility('weeklyGlanceSection')" style="cursor: pointer; user-select: none;">
@@ -237,6 +236,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
       <button id="connectDriveBtn" class="btn" onclick="handleAuthClick()">🔗 Conectar a Drive & Calendar</button>
       <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveToDrive()">📤 Guardar en Drive</button>
       <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadFromDrive()">📥 Cargar de Drive</button>
+      <div id="driveStatus" class="data-status" style="display:none;margin-top:10px;"></div>
     </div>
 
     <div class="filter-bar">
@@ -477,7 +477,7 @@ function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach
     s.marcaClienteOtros = s.marcaClienteOtros || '';
     s.marcaTerceroOtros = s.marcaTerceroOtros || '';
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
-function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';}}
+function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';el.style.display=msg?'block':'none';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
 const todayYMD = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
 
