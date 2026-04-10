@@ -1031,20 +1031,30 @@
       // Solo calcular mora para estados con deuda
       var estadosConDeuda = ['Pendiente','Falta de Pago','Ejecución de Honorarios'];
       if (!estadosConDeuda.includes(abono.estado)) return null;
+      // Si tiene deuda acumulada de meses anteriores → moroso directo
+      if (abono.deudaAcumulada && parseFloat(abono.deudaAcumulada) > 0) return 999;
       var hoy = new Date(); hoy.setHours(0,0,0,0);
-      // Usar fechaVencimiento si fue cargada manualmente
       var ref = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00') : null;
-      // Si no hay fechaVencimiento, usar día 10 del mesServicio
       if (!ref && abono.mesServicio) { ref = new Date(abono.mesServicio.year, abono.mesServicio.month, 10); }
       if (!ref) return null;
       return Math.floor((hoy - ref) / 86400000);
     }
 
     function renderVencimiento(abono) {
-      // Pagado/Terminado: no mostrar vencimiento
       if (abono.estado === 'Pagado' || abono.estado === 'Terminado') return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
-      // Regulación en Pago Parcial: cuotas acordadas, sin mora
       if (abono.tipo === 'Regulación Honorarios' && abono.estado === 'Pago Parcial') return '<span style="color:#6366f1;font-size:.82em;">⚖️ Cuotas</span>';
+      // Deuda acumulada de meses anteriores → moroso
+      if (abono.deudaAcumulada && parseFloat(abono.deudaAcumulada) > 0) {
+        var mesesDeuda = '';
+        if (abono.mesServicio) {
+          // Calcular cuántos meses lleva debiendo
+          var hoy = new Date();
+          var mesAbono = new Date(abono.mesServicio.year, abono.mesServicio.month, 1);
+          var meses = (hoy.getFullYear() - mesAbono.getFullYear()) * 12 + (hoy.getMonth() - mesAbono.getMonth());
+          if (meses > 0) mesesDeuda = ' ('+meses+'m)';
+        }
+        return '<span class="venc-vencido" title="Tiene deuda acumulada de meses anteriores">🔴 Moroso'+mesesDeuda+'</span>';
+      }
       var dias = diasMora(abono);
       if (dias === null) return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
       var fechaLabel = '';
