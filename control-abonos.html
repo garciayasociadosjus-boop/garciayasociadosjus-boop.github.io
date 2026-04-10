@@ -134,6 +134,44 @@
       .receipt-preview{visibility:visible!important;position:absolute;left:0;top:0;width:100%;border:none;box-shadow:none;margin:0}
       .back-to-portal{display:none!important}
     }
+    /* === VISTA AGRUPADA POR CLIENTE === */
+    .vista-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+    .vista-tab{padding:8px 18px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;font-size:.9em;font-weight:600;transition:.3s}
+    .vista-tab.active{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
+    .cliente-group{background:#fff;border-radius:12px;box-shadow:0 3px 12px rgba(0,0,0,.07);margin-bottom:16px;overflow:hidden;border:1px solid #e2e8f0}
+    .cliente-group-header{background:var(--secondary-color);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:.2s}
+    .cliente-group-header:hover{background:var(--primary-color)}
+    .cliente-group-header .nombre{font-weight:700;font-size:1.05em}
+    .cliente-group-header .resumen{display:flex;gap:16px;align-items:center;font-size:.9em}
+    .cliente-group-header .badge{padding:3px 10px;border-radius:12px;font-weight:700;font-size:.85em}
+    .badge-deuda{background:#dc2626;color:#fff}
+    .badge-ok{background:#059669;color:#fff}
+    .badge-parcial{background:#6366f1;color:#fff}
+    .cliente-group-body{display:none;padding:0}
+    .cliente-group-body.open{display:block}
+    .cliente-group-body table{margin-top:0;font-size:.88em}
+    .cliente-group-body thead{background:#f1f5f9}
+    .cliente-group-body thead th{color:var(--text-dark)}
+    .mora-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:700;margin-left:6px}
+    .mora-ok{background:#d1fae5;color:#065f46}
+    .mora-warn{background:#fef3c7;color:#92400e}
+    .mora-danger{background:#fee2e2;color:#991b1b}
+    /* === VENCIMIENTO === */
+    .venc-ok{color:var(--success-color);font-size:.82em;font-weight:600}
+    .venc-prox{color:var(--warning-color);font-size:.82em;font-weight:600}
+    .venc-vencido{color:var(--danger-color);font-size:.82em;font-weight:600}
+    /* === LOG DE CONTACTOS === */
+    .log-modal-content{max-width:560px}
+    .log-entry{background:var(--light-bg);border-radius:8px;padding:12px 15px;margin-bottom:10px;border-left:4px solid var(--primary-color);position:relative}
+    .log-entry .log-fecha{font-size:.8em;color:#64748b;margin-bottom:4px}
+    .log-entry .log-texto{font-size:.92em;color:var(--text-dark)}
+    .log-entry .log-delete{position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1.1em}
+    .log-entry .log-delete:hover{color:var(--danger-color)}
+    .log-add-form{display:flex;gap:8px;margin-top:12px}
+    .log-add-form input{flex:1;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:.9em}
+    /* === ALERTA TELÉFONO === */
+    .telefono-missing{border:2px solid var(--danger-color)!important;background:#fff5f5!important}
+    .alerta-sin-tel{color:var(--danger-color);font-size:.78em;margin-top:3px;display:none}
   </style>
 </head>
 <body>
@@ -237,24 +275,41 @@
 
       <div id="print-area" class="print-area">
         <h2 id="table-title" style="display:none;text-align:center;margin-bottom:20px;"></h2>
-        <div style="overflow-x:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Tipo</th>
-                <th>Monto Abono</th>
-                <th>Fecha de Pago</th>
-                <th>Forma de Pago</th>
-                <th>Estado</th>
-                <th>🤖 Agente</th>
-                <th class="no-print">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="abonosTableBody"></tbody>
-          </table>
+
+        <!-- Tabs de vista -->
+        <div class="vista-tabs no-print">
+          <button class="vista-tab active" id="tabRegistros" onclick="cambiarVista('registros')">📋 Vista por Registros</button>
+          <button class="vista-tab" id="tabClientes" onclick="cambiarVista('clientes')">👤 Vista por Cliente</button>
         </div>
+
+        <!-- Vista registros (tabla original) -->
+        <div id="vistaRegistros">
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Teléfono</th>
+                  <th>Tipo</th>
+                  <th>Monto Abono</th>
+                  <th>Vencimiento</th>
+                  <th>Fecha de Pago</th>
+                  <th>Forma de Pago</th>
+                  <th>Estado</th>
+                  <th>🤖 Agente</th>
+                  <th class="no-print">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="abonosTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista por cliente (agrupada) -->
+        <div id="vistaClientes" style="display:none;">
+          <div id="clientesGroupContainer"></div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -267,9 +322,14 @@
       <h2 id="modalTitle">Agregar Nuevo Registro</h2>
       <form id="abonoForm" class="modal-form">
         <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
-        <div class="form-group"><label>Teléfono</label><input type="tel" id="telefono" placeholder="(Opcional)"></div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="tel" id="telefono" placeholder="Ej: 1123456789">
+          <span class="alerta-sin-tel" id="alertaSinTel">⚠️ Se recomienda cargar teléfono para estados con deuda</span>
+        </div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
         <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
+        <div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="fechaVencimiento" placeholder="Día límite de pago"></div>
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><select id="formaPago"></select></div>
         <div class="form-group"><label>Estado</label><select id="estado"></select></div>
@@ -313,6 +373,19 @@
     </div>
   </div>
 
+  <div id="logModal" class="modal">
+    <div class="modal-content log-modal-content">
+      <button class="close-btn" id="logModalClose">✖</button>
+      <h2>📞 Historial de Contactos</h2>
+      <h4 id="logClientName" style="color:var(--primary-color);margin-bottom:15px;"></h4>
+      <div id="logEntriesContainer"></div>
+      <div class="log-add-form">
+        <input type="text" id="logNuevoTexto" placeholder="Ej: Llamé, dijo que paga el viernes...">
+        <button class="btn btn-success" id="logAgregarBtn" style="white-space:nowrap;">➕ Agregar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="receiptModal" class="modal">
     <div class="modal-content" style="max-width:700px;">
       <button class="close-btn" id="receiptClose">✖</button>
@@ -353,9 +426,10 @@
     let isAmountHidden = false;
     let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, bonos: 0, bruto: 0 };
     let currentObsId = null;
+    let currentLogId = null;
+    let vistaActual = 'registros';
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
-    // === MODIFICACIÓN 3.2: Definir opciones de forma de pago ===
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -373,6 +447,19 @@
       document.getElementById('config-btn').addEventListener('click', openConfigModal);
       document.getElementById('btnVerPendientes').addEventListener('click', function(){ filterByStatus('pendientes'); });
       document.getElementById('importInput').addEventListener('change', handleImport);
+
+      // Log de contactos
+      document.getElementById('logModalClose').addEventListener('click', closeLogModal);
+      document.getElementById('logAgregarBtn').addEventListener('click', agregarEntradaLog);
+      document.getElementById('logNuevoTexto').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); agregarEntradaLog(); } });
+
+      // Alerta teléfono en formulario
+      document.getElementById('estado').addEventListener('change', function() {
+        var div = document.getElementById('pagoMontoParcialDiv');
+        div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
+        verificarAlertaTelefono();
+      });
+      document.getElementById('telefono').addEventListener('input', verificarAlertaTelefono);
       
       document.getElementById('searchInput').addEventListener('input', function(e) {
           currentSearchTerm = e.target.value;
@@ -397,6 +484,8 @@
           generateReceipt(target.getAttribute('data-id'));
         } else if(target.classList.contains('obs-btn')) {
           showObservations(target.getAttribute('data-id'));
+        } else if(target.classList.contains('log-btn')) {
+          showLog(target.getAttribute('data-id'));
         } else if(target.classList.contains('toggle-auth-btn')) {
           var id = target.getAttribute('data-id');
           var abono = abonosData.find(function(a){ return a.id === id; });
@@ -411,11 +500,6 @@
       document.getElementById('abonoModalCancel').addEventListener('click', closeModal);
       document.getElementById('abonoModal').addEventListener('click', function(e){ if(e.target.id === 'abonoModal'){ closeModal(); } });
       document.getElementById('abonoForm').addEventListener('submit', handleFormSubmit);
-      
-      document.getElementById('estado').addEventListener('change', function() {
-        var div = document.getElementById('pagoMontoParcialDiv');
-        div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
-      });
 
       document.getElementById('obsModalClose').addEventListener('click', closeObsModal);
       document.getElementById('obsEditBtn').addEventListener('click', editObservations);
@@ -825,6 +909,7 @@
       renderDashboard(dataAfterTypeFilter);
       updateFilterCounts(dataAfterTypeFilter);
       updateAlertBanner(dataAfterTypeFilter);
+      if (vistaActual === 'clientes') renderVistaClientes();
     }
     
     function formatCurrency(v){ 
@@ -928,13 +1013,32 @@
       else { banner.classList.remove('show'); }
     }
 
+    function diasMora(abono) {
+      var hoy = new Date(); hoy.setHours(0,0,0,0);
+      var ref = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00') : null;
+      if (!ref && abono.mesServicio) { ref = new Date(abono.mesServicio.year, abono.mesServicio.month, 10); }
+      if (!ref) return null;
+      return Math.floor((hoy - ref) / 86400000);
+    }
+
+    function renderVencimiento(abono) {
+      if (abono.estado === 'Pagado' || abono.estado === 'Terminado') return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
+      var dias = diasMora(abono);
+      if (dias === null) return '<span style="color:#94a3b8;font-size:.82em;">Sin fecha</span>';
+      var fecha = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00').toLocaleDateString('es-AR') : ('día 10/' + MONTHS[abono.mesServicio.month].slice(0,3));
+      if (dias < 0) return '<span class="venc-ok" title="Vence en '+Math.abs(dias)+' días">📅 '+fecha+'</span>';
+      if (dias === 0) return '<span class="venc-prox">⚠️ Vence hoy</span>';
+      if (dias <= 5) return '<span class="venc-prox">⏰ '+dias+'d mora</span>';
+      return '<span class="venc-vencido">🔴 '+dias+'d mora</span>';
+    }
+
     function renderTable(abonos){
       var body = document.getElementById('abonosTableBody');
       body.innerHTML = '';
       if(abonos.length===0){
         var msg = currentStatusFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
-        if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.'
-        body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
+        if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.';
+        body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
       }
       abonos.forEach(function(abono){
@@ -947,21 +1051,18 @@
 
         var montoDisplay = formatCurrency(abono.monto);
         var additionalInfo = '';
-        
         if(abono.deudaAcumulada && abono.deudaAcumulada > 0){
           additionalInfo += '<span class="debt-indicator">(Incluye deuda: '+formatCurrency(abono.deudaAcumulada)+')</span>';
         }
-        
         if(abono.estado === 'Pago Parcial' && abono.montoPagado){
           var montoRestante = parseFloat(abono.monto) - parseFloat(abono.montoPagado);
           additionalInfo += '<span class="partial-payment-info">(Pagado: '+formatCurrency(abono.montoPagado)+' - Resta: '+formatCurrency(montoRestante)+')</span>';
         }
-        
         montoDisplay += additionalInfo;
 
         var hasObsClass = (abono.observaciones && abono.observaciones.trim() !== '') ? 'has-obs' : '';
+        var hasLogClass = (abono.historialContactos && abono.historialContactos.length > 0) ? 'btn-warning' : 'btn-info';
 
-        // Columna agente: muestra estado de autorización, último contacto y si escalar
         var sinTel = !abono.telefono || abono.telefono.trim() === '' || abono.telefono === 'N/A';
         var agenteCell = '';
         if (sinTel) {
@@ -972,15 +1073,14 @@
           agenteCell = '<span title="Requiere atención de Camila" style="color:#f59e0b;font-size:1.2em;">🚨</span> <span style="font-size:0.75em;color:#f59e0b;">Escalar</span>';
         } else if (abono.ultimoContactoAgente) {
           var fechaContacto = new Date(abono.ultimoContactoAgente).toLocaleDateString('es-AR');
-          agenteCell = '<span title="Agente activo" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#64748b;">' + fechaContacto + '</span>';
+          agenteCell = '<span title="Agente activo" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#64748b;">'+fechaContacto+'</span>';
           if (abono.respuestaCliente) {
-            agenteCell += '<br><span style="font-size:0.75em;color:#1e3a8a;" title="' + abono.respuestaCliente + '">💬 Respondió</span>';
+            agenteCell += '<br><span style="font-size:0.75em;color:#1e3a8a;" title="'+abono.respuestaCliente+'">💬 Respondió</span>';
           }
         } else {
           agenteCell = '<span title="Autorizado, sin contacto aún" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#94a3b8;">Pendiente</span>';
         }
 
-        // Botón para toggle de autorización rápida
         var toggleAuthLabel = abono.autorizaWhatsapp ? '🔕' : '✅';
         var toggleAuthTitle = abono.autorizaWhatsapp ? 'Quitar autorización WhatsApp' : 'Autorizar WhatsApp';
 
@@ -989,15 +1089,17 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
+          '<td class="editable" data-id="'+abono.id+'" data-field="fechaVencimiento" data-type="date">'+renderVencimiento(abono)+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="select" data-options=\''+JSON.stringify(FORMA_PAGO_OPTIONS)+'\'>'+(abono.formaPago||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td style="text-align:center;min-width:90px;">'+agenteCell+'</td>'+
           '<td class="no-print"><div class="action-buttons">'+
-            '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Ver/Editar Observaciones">📝</button>'+
-            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable ? '':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Observaciones">📝</button>'+
+            '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
+            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
             '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+(abono.autorizaWhatsapp?'#64748b':'#059669')+';">'+toggleAuthLabel+'</button>'+
-            '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar Registro">🗑️</button>'+
+            '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
       });
@@ -1068,6 +1170,10 @@
       var form = document.getElementById('abonoForm');
       form.reset();
       document.getElementById('fechaPago').value = '';
+      document.getElementById('fechaVencimiento').value = '';
+      document.getElementById('autorizaWhatsapp').checked = false;
+      document.getElementById('alertaSinTel').style.display = 'none';
+      document.getElementById('telefono').classList.remove('telefono-missing');
       document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
       document.getElementById('abonoModal').classList.add('active');
@@ -1085,6 +1191,7 @@
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: document.getElementById('tipo').value,
         monto: parseFloat(document.getElementById('monto').value),
+        fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
         estado: document.getElementById('estado').value,
@@ -1092,6 +1199,7 @@
         ultimoContactoAgente: '',
         respuestaCliente: '',
         escalarACamila: false,
+        historialContactos: [],
         mesServicio: {
           month: currentMonth.month,
           year: currentMonth.year
@@ -1228,6 +1336,176 @@
       w.document.write(html.join(''));
       w.document.close();
       w.print();
+    }
+
+    // ====== ALERTA TELÉFONO ======
+    function verificarAlertaTelefono() {
+      var tel = (document.getElementById('telefono').value || '').trim();
+      var est = document.getElementById('estado').value;
+      var alertaEl = document.getElementById('alertaSinTel');
+      var telInput = document.getElementById('telefono');
+      var estadosConDeuda = ['Pendiente','Falta de Pago','Pago Parcial','Ejecución de Honorarios'];
+      if (!tel && estadosConDeuda.includes(est)) {
+        alertaEl.style.display = 'block';
+        telInput.classList.add('telefono-missing');
+      } else {
+        alertaEl.style.display = 'none';
+        telInput.classList.remove('telefono-missing');
+      }
+    }
+
+    // ====== VISTA POR CLIENTE ======
+    function cambiarVista(vista) {
+      vistaActual = vista;
+      document.getElementById('vistaRegistros').style.display = vista === 'registros' ? 'block' : 'none';
+      document.getElementById('vistaClientes').style.display = vista === 'clientes' ? 'block' : 'none';
+      document.getElementById('tabRegistros').classList.toggle('active', vista === 'registros');
+      document.getElementById('tabClientes').classList.toggle('active', vista === 'clientes');
+      if (vista === 'clientes') renderVistaClientes();
+    }
+
+    function renderVistaClientes() {
+      var container = document.getElementById('clientesGroupContainer');
+      var sourceData;
+      if (currentStatusFilter === 'todos-terminados') {
+        sourceData = abonosData.filter(function(a){ return a.estado === 'Terminado'; });
+      } else {
+        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      }
+      if (currentSearchTerm) {
+        sourceData = sourceData.filter(function(a){ return (a.cliente||'').toLowerCase().includes(currentSearchTerm.toLowerCase()); });
+      }
+      var filtrados = getFilteredAbonos(sourceData);
+
+      // Agrupar por nombre base de cliente (sin el S/XXX del expediente)
+      var grupos = {};
+      filtrados.forEach(function(a) {
+        var nombreBase = (a.cliente||'Sin nombre').split(' S/')[0].split(' s/')[0].trim();
+        if (!grupos[nombreBase]) grupos[nombreBase] = [];
+        grupos[nombreBase].push(a);
+      });
+
+      if (Object.keys(grupos).length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px;">No hay registros para mostrar.</p>';
+        return;
+      }
+
+      var html = '';
+      Object.keys(grupos).sort().forEach(function(nombre) {
+        var registros = grupos[nombre];
+        var totalDeuda = registros.filter(function(r){ return r.estado === 'Pendiente' || r.estado === 'Falta de Pago' || r.estado === 'Ejecución de Honorarios'; })
+                                  .reduce(function(s,r){ return s + (parseFloat(r.monto)||0); }, 0);
+        var totalPagado = registros.filter(function(r){ return r.estado === 'Pagado' || r.estado === 'Terminado'; })
+                                   .reduce(function(s,r){ return s + (parseFloat(r.monto)||0); }, 0);
+        var tieneParcial = registros.some(function(r){ return r.estado === 'Pago Parcial'; });
+        var tel = registros.find(function(r){ return r.telefono && r.telefono.trim() && r.telefono !== 'N/A'; });
+        var telDisplay = tel ? tel.telefono : '<span style="color:#dc2626;">Sin teléfono</span>';
+
+        // Calcular mora máxima
+        var maxMora = 0;
+        registros.forEach(function(r) {
+          var d = diasMora(r);
+          if (d !== null && d > maxMora) maxMora = d;
+        });
+        var moraBadge = '';
+        if (maxMora > 30) moraBadge = '<span class="mora-badge mora-danger">'+maxMora+'d mora</span>';
+        else if (maxMora > 5) moraBadge = '<span class="mora-badge mora-warn">'+maxMora+'d mora</span>';
+        else if (maxMora >= 0) moraBadge = '<span class="mora-badge mora-ok">Al día</span>';
+
+        var badgeDeuda = totalDeuda > 0 ? '<span class="badge badge-deuda">Debe: '+formatCurrency(totalDeuda)+'</span>' : '';
+        var badgePag = totalPagado > 0 ? '<span class="badge badge-ok">Pagó: '+formatCurrency(totalPagado)+'</span>' : '';
+        var badgeParcial = tieneParcial ? '<span class="badge badge-parcial">Pago parcial</span>' : '';
+        var groupId = 'group_' + nombre.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+
+        html += '<div class="cliente-group">';
+        html += '<div class="cliente-group-header" onclick="toggleGroup(\''+groupId+'\')">';
+        html += '<div><span class="nombre">👤 '+nombre+'</span>'+moraBadge+'</div>';
+        html += '<div class="resumen">'+telDisplay+' &nbsp; '+badgeDeuda+badgePag+badgeParcial+'<span style="font-size:1.2em;">▾</span></div>';
+        html += '</div>';
+        html += '<div class="cliente-group-body" id="'+groupId+'">';
+        html += '<table><thead><tr><th>Expediente</th><th>Tipo</th><th>Monto</th><th>Vencimiento</th><th>Fecha Pago</th><th>Estado</th><th>Agente</th></tr></thead><tbody>';
+        registros.forEach(function(r) {
+          var expte = (r.cliente||'').includes(' S/') ? r.cliente.split(' S/').slice(1).join(' S/') : '—';
+          var estadoClass = (r.estado||'').toLowerCase().replace(/ /g,'-');
+          html += '<tr>';
+          html += '<td>'+expte+'</td>';
+          html += '<td>'+r.tipo+'</td>';
+          html += '<td>'+formatCurrency(r.monto);
+          if (r.deudaAcumulada > 0) html += '<span class="debt-indicator">+'+formatCurrency(r.deudaAcumulada)+' deuda</span>';
+          html += '</td>';
+          html += '<td>'+renderVencimiento(r)+'</td>';
+          html += '<td>'+(r.fechaPago ? new Date(r.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : '—')+'</td>';
+          html += '<td><span class="status-span '+estadoClass+'">'+r.estado+'</span></td>';
+          var sinTel2 = !r.telefono || r.telefono.trim()==='' || r.telefono==='N/A';
+          html += '<td style="text-align:center;">'+(sinTel2?'📵':r.autorizaWhatsapp?'✅':'🚫')+'</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function toggleGroup(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('open');
+    }
+
+    // ====== LOG DE CONTACTOS ======
+    function showLog(id) {
+      currentLogId = id;
+      var abono = abonosData.find(function(a){ return a.id === id; });
+      if (!abono) return;
+      document.getElementById('logClientName').textContent = abono.cliente || 'Sin nombre';
+      renderLogEntries(abono);
+      document.getElementById('logNuevoTexto').value = '';
+      document.getElementById('logModal').classList.add('active');
+    }
+
+    function renderLogEntries(abono) {
+      var container = document.getElementById('logEntriesContainer');
+      var entradas = abono.historialContactos || [];
+      if (entradas.length === 0) {
+        container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px;">Sin registros de contacto todavía.</p>';
+        return;
+      }
+      var html = '';
+      entradas.slice().reverse().forEach(function(e, i) {
+        var realIdx = entradas.length - 1 - i;
+        html += '<div class="log-entry">';
+        html += '<div class="log-fecha">'+new Date(e.fecha).toLocaleString('es-AR')+'</div>';
+        html += '<div class="log-texto">'+e.texto+'</div>';
+        html += '<button class="log-delete" onclick="eliminarEntradaLog('+realIdx+')" title="Eliminar">✖</button>';
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function agregarEntradaLog() {
+      var texto = document.getElementById('logNuevoTexto').value.trim();
+      if (!texto) return;
+      var abono = abonosData.find(function(a){ return a.id === currentLogId; });
+      if (!abono) return;
+      if (!abono.historialContactos) abono.historialContactos = [];
+      abono.historialContactos.push({ fecha: new Date().toISOString(), texto: texto });
+      saveData();
+      renderLogEntries(abono);
+      document.getElementById('logNuevoTexto').value = '';
+      render();
+    }
+
+    function eliminarEntradaLog(idx) {
+      var abono = abonosData.find(function(a){ return a.id === currentLogId; });
+      if (!abono || !abono.historialContactos) return;
+      abono.historialContactos.splice(idx, 1);
+      saveData();
+      renderLogEntries(abono);
+      render();
+    }
+
+    function closeLogModal() {
+      document.getElementById('logModal').classList.remove('active');
+      currentLogId = null;
     }
 
     // ====== IMPORT/EXPORT ======
