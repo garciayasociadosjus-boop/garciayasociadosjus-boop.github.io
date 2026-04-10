@@ -248,6 +248,7 @@
                 <th>Fecha de Pago</th>
                 <th>Forma de Pago</th>
                 <th>Estado</th>
+                <th>🤖 Agente</th>
                 <th class="no-print">Acciones</th>
               </tr>
             </thead>
@@ -277,6 +278,14 @@
           <input type="number" id="montoPagadoParcial" step="0.01" placeholder="Ingrese el monto pagado">
         </div>
         <div class="form-group"><label>Observaciones</label><textarea id="observaciones" placeholder="Notas adicionales sobre este registro..."></textarea></div>
+        
+        <div style="border-top:2px solid #e2e8f0;margin-top:15px;padding-top:15px;">
+          <h4 style="color:var(--secondary-color);margin-bottom:12px;">🤖 Configuración del Agente de Cobranzas</h4>
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
+            <input type="checkbox" id="autorizaWhatsapp" style="width:1.3em;height:1.3em;cursor:pointer;">
+            <label for="autorizaWhatsapp" style="cursor:pointer;font-weight:600;">Autoriza contacto por WhatsApp</label>
+          </div>
+        </div>
         <div class="form-actions">
           <button type="button" class="btn" id="abonoModalCancel" style="background-color:#94a3b8;">Cancelar</button>
           <button type="submit" class="btn btn-success">Guardar</button>
@@ -388,6 +397,10 @@
           generateReceipt(target.getAttribute('data-id'));
         } else if(target.classList.contains('obs-btn')) {
           showObservations(target.getAttribute('data-id'));
+        } else if(target.classList.contains('toggle-auth-btn')) {
+          var id = target.getAttribute('data-id');
+          var abono = abonosData.find(function(a){ return a.id === id; });
+          if(abono) { updateAbono(id, { autorizaWhatsapp: !abono.autorizaWhatsapp }); }
         } else {
           var cell = target.closest('.editable');
           if(cell){ handleCellEdit(cell); }
@@ -625,6 +638,29 @@
     }
 
     // ====== ARRASTRE CLIENTES ======
+    // Devuelve el registro más reciente de un cliente para un tipo dado,
+    // buscando hacia atrás hasta 24 meses. Así el arrastre siempre toma
+    // el ÚLTIMO monto cargado y no el original.
+    function getUltimoRegistroCliente(cliente, tipo, mesActual, anyoActual) {
+      for (var i = 0; i < 24; i++) {
+        var m = mesActual - i;
+        var y = anyoActual;
+        while (m < 0) { m += 12; y--; }
+        var registros = abonosData.filter(function(a) {
+          return a.cliente === cliente &&
+                 a.tipo === tipo &&
+                 a.mesServicio &&
+                 a.mesServicio.month === m &&
+                 a.mesServicio.year === y;
+        });
+        if (registros.length > 0) {
+          // Devuelve el que tenga montoBase más alto (el más actualizado)
+          return registros.sort(function(a,b){ return (parseFloat(b.montoBase||b.monto)||0) - (parseFloat(a.montoBase||a.monto)||0); })[0];
+        }
+      }
+      return null;
+    }
+
     function carryOverClients(){
       var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
       if(curr.length===0){ alert('No hay clientes en el mes actual para arrastrar.'); return; }
@@ -640,7 +676,8 @@
       unique.forEach(function(cliente){
         if(!existing.has(cliente)){
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
-          var lastRecord = clienteRecords.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); })[0];
+          // Usamos el primer registro del mes actual para datos generales
+          var lastRecord = clienteRecords[0];
           
           if (lastRecord.estado === 'Terminado') {
             return;
@@ -654,17 +691,20 @@
           
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
           if (abonosmensuales.length > 0) {
+            // *** CAMBIO CLAVE: tomar el montoBase del ÚLTIMO mes cargado, no el original ***
+            var ultimoAbonoMensual = getUltimoRegistroCliente(cliente, 'Abono Mensual', currentMonth.month, currentMonth.year);
             var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
             var deudaTotal = calculoDeuda.deudaTotal;
-            var abonoMensual = calculoDeuda.abonoMensual;
+            // Si hay un registro previo con montoBase, usamos ese; si no, el del cálculo
+            var abonoMensual = ultimoAbonoMensual ? (parseFloat(ultimoAbonoMensual.montoBase) || calculoDeuda.abonoMensual) : calculoDeuda.abonoMensual;
             
             var obsFinal = observaciones;
             if (deudaTotal > 0) {
               var obsDeuda = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
               obsFinal = obsDeuda + (observaciones ? '\n\n--- Obs. Anteriores ---\n' + observaciones : '');
-              addAbono({ cliente: cliente, telefono: telefono, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
             } else {
-              addAbono({ cliente: cliente, telefono: telefono, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
             }
             registrosAgregados++;
           }
@@ -680,7 +720,7 @@
               observacionRegulacion = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestante);
             }
             if (montoRestante > 0) {
-              addAbono({ cliente: cliente, telefono: telefono, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
               registrosAgregados++;
             }
           });
@@ -704,11 +744,15 @@
             if (montoRestante > 0) {
               addAbono({ 
                 cliente: cliente, 
-                telefono: telefono, 
+                telefono: telefono,
+                autorizaWhatsapp: lastRecord.autorizaWhatsapp || false,
+                ultimoContactoAgente: '',
+                respuestaCliente: '',
+                escalarACamila: false,
                 tipo: record.tipo, 
                 monto: montoRestante, 
                 montoBase: montoRestante, 
-                deudaAcumulada: 0, // No acumula deuda
+                deudaAcumulada: 0,
                 fechaPago: '', 
                 estado: 'Pendiente', 
                 observaciones: observacionOtro, 
@@ -917,18 +961,42 @@
 
         var hasObsClass = (abono.observaciones && abono.observaciones.trim() !== '') ? 'has-obs' : '';
 
+        // Columna agente: muestra estado de autorización, último contacto y si escalar
+        var sinTel = !abono.telefono || abono.telefono.trim() === '' || abono.telefono === 'N/A';
+        var agenteCell = '';
+        if (sinTel) {
+          agenteCell = '<span title="Sin teléfono cargado" style="color:#dc2626;font-size:1.2em;">📵</span>';
+        } else if (!abono.autorizaWhatsapp) {
+          agenteCell = '<span title="No autoriza WhatsApp" style="color:#94a3b8;font-size:1.2em;">🚫</span>';
+        } else if (abono.escalarACamila) {
+          agenteCell = '<span title="Requiere atención de Camila" style="color:#f59e0b;font-size:1.2em;">🚨</span> <span style="font-size:0.75em;color:#f59e0b;">Escalar</span>';
+        } else if (abono.ultimoContactoAgente) {
+          var fechaContacto = new Date(abono.ultimoContactoAgente).toLocaleDateString('es-AR');
+          agenteCell = '<span title="Agente activo" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#64748b;">' + fechaContacto + '</span>';
+          if (abono.respuestaCliente) {
+            agenteCell += '<br><span style="font-size:0.75em;color:#1e3a8a;" title="' + abono.respuestaCliente + '">💬 Respondió</span>';
+          }
+        } else {
+          agenteCell = '<span title="Autorizado, sin contacto aún" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#94a3b8;">Pendiente</span>';
+        }
+
+        // Botón para toggle de autorización rápida
+        var toggleAuthLabel = abono.autorizaWhatsapp ? '🔕' : '✅';
+        var toggleAuthTitle = abono.autorizaWhatsapp ? 'Quitar autorización WhatsApp' : 'Autorizar WhatsApp';
+
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
-          // === MODIFICACIÓN 3.3: Actualizar la celda de la tabla para que sea un select ===
           '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="select" data-options=\''+JSON.stringify(FORMA_PAGO_OPTIONS)+'\'>'+(abono.formaPago||'N/A')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
+          '<td style="text-align:center;min-width:90px;">'+agenteCell+'</td>'+
           '<td class="no-print"><div class="action-buttons">'+
             '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Ver/Editar Observaciones">📝</button>'+
             '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable ? '':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+(abono.autorizaWhatsapp?'#64748b':'#059669')+';">'+toggleAuthLabel+'</button>'+
             '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar Registro">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
@@ -1014,12 +1082,16 @@
       var data = {
         cliente: document.getElementById('cliente').value,
         telefono: document.getElementById('telefono').value,
+        autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: document.getElementById('tipo').value,
         monto: parseFloat(document.getElementById('monto').value),
         fechaPago: document.getElementById('fechaPago').value,
-        formaPago: document.getElementById('formaPago').value, // El valor vendrá del select
+        formaPago: document.getElementById('formaPago').value,
         estado: document.getElementById('estado').value,
         observaciones: document.getElementById('observaciones').value,
+        ultimoContactoAgente: '',
+        respuestaCliente: '',
+        escalarACamila: false,
         mesServicio: {
           month: currentMonth.month,
           year: currentMonth.year
@@ -1200,12 +1272,16 @@
       var rows = data.map(function(a){
         return { 
           Cliente:a.cliente,
-          Teléfono:a.telefono,
+          Teléfono:a.telefono||'',
+          'Autoriza WhatsApp': a.autorizaWhatsapp ? 'Sí' : 'No',
           Tipo:a.tipo, 
           Monto:a.monto, 
           'Fecha de Pago':a.fechaPago, 
           'Forma de Pago':a.formaPago, 
           Estado:a.estado,
+          'Último Contacto Agente': a.ultimoContactoAgente || '',
+          'Respuesta Cliente': a.respuestaCliente || '',
+          'Escalar a Camila': a.escalarACamila ? 'Sí' : 'No',
           Observaciones:a.observaciones || ''
         };
       });
@@ -1342,4 +1418,3 @@
   <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
   
 </body>
-</html>
