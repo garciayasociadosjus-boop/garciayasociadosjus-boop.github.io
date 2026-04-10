@@ -44,7 +44,7 @@
     .btn-info{background:var(--info-color)}
     .btn-danger{background:var(--danger-color)}
     .btn-drive{background:#4285f4}
-    .btn-small{padding:5px 10px;font-size:0.8em;margin:0 2px}
+    .btn-small{padding:3px 7px;font-size:0.75em;margin:0 1px}
     .data-status{background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:10px;border-radius:8px;margin-bottom:20px;text-align:center}
     .filters-container{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
     .search-container{margin-bottom:20px}
@@ -67,16 +67,17 @@
     .alert-icon{font-size:1.5em}
     .alert-text{flex:1}
     .alert-text strong{font-size:1.1em}
-    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.95em}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.82em}
     thead{background:var(--secondary-color);color:var(--text-light)}
-    th,td{padding:12px 15px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+    th{padding:7px 8px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:middle;white-space:nowrap;font-size:.8em;letter-spacing:.3px}
+    td{padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:middle}
     tbody tr:nth-child(even){background:var(--light-bg)}
     tbody tr:hover{background:#e0e7ff}
     tbody tr.highlight-pending{background:#fef3c7!important;border-left:4px solid var(--warning-color)}
     tbody tr.highlight-falta{background:#fee2e2!important;border-left:4px solid var(--danger-color)}
     tbody tr.has-debt{border-left:4px solid var(--danger-color)!important}
-    .action-buttons{display:flex;gap:5px;align-items:center}
-    .status-span{display:inline-block;width:100%;font-weight:bold;color:#fff;padding:8px;border-radius:5px;text-align:center}
+    .action-buttons{display:flex;gap:3px;align-items:center;flex-wrap:nowrap}
+    .status-span{display:inline-block;width:100%;font-weight:bold;color:#fff;padding:4px 5px;border-radius:5px;text-align:center;font-size:.78em;white-space:nowrap}
     .status-span.pagado{background:var(--success-color)}
     .status-span.pendiente{background:var(--warning-color)}
     .status-span.falta-de-pago{background:var(--danger-color)}
@@ -1014,19 +1015,34 @@
     }
 
     function diasMora(abono) {
+      // Regulación Honorarios en Pago Parcial: sin mora (paga en cuotas)
+      if (abono.tipo === 'Regulación Honorarios' && abono.estado === 'Pago Parcial') return null;
+      // Solo calcular mora para estados con deuda
+      var estadosConDeuda = ['Pendiente','Falta de Pago','Ejecución de Honorarios'];
+      if (!estadosConDeuda.includes(abono.estado)) return null;
       var hoy = new Date(); hoy.setHours(0,0,0,0);
+      // Usar fechaVencimiento si fue cargada manualmente
       var ref = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00') : null;
+      // Si no hay fechaVencimiento, usar día 10 del mesServicio
       if (!ref && abono.mesServicio) { ref = new Date(abono.mesServicio.year, abono.mesServicio.month, 10); }
       if (!ref) return null;
       return Math.floor((hoy - ref) / 86400000);
     }
 
     function renderVencimiento(abono) {
+      // Pagado/Terminado: no mostrar vencimiento
       if (abono.estado === 'Pagado' || abono.estado === 'Terminado') return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
+      // Regulación en Pago Parcial: cuotas acordadas, sin mora
+      if (abono.tipo === 'Regulación Honorarios' && abono.estado === 'Pago Parcial') return '<span style="color:#6366f1;font-size:.82em;">⚖️ Cuotas</span>';
       var dias = diasMora(abono);
-      if (dias === null) return '<span style="color:#94a3b8;font-size:.82em;">Sin fecha</span>';
-      var fecha = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00').toLocaleDateString('es-AR') : ('día 10/' + MONTHS[abono.mesServicio.month].slice(0,3));
-      if (dias < 0) return '<span class="venc-ok" title="Vence en '+Math.abs(dias)+' días">📅 '+fecha+'</span>';
+      if (dias === null) return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
+      var fechaLabel = '';
+      if (abono.fechaVencimiento) {
+        fechaLabel = new Date(abono.fechaVencimiento+'T00:00:00').toLocaleDateString('es-AR');
+      } else if (abono.mesServicio) {
+        fechaLabel = 'día 10/'+MONTHS[abono.mesServicio.month].slice(0,3);
+      }
+      if (dias < 0) return '<span class="venc-ok" title="Vence en '+Math.abs(dias)+' días">📅 '+fechaLabel+'</span>';
       if (dias === 0) return '<span class="venc-prox">⚠️ Vence hoy</span>';
       if (dias <= 5) return '<span class="venc-prox">⏰ '+dias+'d mora</span>';
       return '<span class="venc-vencido">🔴 '+dias+'d mora</span>';
@@ -1081,9 +1097,9 @@
           agenteCell = '<span title="Autorizado, sin contacto aún" style="color:#059669;font-size:1.2em;">✅</span> <span style="font-size:0.75em;color:#94a3b8;">Pendiente</span>';
         }
 
-        var toggleAuthLabel = abono.autorizaWhatsapp ? '🔕' : '✅';
-        var toggleAuthTitle = abono.autorizaWhatsapp ? 'Quitar autorización WhatsApp' : 'Autorizar WhatsApp';
-
+        var toggleAuthLabel = abono.autorizaWhatsapp ? '🔕 WSP' : '✅ WSP';
+        var toggleAuthTitle = abono.autorizaWhatsapp ? 'Clic para QUITAR autorización WhatsApp al agente' : 'Clic para AUTORIZAR al agente a contactar por WhatsApp';
+        var toggleAuthColor = abono.autorizaWhatsapp ? '#64748b' : '#059669';
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
@@ -1098,7 +1114,7 @@
             '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Observaciones">📝</button>'+
             '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
             '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
-            '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+(abono.autorizaWhatsapp?'#64748b':'#059669')+';">'+toggleAuthLabel+'</button>'+
+            '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+toggleAuthColor+';">'+toggleAuthLabel+'</button>'+
             '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar">🗑️</button>'+
           '</div></td>';
         body.appendChild(tr);
