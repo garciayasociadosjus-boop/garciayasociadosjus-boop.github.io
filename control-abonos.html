@@ -344,7 +344,7 @@
           <label>Monto Pagado Parcialmente</label>
           <input type="number" id="montoPagadoParcial" step="0.01" placeholder="Ingrese el monto pagado">
         </div>
-        <div class="form-group"><label>Observaciones</label><textarea id="observaciones" placeholder="Notas adicionales sobre este registro..."></textarea></div>
+        <div class="form-group"><label>Notas manuales</label><textarea id="observaciones" placeholder="Notas propias sobre este registro (nunca se borran automáticamente)..."></textarea></div>
         
         <div style="border-top:2px solid #e2e8f0;margin-top:15px;padding-top:15px;">
           <h4 style="color:var(--secondary-color);margin-bottom:12px;">🤖 Configuración del Agente de Cobranzas</h4>
@@ -366,17 +366,28 @@
       <button class="close-btn" id="obsModalClose">✖</button>
       <h2>📝 Observaciones</h2>
       <h4 id="obsClientName" style="color:var(--primary-color);margin-bottom:10px;"></h4>
-      <div id="obsContent" class="obs-text"></div>
-      <form id="obsForm" style="display:none;">
-        <div class="form-group">
-          <textarea id="obsTextarea" placeholder="Escriba las observaciones aquí..." style="min-height:120px;"></textarea>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn" id="obsSaveBtn" style="background:var(--success-color);">Guardar</button>
-          <button type="button" class="btn" id="obsCancelBtn" style="background:#94a3b8;">Cancelar</button>
-        </div>
-      </form>
-      <button id="obsEditBtn" class="btn btn-info" style="margin-top:10px;">✏️ Editar</button>
+      
+      <!-- Observaciones automáticas del sistema (solo lectura) -->
+      <div id="obsAutoSection" style="display:none;margin-bottom:15px;">
+        <div style="font-size:.8em;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🤖 Info del sistema</div>
+        <div id="obsAutoContent" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px;font-size:.88em;color:#0369a1;white-space:pre-wrap;"></div>
+      </div>
+
+      <!-- Observaciones manuales (editables) -->
+      <div>
+        <div style="font-size:.8em;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">✏️ Notas manuales</div>
+        <div id="obsContent" class="obs-text"></div>
+        <form id="obsForm" style="display:none;">
+          <div class="form-group">
+            <textarea id="obsTextarea" placeholder="Escriba sus notas aquí..." style="min-height:120px;"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn" id="obsSaveBtn" style="background:var(--success-color);">Guardar</button>
+            <button type="button" class="btn" id="obsCancelBtn" style="background:#94a3b8;">Cancelar</button>
+          </div>
+        </form>
+        <button id="obsEditBtn" class="btn btn-info" style="margin-top:10px;">✏️ Editar notas</button>
+      </div>
     </div>
   </div>
 
@@ -587,7 +598,19 @@
       if(!abono) return;
       
       document.getElementById('obsClientName').textContent = abono.cliente || 'Sin nombre';
-      document.getElementById('obsContent').textContent = abono.observaciones || 'Sin observaciones';
+
+      // Observaciones automáticas del sistema
+      var autoSection = document.getElementById('obsAutoSection');
+      var autoContent = document.getElementById('obsAutoContent');
+      if (abono.observacionesAuto && abono.observacionesAuto.trim()) {
+        autoContent.textContent = abono.observacionesAuto;
+        autoSection.style.display = 'block';
+      } else {
+        autoSection.style.display = 'none';
+      }
+
+      // Observaciones manuales
+      document.getElementById('obsContent').textContent = abono.observaciones || 'Sin notas manuales';
       document.getElementById('obsContent').style.display = 'block';
       document.getElementById('obsForm').style.display = 'none';
       document.getElementById('obsEditBtn').style.display = 'block';
@@ -784,20 +807,18 @@
           
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
           if (abonosmensuales.length > 0) {
-            // *** CAMBIO CLAVE: tomar el montoBase del ÚLTIMO mes cargado, no el original ***
             var ultimoAbonoMensual = getUltimoRegistroCliente(cliente, 'Abono Mensual', currentMonth.month, currentMonth.year);
             var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
             var deudaTotal = calculoDeuda.deudaTotal;
-            // Si hay un registro previo con montoBase, usamos ese; si no, el del cálculo
             var abonoMensual = ultimoAbonoMensual ? (parseFloat(ultimoAbonoMensual.montoBase) || calculoDeuda.abonoMensual) : calculoDeuda.abonoMensual;
-            
-            var obsFinal = observaciones;
+            // observaciones manuales se conservan, observacionesAuto se regenera
+            var obsManual = lastRecord.observaciones || '';
+            var obsAuto = '';
             if (deudaTotal > 0) {
-              var obsDeuda = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
-              obsFinal = obsDeuda + (observaciones ? '\n\n--- Obs. Anteriores ---\n' + observaciones : '');
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
+              obsAuto = 'Deuda acumulada: ' + formatCurrency(deudaTotal) + ' + Abono: ' + formatCurrency(abonoMensual);
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
             } else {
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsFinal, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
             }
             registrosAgregados++;
           }
@@ -813,7 +834,7 @@
               observacionRegulacion = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestante);
             }
             if (montoRestante > 0) {
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: observacionRegulacion, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Regulación Honorarios', monto: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: lastRecord.observaciones||'', observacionesAuto: observacionRegulacion, mesServicio: mesServicioNuevo });
               registrosAgregados++;
             }
           });
@@ -854,7 +875,8 @@
                 mesOrigenServicio: record.mesOrigenServicio || record.mesServicio,
                 fechaPago: '', 
                 estado: 'Pendiente', 
-                observaciones: observacionOtro, 
+                observaciones: record.observaciones||'',
+                observacionesAuto: observacionOtro,
                 mesServicio: mesServicioNuevo 
               });
               registrosAgregados++;
@@ -1125,7 +1147,8 @@
         montoDisplay += additionalInfo;
 
         var hasObsClass = (abono.observaciones && abono.observaciones.trim() !== '') ? 'has-obs' : '';
-        var hasLogClass = (abono.historialContactos && abono.historialContactos.length > 0) ? 'btn-warning' : 'btn-info';
+        var hasAutoObs = (abono.observacionesAuto && abono.observacionesAuto.trim() !== '');
+        var obsTitle = hasObsClass ? 'Tiene notas manuales' : (hasAutoObs ? 'Solo info del sistema' : 'Sin observaciones');
 
         var sinTel = !abono.telefono || abono.telefono.trim() === '' || abono.telefono === 'N/A';
         var agenteCell = '';
@@ -1148,6 +1171,8 @@
         var toggleAuthLabel = abono.autorizaWhatsapp ? '🔕 WSP' : '✅ WSP';
         var toggleAuthTitle = abono.autorizaWhatsapp ? 'Clic para QUITAR autorización WhatsApp al agente' : 'Clic para AUTORIZAR al agente a contactar por WhatsApp';
         var toggleAuthColor = abono.autorizaWhatsapp ? '#64748b' : '#059669';
+        var hasLogClass = (abono.historialContactos && abono.historialContactos.length > 0) ? 'btn-warning' : 'btn-info';
+        var obsIcon = hasObsClass ? '📝' : (hasAutoObs ? '🤖' : '📝');
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text" style="font-size:.82em;color:#1e3a8a;">'+(abono.expediente||'—')+'</td>'+
@@ -1160,7 +1185,7 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td style="text-align:center;min-width:90px;">'+agenteCell+'</td>'+
           '<td class="no-print"><div class="action-buttons">'+
-            '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="Observaciones">📝</button>'+
+            '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="'+obsTitle+'">'+obsIcon+'</button>'+
             '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
             '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
             '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+toggleAuthColor+';">'+toggleAuthLabel+'</button>'+
@@ -1346,6 +1371,7 @@
         '<div class="receipt-body">',
           '<div class="receipt-detail">',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||'Sin nombre'), '</span></div>',
+            (abono.expediente ? '<div class="receipt-detail-row"><span class="receipt-detail-label">Expediente:</span><span>'+ abono.expediente +'</span></div>' : ''),
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : 'Sin fecha'), '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>'
