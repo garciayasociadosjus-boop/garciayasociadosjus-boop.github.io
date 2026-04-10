@@ -137,6 +137,9 @@
     }
     #thCliente:hover{background:#2d4a9e;}
     #thCliente #sortIcon{font-size:.85em;opacity:.7;margin-left:4px;}
+    #thTipo{cursor:pointer;user-select:none;}
+    #thTipo:hover{background:#2d4a9e;}
+    #thTipo #sortIconTipo{font-size:.85em;opacity:.7;margin-left:4px;}
     .vista-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
     .vista-tab{padding:8px 18px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;font-size:.9em;font-weight:600;transition:.3s}
     .vista-tab.active{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
@@ -290,9 +293,9 @@
             <table>
               <thead>
                 <tr>
-                  <th id="thCliente" onclick="toggleSort()" style="cursor:pointer;user-select:none;" title="Ordenar alfabéticamente">Cliente <span id="sortIcon">⇅</span></th>
+                  <th id="thCliente" onclick="toggleSort('cliente')" style="cursor:pointer;user-select:none;" title="Ordenar por apellido">Cliente <span id="sortIcon">⇅</span></th>
                   <th>Teléfono</th>
-                  <th>Tipo</th>
+                  <th id="thTipo" onclick="toggleSort('tipo')" title="Ordenar por tipo">Tipo <span id="sortIconTipo">⇅</span></th>
                   <th>Monto Abono</th>
                   <th>Vencimiento</th>
                   <th>Fecha de Pago</th>
@@ -431,6 +434,7 @@
     let currentLogId = null;
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
+    let sortField = 'cliente'; // 'cliente' o 'tipo'
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
@@ -812,7 +816,7 @@
             }
           });
           
-          // === MODIFICACIÓN 2: Arrastrar "Pago de Bonos y AP" y "Honorarios Siniestro" pendientes ===
+          // === BONOS Y AP / HONORARIOS SINIESTRO: arrastre sin acumulación ===
           var otrosPagos = clienteRecords.filter(function(r){ 
             return (r.tipo === 'Pago de Bonos y AP' || r.tipo === 'Honorarios Siniestro');
           });
@@ -824,8 +828,9 @@
               montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
               observacionOtro = 'Saldo pendiente de ' + record.tipo + ': ' + formatCurrency(montoRestante);
             } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
-              montoRestante = parseFloat(record.monto) || 0;
-              observacionOtro = record.tipo + ' pendiente: ' + formatCurrency(montoRestante);
+              // Monto fijo: usar montoOriginal si existe, sino monto actual
+              montoRestante = parseFloat(record.montoOriginal || record.monto) || 0;
+              observacionOtro = record.observaciones || (record.tipo + ' pendiente: ' + formatCurrency(montoRestante));
             }
             
             if (montoRestante > 0) {
@@ -837,9 +842,13 @@
                 respuestaCliente: '',
                 escalarACamila: false,
                 tipo: record.tipo, 
-                monto: montoRestante, 
+                monto: montoRestante,
+                montoOriginal: parseFloat(record.montoOriginal || record.monto) || montoRestante,
                 montoBase: montoRestante, 
                 deudaAcumulada: 0,
+                // Conservar fechaOrigen del registro original
+                fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''),
+                mesOrigenServicio: record.mesOrigenServicio || record.mesServicio,
                 fechaPago: '', 
                 estado: 'Pendiente', 
                 observaciones: observacionOtro, 
@@ -848,7 +857,6 @@
               registrosAgregados++;
             }
           });
-          // === FIN MODIFICACIÓN 2 ===
           
           if (registrosAgregados > 0) { added++; }
         }
@@ -908,11 +916,11 @@
 
       var finalDataForTable = getFilteredAbonos(dataAfterTypeFilter);
 
-      // Orden alfabético por cliente si está activo
+      // Orden por campo seleccionado
       if (sortOrder) {
         finalDataForTable = finalDataForTable.slice().sort(function(a, b) {
-          var ca = (a.cliente || '').trim().toUpperCase();
-          var cb = (b.cliente || '').trim().toUpperCase();
+          var ca = (a[sortField] || '').trim().toUpperCase();
+          var cb = (b[sortField] || '').trim().toUpperCase();
           return sortOrder === 'asc' ? ca.localeCompare(cb, 'es') : cb.localeCompare(ca, 'es');
         });
       }
@@ -1043,11 +1051,26 @@
     function renderVencimiento(abono) {
       if (abono.estado === 'Pagado' || abono.estado === 'Terminado') return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
       if (abono.tipo === 'Regulación Honorarios' && abono.estado === 'Pago Parcial') return '<span style="color:#6366f1;font-size:.82em;">⚖️ Cuotas</span>';
+
+      // Pago de Bonos y AP: sin mora real, muestra antigüedad desde origen
+      if (abono.tipo === 'Pago de Bonos y AP' && ['Pendiente','Falta de Pago','Ejecución de Honorarios'].includes(abono.estado)) {
+        var mesRef = abono.mesOrigenServicio || abono.mesServicio;
+        if (mesRef) {
+          var hoyB = new Date();
+          var origen = new Date(mesRef.year, mesRef.month, 1);
+          var mesesB = (hoyB.getFullYear() - origen.getFullYear()) * 12 + (hoyB.getMonth() - origen.getMonth());
+          if (mesesB <= 0) return '<span style="color:#059669;font-size:.82em;">💰 Este mes</span>';
+          if (mesesB < 2) return '<span style="color:#059669;font-size:.82em;">💰 '+mesesB+'m pendiente</span>';
+          if (mesesB < 4) return '<span class="venc-prox" title="Pendiente hace '+mesesB+' meses">💰 '+mesesB+'m pendiente</span>';
+          return '<span class="venc-vencido" title="Pendiente hace '+mesesB+' meses">💰 '+mesesB+'m pendiente</span>';
+        }
+        return '<span style="color:#94a3b8;font-size:.82em;">💰 Pendiente</span>';
+      }
+
       // Deuda acumulada de meses anteriores → moroso
       if (abono.deudaAcumulada && parseFloat(abono.deudaAcumulada) > 0) {
         var mesesDeuda = '';
         if (abono.mesServicio) {
-          // Calcular cuántos meses lleva debiendo
           var hoy = new Date();
           var mesAbono = new Date(abono.mesServicio.year, abono.mesServicio.month, 1);
           var meses = (hoy.getFullYear() - mesAbono.getFullYear()) * 12 + (hoy.getMonth() - mesAbono.getMonth());
@@ -1055,6 +1078,7 @@
         }
         return '<span class="venc-vencido" title="Tiene deuda acumulada de meses anteriores">🔴 Moroso'+mesesDeuda+'</span>';
       }
+
       var dias = diasMora(abono);
       if (dias === null) return '<span style="color:#94a3b8;font-size:.82em;">—</span>';
       var fechaLabel = '';
@@ -1376,11 +1400,19 @@
     }
 
     // ====== ORDEN ALFABÉTICO ======
-    function toggleSort() {
-      if (sortOrder === null || sortOrder === 'desc') sortOrder = 'asc';
-      else sortOrder = 'desc';
-      var icon = document.getElementById('sortIcon');
-      if (icon) icon.textContent = sortOrder === 'asc' ? '↑' : '↓';
+    function toggleSort(campo) {
+      if (sortField !== campo) {
+        // Cambiando de campo: resetear el otro ícono
+        sortField = campo;
+        sortOrder = 'asc';
+      } else {
+        sortOrder = (sortOrder === null || sortOrder === 'desc') ? 'asc' : 'desc';
+      }
+      // Actualizar íconos
+      var iconCliente = document.getElementById('sortIcon');
+      var iconTipo = document.getElementById('sortIconTipo');
+      if (iconCliente) iconCliente.textContent = (sortField === 'cliente') ? (sortOrder === 'asc' ? '↑' : '↓') : '⇅';
+      if (iconTipo) iconTipo.textContent = (sortField === 'tipo') ? (sortOrder === 'asc' ? '↑' : '↓') : '⇅';
       render();
     }
 
