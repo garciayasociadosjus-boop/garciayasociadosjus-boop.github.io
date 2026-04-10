@@ -135,7 +135,8 @@
       .receipt-preview{visibility:visible!important;position:absolute;left:0;top:0;width:100%;border:none;box-shadow:none;margin:0}
       .back-to-portal{display:none!important}
     }
-    /* === VISTA AGRUPADA POR CLIENTE === */
+    #thCliente:hover{background:#2d4a9e;}
+    #thCliente #sortIcon{font-size:.85em;opacity:.7;margin-left:4px;}
     .vista-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
     .vista-tab{padding:8px 18px;border:2px solid #e2e8f0;background:#fff;border-radius:20px;cursor:pointer;font-size:.9em;font-weight:600;transition:.3s}
     .vista-tab.active{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
@@ -289,7 +290,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Cliente</th>
+                  <th id="thCliente" onclick="toggleSort()" style="cursor:pointer;user-select:none;" title="Ordenar alfabéticamente">Cliente <span id="sortIcon">⇅</span></th>
                   <th>Teléfono</th>
                   <th>Tipo</th>
                   <th>Monto Abono</th>
@@ -429,6 +430,7 @@
     let currentObsId = null;
     let currentLogId = null;
     let vistaActual = 'registros';
+    let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
@@ -905,6 +907,15 @@
       }
 
       var finalDataForTable = getFilteredAbonos(dataAfterTypeFilter);
+
+      // Orden alfabético por cliente si está activo
+      if (sortOrder) {
+        finalDataForTable = finalDataForTable.slice().sort(function(a, b) {
+          var ca = (a.cliente || '').trim().toUpperCase();
+          var cb = (b.cliente || '').trim().toUpperCase();
+          return sortOrder === 'asc' ? ca.localeCompare(cb, 'es') : cb.localeCompare(ca, 'es');
+        });
+      }
       
       renderTable(finalDataForTable);
       renderDashboard(dataAfterTypeFilter);
@@ -1354,6 +1365,15 @@
       w.print();
     }
 
+    // ====== ORDEN ALFABÉTICO ======
+    function toggleSort() {
+      if (sortOrder === null || sortOrder === 'desc') sortOrder = 'asc';
+      else sortOrder = 'desc';
+      var icon = document.getElementById('sortIcon');
+      if (icon) icon.textContent = sortOrder === 'asc' ? '↑' : '↓';
+      render();
+    }
+
     // ====== ALERTA TELÉFONO ======
     function verificarAlertaTelefono() {
       var tel = (document.getElementById('telefono').value || '').trim();
@@ -1526,9 +1546,17 @@
 
     // ====== IMPORT/EXPORT ======
     function exportData(){
-      var dataStr = JSON.stringify(abonosData, null, 2);
+      var ahora = new Date();
+      var wrapper = {
+        fechaExportacion: ahora.toISOString(),
+        versionDia: ahora.toISOString().slice(0,10),
+        exportadoPor: 'García & Asociados',
+        totalRegistros: abonosData.length,
+        registros: abonosData
+      };
+      var dataStr = JSON.stringify(wrapper, null, 2);
       var uri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      var name = 'control_abonos_'+new Date().toISOString().slice(0,10)+'.json';
+      var name = 'control_abonos_'+ahora.toISOString().slice(0,10)+'.json';
       var a = document.createElement('a');
       a.href = uri; a.download = name; a.click();
     }
@@ -1538,11 +1566,33 @@
       var reader = new FileReader();
       reader.onload = function(e){
         try{
-          var imported = JSON.parse(e.target.result);
-          if(Array.isArray(imported) && confirm('¿Importar '+imported.length+' registros? Esto sobreescribirá los datos actuales.')){
-            abonosData = imported; saveData(); loadData(); render(); alert('Datos importados exitosamente');
+          var parsed = JSON.parse(e.target.result);
+          var imported = null;
+          var info = '';
+
+          // Formato nuevo: { fechaExportacion, versionDia, registros: [...] }
+          if (parsed && parsed.registros && Array.isArray(parsed.registros)) {
+            imported = parsed.registros;
+            info = '\n📅 Exportado: ' + new Date(parsed.fechaExportacion).toLocaleString('es-AR') +
+                   '\n📆 Versión día: ' + parsed.versionDia +
+                   '\n📋 Registros: ' + imported.length;
           }
-        }catch(err){ alert('Error al importar el archivo. Verifique que sea un JSON válido.'); }
+          // Formato viejo: array directo
+          else if (Array.isArray(parsed)) {
+            imported = parsed;
+            info = '\n⚠️ Formato anterior (sin fecha de exportación)\n📋 Registros: ' + imported.length;
+          }
+
+          if (imported && confirm('¿Importar datos?' + info + '\n\nEsto sobreescribirá los datos actuales.')) {
+            abonosData = imported;
+            saveData();
+            loadData();
+            render();
+            alert('✅ Datos importados exitosamente.\n' + imported.length + ' registros cargados.');
+          } else if (!imported) {
+            alert('❌ Formato de archivo no válido.');
+          }
+        }catch(err){ alert('❌ Error al importar el archivo. Verifique que sea un JSON válido.'); }
       };
       reader.readAsText(file);
       event.target.value = '';
@@ -1660,9 +1710,17 @@
       if (!confirm('¿Guardar los datos actuales en Google Drive? Esto sobreescribirá la versión anterior en la nube.')) return;
       updateDriveStatus('Guardando datos en Drive...', false);
       try {
-        const content = JSON.stringify(abonosData, null, 2);
+        var ahora = new Date();
+        var wrapper = {
+          fechaExportacion: ahora.toISOString(),
+          versionDia: ahora.toISOString().slice(0,10),
+          exportadoPor: 'García & Asociados',
+          totalRegistros: abonosData.length,
+          registros: abonosData
+        };
+        const content = JSON.stringify(wrapper, null, 2);
         dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
-        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito!', true);
+        updateDriveStatus('✅ ¡Datos guardados en Drive con éxito! — ' + ahora.toLocaleString('es-AR'), true);
       } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
     }
     
@@ -1672,13 +1730,23 @@
       updateDriveStatus('Cargando datos desde Drive...', false);
       try {
         const response = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-        const importedData = JSON.parse(response.body);
-        if (!Array.isArray(importedData)) throw new Error('Formato no válido.');
+        const parsed = JSON.parse(response.body);
+        var importedData = null;
+        var info = '';
+        if (parsed && parsed.registros && Array.isArray(parsed.registros)) {
+          importedData = parsed.registros;
+          info = ' — Versión: ' + parsed.versionDia + ' (' + importedData.length + ' registros)';
+        } else if (Array.isArray(parsed)) {
+          importedData = parsed;
+          info = ' — Formato anterior (' + importedData.length + ' registros)';
+        } else {
+          throw new Error('Formato no válido.');
+        }
         abonosData = importedData;
         saveData();
         loadData();
         render();
-        updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true);
+        updateDriveStatus('✅ Datos cargados desde Drive con éxito.' + info, true);
       } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
     }
     
