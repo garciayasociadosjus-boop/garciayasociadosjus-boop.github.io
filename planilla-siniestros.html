@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <title>Planilla de Siniestros - García & Asociados</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -237,6 +240,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#
       <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveToDrive()">📤 Guardar en Drive</button>
       <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadFromDrive()">📥 Cargar de Drive</button>
       <div id="driveStatus" class="data-status" style="display:none;margin-top:10px;"></div>
+      <div id="firebaseStatus" style="margin-top:10px;padding:8px 16px;border-radius:8px;font-size:.88em;display:inline-block;background:#fff3cd;color:#856404;border:1px solid #ffc107;">
+        🔥 Firebase: Conectando...
+      </div>
     </div>
 
     <div class="filter-bar">
@@ -381,6 +387,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     iniciarVigilanteDeMediaciones(); 
     revisarMediacionesVencidasAlCargar();
     window.addEventListener('click', e => { if (e.target.classList.contains('modal')) { closeModal(e.target.id); } });
+    initFirebase(); // Iniciar Firebase al cargar
 });
 function gapiLoaded(){ gapi.load('client', initializeGapiClient); }
 async function initializeGapiClient(){ try{ await gapi.client.init({ apiKey: GD_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiReady=true; }catch(e){ console.error("Error GAPI client init:",e); updateDriveStatus('❌ Error al inicializar APIs de Google.'); }}
@@ -459,8 +466,144 @@ function showConfirmModal(message, onConfirm) {
 }
 // --- FIN: Función de Modal de Confirmación ---
 
-function saveData(){ try{ localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); }catch(e){ console.error('Error al guardar:',e); updateDataStatus('❌ Error al guardar datos',true); }}
-function loadData(){ try{ const saved=localStorage.getItem('planilla_siniestros_data'); if(saved){ siniestrosData=JSON.parse(saved); siniestrosData=sanitizeData(siniestrosData); }else{ siniestrosData=[]; updateDataStatus('📋 Planilla lista para usar'); }}catch(e){ console.error('Error al cargar:',e); siniestrosData=[]; updateDataStatus('❌ Error al cargar datos',true); }}
+// =====================================================
+// === CONFIGURACIÓN FIREBASE ===
+// =====================================================
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+    authDomain: "garcia-asociados.firebaseapp.com",
+    databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+    projectId: "garcia-asociados",
+    storageBucket: "garcia-asociados.firebasestorage.app",
+    messagingSenderId: "579231843924",
+    appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+};
+
+const FIREBASE_KEY = 'planilla_siniestros'; // Clave en la base de datos
+
+let firebaseApp, firebaseDB, firebaseRef;
+let firebaseConectado = false;
+let ignorarProximoCambioFirebase = false; // Evita bucles al guardar
+
+function initFirebase() {
+    if (typeof firebase === 'undefined') {
+        setTimeout(initFirebase, 600);
+        return;
+    }
+    try {
+        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        firebaseDB = firebase.database();
+        firebaseRef = firebaseDB.ref(FIREBASE_KEY);
+
+        // Escuchar cambios en tiempo real
+        firebaseRef.on('value', (snapshot) => {
+            if (ignorarProximoCambioFirebase) {
+                ignorarProximoCambioFirebase = false;
+                return;
+            }
+            const data = snapshot.val();
+            if (data && Array.isArray(data)) {
+                siniestrosData = sanitizeData(data);
+                localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
+                renderAll();
+                updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+            } else if (data === null) {
+                // Base de datos vacía, intentar cargar desde localStorage
+                const local = localStorage.getItem('planilla_siniestros_data');
+                if (local) {
+                    siniestrosData = sanitizeData(JSON.parse(local));
+                    saveToFirebase(); // Subir lo local a Firebase
+                    updateFirebaseStatus('✅ Datos locales subidos a Firebase', 'ok');
+                } else {
+                    updateFirebaseStatus('✅ Firebase listo (base vacía)', 'ok');
+                }
+            }
+            firebaseConectado = true;
+        }, (error) => {
+            console.error('Error Firebase listener:', error);
+            updateFirebaseStatus('❌ Error de conexión Firebase', 'error');
+            firebaseConectado = false;
+        });
+
+        // Detectar estado de conexión
+        firebaseDB.ref('.info/connected').on('value', (snap) => {
+            if (snap.val() === true) {
+                firebaseConectado = true;
+                updateFirebaseStatus('✅ Firebase: Conectado en tiempo real', 'ok');
+            } else {
+                firebaseConectado = false;
+                updateFirebaseStatus('⚠️ Firebase: Sin conexión (modo local)', 'warn');
+            }
+        });
+
+    } catch(e) {
+        console.error('Error iniciando Firebase:', e);
+        updateFirebaseStatus('❌ Error al iniciar Firebase', 'error');
+    }
+}
+
+function updateFirebaseStatus(msg, tipo) {
+    const el = document.getElementById('firebaseStatus');
+    if (!el) return;
+    el.textContent = '🔥 ' + msg;
+    if (tipo === 'ok') {
+        el.style.background = '#d4edda';
+        el.style.color = '#155724';
+        el.style.borderColor = '#c3e6cb';
+    } else if (tipo === 'warn') {
+        el.style.background = '#fff3cd';
+        el.style.color = '#856404';
+        el.style.borderColor = '#ffc107';
+    } else {
+        el.style.background = '#f8d7da';
+        el.style.color = '#721c24';
+        el.style.borderColor = '#f5c6cb';
+    }
+}
+
+function saveToFirebase() {
+    if (!firebaseRef) return;
+    try {
+        ignorarProximoCambioFirebase = true;
+        firebaseRef.set(siniestrosData)
+            .catch(e => {
+                console.error('Error guardando en Firebase:', e);
+                ignorarProximoCambioFirebase = false;
+            });
+    } catch(e) {
+        console.error('Error en saveToFirebase:', e);
+        ignorarProximoCambioFirebase = false;
+    }
+}
+// =====================================================
+// === FIN CONFIGURACIÓN FIREBASE ===
+// =====================================================
+
+function saveData(){ 
+    try{ 
+        localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); 
+        saveToFirebase(); // Guardar en Firebase automáticamente
+    }catch(e){ 
+        console.error('Error al guardar:',e); 
+        updateDataStatus('❌ Error al guardar datos',true); 
+    }
+}
+function loadData(){ 
+    try{ 
+        const saved=localStorage.getItem('planilla_siniestros_data'); 
+        if(saved){ 
+            siniestrosData=JSON.parse(saved); 
+            siniestrosData=sanitizeData(siniestrosData); 
+        }else{ 
+            siniestrosData=[]; 
+            updateDataStatus('📋 Planilla lista para usar'); 
+        }
+    }catch(e){ 
+        console.error('Error al cargar:',e); 
+        siniestrosData=[]; 
+        updateDataStatus('❌ Error al cargar datos',true); 
+    }
+}
 function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach(s=>{ if(!s||typeof s!=='object')return; s.id=s.id||generateId(s); s.genero=s.genero||'Masculino';
     // Nuevos campos cliente
     s.tipoGestion = s.tipoGestion || '';
