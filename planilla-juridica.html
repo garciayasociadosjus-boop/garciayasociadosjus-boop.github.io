@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planilla Jurídica - Familia</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -474,6 +477,9 @@
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive & Calendar</button>
                 <button id="saveToDriveBtn" class="btn btn-success" style="display:none;">📤 Guardar en Drive</button>
                 <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;">📥 Cargar de Drive</button>
+                <div id="firebaseStatus" style="margin-top:10px;padding:8px 16px;border-radius:8px;font-size:.88em;display:inline-block;background:#fff3cd;color:#856404;border:1px solid #ffc107;">
+                    🔥 Firebase: Conectando...
+                </div>
             </section>
 
             <section class="filter-bar">
@@ -568,11 +574,108 @@
         let weeklyGlanceStartDate = new Date(); // Variable para controlar el inicio de la semana visible
         let unsavedChanges = false; // NUEVA VARIABLE PARA CONTROLAR CAMBIOS
 
+        // ========= CONFIGURACIÓN FIREBASE =========
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+            authDomain: "garcia-asociados.firebaseapp.com",
+            databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+            projectId: "garcia-asociados",
+            storageBucket: "garcia-asociados.firebasestorage.app",
+            messagingSenderId: "579231843924",
+            appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+        };
+        const FIREBASE_KEY_JURIDICA = 'planilla_juridica';
+
+        let firebaseApp, firebaseDB, firebaseRef;
+        let firebaseConectado = false;
+        let ignorarProximoCambioFirebase = false;
+
+        function initFirebase() {
+            if (typeof firebase === 'undefined') {
+                setTimeout(initFirebase, 600);
+                return;
+            }
+            try {
+                firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+                firebaseDB = firebase.database();
+                firebaseRef = firebaseDB.ref(FIREBASE_KEY_JURIDICA);
+
+                firebaseRef.on('value', (snapshot) => {
+                    if (ignorarProximoCambioFirebase) {
+                        ignorarProximoCambioFirebase = false;
+                        return;
+                    }
+                    const data = snapshot.val();
+                    if (data && Array.isArray(data)) {
+                        clientsData = sanitizeData(data);
+                        localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+                        renderAll();
+                        updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    } else if (data === null) {
+                        const local = localStorage.getItem('planilla_juridica_data');
+                        if (local) {
+                            clientsData = sanitizeData(JSON.parse(local));
+                            saveToFirebase();
+                            updateFirebaseStatus('✅ Datos locales subidos a Firebase', 'ok');
+                        } else {
+                            updateFirebaseStatus('✅ Firebase listo (base vacía)', 'ok');
+                        }
+                    }
+                    firebaseConectado = true;
+                }, (error) => {
+                    console.error('Error Firebase listener:', error);
+                    updateFirebaseStatus('❌ Error de conexión Firebase', 'error');
+                    firebaseConectado = false;
+                });
+
+                firebaseDB.ref('.info/connected').on('value', (snap) => {
+                    if (snap.val() === true) {
+                        firebaseConectado = true;
+                        updateFirebaseStatus('✅ Firebase: Conectado en tiempo real', 'ok');
+                    } else {
+                        firebaseConectado = false;
+                        updateFirebaseStatus('⚠️ Firebase: Sin conexión (modo local)', 'warn');
+                    }
+                });
+
+            } catch(e) {
+                console.error('Error iniciando Firebase:', e);
+                updateFirebaseStatus('❌ Error al iniciar Firebase', 'error');
+            }
+        }
+
+        function updateFirebaseStatus(msg, tipo) {
+            const el = document.getElementById('firebaseStatus');
+            if (!el) return;
+            el.textContent = '🔥 ' + msg;
+            if (tipo === 'ok') {
+                el.style.background = '#d4edda'; el.style.color = '#155724'; el.style.borderColor = '#c3e6cb';
+            } else if (tipo === 'warn') {
+                el.style.background = '#fff3cd'; el.style.color = '#856404'; el.style.borderColor = '#ffc107';
+            } else {
+                el.style.background = '#f8d7da'; el.style.color = '#721c24'; el.style.borderColor = '#f5c6cb';
+            }
+        }
+
+        function saveToFirebase() {
+            if (!firebaseRef) return;
+            try {
+                ignorarProximoCambioFirebase = true;
+                firebaseRef.set(clientsData)
+                    .catch(e => { console.error('Error guardando en Firebase:', e); ignorarProximoCambioFirebase = false; });
+            } catch(e) {
+                console.error('Error en saveToFirebase:', e);
+                ignorarProximoCambioFirebase = false;
+            }
+        }
+        // ========= FIN CONFIGURACIÓN FIREBASE =========
+
         // ========= FUNCIONES AUXILIARES Y DE FORMATO =========
         function saveData() {
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            unsavedChanges = true; // MARCAR QUE HAY CAMBIOS SIN SUBIR
-            updateDataStatus('✅ Datos guardados localmente');
+            saveToFirebase();
+            unsavedChanges = true;
+            updateDataStatus('✅ Datos guardados');
         }
 
         function loadData() {
@@ -3163,6 +3266,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
+            initFirebase(); // Iniciar Firebase en tiempo real
             
             // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
             setTimeout(() => { unsavedChanges = false; }, 1000); 
