@@ -1,529 +1,717 @@
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
-    <meta charset="UTF-8">
-    <title>Panel de Análisis Interactivo - García & Asociados</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --primary-color: #1e3a8a; --secondary-color: #1e293b; --success-color: #059669; --danger-color: #dc2626; --warning-color: #f59e0b; --info-color: #6366f1; --light-bg: #f8fafc; --text-dark: #1e293b; --text-light: #f1f5f9; --border-color: #e2e8f0;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #eef2f7; min-height: 100vh; padding: 15px; color: var(--text-dark); }
-        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px -10px rgba(0,0,0,.1); overflow: hidden; }
-        .header { background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); color: var(--text-light); padding: 25px; text-align: center; border-bottom: 5px solid var(--info-color); }
-        .header h1 { font-size: 2.1em; margin-bottom: 8px; font-weight: 700; letter-spacing: -1px; }
-        .main-content { padding: 25px; }
-        .controls { background: var(--light-bg); padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
-        .form-group { display: flex; flex-direction: column; gap: 5px; }
-        .form-group label { font-weight: 600; font-size: .9em; color: var(--secondary-color); }
-        .form-group select, .form-group input { padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: .95em; background: #fff; }
-        .btn { border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: .9em; transition: all .3s ease; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
-        .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0,0,0,.2); }
-        .btn-primary { background: var(--primary-color); color: var(--text-light); }
-        .btn-success { background: var(--success-color); color: var(--text-light); }
-        .btn-warning { background: var(--warning-color); color: var(--text-light); }
-        .data-status { text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; animation: fadeIn .5s ease; }
-        .status-success { background: #d1fae5; color: #065f46; }
-        .status-warning { background: #fef3c7; color: #92400e; }
-        
-        .tab-nav { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 25px; }
-        .tab-button { padding: 15px 25px; cursor: pointer; background: none; border: none; font-size: 1em; font-weight: 600; color: var(--secondary-color); border-bottom: 3px solid transparent; transition: all .3s ease; }
-        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
-        .tab-pane { display: none; animation: fadeIn .5s ease; }
-        .tab-pane.active { display: block; }
+<meta charset="UTF-8">
+<title>Panel de Análisis - García & Asociados</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+    --primary:#1e3a8a;--secondary:#1e293b;--green:#059669;--red:#dc2626;--warn:#f59e0b;--info:#6366f1;--cyan:#06b6d4;--pink:#db2777;--purple:#9333ea;--light:#f8fafc;--border:#e2e8f0;--text:#1e293b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#eef2f7;min-height:100vh;padding:15px;color:var(--text)}
+.container{max-width:1600px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 20px 50px -10px rgba(0,0,0,.1);overflow:hidden}
+.header{background:linear-gradient(135deg,var(--secondary),var(--primary));color:#fff;padding:25px;text-align:center;border-bottom:5px solid var(--info)}
+.header h1{font-size:2.1em;margin-bottom:6px;font-weight:700;letter-spacing:-1px}
+.header p{opacity:.85;font-size:1em}
+.main{padding:25px}
 
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .card { background: var(--light-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.05); border-left: 5px solid var(--primary-color); transition: all .3s ease; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,.1); }
-        .card h3 { color: var(--secondary-color); margin-bottom: 10px; font-size: 0.85em; text-transform: uppercase; font-weight: 600; }
-        .card .value { font-size: 1.8em; font-weight: 700; color: var(--primary-color); }
-        .card .value.positive { color: var(--success-color); }
-        .card .value.negative { color: var(--danger-color); }
-        
-        .analysis-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; }
-        .chart-container { 
-            position: relative; 
-            height: 400px;
-            background: var(--light-bg); 
-            padding: 20px; 
-            border-radius: 12px; 
-        }
-        .chart-container h3 { text-align: center; margin-bottom: 20px; color: var(--secondary-color); }
-        .custom-chart-section { display: grid; grid-template-columns: 300px 1fr; gap: 30px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
-        .chart-controls { padding: 10px; }
-        .chart-controls h3 { margin-bottom: 15px; color: var(--secondary-color); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
-        .control-group { margin-bottom: 20px; }
-        .control-group label { font-weight: 600; display: block; margin-bottom: 10px; }
-        .metrics-list label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.95em; cursor: pointer; }
-        .data-table-container summary { cursor: pointer; font-size: 1.2em; font-weight: 600; margin-bottom: 10px; }
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th, .data-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
-        .data-table th { background: var(--light-bg); font-size: .9em; }
-        .data-table td { font-size: .95em; }
+/* FIREBASE STATUS */
+#fbStatus{display:inline-block;padding:6px 14px;border-radius:20px;font-size:.82em;font-weight:600;background:#fff3cd;color:#856404;border:1px solid #ffc107;margin-bottom:15px}
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 1200px) { .analysis-grid, .custom-chart-section { grid-template-columns: 1fr; } }
-    </style>
+/* CONTROLES */
+.controls{background:var(--light);padding:18px;border:1px solid var(--border);border-radius:12px;margin-bottom:20px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:15px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-weight:600;font-size:.88em;color:var(--secondary)}
+.fg select,.fg input{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.93em;background:#fff;min-width:140px}
+.btn{border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:.88em;transition:all .3s;font-weight:600;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 16px -4px rgba(0,0,0,.2)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-success{background:var(--green);color:#fff}
+.btn-warning{background:var(--warn);color:#fff}
+.data-status{text-align:center;padding:11px;border-radius:8px;margin-bottom:18px;font-weight:500;animation:fadeIn .5s ease}
+.status-success{background:#d1fae5;color:#065f46}
+.status-warning{background:#fef3c7;color:#92400e}
+
+/* TABS */
+.tab-nav{display:flex;border-bottom:2px solid var(--border);margin-bottom:25px;flex-wrap:wrap}
+.tab-btn{padding:13px 22px;cursor:pointer;background:none;border:none;font-size:.95em;font-weight:600;color:var(--secondary);border-bottom:3px solid transparent;transition:all .3s}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-pane{display:none;animation:fadeIn .5s ease}
+.tab-pane.active{display:block}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:18px;margin-bottom:25px}
+.kpi-card{background:var(--light);border-radius:12px;padding:18px;box-shadow:0 4px 12px rgba(0,0,0,.05);border-left:5px solid var(--primary);transition:all .3s;position:relative;overflow:hidden}
+.kpi-card:hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
+.kpi-card h3{color:var(--secondary);font-size:.78em;text-transform:uppercase;font-weight:700;margin-bottom:10px;letter-spacing:.3px}
+.kpi-card .val{font-size:1.7em;font-weight:700;color:var(--primary)}
+.kpi-card .val.pos{color:var(--green)}
+.kpi-card .val.neg{color:var(--red)}
+.kpi-card .trend{font-size:.75em;margin-top:6px;display:flex;align-items:center;gap:4px}
+.trend-up{color:var(--green)} .trend-down{color:var(--red)} .trend-eq{color:#94a3b8}
+
+/* TABLA KPI EGRESOS */
+.egreso-breakdown{margin-top:20px;background:var(--light);border-radius:10px;padding:18px}
+.egreso-breakdown h3{font-size:.9em;color:var(--secondary);margin-bottom:12px;text-transform:uppercase;font-weight:700}
+.egreso-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.88em}
+.egreso-row:last-child{border-bottom:none;font-weight:700;font-size:.95em}
+.egreso-label{color:#475569}
+.egreso-amount{color:var(--red);font-weight:600}
+
+/* ANÁLISIS */
+.analysis-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:28px}
+.chart-container{position:relative;height:380px;background:var(--light);padding:20px;border-radius:12px}
+.chart-container h3{text-align:center;margin-bottom:15px;color:var(--secondary);font-size:.95em}
+.chart-stacked{position:relative;height:380px;background:var(--light);padding:20px;border-radius:12px;margin-top:25px}
+.chart-stacked h3{text-align:center;margin-bottom:15px;color:var(--secondary);font-size:.95em}
+.table-wrapper{max-height:400px;overflow-y:auto;border-radius:8px;border:1px solid var(--border)}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{background:var(--light);padding:10px;text-align:left;font-size:.82em;border-bottom:2px solid var(--border);position:sticky;top:0}
+.data-table td{padding:9px 10px;font-size:.88em;border-bottom:1px solid var(--border)}
+.data-table tr:hover td{background:#f0f9ff}
+.data-table .total-row{font-weight:700;background:var(--light)!important}
+
+/* GRÁFICO PERSONALIZADO */
+.custom-section{display:grid;grid-template-columns:280px 1fr;gap:28px;background:#fff;padding:20px;border-radius:12px;border:1px solid var(--border)}
+.chart-controls h3{margin-bottom:14px;color:var(--secondary);border-bottom:2px solid var(--border);padding-bottom:9px;font-size:.95em}
+.ctrl-group{margin-bottom:18px}
+.ctrl-group label{font-weight:600;display:block;margin-bottom:9px;font-size:.88em}
+.metrics-list label{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.88em;cursor:pointer}
+.ctrl-group select{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:.9em}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1100px){.analysis-grid,.custom-section{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <header class="header"><h1>🔬 Panel de Análisis Interactivo</h1><p>Visualización de Datos del Estudio</p></header>
-        <main class="main-content">
-            <div id="dataStatus" class="data-status" style="display:none;"></div>
-            <div class="controls">
-                <div id="driveActions">
-                    <button id="connectDriveBtn" class="btn btn-primary">🔗 Conectar a Google Drive</button>
-                    <button id="loadFromDriveBtn" class="btn btn-success" style="display:none;">☁️ Cargar Datos de Drive</button>
-                </div>
-                <div class="form-group"><label for="yearFilter">Año de Análisis:</label><select id="yearFilter"></select></div>
-                <div class="form-group"><label for="monthFilter">Período Mensual:</label><select id="monthFilter"></select></div>
-                <div class="form-group">
-                    <label for="includeSiniestros" style="cursor:pointer; display:flex; align-items:center; gap:5px; padding-top: 1.2em;">
-                        <input type="checkbox" id="includeSiniestros" checked style="width: 18px; height: 18px; cursor:pointer;">
-                        Incluir Siniestros en Promedio
-                    </label>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn btn-primary" id="syncButton">🔄 Cargar Datos Locales</button>
-                    <button id="saveToDriveBtn" class="btn btn-warning" style="display:none;">📤 Guardar Respaldo en Drive</button>
-                </div>
-            </div>
-            
-            <div class="tab-nav">
-                <button class="tab-button active" data-tab="kpis">Panel Principal</button>
-                <button class="tab-button" data-tab="analysis">Análisis Anual</button>
-                <button class="tab-button" data-tab="custom">Gráfico Personalizado</button>
-            </div>
+<div class="container">
+<header class="header">
+    <h1>🔬 Panel de Análisis Interactivo</h1>
+    <p>García & Asociados — Datos en Tiempo Real</p>
+</header>
+<main class="main">
+    <div style="text-align:center"><div id="fbStatus">🔥 Firebase: Conectando...</div></div>
+    <div id="dataStatus" class="data-status" style="display:none"></div>
 
-            <div id="kpis" class="tab-pane active">
-                <h2 style="margin-bottom: 15px;">Indicadores Clave de Rendimiento (KPIs)</h2>
-                <div id="dashboard" class="dashboard">
-                    <div class="card"><h3 id="kpiTitle">Resumen del Período</h3><div class="value" id="kpiPeriodo"></div></div>
-                    <div class="card"><h3 >Honorarios Cobrados</h3><div class="value positive" id="kpiIngresos"></div></div>
-                    <div class="card"><h3 >Egresos Totales</h3><div class="value negative" id="kpiEgresos"></div></div>
-                    <div class="card"><h3 >Balance Neto</h3><div class="value" id="kpiBalance"></div></div>
-                    <div class="card"><h3 >Abonos en el Período</h3><div class="value" id="kpiCasos"></div></div>
-                    <div class="card"><h3 >Regulación de Honorarios</h3><div class="value" id="kpiRegulacionHonorarios"></div></div>
-                    <div class="card"><h3 >Pago de Bonos y AP</h3><div class="value" id="kpiBonosAP"></div></div>
-                    <div class="card"><h3 >Casos Nuevos (Siniestros)</h3><div class="value" id="kpiNuevosCasos"></div></div>
-                    <div class="card"><h3 >Casos Nuevos (Jurídico)</h3><div class="value" id="kpiNuevosCasosJuridico"></div></div>
-                    <div class="card"><h3 >Ingreso Prom./Caso</h3><div class="value" id="kpiIngresoPorCaso"></div></div>
-                </div>
+    <div class="controls">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div id="driveActions" style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="connectDriveBtn" class="btn btn-primary">🔗 Conectar a Drive</button>
+                <button id="loadFromDriveBtn" class="btn btn-success" style="display:none">☁️ Cargar de Drive</button>
+                <button id="saveToDriveBtn" class="btn btn-warning" style="display:none">📤 Guardar Respaldo</button>
             </div>
-
-            <div id="analysis" class="tab-pane">
-                <div class="analysis-grid">
-                    <div class="chart-container">
-                        <h3 id="ingresosTitle">Composición de Honorarios Cobrados (Anual)</h3>
-                        <canvas id="ingresosChart"></canvas>
-                    </div>
-                    <div class="data-table-container">
-                        <details open>
-                            <summary>Tabla de Datos Mensuales</summary>
-                            <div id="dataTableWrapper" style="max-height: 380px; overflow-y: auto;"></div>
-                        </details>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="custom" class="tab-pane">
-                <div class="custom-chart-section">
-                    <div class="chart-controls">
-                        <h3>Arma tu Gráfico</h3>
-                        <div class="control-group"><label for="chartTypeSelector">1. Elige un tipo de gráfico:</label><select id="chartTypeSelector"><option value="bar">Barras</option><option value="line">Líneas</option><option value="pie">Torta</option><option value="doughnut">Dona</option><option value="radar">Radar</option></select></div>
-                        <div class="control-group"><label>2. Elige las métricas:</label><div class="metrics-list" id="metricsSelector"></div></div>
-                    </div>
-                    <div class="chart-container">
-                        <h3 id="customChartTitle">Gráfico Personalizado</h3>
-                        <canvas id="customChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </main>
+            <button class="btn btn-primary" id="syncButton">🔄 Cargar Datos Locales</button>
+        </div>
+        <div class="fg">
+            <label>Año de Análisis</label>
+            <select id="yearFilter"></select>
+        </div>
+        <div class="fg">
+            <label>Período</label>
+            <select id="monthFilter"></select>
+        </div>
+        <div class="fg">
+            <label style="cursor:pointer;display:flex;align-items:center;gap:6px;padding-top:1.2em">
+                <input type="checkbox" id="includeSiniestros" checked style="width:16px;height:16px">
+                Incluir Siniestros en Promedio
+            </label>
+        </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const allData = { siniestros: [], juridica: [], abonos: [], egresos: {} };
-            let processedDataForYear = {};
-            let ingresosChartInstance, customChartInstance;
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="kpis">📊 Panel Principal</button>
+        <button class="tab-btn" data-tab="analysis">📈 Análisis Anual</button>
+        <button class="tab-btn" data-tab="custom">🎨 Gráfico Personalizado</button>
+    </div>
 
-            const statusEl = document.getElementById('dataStatus');
-            const yearFilterEl = document.getElementById('yearFilter');
-            const monthFilterEl = document.getElementById('monthFilter');
-            const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
-            const metricsSelectorEl = document.getElementById('metricsSelector');
-            const includeSiniestrosCheck = document.getElementById('includeSiniestros');
-            const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    <!-- TAB 1: KPIs -->
+    <div id="kpis" class="tab-pane active">
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div class="egreso-breakdown">
+            <h3>💸 Desglose de Egresos del Período</h3>
+            <div id="egresoBreakdown"></div>
+        </div>
+    </div>
 
-            const metricOptions = {
-                ingresos_totales: { label: '📈 Honorarios Cobrados', color: '#059669' },
-                ingresos_abonos_mensuales: { label: '💼 Ingresos por Abonos', color: '#06b6d4' },
-                ingresos_honorarios_siniestros: { label: '🚗 Honorarios Siniestros', color: '#f59e0b' },
-                ingresos_regulacion_honorarios: { label: '⚖️ Regulación Honorarios', color: '#4f46e5' },
-                egresos_totales: { label: '📉 Egresos Totales', color: '#dc2626' },
-                balance: { label: '💰 Balance Mensual', color: '#6366f1' },
-                abonos_activos_count: { label: '📂 Abonos en el Mes', color: '#1e293b' },
-                nuevos_casos: { label: '✨ Nuevos Casos (Siniestros)', color: '#db2777' },
-                nuevos_casos_juridico: { label: '⚖️ Nuevos Casos (Jurídico)', color: '#9333ea' },
-            };
+    <!-- TAB 2: ANÁLISIS ANUAL -->
+    <div id="analysis" class="tab-pane">
+        <div class="analysis-grid">
+            <div class="chart-container">
+                <h3 id="pieTitle">Composición de Ingresos (Anual)</h3>
+                <canvas id="ingresosChart"></canvas>
+            </div>
+            <div>
+                <details open>
+                    <summary style="cursor:pointer;font-size:1.05em;font-weight:600;margin-bottom:10px">Tabla de Datos Mensuales</summary>
+                    <div class="table-wrapper" id="dataTableWrapper"></div>
+                </details>
+            </div>
+        </div>
+        <div class="chart-stacked">
+            <h3>📊 Ingresos por Tipo — Barras Apiladas</h3>
+            <canvas id="stackedChart"></canvas>
+        </div>
+    </div>
 
-            function updateStatus(message, type = 'success') {
-                statusEl.textContent = message;
-                statusEl.className = `data-status status-${type}`;
-                statusEl.style.display = 'block';
-                setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
-            }
+    <!-- TAB 3: GRÁFICO PERSONALIZADO -->
+    <div id="custom" class="tab-pane">
+        <div class="custom-section">
+            <div class="chart-controls">
+                <h3>🎨 Arma tu Gráfico</h3>
+                <div class="ctrl-group">
+                    <label>1. Tipo de gráfico</label>
+                    <select id="chartTypeSelector">
+                        <option value="bar">Barras</option>
+                        <option value="line">Líneas</option>
+                        <option value="pie">Torta</option>
+                        <option value="doughnut">Dona</option>
+                        <option value="radar">Radar</option>
+                    </select>
+                </div>
+                <div class="ctrl-group">
+                    <label>2. Métricas</label>
+                    <div class="metrics-list" id="metricsSelector"></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3 id="customChartTitle">Gráfico Personalizado</h3>
+                <canvas id="customChart"></canvas>
+            </div>
+        </div>
+    </div>
+</main>
+</div>
 
-            function sincronizarDatosLocales() {
-                try {
-                    allData.siniestros = JSON.parse(localStorage.getItem('planilla_siniestros_data')) || [];
-                    allData.juridica = JSON.parse(localStorage.getItem('planilla_juridica_data')) || [];
-                    allData.abonos = JSON.parse(localStorage.getItem('abonosData')) || [];
-                    allData.egresos = JSON.parse(localStorage.getItem('ingresosEgresosData')) || {};
-                    updateStatus('✅ Datos locales cargados. Procesando...');
-                    poblarSelectores();
-                    render();
-                } catch (error) { console.error("Error al sincronizar:", error); updateStatus('❌ Error al cargar datos locales.', 'warning'); }
-            }
+<script>
+// ====== FIREBASE ======
+const FB_CONFIG = {
+    apiKey:"AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+    authDomain:"garcia-asociados.firebaseapp.com",
+    databaseURL:"https://garcia-asociados-default-rtdb.firebaseio.com",
+    projectId:"garcia-asociados",
+    storageBucket:"garcia-asociados.firebasestorage.app",
+    messagingSenderId:"579231843924",
+    appId:"1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+};
 
-            function poblarSelectores() {
-                const years = new Set();
-                const parseDateForYear = (dateStr) => {
-                    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
-                    try { years.add(parseInt(dateStr.substring(0, 4))); } catch (e) {}
-                };
-                allData.abonos.forEach(a => {
-                    if (a.mesServicio) years.add(a.mesServicio.year);
-                    else parseDateForYear(a.fechaPago);
-                });
-                allData.siniestros.forEach(s => { (s.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
-                allData.juridica.forEach(c => { (c.observaciones || []).forEach(o => parseDateForYear(o.fecha)); });
-                Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
-                
-                const currentYear = yearFilterEl.value;
-                yearFilterEl.innerHTML = '';
-                const sortedYears = Array.from(years).filter(y => !isNaN(y)).sort((a, b) => b - a);
-                if (sortedYears.length === 0) sortedYears.push(new Date().getFullYear());
-                sortedYears.forEach(y => yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`);
-                if (sortedYears.includes(parseInt(currentYear))) yearFilterEl.value = currentYear;
-                monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
-                mesesLabels.forEach((mes, index) => monthFilterEl.innerHTML += `<option value="${index + 1}">${mes}</option>`);
-                metricsSelectorEl.innerHTML = Object.entries(metricOptions).map(([key, {label}], index) => `<label><input type="checkbox" class="metric-checkbox" value="${key}" ${index === 0 || index === 4 ? 'checked' : ''}> ${label}</label>`).join('');
-                document.querySelectorAll('.metric-checkbox').forEach(cb => cb.addEventListener('change', actualizarGraficoPersonalizado));
-            }
+const allData = { siniestros:[], juridica:[], abonos:[], egresos:{} };
+let processedDataForYear = [];
+let ingresosChartInst, stackedChartInst, customChartInst;
 
-            function limpiarYParsearMonto(monto) {
-                if (typeof monto === 'number') return monto;
-                if (typeof monto !== 'string' || !monto) return 0;
-                const montoLimpio = monto.replace(/\$|\s/g, '').replace(/\./g, '').replace(',', '.');
-                return parseFloat(montoLimpio) || 0;
-            }
+function setFBStatus(msg, t) {
+    const el = document.getElementById('fbStatus'); if (!el) return;
+    el.textContent = '🔥 Firebase: ' + msg;
+    const s = {ok:['#d4edda','#155724','#c3e6cb'],warn:['#fff3cd','#856404','#ffc107'],error:['#f8d7da','#721c24','#f5c6cb']}[t];
+    if(s){ el.style.background=s[0]; el.style.color=s[1]; el.style.borderColor=s[2]; }
+}
 
-            function procesarDatos(year) {
-                const monthlyData = Array.from({ length: 12 }, () => ({
-                    ingresos_totales: 0, ingresos_abonos_mensuales: 0, ingresos_honorarios_siniestros: 0, ingresos_regulacion_honorarios: 0, ingresos_bonos_ap: 0,
-                    egresos_totales: 0, balance: 0, nuevos_casos: 0, nuevos_casos_juridico: 0, abonos_activos_count: 0
-                }));
-                
-                const getMesDelAbono = (abono) => {
-                    if (abono.mesServicio && typeof abono.mesServicio.month === 'number' && abono.mesServicio.year === year) {
-                        return abono.mesServicio.month;
-                    }
-                    if (abono.fechaPago) {
-                        const d = new Date(abono.fechaPago + 'T00:00:00');
-                        if (!isNaN(d) && d.getFullYear() === year) return d.getMonth();
-                    }
-                    return -1;
-                };
+function initFirebase() {
+    if (typeof firebase === 'undefined') { setTimeout(initFirebase, 600); return; }
+    try {
+        firebase.initializeApp(FB_CONFIG);
+        const db = firebase.database();
 
-                allData.abonos.forEach(abono => {
-                    const mes = getMesDelAbono(abono);
-                    if (mes !== -1) {
-                        const tipoNormalizado = abono.tipo ? abono.tipo.trim().toLowerCase() : '';
-                        
-                        if (tipoNormalizado.includes('abono mensual')) {
-                            monthlyData[mes].abonos_activos_count++;
-                        }
-
-                        if (['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)) {
-                            const monto = abono.estado === 'Pago Parcial' ? limpiarYParsearMonto(abono.montoPagado) : limpiarYParsearMonto(abono.monto);
-                            
-                            if (tipoNormalizado.includes('pago de bonos y ap')) {
-                                monthlyData[mes].ingresos_bonos_ap += monto;
-                            } else {
-                                monthlyData[mes].ingresos_totales += monto;
-                                if (tipoNormalizado.includes('siniestro')) {
-                                    monthlyData[mes].ingresos_honorarios_siniestros += monto;
-                                } else if (tipoNormalizado.includes('regulacion') || tipoNormalizado.includes('regulación')) {
-                                    monthlyData[mes].ingresos_regulacion_honorarios += monto;
-                                } else if (tipoNormalizado.includes('abono mensual')) {
-                                    monthlyData[mes].ingresos_abonos_mensuales += monto;
-                                }
-                            }
-                        }
-                    }
-                });
-                
-                Object.entries(allData.egresos).forEach(([monthKey, data]) => {
-                    const [y, m] = monthKey.split('-').map(Number);
-                    if (y === year) {
-                        (data.transactions || []).forEach(t => {
-                            if (t.categoria === 'egreso') {
-                                monthlyData[m - 1].egresos_totales += parseFloat(t.monto) || 0;
-                            }
-                        });
-                    }
-                });
-                
-                const getFechaInicio = (caso) => {
-                    if (!caso.observaciones || caso.observaciones.length === 0) return null;
-                    const fechas = caso.observaciones.map(o => o.fecha).filter(Boolean).sort();
-                    const [y, m, d] = fechas.length > 0 ? fechas[0].split('-').map(Number) : [null, null, null];
-                    return y ? { year: y, month: m - 1 } : null;
-                };
-                allData.siniestros.forEach(caso => {
-                    const fechaInicio = getFechaInicio(caso);
-                    if (fechaInicio?.year === year) monthlyData[fechaInicio.month].nuevos_casos++;
-                });
-                allData.juridica.forEach(caso => {
-                    const fechaInicio = getFechaInicio(caso);
-                    if (fechaInicio?.year === year) monthlyData[fechaInicio.month].nuevos_casos_juridico++;
-                });
-                
-                monthlyData.forEach(data => {
-                    data.balance = data.ingresos_totales - data.egresos_totales;
-                });
-
-                return monthlyData;
-            }
-            
-            function renderizarDashboard(data) {
-                const selectedMonth = monthFilterEl.value;
-                let kpis;
-
-                if (selectedMonth === 'todos') {
-                    document.getElementById('kpiTitle').textContent = 'Análisis Anual';
-                    document.getElementById('kpiPeriodo').textContent = yearFilterEl.value;
-                    kpis = data.reduce((acc, monthData) => {
-                        Object.keys(monthData).forEach(key => acc[key] = (acc[key] || 0) + monthData[key]);
-                        return acc;
-                    }, {});
-                } else {
-                    const monthIndex = parseInt(selectedMonth) - 1;
-                    document.getElementById('kpiTitle').textContent = 'Análisis Mensual';
-                    document.getElementById('kpiPeriodo').textContent = `${mesesLabels[monthIndex]}, ${yearFilterEl.value}`;
-                    kpis = data[monthIndex];
-                }
-                
-                const balance = (kpis.ingresos_totales || 0) - (kpis.egresos_totales || 0);
-                document.getElementById('kpiIngresos').textContent = formatCurrency(kpis.ingresos_totales || 0);
-                document.getElementById('kpiEgresos').textContent = formatCurrency(kpis.egresos_totales || 0);
-                document.getElementById('kpiBalance').textContent = formatCurrency(balance);
-                document.getElementById('kpiBalance').className = `value ${balance >= 0 ? 'positive' : 'negative'}`;
-                document.getElementById('kpiCasos').textContent = kpis.abonos_activos_count || 0;
-                document.getElementById('kpiNuevosCasos').textContent = kpis.nuevos_casos || 0;
-                document.getElementById('kpiNuevosCasosJuridico').textContent = kpis.nuevos_casos_juridico || 0;
-                document.getElementById('kpiRegulacionHonorarios').textContent = formatCurrency(kpis.ingresos_regulacion_honorarios || 0);
-                document.getElementById('kpiBonosAP').textContent = formatCurrency(kpis.ingresos_bonos_ap || 0);
-                
-                let totalCasosParaPromedio = (kpis.abonos_activos_count || 0) + (kpis.nuevos_casos_juridico || 0);
-                if (includeSiniestrosCheck.checked) {
-                    totalCasosParaPromedio += (kpis.nuevos_casos || 0);
-                }
-
-                document.getElementById('kpiIngresoPorCaso').textContent = totalCasosParaPromedio > 0 ? formatCurrency(((kpis.ingresos_totales || 0) / totalCasosParaPromedio)) : formatCurrency(0);
-            }
-
-            function renderizarGraficoIngresos(data) {
-                if (ingresosChartInstance) ingresosChartInstance.destroy();
-                const ctx = document.getElementById('ingresosChart').getContext('2d');
-                const annualTotals = data.reduce((acc, month) => {
-                    acc.abonos += month.ingresos_abonos_mensuales; 
-                    acc.siniestros += month.ingresos_honorarios_siniestros; 
-                    acc.regulacion += month.ingresos_regulacion_honorarios;
-                    return acc;
-                }, { abonos: 0, siniestros: 0, regulacion: 0 });
-                
-                const labels = []; const chartData = []; const colors = [];
-                if(annualTotals.abonos > 0) { labels.push('Abonos Mensuales'); chartData.push(annualTotals.abonos); colors.push(metricOptions.ingresos_abonos_mensuales.color + 'B3'); }
-                if(annualTotals.siniestros > 0) { labels.push('Honorarios Siniestros'); chartData.push(annualTotals.siniestros); colors.push(metricOptions.ingresos_honorarios_siniestros.color + 'B3'); }
-                if(annualTotals.regulacion > 0) { labels.push('Regulación de Honorarios'); chartData.push(annualTotals.regulacion); colors.push(metricOptions.ingresos_regulacion_honorarios.color + 'B3'); }
-                
-                ingresosChartInstance = new Chart(ctx, { type: 'pie', data: { labels: labels, datasets: [{ data: chartData, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
-            }
-
-            function renderizarTablaDatos(data) {
-                let tableHTML = '<table class="data-table"><thead><tr><th>Mes</th><th>Honorarios Cobrados</th><th>Egresos</th><th>Balance</th><th>Nuevos Siniestros</th><th>Nuevos Jurídico</th></tr></thead><tbody>';
-                data.forEach((monthData, index) => { tableHTML += `<tr><td>${mesesLabels[index]}</td><td style="color:${metricOptions.ingresos_totales.color};">${formatCurrency(monthData.ingresos_totales)}</td><td style="color:${metricOptions.egresos_totales.color};">${formatCurrency(monthData.egresos_totales)}</td><td style="color:${monthData.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${formatCurrency(monthData.balance)}</td><td>${monthData.nuevos_casos}</td><td>${monthData.nuevos_casos_juridico}</td></tr>`; });
-                const totals = data.reduce((acc, m) => { acc.i += m.ingresos_totales; acc.e += m.egresos_totales; acc.b += m.balance; acc.nc += m.nuevos_casos; acc.ncj += m.nuevos_casos_juridico; return acc; }, {i:0, e:0, b:0, nc:0, ncj:0});
-                tableHTML += `<tr style="font-weight:bold; background:var(--light-bg);"><td>Total Anual</td><td>${formatCurrency(totals.i)}</td><td>${formatCurrency(totals.e)}</td><td>${formatCurrency(totals.b)}</td><td>${totals.nc}</td><td>${totals.ncj}</td></tr>`;
-                tableHTML += '</tbody></table>';
-                document.getElementById('dataTableWrapper').innerHTML = tableHTML;
-            }
-            
-            function actualizarGraficoPersonalizado() {
-                if (customChartInstance) customChartInstance.destroy();
-                const selectedMetrics = Array.from(document.querySelectorAll('.metric-checkbox:checked')).map(cb => cb.value);
-                if (selectedMetrics.length === 0) return;
-                const chartType = chartTypeSelectorEl.value;
-                const isPieChart = ['pie', 'doughnut'].includes(chartType);
-                let datasets, labels, title;
-
-                if(isPieChart) {
-                    labels = selectedMetrics.map(key => metricOptions[key].label);
-                    const annualTotals = processedDataForYear.reduce((acc, month) => {
-                        selectedMetrics.forEach((key, i) => acc[i] = (acc[i] || 0) + (month[key] || 0));
-                        return acc;
-                    }, []);
-                    datasets = [{ data: annualTotals, backgroundColor: selectedMetrics.map(key => metricOptions[key].color + 'B3'), borderColor: '#fff' }];
-                    title = `Distribución Anual de ${yearFilterEl.value}`;
-                } else {
-                    labels = mesesLabels;
-                    datasets = selectedMetrics.map(key => ({
-                        label: metricOptions[key].label,
-                        data: processedDataForYear.map(month => month[key] || 0),
-                        borderColor: metricOptions[key].color, backgroundColor: metricOptions[key].color + '33', tension: 0.1, fill: chartType === 'line' || chartType === 'radar'
-                    }));
-                    title = `Comparativa Mensual - ${yearFilterEl.value}`;
-                }
-                document.getElementById('customChartTitle').textContent = title;
-                const ctx = document.getElementById('customChart').getContext('2d');
-                customChartInstance = new Chart(ctx, { type: chartType, data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
-            }
-
-            function render() {
-                const selectedYear = parseInt(yearFilterEl.value);
-                if (isNaN(selectedYear)) { updateStatus('Seleccione un año para analizar.', 'warning'); return; }
-                processedDataForYear = procesarDatos(selectedYear);
-                renderizarDashboard(processedDataForYear);
-                renderizarGraficoIngresos(processedDataForYear);
-                renderizarTablaDatos(processedDataForYear);
-                actualizarGraficoPersonalizado();
-            }
-
-            function formatCurrency(value) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value); }
-
-            document.getElementById('syncButton').addEventListener('click', sincronizarDatosLocales);
-            yearFilterEl.addEventListener('change', render);
-            monthFilterEl.addEventListener('change', () => renderizarDashboard(processedDataForYear));
-            chartTypeSelectorEl.addEventListener('change', actualizarGraficoPersonalizado);
-            includeSiniestrosCheck.addEventListener('change', () => renderizarDashboard(processedDataForYear));
-
-            document.querySelectorAll('.tab-button').forEach(button => button.addEventListener('click', () => {
-                document.querySelectorAll('.tab-button, .tab-pane').forEach(el => el.classList.remove('active'));
-                button.classList.add('active');
-                document.getElementById(button.dataset.tab).classList.add('active');
-            }));
-
-            // --- CÓDIGO DE GOOGLE DRIVE ---
-            const DATA_FILE_NAME = 'datos_consolidados_estudio.json';
-            let tokenClient, gapiInited = false, gisInited = false, dataFileId = null;
-            function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-            async function initializeGapiClient() { await gapi.client.init({ apiKey: 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM', discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']}); gapiInited = true; maybeEnableButtons(); }
-            function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.file', callback: '' }); gisInited = true; maybeEnableButtons(); }
-            window.gapiLoaded = gapiLoaded; window.gisLoaded = gisLoaded;
-            function maybeEnableButtons() { if (gapiInited && gisInited) document.getElementById('connectDriveBtn').onclick = handleAuthClick; }
-            function handleAuthClick() {
-                tokenClient.callback = async (resp) => {
-                    if (resp.error) { throw(resp); }
-                    updateStatus('✅ Conectado a Google Drive.');
-                    document.getElementById('connectDriveBtn').style.display = 'none';
-                    document.getElementById('loadFromDriveBtn').style.display = 'inline-flex';
-                    document.getElementById('saveToDriveBtn').style.display = 'inline-flex';
-                    await findDataFile();
-                };
-                if (!gapi.client.getToken()) tokenClient.requestAccessToken({prompt: 'consent'}); else tokenClient.requestAccessToken({prompt: ''});
-            }
-            async function findDataFile() {
-                try {
-                    const r = await gapi.client.drive.files.list({ q: `name='${DATA_FILE_NAME}' and trashed=false`, fields: 'files(id)', spaces: 'drive' });
-                    dataFileId = r.result.files.length > 0 ? r.result.files[0].id : null;
-                    if(dataFileId) { updateStatus('Archivo de respaldo encontrado. Listo para cargar.', 'success'); } else { updateStatus('No se encontró respaldo en Drive. Puedes guardar uno nuevo.', 'warning'); }
-                } catch (err) { updateStatus('Error buscando archivo en Drive.', 'warning'); }
-            }
-            
-            // === FUNCIÓN DE GUARDADO CORREGIDA Y MEJORADA ===
-            async function saveDataToDrive() {
-                if (!confirm('¿Guardar una copia de los datos actuales en Google Drive? Esto sobreescribirá el respaldo anterior.')) return;
-                
-                try {
-                    updateStatus('📤 Guardando en Drive...', 'success');
-
-                    const snapshot = {
-                        siniestros: allData.siniestros,
-                        juridica: allData.juridica,
-                        abonos: allData.abonos,
-                        egresos: allData.egresos
-                    };
-                    const fileContent = JSON.stringify(snapshot);
-                    
-                    const boundary = '-------314159265358979323846';
-                    const delimiter = "\r\n--" + boundary + "\r\n";
-                    const close_delim = "\r\n--" + boundary + "--";
-
-                    const metadata = {
-                        name: DATA_FILE_NAME,
-                        mimeType: 'application/json'
-                    };
-
-                    const multipartRequestBody =
-                        delimiter +
-                        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                        JSON.stringify(metadata) +
-                        delimiter +
-                        'Content-Type: ' + metadata.mimeType + '\r\n\r\n' +
-                        fileContent +
-                        close_delim;
-
-                    const method = dataFileId ? 'PATCH' : 'POST';
-                    const path = dataFileId ? `/upload/drive/v3/files/${dataFileId}` : '/upload/drive/v3/files';
-
-                    const request = await gapi.client.request({
-                        path: path,
-                        method: method,
-                        params: { uploadType: 'multipart' },
-                        headers: {
-                            'Content-Type': 'multipart/related; boundary=' + boundary
-                        },
-                        body: multipartRequestBody
-                    });
-
-                    dataFileId = request.result.id;
-                    updateStatus('✅ Respaldo guardado en Drive con éxito.');
-
-                } catch (err) {
-                    console.error("Error detallado al guardar en Drive:", err);
-                    const errorDetails = err.result ? (err.result.error ? err.result.error.message : 'Respuesta de error sin mensaje.') : (err.message || 'Error desconocido.');
-                    updateStatus(`❌ Error al guardar: ${errorDetails}`, 'warning');
-                }
-            }
-
-            async function loadDataFromDrive() {
-                if (!dataFileId) { alert("No se encontró un archivo de respaldo en Drive para cargar. Guarda uno primero."); return; }
-                try {
-                    updateStatus('📥 Cargando desde Drive...', 'success');
-                    const resp = await gapi.client.drive.files.get({ fileId: dataFileId, alt: 'media' });
-                    // Si resp.result es un string, hay que parsearlo. Si ya es objeto, funciona igual.
-                    const loaded = typeof resp.result === 'string' ? JSON.parse(resp.result) : resp.result;
-                    allData.siniestros = loaded.siniestros || []; allData.juridica = loaded.juridica || [];
-                    allData.abonos = loaded.abonos || []; allData.egresos = loaded.egresos || {};
-                    updateStatus('✅ Respaldo cargado de Drive. Procesando...');
-                    poblarSelectores();
-                    render();
-                } catch (err) { 
-                     console.error("Error detallado al cargar de Drive:", err);
-                    const errorDetails = err.result ? (err.result.error ? err.result.error.message : 'Respuesta de error sin mensaje.') : (err.message || 'Error desconocido.');
-                    updateStatus(`❌ Error al cargar: ${errorDetails}`, 'warning');
-                }
-            }
-            document.getElementById('loadFromDriveBtn').addEventListener('click', loadDataFromDrive);
-            document.getElementById('saveToDriveBtn').addEventListener('click', saveDataToDrive);
+        // Escuchar las 4 fuentes en tiempo real
+        db.ref('planilla_siniestros').on('value', snap => {
+            const d = snap.val();
+            allData.siniestros = (d && Array.isArray(d)) ? d : (JSON.parse(localStorage.getItem('planilla_siniestros_data')||'[]'));
+            refreshAll();
         });
-    </script>
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+        db.ref('planilla_juridica').on('value', snap => {
+            const d = snap.val();
+            allData.juridica = (d && Array.isArray(d)) ? d : (JSON.parse(localStorage.getItem('planilla_juridica_data')||'[]'));
+            refreshAll();
+        });
+        db.ref('planilla_abonos').on('value', snap => {
+            const d = snap.val();
+            allData.abonos = (d && Array.isArray(d)) ? d : (JSON.parse(localStorage.getItem('abonosData')||'[]'));
+            refreshAll();
+        });
+        db.ref('planilla_egresos').on('value', snap => {
+            const d = snap.val();
+            allData.egresos = (d && typeof d === 'object' && !Array.isArray(d)) ? d : (JSON.parse(localStorage.getItem('ingresosEgresosData')||'{}'));
+            refreshAll();
+        });
+
+        db.ref('.info/connected').on('value', snap => {
+            setFBStatus(snap.val() ? '✅ Conectado — datos en tiempo real' : '⚠️ Sin conexión (usando datos locales)', snap.val() ? 'ok' : 'warn');
+        });
+    } catch(e) {
+        console.error(e);
+        setFBStatus('❌ Error al iniciar', 'error');
+        sincronizarLocal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const yearFilterEl = document.getElementById('yearFilter');
+    const monthFilterEl = document.getElementById('monthFilter');
+    const chartTypeSelectorEl = document.getElementById('chartTypeSelector');
+    const metricsSelectorEl = document.getElementById('metricsSelector');
+    const includeSiniestrosCheck = document.getElementById('includeSiniestros');
+    const statusEl = document.getElementById('dataStatus');
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    const metricOpts = {
+        ingresos_totales:       { label:'📈 Honorarios Cobrados',      color:'#059669' },
+        ingresos_abonos:        { label:'💼 Ingresos Abonos',           color:'#06b6d4' },
+        ingresos_siniestros:    { label:'🚗 Honorarios Siniestros',     color:'#f59e0b' },
+        ingresos_regulacion:    { label:'⚖️ Regulación Honorarios',    color:'#4f46e5' },
+        ingresos_comisiones:    { label:'💲 Comisiones',                color:'#0891b2' },
+        egresos_totales:        { label:'📉 Egresos Totales',           color:'#dc2626' },
+        balance:                { label:'💰 Balance Mensual',           color:'#6366f1' },
+        abonos_count:           { label:'📂 Abonos Activos',            color:'#1e293b' },
+        nuevos_siniestros:      { label:'✨ Nuevos Casos Siniestros',   color:'#db2777' },
+        nuevos_juridico:        { label:'⚖️ Nuevos Casos Jurídico',    color:'#9333ea' },
+    };
+
+    function updateStatus(msg, type='success') {
+        statusEl.textContent = msg;
+        statusEl.className = `data-status status-${type}`;
+        statusEl.style.display = 'block';
+        setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    }
+
+    function sincronizarLocal() {
+        try {
+            allData.siniestros = JSON.parse(localStorage.getItem('planilla_siniestros_data')||'[]');
+            allData.juridica   = JSON.parse(localStorage.getItem('planilla_juridica_data')||'[]');
+            allData.abonos     = JSON.parse(localStorage.getItem('abonosData')||'[]');
+            allData.egresos    = JSON.parse(localStorage.getItem('ingresosEgresosData')||'{}');
+            updateStatus('✅ Datos locales cargados.');
+            refreshAll();
+        } catch(e) { updateStatus('❌ Error al cargar datos locales.','warning'); }
+    }
+    window.sincronizarLocal = sincronizarLocal;
+
+    // ====== REFRESH GLOBAL ======
+    window.refreshAll = function() {
+        poblarSelectores();
+        render();
+    };
+
+    function poblarSelectores() {
+        const years = new Set();
+        const addYear = d => { if(d && /^\d{4}-\d{2}/.test(d)) years.add(parseInt(d.substring(0,4))); };
+        allData.abonos.forEach(a => { if(a.mesServicio) years.add(a.mesServicio.year); else addYear(a.fechaPago); });
+        allData.siniestros.forEach(s => (s.observaciones||[]).forEach(o => addYear(o.fecha)));
+        allData.juridica.forEach(c => (c.observaciones||[]).forEach(o => addYear(o.fecha)));
+        Object.keys(allData.egresos).forEach(k => years.add(parseInt(k.split('-')[0])));
+
+        const cur = yearFilterEl.value;
+        yearFilterEl.innerHTML = '';
+        const sorted = [...years].filter(y=>!isNaN(y)).sort((a,b)=>b-a);
+        if(!sorted.length) sorted.push(new Date().getFullYear());
+        sorted.forEach(y => yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`);
+        if(sorted.includes(parseInt(cur))) yearFilterEl.value = cur;
+
+        monthFilterEl.innerHTML = '<option value="todos">Año Completo</option>';
+        meses.forEach((m,i) => monthFilterEl.innerHTML += `<option value="${i+1}">${m}</option>`);
+
+        metricsSelectorEl.innerHTML = Object.entries(metricOpts).map(([k,{label}],i) =>
+            `<label><input type="checkbox" class="mc" value="${k}" ${i===0||i===5?'checked':''}> ${label}</label>`
+        ).join('');
+        document.querySelectorAll('.mc').forEach(cb => cb.addEventListener('change', renderCustom));
+    }
+
+    function parseMonto(m) {
+        if(typeof m==='number') return m;
+        if(!m) return 0;
+        return parseFloat(String(m).replace(/\$|\s/g,'').replace(/\./g,'').replace(',','.')) || 0;
+    }
+
+    function procesarDatos(year) {
+        const md = Array.from({length:12}, () => ({
+            ingresos_totales:0, ingresos_abonos:0, ingresos_siniestros:0,
+            ingresos_regulacion:0, ingresos_comisiones:0, ingresos_bonos_ap:0,
+            egresos_totales:0, egresos_desglose:{}, balance:0,
+            nuevos_siniestros:0, nuevos_juridico:0, abonos_count:0
+        }));
+
+        // ABONOS
+        allData.abonos.forEach(a => {
+            let mes = -1;
+            if(a.mesServicio && typeof a.mesServicio.month==='number' && a.mesServicio.year===year) mes = a.mesServicio.month;
+            else if(a.fechaPago) { const d=new Date(a.fechaPago+'T00:00:00'); if(!isNaN(d)&&d.getFullYear()===year) mes=d.getMonth(); }
+            if(mes===-1) return;
+
+            const tipo = (a.tipo||'').trim().toLowerCase();
+            if(tipo.includes('abono mensual')) md[mes].abonos_count++;
+
+            if(['Pagado','Pago Parcial','Terminado'].includes(a.estado)) {
+                const monto = a.estado==='Pago Parcial' ? parseMonto(a.montoPagado) : parseMonto(a.monto);
+                if(tipo.includes('pago de bonos y ap') || tipo.includes('bonos y ap')) {
+                    md[mes].ingresos_bonos_ap += monto; // no suma a totales, es pass-through
+                } else {
+                    md[mes].ingresos_totales += monto;
+                    if(tipo.includes('siniestro'))                          md[mes].ingresos_siniestros += monto;
+                    else if(tipo.includes('regulac'))                       md[mes].ingresos_regulacion += monto;
+                    else if(tipo.includes('abono mensual'))                 md[mes].ingresos_abonos += monto;
+                    else if(tipo.includes('comision') || tipo.includes('comisión')) md[mes].ingresos_comisiones += monto;
+                }
+            }
+        });
+
+        // EGRESOS — desde planilla_egresos con desglose por tipo
+        Object.entries(allData.egresos).forEach(([mk, data]) => {
+            const [y, m] = mk.split('-').map(Number);
+            if(y !== year) return;
+            (data.transactions||[]).forEach(t => {
+                if(t.categoria === 'egreso') {
+                    const monto = parseFloat(t.monto)||0;
+                    md[m-1].egresos_totales += monto;
+                    const tipo = (t.tipo||t.descripcion||'Otro').trim();
+                    md[m-1].egresos_desglose[tipo] = (md[m-1].egresos_desglose[tipo]||0) + monto;
+                }
+            });
+        });
+
+        // CASOS NUEVOS — usar fechaCreacion si existe, sino primera observación
+        const getFechaInicio = caso => {
+            if(caso.fechaCreacion && /^\d{4}-\d{2}/.test(caso.fechaCreacion)) {
+                return { year: parseInt(caso.fechaCreacion.substring(0,4)), month: parseInt(caso.fechaCreacion.substring(5,7))-1 };
+            }
+            const fechas = (caso.observaciones||[]).map(o=>o.fecha).filter(Boolean).sort();
+            if(!fechas.length) return null;
+            return { year: parseInt(fechas[0].substring(0,4)), month: parseInt(fechas[0].substring(5,7))-1 };
+        };
+
+        allData.siniestros.forEach(c => { const f=getFechaInicio(c); if(f?.year===year) md[f.month].nuevos_siniestros++; });
+        allData.juridica.forEach(c => { const f=getFechaInicio(c); if(f?.year===year) md[f.month].nuevos_juridico++; });
+
+        // BALANCE
+        md.forEach(d => { d.balance = d.ingresos_totales - d.egresos_totales; });
+
+        return md;
+    }
+
+    // ====== RENDER KPIs ======
+    function renderKPIs(data) {
+        const selMes = monthFilterEl.value;
+        let kpis, mesAnterior;
+
+        if(selMes === 'todos') {
+            kpis = data.reduce((acc, m) => {
+                Object.keys(m).forEach(k => {
+                    if(k === 'egresos_desglose') {
+                        Object.entries(m[k]).forEach(([t,v]) => acc.egresos_desglose[t] = (acc.egresos_desglose[t]||0)+v);
+                    } else {
+                        acc[k] = (acc[k]||0) + (typeof m[k]==='number' ? m[k] : 0);
+                    }
+                });
+                return acc;
+            }, { ingresos_totales:0,ingresos_abonos:0,ingresos_siniestros:0,ingresos_regulacion:0,ingresos_comisiones:0,ingresos_bonos_ap:0,egresos_totales:0,balance:0,nuevos_siniestros:0,nuevos_juridico:0,abonos_count:0,egresos_desglose:{} });
+            mesAnterior = null;
+        } else {
+            const idx = parseInt(selMes) - 1;
+            kpis = data[idx];
+            mesAnterior = idx > 0 ? data[idx-1] : null;
+        }
+
+        const balance = kpis.ingresos_totales - kpis.egresos_totales;
+
+        function trend(cur, prev, key) {
+            if(!prev) return '';
+            const diff = (cur[key]||0) - (prev[key]||0);
+            if(diff > 0) return `<div class="trend trend-up">▲ ${fmt(Math.abs(diff))} vs mes anterior</div>`;
+            if(diff < 0) return `<div class="trend trend-down">▼ ${fmt(Math.abs(diff))} vs mes anterior</div>`;
+            return `<div class="trend trend-eq">= Sin cambios</div>`;
+        }
+        function trendN(cur, prev, key) {
+            if(!prev) return '';
+            const diff = (cur[key]||0) - (prev[key]||0);
+            if(diff > 0) return `<div class="trend trend-up">▲ ${Math.abs(diff)} vs mes anterior</div>`;
+            if(diff < 0) return `<div class="trend trend-down">▼ ${Math.abs(diff)} vs mes anterior</div>`;
+            return `<div class="trend trend-eq">= Sin cambios</div>`;
+        }
+
+        let totalCasos = (kpis.abonos_count||0) + (kpis.nuevos_juridico||0);
+        if(includeSiniestrosCheck.checked) totalCasos += (kpis.nuevos_siniestros||0);
+        const promedio = totalCasos > 0 ? (kpis.ingresos_totales||0) / totalCasos : 0;
+
+        const periodo = selMes === 'todos' ? `Año ${yearFilterEl.value}` : `${meses[parseInt(selMes)-1]} ${yearFilterEl.value}`;
+
+        document.getElementById('kpiGrid').innerHTML = `
+        <div class="kpi-card" style="border-left-color:var(--info)">
+            <h3>📅 Período</h3>
+            <div class="val" style="font-size:1.3em;color:var(--info)">${periodo}</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--green)">
+            <h3>💰 Honorarios Cobrados</h3>
+            <div class="val pos">${fmt(kpis.ingresos_totales||0)}</div>
+            ${trend(kpis, mesAnterior, 'ingresos_totales')}
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--red)">
+            <h3>💸 Egresos Totales</h3>
+            <div class="val neg">${fmt(kpis.egresos_totales||0)}</div>
+            ${trend(kpis, mesAnterior, 'egresos_totales')}
+        </div>
+        <div class="kpi-card" style="border-left-color:${balance>=0?'var(--green)':'var(--red)'}">
+            <h3>${balance>=0?'✅':'⚠️'} Balance Neto</h3>
+            <div class="val ${balance>=0?'pos':'neg'}">${fmt(balance)}</div>
+            ${trend(kpis, mesAnterior, 'balance')}
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--cyan)">
+            <h3>💼 Ingresos Abonos</h3>
+            <div class="val" style="color:var(--cyan)">${fmt(kpis.ingresos_abonos||0)}</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--warn)">
+            <h3>🚗 Honorarios Siniestros</h3>
+            <div class="val" style="color:var(--warn)">${fmt(kpis.ingresos_siniestros||0)}</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:#4f46e5">
+            <h3>⚖️ Regulación Honorarios</h3>
+            <div class="val" style="color:#4f46e5">${fmt(kpis.ingresos_regulacion||0)}</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:#0891b2">
+            <h3>💲 Comisiones</h3>
+            <div class="val" style="color:#0891b2">${fmt(kpis.ingresos_comisiones||0)}</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--pink)">
+            <h3>🔄 Bonos y AP (Control)</h3>
+            <div class="val" style="color:var(--pink)">${fmt(kpis.ingresos_bonos_ap||0)}</div>
+            <div class="trend trend-eq">Pasa por el estudio — sin ganancia</div>
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--secondary)">
+            <h3>📂 Abonos en el Período</h3>
+            <div class="val" style="color:var(--secondary)">${kpis.abonos_count||0}</div>
+            ${trendN(kpis, mesAnterior, 'abonos_count')}
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--pink)">
+            <h3>✨ Nuevos Casos Siniestros</h3>
+            <div class="val" style="color:var(--pink)">${kpis.nuevos_siniestros||0}</div>
+            ${trendN(kpis, mesAnterior, 'nuevos_siniestros')}
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--purple)">
+            <h3>⚖️ Nuevos Casos Jurídico</h3>
+            <div class="val" style="color:var(--purple)">${kpis.nuevos_juridico||0}</div>
+            ${trendN(kpis, mesAnterior, 'nuevos_juridico')}
+        </div>
+        <div class="kpi-card" style="border-left-color:var(--info)">
+            <h3>📊 Ingreso Prom. por Caso</h3>
+            <div class="val" style="color:var(--info)">${fmt(promedio)}</div>
+        </div>`;
+
+        // DESGLOSE EGRESOS
+        const desglose = kpis.egresos_desglose || {};
+        const totalEgr = kpis.egresos_totales || 0;
+        const rows = Object.entries(desglose).sort((a,b)=>b[1]-a[1]);
+        document.getElementById('egresoBreakdown').innerHTML = rows.length === 0
+            ? '<p style="color:#94a3b8;font-size:.9em">Sin egresos registrados en el período.</p>'
+            : rows.map(([t,v]) => `
+                <div class="egreso-row">
+                    <span class="egreso-label">${t}</span>
+                    <span style="display:flex;align-items:center;gap:12px">
+                        <span style="font-size:.8em;color:#94a3b8">${totalEgr>0?Math.round((v/totalEgr)*100):0}%</span>
+                        <span class="egreso-amount">${fmt(v)}</span>
+                    </span>
+                </div>`).join('') + `
+                <div class="egreso-row">
+                    <span class="egreso-label">TOTAL</span>
+                    <span class="egreso-amount">${fmt(totalEgr)}</span>
+                </div>`;
+    }
+
+    // ====== GRÁFICO TORTA INGRESOS ======
+    function renderPie(data) {
+        if(ingresosChartInst) ingresosChartInst.destroy();
+        const totals = data.reduce((acc,m) => {
+            acc.abonos += m.ingresos_abonos;
+            acc.siniestros += m.ingresos_siniestros;
+            acc.regulacion += m.ingresos_regulacion;
+            acc.comisiones += m.ingresos_comisiones;
+            return acc;
+        }, {abonos:0,siniestros:0,regulacion:0,comisiones:0});
+
+        const labels=[], vals=[], colors=[];
+        if(totals.abonos>0)     { labels.push('Abonos Mensuales');      vals.push(totals.abonos);     colors.push('#06b6d4B3'); }
+        if(totals.siniestros>0) { labels.push('Honorarios Siniestros'); vals.push(totals.siniestros); colors.push('#f59e0bB3'); }
+        if(totals.regulacion>0) { labels.push('Regulación');            vals.push(totals.regulacion); colors.push('#4f46e5B3'); }
+        if(totals.comisiones>0) { labels.push('Comisiones');            vals.push(totals.comisiones); colors.push('#0891b2B3'); }
+
+        const ctx = document.getElementById('ingresosChart').getContext('2d');
+        ingresosChartInst = new Chart(ctx, {
+            type:'pie',
+            data:{ labels, datasets:[{ data:vals, backgroundColor:colors, borderColor:'#fff', borderWidth:2 }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } } } }
+        });
+    }
+
+    // ====== GRÁFICO BARRAS APILADAS ======
+    function renderStacked(data) {
+        if(stackedChartInst) stackedChartInst.destroy();
+        const ctx = document.getElementById('stackedChart').getContext('2d');
+        stackedChartInst = new Chart(ctx, {
+            type:'bar',
+            data:{
+                labels: meses,
+                datasets:[
+                    { label:'Abonos Mensuales',      data:data.map(m=>m.ingresos_abonos),     backgroundColor:'#06b6d4B3', stack:'ingresos' },
+                    { label:'Honorarios Siniestros', data:data.map(m=>m.ingresos_siniestros), backgroundColor:'#f59e0bB3', stack:'ingresos' },
+                    { label:'Regulación',            data:data.map(m=>m.ingresos_regulacion), backgroundColor:'#4f46e5B3', stack:'ingresos' },
+                    { label:'Comisiones',            data:data.map(m=>m.ingresos_comisiones), backgroundColor:'#0891b2B3', stack:'ingresos' },
+                    { label:'Egresos',               data:data.map(m=>m.egresos_totales),     backgroundColor:'#dc2626B3', stack:'egresos' },
+                ]
+            },
+            options:{
+                responsive:true, maintainAspectRatio:false,
+                plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` } } },
+                scales:{ x:{ stacked:true }, y:{ stacked:false, ticks:{ callback: v => '$'+new Intl.NumberFormat('es-AR').format(v) } } }
+            }
+        });
+    }
+
+    // ====== TABLA DATOS MENSUALES ======
+    function renderTabla(data) {
+        let html = `<table class="data-table">
+            <thead><tr>
+                <th>Mes</th><th>Honorarios</th><th>Abonos</th><th>Siniestros</th>
+                <th>Regulación</th><th>Comisiones</th><th>Egresos</th><th>Balance</th>
+                <th>N.Sin</th><th>N.Jur</th>
+            </tr></thead><tbody>`;
+        data.forEach((m,i) => {
+            const b = m.balance;
+            html += `<tr>
+                <td><b>${meses[i]}</b></td>
+                <td style="color:var(--green)">${fmt(m.ingresos_totales)}</td>
+                <td style="color:var(--cyan)">${fmt(m.ingresos_abonos)}</td>
+                <td style="color:var(--warn)">${fmt(m.ingresos_siniestros)}</td>
+                <td style="color:#4f46e5">${fmt(m.ingresos_regulacion)}</td>
+                <td style="color:#0891b2">${fmt(m.ingresos_comisiones)}</td>
+                <td style="color:var(--red)">${fmt(m.egresos_totales)}</td>
+                <td style="color:${b>=0?'var(--green)':'var(--red)'}"><b>${fmt(b)}</b></td>
+                <td>${m.nuevos_siniestros}</td>
+                <td>${m.nuevos_juridico}</td>
+            </tr>`;
+        });
+        const tot = data.reduce((a,m)=>({
+            i:a.i+m.ingresos_totales, e:a.e+m.egresos_totales, b:a.b+m.balance,
+            ab:a.ab+m.ingresos_abonos, sin:a.sin+m.ingresos_siniestros,
+            reg:a.reg+m.ingresos_regulacion, com:a.com+m.ingresos_comisiones,
+            ns:a.ns+m.nuevos_siniestros, nj:a.nj+m.nuevos_juridico
+        }), {i:0,e:0,b:0,ab:0,sin:0,reg:0,com:0,ns:0,nj:0});
+        html += `<tr class="total-row">
+            <td>TOTAL</td><td>${fmt(tot.i)}</td><td>${fmt(tot.ab)}</td><td>${fmt(tot.sin)}</td>
+            <td>${fmt(tot.reg)}</td><td>${fmt(tot.com)}</td><td>${fmt(tot.e)}</td>
+            <td style="color:${tot.b>=0?'var(--green)':'var(--red)'}">${fmt(tot.b)}</td>
+            <td>${tot.ns}</td><td>${tot.nj}</td>
+        </tr></tbody></table>`;
+        document.getElementById('dataTableWrapper').innerHTML = html;
+    }
+
+    // ====== GRÁFICO PERSONALIZADO ======
+    function renderCustom() {
+        if(customChartInst) customChartInst.destroy();
+        const selected = [...document.querySelectorAll('.mc:checked')].map(c=>c.value);
+        if(!selected.length) return;
+        const type = chartTypeSelectorEl.value;
+        const isPie = ['pie','doughnut'].includes(type);
+        let datasets, labels;
+
+        if(isPie) {
+            labels = selected.map(k=>metricOpts[k].label);
+            const totals = processedDataForYear.reduce((acc,m) => { selected.forEach((k,i)=>acc[i]=(acc[i]||0)+(m[k]||0)); return acc; }, []);
+            datasets = [{ data:totals, backgroundColor:selected.map(k=>metricOpts[k].color+'B3'), borderColor:'#fff' }];
+            document.getElementById('customChartTitle').textContent = `Distribución Anual ${yearFilterEl.value}`;
+        } else {
+            labels = meses;
+            datasets = selected.map(k=>({ label:metricOpts[k].label, data:processedDataForYear.map(m=>m[k]||0), borderColor:metricOpts[k].color, backgroundColor:metricOpts[k].color+'33', tension:.1, fill:type==='line' }));
+            document.getElementById('customChartTitle').textContent = `Comparativa Mensual ${yearFilterEl.value}`;
+        }
+        const ctx = document.getElementById('customChart').getContext('2d');
+        customChartInst = new Chart(ctx,{ type, data:{labels,datasets}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:c=>` ${c.dataset?.label||c.label}: ${fmt(c.raw)}`}} } } });
+    }
+
+    // ====== RENDER PRINCIPAL ======
+    function render() {
+        const yr = parseInt(yearFilterEl.value);
+        if(isNaN(yr)) return;
+        processedDataForYear = procesarDatos(yr);
+        renderKPIs(processedDataForYear);
+        renderPie(processedDataForYear);
+        renderStacked(processedDataForYear);
+        renderTabla(processedDataForYear);
+        renderCustom();
+    }
+
+    function fmt(v) { return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v||0); }
+
+    // EVENTOS
+    document.getElementById('syncButton').addEventListener('click', sincronizarLocal);
+    yearFilterEl.addEventListener('change', render);
+    monthFilterEl.addEventListener('change', () => renderKPIs(processedDataForYear));
+    chartTypeSelectorEl.addEventListener('change', renderCustom);
+    includeSiniestrosCheck.addEventListener('change', () => renderKPIs(processedDataForYear));
+    document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn,.tab-pane').forEach(e=>e.classList.remove('active'));
+        b.classList.add('active');
+        document.getElementById(b.dataset.tab).classList.add('active');
+    }));
+
+    // INICIO
+    initFirebase();
+});
+
+// ====== GOOGLE DRIVE ======
+const _CID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const _AKEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+const _FILE = 'datos_consolidados_estudio.json';
+let _tc, _gapiOk=false, _gisOk=false, _fid=null;
+
+function gapiLoaded(){gapi.load('client',async()=>{await gapi.client.init({apiKey:_AKEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});_gapiOk=true;_maybe();});}
+function gisLoaded(){_tc=google.accounts.oauth2.initTokenClient({client_id:_CID,scope:'https://www.googleapis.com/auth/drive.file',callback:''});_gisOk=true;_maybe();}
+window.gapiLoaded=gapiLoaded; window.gisLoaded=gisLoaded;
+function _maybe(){if(_gapiOk&&_gisOk)document.getElementById('connectDriveBtn').onclick=_auth;}
+function _status(msg,ok){const e=document.getElementById('dataStatus');e.textContent=msg;e.className='data-status status-'+(ok?'success':'warning');e.style.display='block';setTimeout(()=>{e.style.display='none';},5000);}
+
+function _auth(){
+    _tc.callback=async r=>{
+        if(r.error)return;
+        _status('✅ Conectado a Drive.',true);
+        document.getElementById('connectDriveBtn').style.display='none';
+        document.getElementById('loadFromDriveBtn').style.display='inline-flex';
+        document.getElementById('saveToDriveBtn').style.display='inline-flex';
+        document.getElementById('loadFromDriveBtn').onclick=_load;
+        document.getElementById('saveToDriveBtn').onclick=_save;
+        const r2=await gapi.client.drive.files.list({q:`name='${_FILE}' and trashed=false`,fields:'files(id)'});
+        _fid=r2.result.files.length>0?r2.result.files[0].id:null;
+        _status(_fid?'Archivo encontrado en Drive.':'No hay respaldo aún.',!!_fid);
+    };
+    if(!gapi.client.getToken())_tc.requestAccessToken({prompt:'consent'});else _tc.requestAccessToken({prompt:''});
+}
+
+async function _save(){
+    if(!confirm('¿Guardar respaldo en Drive?'))return;
+    _status('📤 Guardando...',true);
+    try{
+        const body=JSON.stringify({siniestros:allData.siniestros,juridica:allData.juridica,abonos:allData.abonos,egresos:allData.egresos});
+        const bnd='---314159';
+        const meta={name:_FILE,mimeType:'application/json'};
+        const rb=`--${bnd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${bnd}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${bnd}--`;
+        const res=await gapi.client.request({path:_fid?`/upload/drive/v3/files/${_fid}`:'/upload/drive/v3/files',method:_fid?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${bnd}`},body:rb});
+        _fid=res.result.id; _status('✅ Respaldo guardado en Drive.',true);
+    }catch(e){_status('❌ Error al guardar.',false);}
+}
+
+async function _load(){
+    if(!_fid){alert('No hay respaldo en Drive.');return;}
+    if(!confirm('⚠️ Se cargarán los datos del respaldo de Drive. ¿Continuar?'))return;
+    _status('📥 Cargando...',true);
+    try{
+        const r=await gapi.client.drive.files.get({fileId:_fid,alt:'media'});
+        const d=typeof r.result==='string'?JSON.parse(r.result):r.result;
+        allData.siniestros=d.siniestros||[]; allData.juridica=d.juridica||[];
+        allData.abonos=d.abonos||[]; allData.egresos=d.egresos||{};
+        _status('✅ Datos cargados de Drive.',true);
+        window.refreshAll();
+    }catch(e){_status('❌ Error al cargar.',false);}
+}
+</script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
