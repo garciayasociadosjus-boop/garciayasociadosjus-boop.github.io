@@ -43,24 +43,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tab-pane{display:none;animation:fadeIn .5s ease}
 .tab-pane.active{display:block}
 
-/* KPI CARDS */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:18px;margin-bottom:25px}
-.kpi-card{background:var(--light);border-radius:12px;padding:18px;box-shadow:0 4px 12px rgba(0,0,0,.05);border-left:5px solid var(--primary);transition:all .3s;position:relative;overflow:hidden}
-.kpi-card:hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
-.kpi-card h3{color:var(--secondary);font-size:.78em;text-transform:uppercase;font-weight:700;margin-bottom:10px;letter-spacing:.3px}
-.kpi-card .val{font-size:1.7em;font-weight:700;color:var(--primary)}
-.kpi-card .val.pos{color:var(--green)}
-.kpi-card .val.neg{color:var(--red)}
-.kpi-card .trend{font-size:.75em;margin-top:6px;display:flex;align-items:center;gap:4px}
+/* ===== PANEL PRINCIPAL - 3 SECCIONES ===== */
+
+/* SECCIÓN 1 — Resumen Financiero */
+.fin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.fin-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 4px 14px rgba(0,0,0,.07);border-top:4px solid var(--primary);text-align:center;transition:transform .2s}
+.fin-card:hover{transform:translateY(-3px)}
+.fin-card .fc-label{font-size:.72em;text-transform:uppercase;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:8px}
+.fin-card .fc-val{font-size:1.25em;font-weight:800;margin-bottom:5px;word-break:break-all}
+.fin-card .fc-trend{font-size:.72em;display:flex;align-items:center;justify-content:center;gap:3px}
+.fc-green{border-top-color:var(--green)} .fc-green .fc-val{color:var(--green)}
+.fc-red{border-top-color:var(--red)} .fc-red .fc-val{color:var(--red)}
+.fc-blue{border-top-color:#3b82f6} .fc-blue .fc-val{color:#3b82f6}
+.fc-purple{border-top-color:var(--info)} .fc-purple .fc-val{color:var(--info)}
+.fc-neg .fc-val{color:var(--red)!important} .fc-neg{border-top-color:var(--red)!important}
 .trend-up{color:var(--green)} .trend-down{color:var(--red)} .trend-eq{color:#94a3b8}
 
-/* TABLA KPI EGRESOS */
-.egreso-breakdown{margin-top:20px;background:var(--light);border-radius:10px;padding:18px}
-.egreso-breakdown h3{font-size:.9em;color:var(--secondary);margin-bottom:12px;text-transform:uppercase;font-weight:700}
-.egreso-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.88em}
-.egreso-row:last-child{border-bottom:none;font-weight:700;font-size:.95em}
+/* SECCIÓN 2 — Composición de Ingresos */
+.ing-section{background:var(--light);border-radius:12px;padding:20px;margin-bottom:24px}
+.ing-section h3{font-size:.82em;text-transform:uppercase;font-weight:700;color:#475569;margin-bottom:16px;letter-spacing:.4px}
+.ing-bar-row{margin-bottom:13px}
+.ing-bar-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:.85em}
+.ing-bar-label span:first-child{color:#334155;font-weight:500}
+.ing-bar-label span:last-child{font-weight:700;color:#1e293b}
+.ing-bar-track{height:10px;background:#e2e8f0;border-radius:20px;overflow:hidden}
+.ing-bar-fill{height:100%;border-radius:20px;transition:width .6s ease}
+
+/* SECCIÓN 3 — Actividad */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.act-box{background:var(--light);border-radius:12px;padding:18px}
+.act-box h3{font-size:.82em;text-transform:uppercase;font-weight:700;color:#475569;margin-bottom:14px;letter-spacing:.4px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.act-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.88em}
+.act-row:last-child{border-bottom:none}
+.act-row-label{color:#475569}
+.act-row-val{font-weight:700;font-size:1.05em;color:#1e293b}
+.act-row-val.g{color:var(--green)} .act-row-val.r{color:var(--red)} .act-row-val.b{color:#3b82f6}
+
+/* DESGLOSE EGRESOS */
+.egreso-breakdown{background:var(--light);border-radius:12px;padding:18px;margin-bottom:24px}
+.egreso-breakdown h3{font-size:.82em;text-transform:uppercase;font-weight:700;color:#475569;margin-bottom:14px;letter-spacing:.4px}
+.egreso-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.87em}
+.egreso-row:last-child{border-bottom:none;font-weight:700}
 .egreso-label{color:#475569}
 .egreso-amount{color:var(--red);font-weight:600}
+
+@media(max-width:900px){.fin-grid{grid-template-columns:repeat(2,1fr)}.act-grid{grid-template-columns:1fr}}
 
 /* ANÁLISIS */
 .analysis-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:28px}
@@ -130,11 +157,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
     <!-- TAB 1: KPIs -->
     <div id="kpis" class="tab-pane active">
-        <div class="kpi-grid" id="kpiGrid"></div>
-        <div class="egreso-breakdown">
-            <h3>💸 Desglose de Egresos del Período</h3>
-            <div id="egresoBreakdown"></div>
+        <!-- SECCIÓN 1: Resumen Financiero -->
+        <div style="font-size:.78em;text-transform:uppercase;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:12px">💰 Resumen Financiero</div>
+        <div id="finGrid" class="fin-grid"></div>
+
+        <!-- SECCIÓN 2: Composición de Ingresos -->
+        <div style="font-size:.78em;text-transform:uppercase;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:12px">📊 Composición de Ingresos</div>
+        <div class="ing-section">
+            <div id="ingBarras"></div>
         </div>
+
+        <!-- SECCIÓN 3: Actividad + Desglose Egresos -->
+        <div style="font-size:.78em;text-transform:uppercase;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:12px">📋 Actividad del Período</div>
+        <div class="act-grid">
+            <div class="act-box" id="actClientes"></div>
+            <div class="act-box" id="actCasos"></div>
+        </div>
+
+        <div style="font-size:.78em;text-transform:uppercase;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:12px">💸 Desglose de Egresos</div>
+        <div class="egreso-breakdown" id="egresoBreakdown"></div>
     </div>
 
     <!-- TAB 2: ANÁLISIS ANUAL -->
@@ -329,7 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ingresos_totales:0, ingresos_abonos:0, ingresos_siniestros:0,
             ingresos_regulacion:0, ingresos_comisiones:0, ingresos_bonos_ap:0,
             egresos_totales:0, egresos_desglose:{}, balance:0,
-            nuevos_siniestros:0, nuevos_juridico:0, abonos_count:0
+            nuevos_siniestros:0, nuevos_juridico:0,
+            abonos_cobrados:0,   // cuántos abonos mensuales se cobraron ese mes
+            abonos_clientes:new Set() // clientes únicos con abono activo ese mes
         }));
 
         // ABONOS
@@ -340,18 +383,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if(mes===-1) return;
 
             const tipo = (a.tipo||'').trim().toLowerCase();
-            if(tipo.includes('abono mensual')) md[mes].abonos_count++;
+
+            // Contar clientes únicos activos (cualquier estado activo ese mes)
+            if(tipo.includes('abono mensual') && a.cliente) {
+                md[mes].abonos_clientes.add(a.cliente.trim().toLowerCase());
+            }
 
             if(['Pagado','Pago Parcial','Terminado'].includes(a.estado)) {
                 const monto = a.estado==='Pago Parcial' ? parseMonto(a.montoPagado) : parseMonto(a.monto);
                 if(tipo.includes('pago de bonos y ap') || tipo.includes('bonos y ap')) {
-                    md[mes].ingresos_bonos_ap += monto; // no suma a totales, es pass-through
+                    md[mes].ingresos_bonos_ap += monto;
                 } else {
                     md[mes].ingresos_totales += monto;
-                    if(tipo.includes('siniestro'))                          md[mes].ingresos_siniestros += monto;
-                    else if(tipo.includes('regulac'))                       md[mes].ingresos_regulacion += monto;
-                    else if(tipo.includes('abono mensual'))                 md[mes].ingresos_abonos += monto;
-                    else if(tipo.includes('comision') || tipo.includes('comisión')) md[mes].ingresos_comisiones += monto;
+                    if(tipo.includes('siniestro'))                               md[mes].ingresos_siniestros += monto;
+                    else if(tipo.includes('regulac'))                            md[mes].ingresos_regulacion += monto;
+                    else if(tipo.includes('abono mensual')) {
+                        md[mes].ingresos_abonos += monto;
+                        md[mes].abonos_cobrados++; // cobrado efectivamente
+                    }
+                    else if(tipo.includes('comision')||tipo.includes('comisión')) md[mes].ingresos_comisiones += monto;
                 }
             }
         });
@@ -383,13 +433,16 @@ document.addEventListener('DOMContentLoaded', () => {
         allData.siniestros.forEach(c => { const f=getFechaInicio(c); if(f?.year===year) md[f.month].nuevos_siniestros++; });
         allData.juridica.forEach(c => { const f=getFechaInicio(c); if(f?.year===year) md[f.month].nuevos_juridico++; });
 
-        // BALANCE
-        md.forEach(d => { d.balance = d.ingresos_totales - d.egresos_totales; });
+        // BALANCE y convertir Sets a números
+        md.forEach(d => {
+            d.balance = d.ingresos_totales - d.egresos_totales;
+            d.abonos_clientes = d.abonos_clientes.size; // Set → número
+        });
 
         return md;
     }
 
-    // ====== RENDER KPIs ======
+    // ====== RENDER KPIs — 3 SECCIONES ======
     function renderKPIs(data) {
         const selMes = monthFilterEl.value;
         let kpis, mesAnterior;
@@ -399,12 +452,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 Object.keys(m).forEach(k => {
                     if(k === 'egresos_desglose') {
                         Object.entries(m[k]).forEach(([t,v]) => acc.egresos_desglose[t] = (acc.egresos_desglose[t]||0)+v);
-                    } else {
-                        acc[k] = (acc[k]||0) + (typeof m[k]==='number' ? m[k] : 0);
+                    } else if(typeof m[k]==='number') {
+                        acc[k] = (acc[k]||0) + m[k];
                     }
                 });
                 return acc;
-            }, { ingresos_totales:0,ingresos_abonos:0,ingresos_siniestros:0,ingresos_regulacion:0,ingresos_comisiones:0,ingresos_bonos_ap:0,egresos_totales:0,balance:0,nuevos_siniestros:0,nuevos_juridico:0,abonos_count:0,egresos_desglose:{} });
+            }, { ingresos_totales:0,ingresos_abonos:0,ingresos_siniestros:0,ingresos_regulacion:0,
+                 ingresos_comisiones:0,ingresos_bonos_ap:0,egresos_totales:0,balance:0,
+                 nuevos_siniestros:0,nuevos_juridico:0,abonos_cobrados:0,abonos_clientes:0,egresos_desglose:{} });
             mesAnterior = null;
         } else {
             const idx = parseInt(selMes) - 1;
@@ -413,90 +468,99 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const balance = kpis.ingresos_totales - kpis.egresos_totales;
+        const periodo = selMes === 'todos' ? `Año ${yearFilterEl.value}` : `${meses[parseInt(selMes)-1]} ${yearFilterEl.value}`;
 
-        function trend(cur, prev, key) {
-            if(!prev) return '';
-            const diff = (cur[key]||0) - (prev[key]||0);
-            if(diff > 0) return `<div class="trend trend-up">▲ ${fmt(Math.abs(diff))} vs mes anterior</div>`;
-            if(diff < 0) return `<div class="trend trend-down">▼ ${fmt(Math.abs(diff))} vs mes anterior</div>`;
-            return `<div class="trend trend-eq">= Sin cambios</div>`;
-        }
-        function trendN(cur, prev, key) {
-            if(!prev) return '';
-            const diff = (cur[key]||0) - (prev[key]||0);
-            if(diff > 0) return `<div class="trend trend-up">▲ ${Math.abs(diff)} vs mes anterior</div>`;
-            if(diff < 0) return `<div class="trend trend-down">▼ ${Math.abs(diff)} vs mes anterior</div>`;
-            return `<div class="trend trend-eq">= Sin cambios</div>`;
-        }
-
-        let totalCasos = (kpis.abonos_count||0) + (kpis.nuevos_juridico||0);
+        let totalCasos = (kpis.abonos_cobrados||0) + (kpis.nuevos_juridico||0);
         if(includeSiniestrosCheck.checked) totalCasos += (kpis.nuevos_siniestros||0);
         const promedio = totalCasos > 0 ? (kpis.ingresos_totales||0) / totalCasos : 0;
 
-        const periodo = selMes === 'todos' ? `Año ${yearFilterEl.value}` : `${meses[parseInt(selMes)-1]} ${yearFilterEl.value}`;
+        function tr(cur, prev, key, esMonto=true) {
+            if(!prev) return '';
+            const diff = (cur[key]||0) - (prev[key]||0);
+            if(diff === 0) return `<div class="fc-trend trend-eq">= igual al mes anterior</div>`;
+            const label = esMonto ? fmt(Math.abs(diff)) : Math.abs(diff);
+            if(diff > 0) return `<div class="fc-trend trend-up">▲ ${label} vs mes anterior</div>`;
+            return `<div class="fc-trend trend-down">▼ ${label} vs mes anterior</div>`;
+        }
 
-        document.getElementById('kpiGrid').innerHTML = `
-        <div class="kpi-card" style="border-left-color:var(--info)">
-            <h3>📅 Período</h3>
-            <div class="val" style="font-size:1.3em;color:var(--info)">${periodo}</div>
+        // ── SECCIÓN 1: Resumen Financiero ──
+        document.getElementById('finGrid').innerHTML = `
+        <div class="fin-card fc-green">
+            <div class="fc-label">💰 Honorarios Cobrados</div>
+            <div class="fc-val">${fmt(kpis.ingresos_totales||0)}</div>
+            ${tr(kpis, mesAnterior, 'ingresos_totales')}
         </div>
-        <div class="kpi-card" style="border-left-color:var(--green)">
-            <h3>💰 Honorarios Cobrados</h3>
-            <div class="val pos">${fmt(kpis.ingresos_totales||0)}</div>
-            ${trend(kpis, mesAnterior, 'ingresos_totales')}
+        <div class="fin-card fc-red">
+            <div class="fc-label">💸 Egresos Totales</div>
+            <div class="fc-val">${fmt(kpis.egresos_totales||0)}</div>
+            ${tr(kpis, mesAnterior, 'egresos_totales')}
         </div>
-        <div class="kpi-card" style="border-left-color:var(--red)">
-            <h3>💸 Egresos Totales</h3>
-            <div class="val neg">${fmt(kpis.egresos_totales||0)}</div>
-            ${trend(kpis, mesAnterior, 'egresos_totales')}
+        <div class="fin-card ${balance>=0?'fc-blue':'fc-neg'}">
+            <div class="fc-label">${balance>=0?'✅':'⚠️'} Balance Neto</div>
+            <div class="fc-val">${fmt(balance)}</div>
+            ${tr(kpis, mesAnterior, 'balance')}
         </div>
-        <div class="kpi-card" style="border-left-color:${balance>=0?'var(--green)':'var(--red)'}">
-            <h3>${balance>=0?'✅':'⚠️'} Balance Neto</h3>
-            <div class="val ${balance>=0?'pos':'neg'}">${fmt(balance)}</div>
-            ${trend(kpis, mesAnterior, 'balance')}
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--cyan)">
-            <h3>💼 Ingresos Abonos</h3>
-            <div class="val" style="color:var(--cyan)">${fmt(kpis.ingresos_abonos||0)}</div>
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--warn)">
-            <h3>🚗 Honorarios Siniestros</h3>
-            <div class="val" style="color:var(--warn)">${fmt(kpis.ingresos_siniestros||0)}</div>
-        </div>
-        <div class="kpi-card" style="border-left-color:#4f46e5">
-            <h3>⚖️ Regulación Honorarios</h3>
-            <div class="val" style="color:#4f46e5">${fmt(kpis.ingresos_regulacion||0)}</div>
-        </div>
-        <div class="kpi-card" style="border-left-color:#0891b2">
-            <h3>💲 Comisiones</h3>
-            <div class="val" style="color:#0891b2">${fmt(kpis.ingresos_comisiones||0)}</div>
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--pink)">
-            <h3>🔄 Bonos y AP (Control)</h3>
-            <div class="val" style="color:var(--pink)">${fmt(kpis.ingresos_bonos_ap||0)}</div>
-            <div class="trend trend-eq">Pasa por el estudio — sin ganancia</div>
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--secondary)">
-            <h3>📂 Abonos en el Período</h3>
-            <div class="val" style="color:var(--secondary)">${kpis.abonos_count||0}</div>
-            ${trendN(kpis, mesAnterior, 'abonos_count')}
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--pink)">
-            <h3>✨ Nuevos Casos Siniestros</h3>
-            <div class="val" style="color:var(--pink)">${kpis.nuevos_siniestros||0}</div>
-            ${trendN(kpis, mesAnterior, 'nuevos_siniestros')}
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--purple)">
-            <h3>⚖️ Nuevos Casos Jurídico</h3>
-            <div class="val" style="color:var(--purple)">${kpis.nuevos_juridico||0}</div>
-            ${trendN(kpis, mesAnterior, 'nuevos_juridico')}
-        </div>
-        <div class="kpi-card" style="border-left-color:var(--info)">
-            <h3>📊 Ingreso Prom. por Caso</h3>
-            <div class="val" style="color:var(--info)">${fmt(promedio)}</div>
+        <div class="fin-card fc-purple">
+            <div class="fc-label">📊 Ingreso Prom. por Caso</div>
+            <div class="fc-val">${fmt(promedio)}</div>
+            <div class="fc-trend trend-eq">${periodo}</div>
         </div>`;
 
-        // DESGLOSE EGRESOS
+        // ── SECCIÓN 2: Barras de Composición de Ingresos ──
+        const total = kpis.ingresos_totales || 1;
+        const barras = [
+            { label:'💼 Abonos Mensuales',      val:kpis.ingresos_abonos||0,     color:'#06b6d4' },
+            { label:'🚗 Honorarios Siniestros', val:kpis.ingresos_siniestros||0, color:'#f59e0b' },
+            { label:'⚖️ Regulación',            val:kpis.ingresos_regulacion||0, color:'#4f46e5' },
+            { label:'💲 Comisiones',             val:kpis.ingresos_comisiones||0, color:'#0891b2' },
+            { label:'🔄 Bonos y AP (control)',   val:kpis.ingresos_bonos_ap||0,   color:'#db2777' },
+        ];
+        document.getElementById('ingBarras').innerHTML = barras.map(b => {
+            const pct = Math.round((b.val / total) * 100);
+            return `<div class="ing-bar-row">
+                <div class="ing-bar-label">
+                    <span>${b.label}</span>
+                    <span>${fmt(b.val)} &nbsp;<span style="color:#94a3b8;font-weight:400;font-size:.9em">(${b.val>0?pct:0}%)</span></span>
+                </div>
+                <div class="ing-bar-track">
+                    <div class="ing-bar-fill" style="width:${b.val>0?pct:0}%;background:${b.color}"></div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // ── SECCIÓN 3A: Clientes ──
+        document.getElementById('actClientes').innerHTML = `
+        <h3>👥 Clientes</h3>
+        <div class="act-row">
+            <span class="act-row-label">Abonos Cobrados en el período</span>
+            <span class="act-row-val g">${kpis.abonos_cobrados||0}</span>
+        </div>
+        <div class="act-row">
+            <span class="act-row-label">Clientes activos con abono</span>
+            <span class="act-row-val b">${kpis.abonos_clientes||0}</span>
+        </div>
+        <div class="act-row">
+            <span class="act-row-label">🔄 Bonos y AP (control)</span>
+            <span class="act-row-val" style="color:#db2777">${fmt(kpis.ingresos_bonos_ap||0)}</span>
+        </div>`;
+
+        // ── SECCIÓN 3B: Casos ──
+        document.getElementById('actCasos').innerHTML = `
+        <h3>📁 Casos Nuevos</h3>
+        <div class="act-row">
+            <span class="act-row-label">Nuevos Siniestros</span>
+            <span class="act-row-val g">${kpis.nuevos_siniestros||0}</span>
+        </div>
+        <div class="act-row">
+            <span class="act-row-label">Nuevos Jurídico</span>
+            <span class="act-row-val b">${kpis.nuevos_juridico||0}</span>
+        </div>
+        <div class="act-row">
+            <span class="act-row-label">Total casos nuevos</span>
+            <span class="act-row-val">${(kpis.nuevos_siniestros||0)+(kpis.nuevos_juridico||0)}</span>
+        </div>`;
+
+        // ── DESGLOSE EGRESOS ──
         const desglose = kpis.egresos_desglose || {};
         const totalEgr = kpis.egresos_totales || 0;
         const rows = Object.entries(desglose).sort((a,b)=>b[1]-a[1]);
@@ -505,14 +569,14 @@ document.addEventListener('DOMContentLoaded', () => {
             : rows.map(([t,v]) => `
                 <div class="egreso-row">
                     <span class="egreso-label">${t}</span>
-                    <span style="display:flex;align-items:center;gap:12px">
-                        <span style="font-size:.8em;color:#94a3b8">${totalEgr>0?Math.round((v/totalEgr)*100):0}%</span>
+                    <span style="display:flex;align-items:center;gap:14px">
+                        <span style="font-size:.78em;color:#94a3b8;min-width:35px;text-align:right">${totalEgr>0?Math.round((v/totalEgr)*100):0}%</span>
                         <span class="egreso-amount">${fmt(v)}</span>
                     </span>
                 </div>`).join('') + `
-                <div class="egreso-row">
-                    <span class="egreso-label">TOTAL</span>
-                    <span class="egreso-amount">${fmt(totalEgr)}</span>
+                <div class="egreso-row" style="margin-top:6px">
+                    <span class="egreso-label" style="font-weight:700">TOTAL EGRESOS</span>
+                    <span class="egreso-amount" style="font-size:1.05em">${fmt(totalEgr)}</span>
                 </div>`;
     }
 
