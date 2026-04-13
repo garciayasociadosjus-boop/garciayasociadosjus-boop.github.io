@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <title>Control de Abonos Mensuales - Estudio García y Asociados</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
   <style>
@@ -252,6 +255,9 @@
         <button id="connectDriveBtn" class="btn btn-drive" onclick="handleAuthClick()">🔗 Conectar a Drive</button>
         <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveDataToDrive()">📤 Guardar en Drive</button>
         <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadDataFromDrive()">📥 Cargar de Drive</button>
+        <div id="firebaseStatus" style="margin-top:10px;padding:8px 16px;border-radius:8px;font-size:.88em;display:inline-block;background:#fff3cd;color:#856404;border:1px solid #ffc107;">
+            🔥 Firebase: Conectando...
+        </div>
       </section>
 
       <div class="filters-container no-print">
@@ -547,10 +553,93 @@
       setupModal();
       renderTypeFilters();
       render();
+      initFirebase();
     });
 
+    // ====== CONFIGURACIÓN FIREBASE ======
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+        authDomain: "garcia-asociados.firebaseapp.com",
+        databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+        projectId: "garcia-asociados",
+        storageBucket: "garcia-asociados.firebasestorage.app",
+        messagingSenderId: "579231843924",
+        appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+    };
+    const FIREBASE_KEY_ABONOS = 'planilla_abonos';
+
+    let firebaseApp, firebaseDB, firebaseRef;
+    let firebaseConectado = false;
+    let ignorarProximoCambioFirebase = false;
+
+    function initFirebase() {
+        if (typeof firebase === 'undefined') { setTimeout(initFirebase, 600); return; }
+        try {
+            firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+            firebaseDB = firebase.database();
+            firebaseRef = firebaseDB.ref(FIREBASE_KEY_ABONOS);
+
+            firebaseRef.on('value', (snapshot) => {
+                if (ignorarProximoCambioFirebase) { ignorarProximoCambioFirebase = false; return; }
+                const data = snapshot.val();
+                if (data && Array.isArray(data)) {
+                    abonosData = data;
+                    localStorage.setItem('abonosData', JSON.stringify(abonosData));
+                    render();
+                    updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                } else if (data === null) {
+                    const local = localStorage.getItem('abonosData');
+                    if (local) {
+                        abonosData = JSON.parse(local);
+                        saveToFirebase();
+                        updateFirebaseStatus('✅ Datos locales subidos a Firebase', 'ok');
+                    } else {
+                        updateFirebaseStatus('✅ Firebase listo (base vacía)', 'ok');
+                    }
+                }
+                firebaseConectado = true;
+            }, (error) => {
+                console.error('Error Firebase:', error);
+                updateFirebaseStatus('❌ Error de conexión Firebase', 'error');
+                firebaseConectado = false;
+            });
+
+            firebaseDB.ref('.info/connected').on('value', (snap) => {
+                if (snap.val() === true) {
+                    firebaseConectado = true;
+                    updateFirebaseStatus('✅ Firebase: Conectado en tiempo real', 'ok');
+                } else {
+                    firebaseConectado = false;
+                    updateFirebaseStatus('⚠️ Firebase: Sin conexión (modo local)', 'warn');
+                }
+            });
+        } catch(e) {
+            console.error('Error iniciando Firebase:', e);
+            updateFirebaseStatus('❌ Error al iniciar Firebase', 'error');
+        }
+    }
+
+    function updateFirebaseStatus(msg, tipo) {
+        const el = document.getElementById('firebaseStatus');
+        if (!el) return;
+        el.textContent = '🔥 ' + msg;
+        if (tipo === 'ok') { el.style.background='#d4edda'; el.style.color='#155724'; el.style.borderColor='#c3e6cb'; }
+        else if (tipo === 'warn') { el.style.background='#fff3cd'; el.style.color='#856404'; el.style.borderColor='#ffc107'; }
+        else { el.style.background='#f8d7da'; el.style.color='#721c24'; el.style.borderColor='#f5c6cb'; }
+    }
+
+    function saveToFirebase() {
+        if (!firebaseRef) return;
+        try {
+            ignorarProximoCambioFirebase = true;
+            firebaseRef.set(abonosData)
+                .catch(e => { console.error('Error guardando en Firebase:', e); ignorarProximoCambioFirebase = false; });
+        } catch(e) { console.error('Error en saveToFirebase:', e); ignorarProximoCambioFirebase = false; }
+    }
+    // ====== FIN CONFIGURACIÓN FIREBASE ======
+
     // ====== UTIL DATOS ======
-    function saveData(){ localStorage.setItem('abonosData', JSON.stringify(abonosData)); }
+    function saveData(){ localStorage.setItem('abonosData', JSON.stringify(abonosData)); saveToFirebase(); }
     function loadData(){ var s = localStorage.getItem('abonosData'); abonosData = s ? JSON.parse(s) : []; }
 
     function saveSignature(){ if(signatureImage){ localStorage.setItem('signatureImage', signatureImage); } else { localStorage.removeItem('signatureImage'); } }
