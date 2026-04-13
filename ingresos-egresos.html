@@ -124,7 +124,10 @@
     <div id="annualRow" class="annual-row"></div>
 
     <div class="chart-box">
-        <h3>📊 Evolución Mensual <span id="chartYear"></span></h3>
+        <h3>📊 Evolución Mensual &nbsp;
+            <select id="yearSelector" onchange="renderApp()" style="padding:5px 10px;border-radius:6px;border:1px solid #ccc;font-size:.9em;font-weight:600;color:var(--primary);">
+            </select>
+        </h3>
         <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
     </div>
 
@@ -249,8 +252,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cats = ['ingreso','egreso'];
     const medios = ['efectivo','transferencia','cheque','tarjeta','otro'];
     const personas = ['CAMILA','SEBA','ESTUDIO','CLIENTE'];
-    const tiposI = ['Honorarios Abono Mensual','Honorarios Siniestro','Regulación de Honorarios','Cobro Bonos y AP','Otro Ingreso'];
-    const tiposE = ['Pago Bonos y AP','Alquiler','Servicios','Sueldos','Impuestos','Librería','Otro Egreso'];
+    const tiposI = ['Honorarios Abono Mensual','Honorarios Siniestro','Regulación de Honorarios','Cobro Bonos y AP','Comisiones','Otro Ingreso'];
+    const tiposE = ['Pago Bonos y AP','Alquiler','Servicios','Contador','Sueldos','Impuestos','Librería','Otro Egreso'];
 
     function init() {
         const now = new Date(new Date().toLocaleString("en-US",{timeZone:"America/Argentina/Buenos_Aires"}));
@@ -344,8 +347,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderAnnual() {
-        const yr=new Date().getFullYear();
-        document.getElementById('chartYear').textContent=yr;
+        const sel=document.getElementById('yearSelector');
+        // Poblar selector con años disponibles
+        const years=new Set();
+        Object.keys(allData).forEach(k=>{ const y=parseInt(k.split('-')[0]); if(!isNaN(y))years.add(y); });
+        if(years.size===0) years.add(new Date().getFullYear());
+        const sortedYears=[...years].sort((a,b)=>b-a);
+        const curVal=sel.value?parseInt(sel.value):new Date().getFullYear();
+        sel.innerHTML=sortedYears.map(y=>`<option value="${y}" ${y===curVal?'selected':''}>${y}</option>`).join('');
+        const yr=parseInt(sel.value)||new Date().getFullYear();
         let ti=0,te=0;
         Object.keys(allData).forEach(k=>{ if(!k.startsWith(yr))return; const t=calcTotals(allData[k]?.transactions||[]); ti+=t.ingresos; te+=t.egresos; });
         const b=ti-te; const pct=ti>0?Math.round((b/ti)*100):0;
@@ -357,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderChart() {
-        const yr=new Date().getFullYear();
+        const yr=parseInt(document.getElementById('yearSelector')?.value)||new Date().getFullYear();
         const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         const ing=Array(12).fill(0), egr=Array(12).fill(0);
         Object.keys(allData).forEach(k=>{ if(!k.startsWith(yr))return; const m=parseInt(k.split('-')[1])-1; const t=calcTotals(allData[k]?.transactions||[]); ing[m]=t.ingresos; egr[m]=t.egresos; });
@@ -456,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(monthly[mk].bonos>0){
                     const idx=t.findIndex(r=>(r.descripcion||'').toLowerCase()==='pago bonos y aportes');
                     if(idx>-1)t[idx].monto=monthly[mk].bonos;
-                    else t.push({fecha:mk+'-01',descripcion:'Pago Bonos y Aportes',tipo:'Pago Bonos y AP',categoria:'egreso',monto:monthly[mk].bonos,medioPago:'Automático',quien:'ESTUDIO',observaciones:'Sincronizado desde Abonos.'});
+                    else t.push({fecha:mk+'-01',descripcion:'Pago Bonos y Aportes',tipo:'Pago Bonos y AP',categoria:'egreso',monto:monthly[mk].bonos,medioPago:'Automático',quien:'CLIENTE',observaciones:'Sincronizado desde Abonos.'});
                 }
                 cnt++;
             });
