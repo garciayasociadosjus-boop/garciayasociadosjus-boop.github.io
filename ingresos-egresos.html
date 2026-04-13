@@ -4,793 +4,552 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingresos y Egresos - García & Asociados</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --primary-color: #1a237e;
-            --gradient-start: #2c3e50;
-            --gradient-end: #34495e;
-            --light-gray: #f8f9fa;
-            --border-color: #dee2e6;
-            --success-bg: #d1e7dd;
-            --success-color: #0f5132;
-            --warning-bg: #fff3cd;
-            --warning-color: #664d03;
+            --primary: #1a237e; --grad1: #2c3e50; --grad2: #34495e;
+            --light: #f8f9fa; --border: #dee2e6;
+            --green: #28a745; --red: #dc3545; --blue: #007bff; --purple: #6366f1;
         }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 10px;
-            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        }
-        .header { text-align: center; margin-bottom: 20px; }
-        .header h1 { color: var(--primary-color); margin-bottom: 10px; font-size: 2.2em; }
-        .header h2 { color: #666; margin: 5px 0; font-size: 1.1em; font-weight: normal; }
-        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
-        .btn {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0d47a1 100%);
-            color: white; padding: 12px 18px; border: none; border-radius: 5px;
-            cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s;
-        }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3); }
-        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
-        .btn-info { background: linear-gradient(135deg, #3498db, #2980b9); }
-        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
-        .btn.btn-sm { padding: 6px 12px; font-size: 12px; }
-        .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; background: white; }
-        th {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0d47a1 100%);
-            color: white; padding: 12px 8px; text-align: center;
-            border: 1px solid #0d47a1; font-weight: bold;
-        }
-        td { padding: 8px 6px; border: 1px solid #ddd; text-align: center; vertical-align: middle; }
-        tbody tr:nth-child(even) { background-color: #f9f9f9; }
-        tbody tr:hover { background-color: #f0f8ff; }
-        .input-field, .select-field {
-            width: 100%; padding: 6px 4px; border: 1px solid #ccc;
-            border-radius: 4px; font-size: 13px; box-sizing: border-box;
-        }
-        .numeric-field { text-align: right; }
-        .category-ingreso { background-color: #e8f5e8; }
-        .category-egreso { background-color: #ffebee; }
-        .delete-row-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; color: #c0392b; }
-        .delete-row-btn:hover { color: #e74c3c; transform: scale(1.2); }
-        .month-section { margin-bottom: 25px; }
-        .month-title {
-            font-size: 1.5em; color: var(--primary-color); padding-bottom: 10px;
-            border-bottom: 2px solid var(--primary-color); margin-bottom: 15px;
-        }
-        #archive-container h2 { font-size: 1.3em; color: #444; margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
-        .archive-item { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
-        .archive-item summary {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px; background: var(--light-gray); cursor: pointer;
-            font-size: 1.1em; font-weight: bold;
-        }
-        .archive-item summary::-webkit-details-marker { display: none; }
-        .archive-item summary::before { content: '▶'; margin-right: 10px; font-size: 0.8em; transition: transform 0.2s; }
-        .archive-item[open] > summary::before { transform: rotate(90deg); }
-        .archive-month-name { color: #333; }
-        .archive-totals { display: flex; gap: 20px; font-size: 0.9em; }
-        .archive-totals span { font-weight: normal; }
-        .total-ingreso { color: #28a745; }
-        .total-egreso { color: #dc3545; }
-        .total-balance { color: #007bff; }
-        .archive-controls { padding: 0 15px 10px 15px; text-align: right; background: #fdfdfd; display: flex; justify-content: flex-end; gap: 8px; }
-        .summary-box {
-            background: linear-gradient(135deg, var(--light-gray) 0%, #e9ecef 100%);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;
-            margin: 20px 0; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;
-        }
-        .summary-item { text-align: center; }
-        .summary-label { font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: bold; }
-        .summary-value { font-size: 18px; font-weight: bold; margin-top: 5px; }
-        .summary-ingreso { color: #28a745; }
-        .summary-egreso { color: #dc3545; }
-        .summary-balance { color: #007bff; }
-        .obs-btn {
-            background: #3498db; color: white; border: none; padding: 8px 14px;
-            border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;
-        }
-        .obs-btn:hover { background: #2980b9; }
-        .obs-btn.has-content { background: #27ae60; }
-        .modal {
-            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-        }
-        .modal-content {
-            background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px;
-            width: 80%; max-width: 600px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd;
-        }
-        .modal-header h3 { margin: 0; color: var(--primary-color); }
-        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .close:hover { color: #000; }
-        .obs-textarea {
-            width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc;
-            border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;
-            resize: vertical; box-sizing: border-box;
-        }
-        .modal-buttons {
-            display: flex; justify-content: flex-end; gap: 10px;
-            margin-top: 15px; flex-wrap: wrap;
-        }
-        .modal-btn {
-            padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer;
-            font-size: 14px; font-weight: bold;
-        }
-        .modal-btn-save { background: #27ae60; color: white; }
-        .modal-btn-clear { background: #f39c12; color: white; }
-        .modal-btn-cancel { background: #95a5a6; color: white; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; margin:10px; background:linear-gradient(135deg,var(--grad1),var(--grad2)); min-height:100vh; }
+        .container { max-width:1350px; margin:0 auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.1); }
+        .header { text-align:center; margin-bottom:20px; }
+        .header h1 { color:var(--primary); font-size:2.2em; margin-bottom:5px; }
+        .header h2 { color:#666; font-size:1.1em; font-weight:normal; }
 
-        /* Estilos para el estado de Google Drive */
-        .data-status {
-            padding: 12px; border-radius: 8px; margin: 20px 0;
-            text-align: center; font-size: 1em; font-weight: bold;
-            display: none;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .status-success {
-            background-color: var(--success-bg);
-            border: 1px solid var(--success-color);
-            color: var(--success-color);
-        }
-        .status-warning {
-            background-color: var(--warning-bg);
-            border: 1px solid var(--warning-color);
-            color: var(--warning-color);
-        }
+        /* TARJETAS ANUALES */
+        .annual-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:15px; margin:20px 0; }
+        .a-card { background:var(--light); border-radius:10px; padding:15px; text-align:center; border-left:5px solid var(--primary); box-shadow:0 2px 8px rgba(0,0,0,.06); transition:transform .2s; }
+        .a-card:hover { transform:translateY(-3px); }
+        .a-card h4 { font-size:.72em; text-transform:uppercase; color:#666; margin-bottom:8px; }
+        .a-card .val { font-size:1.35em; font-weight:700; }
+        .a-card.g { border-left-color:var(--green); } .a-card.g .val { color:var(--green); }
+        .a-card.r { border-left-color:var(--red); } .a-card.r .val { color:var(--red); }
+        .a-card.b { border-left-color:var(--blue); } .a-card.b .val { color:var(--blue); }
+        .a-card.p { border-left-color:var(--purple); } .a-card.p .val { color:var(--purple); }
+        .a-card.warn { background:#fff5f5; border-left-color:var(--red); }
+
+        /* GRÁFICO */
+        .chart-box { background:var(--light); border-radius:10px; padding:20px; margin:20px 0; }
+        .chart-box h3 { color:var(--primary); margin-bottom:15px; font-size:.95em; text-transform:uppercase; }
+        .chart-wrap { position:relative; height:220px; }
+
+        /* BOTONES */
+        .controls { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:20px 0; }
+        .btn { background:linear-gradient(135deg,var(--primary),#0d47a1); color:#fff; padding:10px 16px; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; transition:all .3s; }
+        .btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(26,35,126,.3); }
+        .btn-success { background:linear-gradient(135deg,#2ecc71,#27ae60); }
+        .btn-warning { background:linear-gradient(135deg,#f39c12,#e67e22); }
+        .btn-info { background:linear-gradient(135deg,#3498db,#2980b9); }
+        .btn-danger { background:linear-gradient(135deg,#e74c3c,#c0392b); }
+        .btn-sm { padding:6px 12px; font-size:12px; }
+
+        /* FILTROS */
+        .filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#f0f4ff; padding:12px 16px; border-radius:8px; margin-bottom:15px; }
+        .filter-bar label { font-size:12px; font-weight:600; color:#444; }
+        .filter-bar select, .filter-bar input { padding:6px 10px; border:1px solid #ccc; border-radius:5px; font-size:13px; }
+
+        /* SYNC */
+        .sync-sec { text-align:center; margin:20px 0; border-top:1px solid #ddd; padding-top:20px; border-bottom:1px solid #ddd; padding-bottom:20px; }
+        .sync-sec h3 { color:#444; margin-bottom:15px; font-size:1em; }
+        #firebaseStatus { margin-top:10px; padding:8px 16px; border-radius:8px; font-size:.88em; display:inline-block; background:#fff3cd; color:#856404; border:1px solid #ffc107; }
+        .data-status { padding:10px; border-radius:8px; margin:8px 0; text-align:center; font-size:.95em; font-weight:bold; display:none; }
+        .status-success { background:#d1e7dd; border:1px solid #0f5132; color:#0f5132; }
+        .status-warning { background:#fff3cd; border:1px solid #664d03; color:#664d03; }
+
+        /* TABLA */
+        .table-container { overflow-x:auto; margin-top:15px; border-radius:8px; box-shadow:0 4px 8px rgba(0,0,0,.1); }
+        table { width:100%; border-collapse:collapse; min-width:1050px; background:#fff; }
+        th { background:linear-gradient(135deg,var(--primary),#0d47a1); color:#fff; padding:10px 8px; text-align:center; border:1px solid #0d47a1; font-size:12px; }
+        td { padding:6px 5px; border:1px solid #ddd; text-align:center; vertical-align:middle; }
+        tbody tr:nth-child(even) { background:#f9f9f9; }
+        tbody tr:hover { background:#f0f8ff; }
+        .input-field, .select-field { width:100%; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:12px; }
+        .cat-i { background:#e8f5e8!important; } .cat-e { background:#ffebee!important; }
+        .del-btn { background:none; border:none; cursor:pointer; font-size:1.1em; color:#c0392b; }
+        .del-btn:hover { color:#e74c3c; transform:scale(1.2); }
+
+        /* MES */
+        .month-sec { margin-bottom:25px; }
+        .month-title { font-size:1.4em; color:var(--primary); padding-bottom:10px; border-bottom:2px solid var(--primary); margin-bottom:15px; display:flex; align-items:center; gap:10px; }
+        .badge { font-size:.55em; padding:4px 10px; border-radius:20px; font-weight:700; }
+        .badge.pos { background:#d1fae5; color:#065f46; }
+        .badge.neg { background:#fee2e2; color:#991b1b; }
+
+        /* RESUMEN BOX */
+        .sum-box { background:linear-gradient(135deg,var(--light),#e9ecef); border:1px solid var(--border); border-radius:8px; padding:15px; margin:15px 0; display:flex; justify-content:space-around; flex-wrap:wrap; gap:15px; }
+        .sum-box.neg { background:linear-gradient(135deg,#fff5f5,#fee2e2); border-color:#fca5a5; }
+        .sum-item { text-align:center; }
+        .sum-label { font-size:11px; color:#6c757d; text-transform:uppercase; font-weight:bold; }
+        .sum-val { font-size:18px; font-weight:bold; margin-top:5px; }
+        .si { color:var(--green); } .se { color:var(--red); } .sb { color:var(--blue); } .sb.neg { color:var(--red); }
+
+        /* ARCHIVO */
+        #archive-container h2 { font-size:1.2em; color:#444; margin-top:40px; border-bottom:1px solid #ccc; padding-bottom:8px; }
+        .arch-item { border:1px solid var(--border); border-radius:8px; margin-bottom:10px; overflow:hidden; }
+        .arch-item summary { display:flex; justify-content:space-between; align-items:center; padding:13px 15px; background:var(--light); cursor:pointer; font-size:1em; font-weight:bold; list-style:none; }
+        .arch-item summary::before { content:'▶'; margin-right:10px; font-size:.8em; transition:transform .2s; }
+        .arch-item[open]>summary::before { transform:rotate(90deg); }
+        .arch-item.neg-month>summary { background:#fff5f5; }
+        .arch-totals { display:flex; gap:15px; font-size:.85em; flex-wrap:wrap; }
+        .arch-totals span { font-weight:normal; }
+        .ti { color:var(--green); } .te { color:var(--red); } .tb { color:var(--blue); font-weight:700; } .tb.neg { color:var(--red); font-weight:700; }
+        .arch-controls { padding:8px 15px; background:#fdfdfd; display:flex; justify-content:flex-end; gap:8px; }
+
+        /* MODAL */
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.5); backdrop-filter:blur(5px); }
+        .modal-content { background:#fff; margin:10% auto; padding:20px; border-radius:8px; width:80%; max-width:600px; box-shadow:0 8px 32px rgba(0,0,0,.3); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:10px; border-bottom:1px solid #ddd; }
+        .modal-header h3 { margin:0; color:var(--primary); }
+        .close { color:#aaa; font-size:28px; font-weight:bold; cursor:pointer; }
+        .obs-textarea { width:100%; height:120px; padding:10px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:14px; resize:vertical; box-sizing:border-box; }
+        .modal-btns { display:flex; justify-content:flex-end; gap:10px; margin-top:15px; flex-wrap:wrap; }
+        .mbtn { padding:10px 16px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:bold; }
+        .mbtn-save { background:#27ae60; color:#fff; } .mbtn-clear { background:#f39c12; color:#fff; } .mbtn-cancel { background:#95a5a6; color:#fff; }
+        .obs-btn { background:#3498db; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold; }
+        .obs-btn:hover { background:#2980b9; } .obs-btn.has { background:#27ae60; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>GARCÍA & ASOCIADOS</h1>
-            <h2>Planilla de Ingresos y Egresos</h2>
-        </div>
+<div class="container">
+    <div class="header">
+        <h1>GARCÍA & ASOCIADOS</h1>
+        <h2>Planilla de Ingresos y Egresos</h2>
+    </div>
 
-        <div class="controls">
-            <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila (Mes Actual)</button>
-            <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
-            <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar Mes Actual</button>
-            <button class="btn" id="syncAbonosBtn" type="button" style="background: linear-gradient(135deg, #6a1b9a, #4a148c);">🔄 Sincronizar con Abonos</button>
-            <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar a Excel</button>
-            <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Exportar Backup (JSON)</button>
-            <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar Backup (JSON)</button>
-        </div>
-        <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+    <div id="annualRow" class="annual-row"></div>
 
-        <section style="text-align: center; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 20px;">
-             <h3 style="color: #444; margin-top: 0; margin-bottom: 15px;">Sincronización con Google Drive</h3>
-            <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Google Drive</button>
-            <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" type="button">📤 Guardar Respaldo en Drive</button>
-            <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" type="button">📥 Cargar Respaldo de Drive</button>
-        </section>
+    <div class="chart-box">
+        <h3>📊 Evolución Mensual <span id="chartYear"></span></h3>
+        <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila</button>
+        <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
+        <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar</button>
+        <button class="btn" id="syncAbonosBtn" type="button" style="background:linear-gradient(135deg,#6a1b9a,#4a148c);">🔄 Sincronizar Abonos</button>
+        <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar Excel</button>
+        <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Backup JSON</button>
+        <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar JSON</button>
+    </div>
+    <input type="file" id="jsonFileInput" accept=".json" style="display:none">
+
+    <div class="sync-sec">
+        <h3>☁️ Sincronización</h3>
+        <button id="connectDriveBtn" class="btn" type="button">🔗 Conectar a Drive</button>
+        <button id="saveToDriveBtn" class="btn btn-success" style="display:none" type="button">📤 Guardar en Drive</button>
+        <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none" type="button">📥 Cargar de Drive</button>
+        <br><div id="firebaseStatus">🔥 Firebase: Conectando...</div>
         <div id="driveStatus" class="data-status"></div>
-        <div class="month-section" id="current-month-container">
-        </div>
-
-        <div id="archive-container">
-        </div>
     </div>
 
-    <div id="obsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Observaciones</h3>
-                <span class="close" id="closeModalBtn">&times;</span>
-            </div>
-            <textarea id="obsTextarea" class="obs-textarea" placeholder="Escriba sus observaciones aquí..."></textarea>
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-clear" id="clearObsBtn" type="button">Borrar Obs.</button>
-                <button class="modal-btn modal-btn-cancel" id="cancelObsBtn" type="button">Cancelar</button>
-                <button class="modal-btn modal-btn-save" id="saveObsBtn" type="button">Guardar</button>
-            </div>
-        </div>
+    <div class="filter-bar">
+        <label>🔍 Buscar:</label>
+        <input type="text" id="filterSearch" placeholder="Descripción..." oninput="renderApp()">
+        <label>Categoría:</label>
+        <select id="filterCat" onchange="renderApp()">
+            <option value="">Todas</option>
+            <option value="ingreso">Ingresos</option>
+            <option value="egreso">Egresos</option>
+        </select>
+        <label>Quién:</label>
+        <select id="filterQuien" onchange="renderApp()">
+            <option value="">Todos</option>
+            <option value="CAMILA">CAMILA</option>
+            <option value="SEBA">SEBA</option>
+            <option value="ESTUDIO">ESTUDIO</option>
+            <option value="CLIENTE">CLIENTE</option>
+        </select>
+        <button class="btn btn-sm" onclick="clearFilters()">✖ Limpiar</button>
     </div>
 
-    <script>
-        // Se declara allData en el scope global para que sea accesible por el script de Drive
-        let allData = {};
+    <div class="month-sec" id="current-month-container"></div>
+    <div id="archive-container"></div>
+</div>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            let currentMonthKey = '';
-            let currentObsRowIndex = -1;
-            let currentObsMonthKey = '';
-            const categorias = ['ingreso', 'egreso'];
-            const mediosPago = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'otro'];
-            const personas = ['CAMILA', 'SEBA', 'ESTUDIO', 'CLIENTE'];
+<div id="obsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Observaciones</h3>
+            <span class="close" id="closeModalBtn">&times;</span>
+        </div>
+        <textarea id="obsTextarea" class="obs-textarea" placeholder="Observaciones..."></textarea>
+        <div class="modal-btns">
+            <button class="mbtn mbtn-clear" id="clearObsBtn" type="button">Borrar</button>
+            <button class="mbtn mbtn-cancel" id="cancelObsBtn" type="button">Cancelar</button>
+            <button class="mbtn mbtn-save" id="saveObsBtn" type="button">Guardar</button>
+        </div>
+    </div>
+</div>
 
-            function initializeApp() {
-                const now = new Date();
-                const nowInArgentina = new Date(now.toLocaleString("en-US", {timeZone: "America/Argentina/Buenos_Aires"}));
-                currentMonthKey = `${nowInArgentina.getFullYear()}-${String(nowInArgentina.getMonth() + 1).padStart(2, '0')}`;
-                loadData();
-                renderApp();
-                setupEventListeners();
-            }
+<script>
+let allData = {};
+let chartInstance = null;
 
-            function loadData() {
-                const savedDataRaw = localStorage.getItem('ingresosEgresosData');
-                try {
-                    allData = savedDataRaw ? JSON.parse(savedDataRaw) : {};
-                } catch (error) {
-                    console.error("Error al cargar datos:", error);
-                    allData = {};
-                }
-            }
+// ====== FIREBASE ======
+const FB_CONFIG = {
+    apiKey:"AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+    authDomain:"garcia-asociados.firebaseapp.com",
+    databaseURL:"https://garcia-asociados-default-rtdb.firebaseio.com",
+    projectId:"garcia-asociados",
+    storageBucket:"garcia-asociados.firebasestorage.app",
+    messagingSenderId:"579231843924",
+    appId:"1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+};
+let fbRef, skipNext = false;
 
-            function saveData() {
+function initFirebase() {
+    if (typeof firebase === 'undefined') { setTimeout(initFirebase, 600); return; }
+    try {
+        firebase.initializeApp(FB_CONFIG);
+        const db = firebase.database();
+        fbRef = db.ref('planilla_egresos');
+        fbRef.on('value', snap => {
+            if (skipNext) { skipNext = false; return; }
+            const d = snap.val();
+            if (d && typeof d === 'object' && !Array.isArray(d)) {
+                allData = d;
                 localStorage.setItem('ingresosEgresosData', JSON.stringify(allData));
+                renderApp(); setFBStatus('✅ Sincronizado en tiempo real','ok');
+            } else if (d === null) {
+                const loc = localStorage.getItem('ingresosEgresosData');
+                if (loc) { allData = JSON.parse(loc); saveToFB(); setFBStatus('✅ Datos locales subidos','ok'); }
+                else setFBStatus('✅ Listo (vacío)','ok');
             }
-             // Exponer funciones al scope global para ser llamadas por el script de Drive
-            window.saveData = saveData;
+        }, () => setFBStatus('❌ Error de conexión','error'));
+        db.ref('.info/connected').on('value', s => setFBStatus(s.val() ? '✅ Conectado en tiempo real' : '⚠️ Sin conexión (local)', s.val() ? 'ok' : 'warn'));
+    } catch(e) { setFBStatus('❌ Error al iniciar','error'); }
+}
 
-            function renderApp() {
-                const openArchiveKeys = new Set(Array.from(document.querySelectorAll('#archive-container .archive-item[open]')).map(el => el.dataset.monthKey));
-                renderCurrentMonth();
-                renderArchives();
-                openArchiveKeys.forEach(monthKey => {
-                    const detailsElement = document.querySelector(`.archive-item[data-month-key="${monthKey}"]`);
-                    if (detailsElement) detailsElement.open = true;
-                });
-            }
-            // Exponer funciones al scope global para ser llamadas por el script de Drive
-            window.renderApp = renderApp;
+function setFBStatus(msg, t) {
+    const el = document.getElementById('firebaseStatus'); if (!el) return;
+    el.textContent = '🔥 Firebase: ' + msg;
+    const s = {ok:['#d4edda','#155724','#c3e6cb'],warn:['#fff3cd','#856404','#ffc107'],error:['#f8d7da','#721c24','#f5c6cb']}[t]||[,'#856404','#ffc107'];
+    el.style.background=s[0]; el.style.color=s[1]; el.style.borderColor=s[2];
+}
 
+function saveToFB() {
+    if (!fbRef) return;
+    skipNext = true;
+    fbRef.set(allData).catch(() => { skipNext = false; });
+}
 
-            function renderCurrentMonth() {
-                const container = document.getElementById('current-month-container');
-                const monthTransactions = allData[currentMonthKey]?.transactions || [];
-                const monthName = formatMonthKey(currentMonthKey);
-                const totals = calculateTotals(monthTransactions);
-                container.innerHTML = `
-                    <h2 class="month-title">Planilla de ${monthName}</h2>
-                    <div class="summary-box">
-                        <div class="summary-item"><div class="summary-label">Ingresos del Mes</div><div class="summary-value summary-ingreso">${formatCurrency(totals.ingresos)}</div></div>
-                        <div class="summary-item"><div class="summary-label">Egresos del Mes</div><div class="summary-value summary-egreso">${formatCurrency(totals.egresos)}</div></div>
-                        <div class="summary-item"><div class="summary-label">Balance del Mes</div><div class="summary-value summary-balance">${formatCurrency(totals.balance)}</div></div>
+function saveData() { localStorage.setItem('ingresosEgresosData', JSON.stringify(allData)); saveToFB(); }
+window.saveData = saveData;
+function loadData() { try { allData = JSON.parse(localStorage.getItem('ingresosEgresosData') || '{}'); } catch(e) { allData = {}; } }
+// ====== FIN FIREBASE ======
+
+document.addEventListener('DOMContentLoaded', () => {
+    let curMK = '', obsIdx = -1, obsMK = '';
+    const cats = ['ingreso','egreso'];
+    const medios = ['efectivo','transferencia','cheque','tarjeta','otro'];
+    const personas = ['CAMILA','SEBA','ESTUDIO','CLIENTE'];
+    const tiposI = ['Honorarios Abono Mensual','Honorarios Siniestro','Regulación de Honorarios','Cobro Bonos y AP','Otro Ingreso'];
+    const tiposE = ['Pago Bonos y AP','Alquiler','Servicios','Sueldos','Impuestos','Librería','Otro Egreso'];
+
+    function init() {
+        const now = new Date(new Date().toLocaleString("en-US",{timeZone:"America/Argentina/Buenos_Aires"}));
+        curMK = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        loadData(); renderApp(); setupEvents(); initFirebase();
+    }
+
+    window.renderApp = function() {
+        const open = new Set(Array.from(document.querySelectorAll('#archive-container .arch-item[open]')).map(e=>e.dataset.mk));
+        renderCurMonth(); renderArchive(); renderAnnual(); renderChart();
+        open.forEach(k => { const el=document.querySelector(`.arch-item[data-mk="${k}"]`); if(el) el.open=true; });
+    };
+
+    window.clearFilters = function() {
+        document.getElementById('filterSearch').value='';
+        document.getElementById('filterCat').value='';
+        document.getElementById('filterQuien').value='';
+        renderApp();
+    };
+
+    function filtered(txs) {
+        const s=(document.getElementById('filterSearch')?.value||'').toLowerCase();
+        const c=document.getElementById('filterCat')?.value||'';
+        const q=document.getElementById('filterQuien')?.value||'';
+        return txs.filter(t=>(!s||(t.descripcion||'').toLowerCase().includes(s))&&(!c||t.categoria===c)&&(!q||t.quien===q));
+    }
+
+    function renderCurMonth() {
+        const el=document.getElementById('current-month-container');
+        const txs=allData[curMK]?.transactions||[];
+        const tot=calcTotals(txs); const bn=tot.balance>=0;
+        el.innerHTML=`
+        <div class="month-title">📅 ${fmtMK(curMK)} <span class="badge ${bn?'pos':'neg'}">Balance: ${fmt(tot.balance)}</span></div>
+        <div class="sum-box ${bn?'':'neg'}">
+            <div class="sum-item"><div class="sum-label">Ingresos</div><div class="sum-val si">${fmt(tot.ingresos)}</div></div>
+            <div class="sum-item"><div class="sum-label">Egresos</div><div class="sum-val se">${fmt(tot.egresos)}</div></div>
+            <div class="sum-item"><div class="sum-label">Balance</div><div class="sum-val sb ${bn?'':'neg'}">${fmt(tot.balance)}</div></div>
+        </div>
+        <div class="table-container"><table>
+            <thead><tr><th style="width:105px">Fecha</th><th>Descripción</th><th style="width:145px">Tipo</th><th style="width:90px">Categoría</th><th style="width:115px">Monto</th><th style="width:105px">Medio Pago</th><th style="width:95px">Quién</th><th style="width:60px">Obs</th><th style="width:45px">❌</th></tr></thead>
+            <tbody>${filtered(txs).map(r=>row(r,txs.indexOf(r),curMK)).join('')}</tbody>
+        </table></div>`;
+    }
+
+    function renderArchive() {
+        const el=document.getElementById('archive-container');
+        const keys=Object.keys(allData).sort().reverse();
+        let html='<h2>📁 Meses Archivados</h2>'; let hasAny=false;
+        keys.forEach(k=>{
+            if(k===curMK)return; hasAny=true;
+            const txs=allData[k]?.transactions||[]; const tot=calcTotals(txs); const neg=tot.balance<0;
+            html+=`<details class="arch-item ${neg?'neg-month':''}" data-mk="${k}">
+                <summary>
+                    <span>${neg?'⚠️ ':''}${fmtMK(k)}</span>
+                    <div class="arch-totals">
+                        <span class="ti">▲ ${fmt(tot.ingresos)}</span>
+                        <span class="te">▼ ${fmt(tot.egresos)}</span>
+                        <span class="tb ${neg?'neg':''}">${neg?'🔴':'🟢'} ${fmt(tot.balance)}</span>
                     </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th style="width: 120px;">Fecha</th><th>Descripción</th><th style="width: 110px;">Categoría</th>
-                                    <th style="width: 130px;">Monto ($)</th><th style="width: 120px;">Medio de pago</th>
-                                    <th style="width: 110px;">Quien</th><th style="width: 80px;">Obs</th><th style="width: 60px;">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>${monthTransactions.map((rowData, index) => createTableRow(rowData, index, currentMonthKey)).join('')}</tbody>
-                        </table>
-                    </div>`;
-            }
-
-            function renderArchives() {
-                const container = document.getElementById('archive-container');
-                const monthKeys = Object.keys(allData).sort().reverse();
-                let archiveHTML = '<h2>Meses Archivados</h2>';
-                let hasArchives = false;
-                monthKeys.forEach(monthKey => {
-                    if (monthKey === currentMonthKey) return;
-                    hasArchives = true;
-                    const monthTransactions = allData[monthKey]?.transactions || [];
-                    const totals = calculateTotals(monthTransactions);
-                    const monthName = formatMonthKey(monthKey);
-                    archiveHTML += `
-                        <details class="archive-item" data-month-key="${monthKey}">
-                            <summary>
-                                <span class="archive-month-name">${monthName}</span>
-                                <div class="archive-totals">
-                                    <span class="total-ingreso">Ingresos: ${formatCurrency(totals.ingresos)}</span>
-                                    <span class="total-egreso">Egresos: ${formatCurrency(totals.egresos)}</span>
-                                    <span class="total-balance">Balance: ${formatCurrency(totals.balance)}</span>
-                                </div>
-                            </summary>
-                            <div class="archive-controls">
-                                <button class="btn btn-sm add-row-archive-btn" data-month-key="${monthKey}" type="button">➕ Nueva Fila</button>
-                                <button class="btn btn-sm btn-info sort-archive-btn" data-month-key="${monthKey}" type="button">🔤 Ordenar Mes</button>
-                                <button class="btn btn-sm btn-danger delete-month-btn" data-month-key="${monthKey}" type="button">🗑️ Eliminar Mes</button>
-                            </div>
-                            <div class="table-container">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 120px;">Fecha</th><th>Descripción</th><th style="width: 110px;">Categoría</th>
-                                            <th style="width: 130px;">Monto ($)</th><th style="width: 120px;">Medio de pago</th>
-                                            <th style="width: 110px;">Quien</th><th style="width: 80px;">Obs</th><th style="width: 60px;">Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>${monthTransactions.map((rowData, index) => createTableRow(rowData, index, monthKey)).join('')}</tbody>
-                                </table>
-                            </div>
-                        </details>`;
-                });
-                if (!hasArchives) archiveHTML += '<p>No hay meses archivados.</p>';
-                container.innerHTML = archiveHTML;
-            }
-
-            function createTableRow(rowData, index, monthKey) {
-                const categoryClass = rowData.categoria === 'ingreso' ? 'category-ingreso' : 'category-egreso';
-                const hasObs = rowData.observaciones && rowData.observaciones.trim() !== '';
-                return `
-                    <tr data-index="${index}" data-month-key="${monthKey}">
-                        <td><input type="date" class="input-field" value="${rowData.fecha || ''}" data-field="fecha"></td>
-                        <td><input type="text" class="input-field" value="${rowData.descripcion || ''}" data-field="descripcion"></td>
-                        <td class="${categoryClass}"><select class="select-field" data-field="categoria">${categorias.map(cat => `<option value="${cat}" ${cat === rowData.categoria ? 'selected' : ''}>${capitalize(cat)}</option>`).join('')}</select></td>
-                        <td><input type="text" class="input-field numeric-field" value="${formatCurrency(rowData.monto, false)}" data-field="monto"></td>
-                        <td><select class="select-field" data-field="medioPago"><option value="">Seleccionar...</option>${mediosPago.map(mp => `<option value="${mp}" ${mp === rowData.medioPago ? 'selected' : ''}>${capitalize(mp)}</option>`).join('')}</select></td>
-                        <td><input type="text" class="input-field" list="personas-datalist" value="${rowData.quien || ''}" data-field="quien"></td>
-                        <td><button class="obs-btn ${hasObs ? 'has-content' : ''}" type="button">Obs</button></td>
-                        <td><button class="delete-row-btn" title="Eliminar Fila">🗑️</button></td>
-                    </tr>`;
-            }
-            const datalist = document.createElement('datalist');
-            datalist.id = 'personas-datalist';
-            datalist.innerHTML = personas.map(p => `<option value="${p}"></option>`).join('');
-            document.body.appendChild(datalist);
-
-            function setupEventListeners() {
-                document.getElementById('addRowBtn').addEventListener('click', () => {
-                    if (!allData[currentMonthKey]) allData[currentMonthKey] = { transactions: [] };
-                    const today = new Date().toISOString().split('T')[0];
-                    allData[currentMonthKey].transactions.push({ fecha: today, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                    saveData(); renderApp();
-                });
-                document.getElementById('addMonthBtn').addEventListener('click', addNewMonth);
-                document.getElementById('sortBtn').addEventListener('click', () => {
-                    const currentTransactions = allData[currentMonthKey]?.transactions;
-                    if (currentTransactions) { sortTransactions(currentTransactions); saveData(); renderApp(); }
-                });
-                document.getElementById('exportExcelBtn').addEventListener('click', exportAllToExcel);
-                document.getElementById('exportJSONBtn').addEventListener('click', exportBackup);
-                document.getElementById('importJSONBtn').addEventListener('click', () => document.getElementById('jsonFileInput').click());
-                document.getElementById('jsonFileInput').addEventListener('change', importBackup);
-                document.getElementById('syncAbonosBtn').addEventListener('click', syncWithAbonos);
-                document.body.addEventListener('change', handleTableChange);
-                document.body.addEventListener('focusout', handleTableFocusOut);
-                document.body.addEventListener('click', handleTableClick);
-                setupModalEventListeners();
-            }
-
-            function handleTableChange(e) {
-                const target = e.target;
-                const field = target.dataset.field;
-                if (!field || !target.closest('tr')) return;
-                const tr = target.closest('tr');
-                const rowIndex = parseInt(tr.dataset.index);
-                const monthKey = tr.dataset.monthKey;
-                const value = target.value;
-                allData[monthKey].transactions[rowIndex][field] = (field === 'monto') ? parseCurrency(value) : value;
-                saveData(); renderApp();
-            }
-
-            function handleTableFocusOut(e) {
-                const target = e.target;
-                const field = target.dataset.field;
-                if (field === 'monto' && target.closest('tr')) {
-                    target.value = formatCurrency(parseCurrency(target.value), false);
-                }
-            }
-
-            function handleTableClick(e) {
-                const target = e.target;
-                if (target.classList.contains('add-row-archive-btn')) {
-                    const monthKey = target.dataset.monthKey;
-                    const todayInMonth = new Date(monthKey + '-01T12:00:00').toISOString().split('T')[0];
-                    if (!allData[monthKey].transactions) allData[monthKey].transactions = [];
-                    allData[monthKey].transactions.push({ fecha: todayInMonth, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                    saveData(); renderApp(); return;
-                }
-                if (target.classList.contains('sort-archive-btn')) {
-                    const monthKey = target.dataset.monthKey;
-                    const transactions = allData[monthKey]?.transactions;
-                    if (transactions) { sortTransactions(transactions); saveData(); renderApp(); }
-                    return;
-                }
-                if (target.classList.contains('delete-month-btn')) {
-                    const monthKey = target.dataset.monthKey;
-                    const monthName = formatMonthKey(monthKey);
-                    if (confirm(`¿Está SEGURO de que quiere eliminar TODO el mes de ${monthName}?\n\n⚠️ ¡Esta acción no se puede deshacer!`)) {
-                        delete allData[monthKey]; saveData(); renderApp();
-                    }
-                    return;
-                }
-                const tr = target.closest('tr');
-                if (!tr) return;
-                const rowIndex = parseInt(tr.dataset.index);
-                const monthKey = tr.dataset.monthKey;
-                if (target.classList.contains('delete-row-btn')) {
-                    if (confirm('¿Está seguro de que desea eliminar esta fila?')) {
-                        allData[monthKey].transactions.splice(rowIndex, 1);
-                        saveData(); renderApp();
-                    }
-                } else if (target.classList.contains('obs-btn')) {
-                    openObsModal(rowIndex, monthKey);
-                }
-            }
-
-            const modal = document.getElementById('obsModal');
-            const obsTextarea = document.getElementById('obsTextarea');
-            function openObsModal(index, monthKey) {
-                currentObsRowIndex = index; currentObsMonthKey = monthKey;
-                obsTextarea.value = allData[monthKey].transactions[index].observaciones || '';
-                modal.style.display = 'block';
-            }
-            function closeObsModal() {
-                modal.style.display = 'none'; currentObsRowIndex = -1; currentObsMonthKey = '';
-            }
-            function setupModalEventListeners() {
-                document.getElementById('saveObsBtn').addEventListener('click', () => {
-                    if (currentObsRowIndex >= 0 && currentObsMonthKey) {
-                        allData[currentObsMonthKey].transactions[currentObsRowIndex].observaciones = obsTextarea.value;
-                        closeObsModal(); saveData(); renderApp();
-                    }
-                });
-                document.getElementById('clearObsBtn').addEventListener('click', () => { obsTextarea.value = ''; });
-                document.getElementById('closeModalBtn').addEventListener('click', closeObsModal);
-                document.getElementById('cancelObsBtn').addEventListener('click', closeObsModal);
-                window.addEventListener('click', (e) => { if (e.target === modal) closeObsModal(); });
-            }
-
-            function addNewMonth() {
-                const newMonthKey = prompt('Ingrese el nuevo mes en formato AAAA-MM (ej: 2025-09):');
-                if (!newMonthKey || !/^\d{4}-\d{2}$/.test(newMonthKey)) {
-                    if(newMonthKey) alert('Formato incorrecto. Por favor, use AAAA-MM.'); return;
-                }
-                if (allData[newMonthKey]) { alert('Error: Ese mes ya existe.'); return; }
-                allData[newMonthKey] = { transactions: [] };
-                const today = new Date(newMonthKey + '-01T12:00:00').toISOString().split('T')[0];
-                allData[newMonthKey].transactions.push({ fecha: today, descripcion: '', categoria: 'ingreso', monto: 0, medioPago: '', quien: '', observaciones: '' });
-                alert(`Mes ${formatMonthKey(newMonthKey)} agregado.`); saveData(); renderApp();
-            }
-
-            function sortTransactions(transactions) {
-                transactions.sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' }));
-            }
-
-            function syncWithAbonos() {
-                try {
-                    const abonosDataRaw = localStorage.getItem('abonosData');
-                    if (!abonosDataRaw) {
-                        alert('Error: No se encontraron datos de la planilla de Abonos. Asegúrese de haberla usado al menos una vez.');
-                        return;
-                    }
-
-                    const abonosData = JSON.parse(abonosDataRaw);
-                    if (!Array.isArray(abonosData)) throw new Error("Formato de datos de Abonos incorrecto.");
-
-                    const monthlyHonorarios = {};
-                    abonosData.forEach(abono => {
-                        let monthKey = null;
-                        if (abono.mesServicio) {
-                            monthKey = `${abono.mesServicio.year}-${String(abono.mesServicio.month + 1).padStart(2, '0')}`;
-                        } else if (abono.fechaPago) {
-                            const d = new Date(abono.fechaPago + 'T00:00:00');
-                            monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        }
-                        if (!monthKey) return;
-
-                        const esHonorario = abono.tipo !== 'Pago de Bonos y AP';
-                        const esCobrado = ['Pagado', 'Terminado', 'Pago Parcial'].includes(abono.estado);
-
-                        if (esHonorario && esCobrado) {
-                            if (!monthlyHonorarios[monthKey]) monthlyHonorarios[monthKey] = 0;
-                            const monto = abono.estado === 'Pago Parcial' ? (parseFloat(abono.montoPagado) || 0) : (parseFloat(abono.monto) || 0);
-                            monthlyHonorarios[monthKey] += monto;
-                        }
-                    });
-
-                    let updatedCount = 0;
-                    const searchString = "Honorarios Profesionales".toLowerCase();
-
-                    Object.keys(monthlyHonorarios).forEach(monthKey => {
-                        const totalHonorarios = monthlyHonorarios[monthKey];
-                        if (!allData[monthKey]) allData[monthKey] = { transactions: [] };
-
-                        const transactions = allData[monthKey].transactions;
-                        const entryIndex = transactions.findIndex(t => (t.descripcion || '').trim().toLowerCase() === searchString);
-
-                        if (entryIndex > -1) {
-                            transactions[entryIndex].monto = totalHonorarios;
-                        } else {
-                            transactions.unshift({
-                                fecha: `${monthKey}-01`,
-                                descripcion: 'Honorarios Profesionales',
-                                categoria: 'ingreso',
-                                monto: totalHonorarios,
-                                medioPago: 'Automático',
-                                quien: 'ESTUDIO',
-                                observaciones: 'Sincronizado desde planilla de Abonos.'
-                            });
-                        }
-                        updatedCount++;
-                    });
-
-                    if (updatedCount > 0) {
-                        saveData();
-                        renderApp();
-                        alert(`✅ Sincronización completa. Se actualizaron los honorarios para ${updatedCount} mes(es).`);
-                    } else {
-                        alert("No se encontraron honorarios cobrados en la planilla de Abonos para sincronizar.");
-                    }
-                } catch (err) {
-                    alert(`Ocurrió un error durante la sincronización: ${err.message}`);
-                    console.error("Error en syncWithAbonos:", err);
-                }
-            }
-           
-            function exportAllToExcel(){
-                let allTransactions = [];
-                Object.keys(allData).sort().forEach(monthKey => {
-                    allTransactions.push(...allData[monthKey].transactions);
-                });
-                const headers = ['Fecha', 'Descripción', 'Categoría', 'Ingreso', 'Egreso', 'Medio de pago', 'Quien', 'Observaciones'];
-                const rows = allTransactions.map(row => {
-                    const ingreso = row.categoria === 'ingreso' ? row.monto || 0 : 0;
-                    const egreso = row.categoria === 'egreso' ? row.monto || 0 : 0;
-                    return [row.fecha, row.descripcion, row.categoria, ingreso, egreso, row.medioPago, row.quien, row.observaciones || ''].join(',');
-                });
-                downloadFile([headers.join(','), ...rows].join('\n'), 'Reporte_Contable_Completo.csv', 'text/csv;charset=utf-8;');
-            }
-            function exportBackup() { downloadFile(JSON.stringify(allData, null, 2), 'backup-ingresos-egresos.json', 'application/json'); }
-            function importBackup(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const imported = JSON.parse(e.target.result);
-                        if (typeof imported === 'object' && !Array.isArray(imported) && imported !== null) {
-                             if (confirm('Se reemplazarán todos los datos actuales. ¿Continuar?')) {
-                                allData = imported; saveData(); renderApp(); alert('Datos importados.');
-                             }
-                        } else { alert('Error: Formato de archivo incorrecto.'); }
-                    } catch (err) { alert(`Error al leer archivo: ${err.message}`); }
-                };
-                reader.readAsText(file);
-                event.target.value = null;
-            }
-            function calculateTotals(transactions) {
-                 const totals = { ingresos: 0, egresos: 0, balance: 0 };
-                transactions.forEach(row => {
-                    const monto = parseFloat(row.monto) || 0;
-                    if (row.categoria === 'ingreso') totals.ingresos += monto; else totals.egresos += monto;
-                });
-                totals.balance = totals.ingresos - totals.egresos;
-                return totals;
-            }
-            function formatMonthKey(monthKey) {
-                if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "Mes Inválido";
-                const [year, month] = monthKey.split('-');
-                const date = new Date(year, month - 1, 1);
-                return capitalize(date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' }));
-            }
-            function downloadFile(content, fileName, mimeType) {
-                const blob = new Blob(['\ufeff' + content], { type: mimeType });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob); a.download = fileName;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            }
-            function formatCurrency(num, withSymbol = true) {
-                const number = parseFloat(num) || 0;
-                const options = { style: 'currency', currency: 'ARS' };
-                let formatted = new Intl.NumberFormat('es-AR', options).format(number);
-                return withSymbol ? formatted : formatted.replace(/\$\s?/g, '').trim();
-            }
-            function parseCurrency(str) { return parseFloat(String(str).replace(/\$\s?/g, '').replace(/\./g, '').replace(',', '.')) || 0; }
-            function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
-
-            initializeApp();
+                </summary>
+                <div class="arch-controls">
+                    <button class="btn btn-sm add-arch" data-mk="${k}" type="button">➕ Nueva Fila</button>
+                    <button class="btn btn-sm btn-info sort-arch" data-mk="${k}" type="button">🔤 Ordenar</button>
+                    <button class="btn btn-sm btn-danger del-month" data-mk="${k}" type="button">🗑️ Eliminar Mes</button>
+                </div>
+                <div class="table-container"><table>
+                    <thead><tr><th style="width:105px">Fecha</th><th>Descripción</th><th style="width:145px">Tipo</th><th style="width:90px">Categoría</th><th style="width:115px">Monto</th><th style="width:105px">Medio Pago</th><th style="width:95px">Quién</th><th style="width:60px">Obs</th><th style="width:45px">❌</th></tr></thead>
+                    <tbody>${filtered(txs).map(r=>row(r,txs.indexOf(r),k)).join('')}</tbody>
+                </table></div>
+            </details>`;
         });
-    </script>
-    
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <script>
-        const CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        if(!hasAny) html+='<p style="color:#888;margin-top:10px;">No hay meses archivados.</p>';
+        el.innerHTML=html;
+    }
 
-        const FOLDER_NAME = 'Planilla Ingresos y Egresos - García & Asociados';
-        const METADATA_FILE_NAME = 'backup_contable.json';
+    function row(r, i, mk) {
+        const cc=r.categoria==='ingreso'?'cat-i':'cat-e';
+        const tOpts=(r.categoria==='ingreso'?tiposI:tiposE).map(t=>`<option value="${t}" ${t===(r.tipo||'')?'selected':''}>${t}</option>`).join('');
+        const hasO=r.observaciones&&r.observaciones.trim()!=='';
+        return `<tr data-i="${i}" data-mk="${mk}" class="${cc}">
+            <td><input type="date" class="input-field" value="${r.fecha||''}" data-f="fecha"></td>
+            <td><input type="text" class="input-field" value="${(r.descripcion||'').replace(/"/g,'&quot;')}" data-f="descripcion" placeholder="Descripción..."></td>
+            <td><select class="select-field" data-f="tipo">${tOpts}</select></td>
+            <td class="${cc}"><select class="select-field" data-f="categoria">${cats.map(c=>`<option value="${c}" ${c===r.categoria?'selected':''}>${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join('')}</select></td>
+            <td><input type="text" class="input-field" style="text-align:right" value="${fmt(r.monto||0,false)}" data-f="monto"></td>
+            <td><select class="select-field" data-f="medioPago"><option value="">-</option>${medios.map(m=>`<option value="${m}" ${m===r.medioPago?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('')}</select></td>
+            <td><select class="select-field" data-f="quien"><option value="">-</option>${personas.map(p=>`<option value="${p}" ${p===r.quien?'selected':''}>${p}</option>`).join('')}</select></td>
+            <td><button class="obs-btn ${hasO?'has':''}" data-i="${i}" data-mk="${mk}">${hasO?'📝':'+'}</button></td>
+            <td><button class="del-btn" data-i="${i}" data-mk="${mk}">🗑️</button></td>
+        </tr>`;
+    }
 
-        let tokenClient, gapiInited = false, gisInited = false;
-        let driveFolderId = null, metadataFileId = null;
+    function renderAnnual() {
+        const yr=new Date().getFullYear();
+        document.getElementById('chartYear').textContent=yr;
+        let ti=0,te=0;
+        Object.keys(allData).forEach(k=>{ if(!k.startsWith(yr))return; const t=calcTotals(allData[k]?.transactions||[]); ti+=t.ingresos; te+=t.egresos; });
+        const b=ti-te; const pct=ti>0?Math.round((b/ti)*100):0;
+        document.getElementById('annualRow').innerHTML=`
+            <div class="a-card g"><h4>💰 Ingresos ${yr}</h4><div class="val">${fmt(ti)}</div></div>
+            <div class="a-card r"><h4>💸 Egresos ${yr}</h4><div class="val">${fmt(te)}</div></div>
+            <div class="a-card ${b>=0?'b':'r warn'}"><h4>${b>=0?'✅':'⚠️'} Balance ${yr}</h4><div class="val">${fmt(b)}</div></div>
+            <div class="a-card p"><h4>📈 Margen</h4><div class="val">${pct}%</div></div>`;
+    }
 
-        const driveStatusEl = document.getElementById('driveStatus');
+    function renderChart() {
+        const yr=new Date().getFullYear();
+        const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        const ing=Array(12).fill(0), egr=Array(12).fill(0);
+        Object.keys(allData).forEach(k=>{ if(!k.startsWith(yr))return; const m=parseInt(k.split('-')[1])-1; const t=calcTotals(allData[k]?.transactions||[]); ing[m]=t.ingresos; egr[m]=t.egresos; });
+        const ctx=document.getElementById('monthlyChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        chartInstance=new Chart(ctx,{type:'bar',data:{labels:meses,datasets:[
+            {label:'Ingresos',data:ing,backgroundColor:'rgba(40,167,69,.7)',borderColor:'#28a745',borderWidth:1},
+            {label:'Egresos',data:egr,backgroundColor:'rgba(220,53,69,.7)',borderColor:'#dc3545',borderWidth:1}
+        ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{ticks:{callback:v=>'$'+new Intl.NumberFormat('es-AR').format(v)}}}}});
+    }
 
-        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
-        async function initializeGapiClient() { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] }); gapiInited = true; maybeEnableButtons(); }
-        function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' }); gisInited = true; maybeEnableButtons(); }
+    function setupEvents() {
+        document.getElementById('addRowBtn').addEventListener('click',()=>{
+            if(!allData[curMK]) allData[curMK]={transactions:[]};
+            allData[curMK].transactions.push({fecha:new Date().toISOString().split('T')[0],descripcion:'',tipo:'',categoria:'ingreso',monto:0,medioPago:'',quien:'',observaciones:''});
+            saveData(); renderApp();
+        });
+        document.getElementById('addMonthBtn').addEventListener('click',addMonth);
+        document.getElementById('sortBtn').addEventListener('click',()=>{ const t=allData[curMK]?.transactions; if(t){sortTx(t);saveData();renderApp();} });
+        document.getElementById('exportExcelBtn').addEventListener('click',exportExcel);
+        document.getElementById('exportJSONBtn').addEventListener('click',()=>{ const b=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup-ingresos-egresos.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); });
+        document.getElementById('importJSONBtn').addEventListener('click',()=>document.getElementById('jsonFileInput').click());
+        document.getElementById('jsonFileInput').addEventListener('change',importJSON);
+        document.getElementById('syncAbonosBtn').addEventListener('click',syncAbonos);
+        document.body.addEventListener('change',onTableChange);
+        document.body.addEventListener('focusout',onFocusOut);
+        document.body.addEventListener('click',onBodyClick);
+        setupModal();
+    }
 
-        function maybeEnableButtons() {
-            if (gapiInited && gisInited) {
-                document.getElementById('connectDriveBtn').onclick = handleAuthClick;
-            }
-        }
+    function onTableChange(e) {
+        const t=e.target; const f=t.dataset.f; const tr=t.closest('tr[data-i]'); if(!f||!tr)return;
+        const i=parseInt(tr.dataset.i); const mk=tr.dataset.mk;
+        if(!allData[mk]?.transactions[i])return;
+        const v=f==='monto'?parseFmt(t.value):t.value;
+        allData[mk].transactions[i][f]=v;
+        if(f==='categoria') allData[mk].transactions[i].tipo='';
+        saveData(); renderApp();
+    }
 
-        function updateDriveStatus(message, isSuccess, duration = 0) {
-            driveStatusEl.style.display = 'block';
-            driveStatusEl.textContent = message;
-            driveStatusEl.className = 'data-status';
-            if (isSuccess === true) {
-                driveStatusEl.classList.add('status-success');
-            } else if (isSuccess === false) {
-                driveStatusEl.classList.add('status-warning');
-            }
-            if(duration > 0) {
-                setTimeout(() => { driveStatusEl.style.display = 'none'; }, duration);
-            }
-        }
+    function onFocusOut(e) { const t=e.target; if(t.dataset.f==='monto'&&t.closest('tr[data-i]')) t.value=fmt(parseFmt(t.value),false); }
 
-        function handleAuthClick() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error) {
-                    console.error('Auth Error:', resp);
-                    updateDriveStatus('❌ Error de autenticación.', false);
-                    return;
-                }
-                gapi.client.setToken({ access_token: resp.access_token });
-                updateDriveStatus('✅ Conectado a Google Drive. Buscando carpeta...', null);
-                document.getElementById('connectDriveBtn').style.display = 'none';
-                document.getElementById('saveToDriveBtn').style.display = 'inline-block';
-                document.getElementById('loadFromDriveBtn').style.display = 'inline-block';
-                document.getElementById('saveToDriveBtn').onclick = saveDataToDrive;
-                document.getElementById('loadFromDriveBtn').onclick = loadDataFromDrive;
-                await findOrCreateFolder();
-            };
-            if (!gapi.client.getToken()) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            } else {
-                tokenClient.requestAccessToken({prompt: ''});
-            }
-        }
+    function onBodyClick(e) {
+        const t=e.target;
+        if(t.classList.contains('add-arch')) { const mk=t.dataset.mk; if(!allData[mk].transactions)allData[mk].transactions=[]; allData[mk].transactions.push({fecha:mk+'-01',descripcion:'',tipo:'',categoria:'ingreso',monto:0,medioPago:'',quien:'',observaciones:''}); saveData();renderApp();return; }
+        if(t.classList.contains('sort-arch')) { const tx=allData[t.dataset.mk]?.transactions; if(tx){sortTx(tx);saveData();renderApp();} return; }
+        if(t.classList.contains('del-month')) { const mk=t.dataset.mk; if(confirm(`¿Eliminar todo el mes de ${fmtMK(mk)}? ⚠️ No se puede deshacer.`)){delete allData[mk];saveData();renderApp();} return; }
+        const tr=t.closest('tr[data-i]'); if(!tr)return;
+        const i=parseInt(tr.dataset.i); const mk=tr.dataset.mk;
+        if(t.classList.contains('del-btn')){ if(confirm('¿Eliminar esta fila?')){allData[mk].transactions.splice(i,1);saveData();renderApp();} }
+        else if(t.classList.contains('obs-btn')){ obsIdx=i; obsMK=mk; document.getElementById('obsTextarea').value=allData[mk].transactions[i].observaciones||''; document.getElementById('obsModal').style.display='block'; }
+    }
 
-        async function findOrCreateFolder() {
-            updateDriveStatus('Buscando carpeta en Google Drive...', null);
-            try {
-                const response = await gapi.client.drive.files.list({
-                    q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
-                    fields: 'files(id, name)',
-                });
-                if (response.result.files.length > 0) {
-                    driveFolderId = response.result.files[0].id;
-                    updateDriveStatus('✅ Carpeta encontrada.', true, 3000);
-                } else {
-                    updateDriveStatus('Carpeta no encontrada, creando una nueva...', null);
-                    const folderMetadata = {
-                        name: FOLDER_NAME,
-                        mimeType: 'application/vnd.google-apps.folder',
-                    };
-                    const folderResponse = await gapi.client.drive.files.create({
-                        resource: folderMetadata,
-                        fields: 'id',
-                    });
-                    driveFolderId = folderResponse.result.id;
-                    updateDriveStatus('✅ Carpeta creada con éxito.', true, 3000);
-                }
-            } catch (err) {
-                console.error("Error finding or creating folder:", err);
-                updateDriveStatus('❌ Error al buscar o crear la carpeta en Drive.', false);
-                driveFolderId = null;
-            }
-        }
+    function setupModal() {
+        const m=document.getElementById('obsModal');
+        document.getElementById('saveObsBtn').addEventListener('click',()=>{ if(obsIdx>=0&&obsMK){ allData[obsMK].transactions[obsIdx].observaciones=document.getElementById('obsTextarea').value; m.style.display='none'; obsIdx=-1; obsMK=''; saveData();renderApp(); } });
+        document.getElementById('clearObsBtn').addEventListener('click',()=>{ document.getElementById('obsTextarea').value=''; });
+        ['closeModalBtn','cancelObsBtn'].forEach(id=>document.getElementById(id).addEventListener('click',()=>{ m.style.display='none'; obsIdx=-1; obsMK=''; }));
+        window.addEventListener('click',e=>{ if(e.target===m){ m.style.display='none'; obsIdx=-1; obsMK=''; } });
+    }
 
-        async function uploadContent(content, fileName, mimeType, parentId, fileIdToUpdate) {
-            const boundary = '-------314159265358979323846';
-            const metadata = { name: fileName, mimeType: mimeType, ...(parentId && !fileIdToUpdate && { parents: [parentId] }) };
+    function addMonth() {
+        const mk=prompt('Ingrese mes en formato AAAA-MM:'); if(!mk||!/^\d{4}-\d{2}$/.test(mk)){if(mk)alert('Formato incorrecto. Use AAAA-MM.');return;}
+        if(allData[mk]){alert('Ese mes ya existe.');return;}
+        allData[mk]={transactions:[{fecha:mk+'-01',descripcion:'',tipo:'',categoria:'ingreso',monto:0,medioPago:'',quien:'',observaciones:''}]};
+        alert(`Mes ${fmtMK(mk)} agregado.`); saveData(); renderApp();
+    }
 
-            const requestBody = `--${boundary}\r\n` +
-                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-                `${JSON.stringify(metadata)}\r\n` +
-                `--${boundary}\r\n` +
-                `Content-Type: ${mimeType}\r\n` +
-                `Content-Transfer-Encoding: base64\r\n\r\n` +
-                `${content}\r\n` +
-                `--${boundary}--`;
+    function sortTx(t) { t.sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||'','es',{sensitivity:'base'})); }
 
-            const request = gapi.client.request({
-                path: fileIdToUpdate ? `/upload/drive/v3/files/${fileIdToUpdate}` : '/upload/drive/v3/files',
-                method: fileIdToUpdate ? 'PATCH' : 'POST',
-                params: { uploadType: 'multipart' },
-                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                body: requestBody
+    function syncAbonos() {
+        try {
+            const raw=localStorage.getItem('abonosData'); if(!raw){alert('No se encontraron datos de Abonos.');return;}
+            const abonos=JSON.parse(raw); if(!Array.isArray(abonos))throw new Error("Formato incorrecto.");
+            const monthly={};
+            abonos.forEach(a=>{
+                let mk=null;
+                if(a.mesServicio) mk=`${a.mesServicio.year}-${String(a.mesServicio.month+1).padStart(2,'0')}`;
+                else if(a.fechaPago){const d=new Date(a.fechaPago+'T00:00:00');mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+                if(!mk)return;
+                const esCobrado=['Pagado','Terminado','Pago Parcial'].includes(a.estado); if(!esCobrado)return;
+                const monto=a.estado==='Pago Parcial'?(parseFloat(a.montoPagado)||0):(parseFloat(a.monto)||0);
+                if(!monthly[mk])monthly[mk]={hon:0,bonos:0};
+                if((a.tipo||'').trim()==='Pago de Bonos y AP') monthly[mk].bonos+=monto;
+                else monthly[mk].hon+=monto;
             });
-
-            return await request;
-        }
-
-        async function saveDataToDrive() {
-            if (!driveFolderId) {
-                alert("Error: La carpeta de destino en Drive no está lista. Por favor, intente conectar de nuevo.");
-                return;
-            }
-            if (!confirm('Se guardará una copia de seguridad de todos los datos actuales en Google Drive. ¿Continuar?')) return;
-
-            updateDriveStatus('Actualizando archivo de respaldo...', null);
-            try {
-                const dataString = JSON.stringify(window.allData, null, 2);
-                // Usar btoa con un paso intermedio para manejar caracteres UTF-8 correctamente
-                const dataBase64 = btoa(unescape(encodeURIComponent(dataString)));
-
-                await findOrCreateMetadataFile();
-                await uploadContent(dataBase64, METADATA_FILE_NAME, 'application/json', driveFolderId, metadataFileId);
-
-                updateDriveStatus('✅ ¡Respaldo completado con éxito en Drive!', true, 5000);
-            } catch(err) {
-                console.error("Error guardando el respaldo:", err);
-                updateDriveStatus('❌ Error al guardar la copia de seguridad.', false);
-            }
-        }
-
-        async function findOrCreateMetadataFile() {
-             try {
-                const response = await gapi.client.drive.files.list({
-                    q: `name='${METADATA_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`,
-                    fields: 'files(id)',
-                });
-                if (response.result.files.length > 0) {
-                    metadataFileId = response.result.files[0].id;
-                } else {
-                    metadataFileId = null;
+            let cnt=0;
+            Object.keys(monthly).forEach(mk=>{
+                if(!allData[mk])allData[mk]={transactions:[]};
+                const t=allData[mk].transactions;
+                if(monthly[mk].hon>0){
+                    const idx=t.findIndex(r=>(r.descripcion||'').toLowerCase()==='honorarios profesionales');
+                    if(idx>-1)t[idx].monto=monthly[mk].hon;
+                    else t.unshift({fecha:mk+'-01',descripcion:'Honorarios Profesionales',tipo:'Honorarios Abono Mensual',categoria:'ingreso',monto:monthly[mk].hon,medioPago:'Automático',quien:'ESTUDIO',observaciones:'Sincronizado desde Abonos.'});
                 }
-            } catch (err) {
-                 console.error("Error finding metadata file:", err);
-                 metadataFileId = null;
-            }
-        }
-
-        async function loadDataFromDrive() {
-            if (!driveFolderId) {
-                alert("Error: No se ha encontrado la carpeta de Drive. Intente conectar de nuevo.");
-                return;
-            }
-            if (!confirm('⚠️ Se reemplazarán todos los datos locales con la copia de seguridad de Google Drive. ¿Continuar?')) return;
-
-            updateDriveStatus('Buscando archivo de respaldo en Drive...', null);
-            try {
-                await findOrCreateMetadataFile();
-                if (!metadataFileId) {
-                    updateDriveStatus('No se encontró un archivo de respaldo en Drive. Puede guardar uno primero.', false, 5000);
-                    return;
+                if(monthly[mk].bonos>0){
+                    const idx=t.findIndex(r=>(r.descripcion||'').toLowerCase()==='pago bonos y aportes');
+                    if(idx>-1)t[idx].monto=monthly[mk].bonos;
+                    else t.push({fecha:mk+'-01',descripcion:'Pago Bonos y Aportes',tipo:'Pago Bonos y AP',categoria:'egreso',monto:monthly[mk].bonos,medioPago:'Automático',quien:'ESTUDIO',observaciones:'Sincronizado desde Abonos.'});
                 }
+                cnt++;
+            });
+            if(cnt>0){saveData();renderApp();alert(`✅ Sincronizado para ${cnt} mes(es).`);}
+            else alert("No se encontraron datos para sincronizar.");
+        } catch(err){alert(`Error: ${err.message}`);}
+    }
 
-                updateDriveStatus('Descargando datos...', null);
-                const response = await gapi.client.drive.files.get({
-                    fileId: metadataFileId,
-                    alt: 'media',
-                });
+    function exportExcel() {
+        const rows=[['Mes','Fecha','Descripción','Tipo','Categoría','Ingreso','Egreso','Medio Pago','Quién','Observaciones']];
+        Object.keys(allData).sort().forEach(mk=>{ (allData[mk].transactions||[]).forEach(r=>{ rows.push([fmtMK(mk),r.fecha,r.descripcion,r.tipo||'',r.categoria,r.categoria==='ingreso'?r.monto:0,r.categoria==='egreso'?r.monto:0,r.medioPago,r.quien,r.observaciones||'']); }); });
+        const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Ingresos y Egresos'); XLSX.writeFile(wb,'Reporte_Contable_Garcia.xlsx');
+    }
 
-                const driveData = response.result;
-                if (typeof driveData === 'object' && !Array.isArray(driveData) && driveData !== null) {
-                    // Usar las funciones globales del script principal
-                    window.allData = driveData;
-                    window.saveData(); // Guarda los datos nuevos en localStorage
-                    window.renderApp(); // Vuelve a renderizar la aplicación con los datos cargados
-                    updateDriveStatus('✅ Datos cargados desde Drive con éxito.', true, 5000);
-                } else {
-                    throw new Error("El archivo de respaldo no tiene el formato correcto.");
-                }
+    function importJSON(e) {
+        const f=e.target.files[0]; if(!f)return;
+        const r=new FileReader(); r.onload=ev=>{ try{ const d=JSON.parse(ev.target.result); if(typeof d==='object'&&!Array.isArray(d)&&d!==null){if(confirm('Se reemplazarán todos los datos. ¿Continuar?')){allData=d;saveData();renderApp();alert('Importado.');}}else alert('Formato incorrecto.');}catch(err){alert(`Error: ${err.message}`);}};
+        r.readAsText(f); e.target.value=null;
+    }
 
-            } catch (err) {
-                console.error("Error al cargar datos desde Drive:", err);
-                updateDriveStatus(`❌ Error al cargar los datos desde Drive: ${err.message}`, false);
-            }
-        }
-    </script>
+    function calcTotals(txs) { const t={ingresos:0,egresos:0,balance:0}; txs.forEach(r=>{ const m=parseFloat(r.monto)||0; if(r.categoria==='ingreso')t.ingresos+=m; else t.egresos+=m; }); t.balance=t.ingresos-t.egresos; return t; }
+    function fmtMK(mk) { if(!mk||!/^\d{4}-\d{2}$/.test(mk))return'Inválido'; const[y,m]=mk.split('-'); const d=new Date(y,m-1,1); return d.toLocaleDateString('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).replace(/^\w/,c=>c.toUpperCase()); }
+    function fmt(n,sym=true) { let f=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(parseFloat(n)||0); return sym?f:f.replace(/\$\s?/g,'').trim(); }
+    function parseFmt(s) { return parseFloat(String(s).replace(/\$\s?/g,'').replace(/\./g,'').replace(',','.'))||0; }
+
+    init();
+});
+</script>
+
+<!-- DRIVE -->
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script>
+const _CID='976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
+const _AKEY='AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
+const _FOLDER='Planilla Ingresos y Egresos - García & Asociados';
+const _FILE='datos_ingresos_egresos.json';
+let _tc, _gapiOk=false, _gisOk=false, _fid=null, _mid=null;
+
+function gapiLoaded(){gapi.load('client',async()=>{await gapi.client.init({apiKey:_AKEY,discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});_gapiOk=true;_maybeEnable();});}
+function gisLoaded(){_tc=google.accounts.oauth2.initTokenClient({client_id:_CID,scope:'https://www.googleapis.com/auth/drive.file',callback:''});_gisOk=true;_maybeEnable();}
+function _maybeEnable(){if(_gapiOk&&_gisOk)document.getElementById('connectDriveBtn').onclick=_auth;}
+function _dStatus(msg,ok,t){const el=document.getElementById('driveStatus');el.textContent=msg;el.style.display='block';el.className='data-status '+(ok===true?'status-success':ok===false?'status-warning':'');if(t)setTimeout(()=>{el.style.display='none';},t);}
+
+function _auth(){
+    _tc.callback=async r=>{
+        if(r.error)return;
+        _dStatus('✅ Conectado a Drive.',true,3000);
+        document.getElementById('connectDriveBtn').style.display='none';
+        document.getElementById('saveToDriveBtn').style.display='inline-block';
+        document.getElementById('loadFromDriveBtn').style.display='inline-block';
+        document.getElementById('saveToDriveBtn').onclick=_save;
+        document.getElementById('loadFromDriveBtn').onclick=_load;
+        await _findFolder();
+    };
+    if(!gapi.client.getToken())_tc.requestAccessToken({prompt:'consent'});else _tc.requestAccessToken({prompt:''});
+}
+
+async function _findFolder(){
+    try{const r=await gapi.client.drive.files.list({q:`mimeType='application/vnd.google-apps.folder' and name='${_FOLDER}' and trashed=false`,fields:'files(id)'});
+    if(r.result.files.length>0)_fid=r.result.files[0].id;
+    else{const fr=await gapi.client.drive.files.create({resource:{name:_FOLDER,mimeType:'application/vnd.google-apps.folder'},fields:'id'});_fid=fr.result.id;}}
+    catch(e){_dStatus('❌ Error en carpeta Drive.',false);}
+}
+
+async function _findFile(){try{const r=await gapi.client.drive.files.list({q:`name='${_FILE}' and '${_fid}' in parents and trashed=false`,fields:'files(id)'});_mid=r.result.files.length>0?r.result.files[0].id:null;}catch(e){_mid=null;}}
+
+async function _save(){
+    if(!_fid){alert("Reconectá a Drive.");return;}
+    if(!confirm('¿Guardar respaldo en Drive?'))return;
+    _dStatus('📤 Guardando...', null);
+    try{
+        const b64=btoa(unescape(encodeURIComponent(JSON.stringify(window.allData,null,2))));
+        await _findFile();
+        const bnd='---314159'; const meta={name:_FILE,mimeType:'application/json',...(_fid&&!_mid&&{parents:[_fid]})};
+        const body=`--${bnd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${bnd}\r\nContent-Type: application/json\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64}\r\n--${bnd}--`;
+        const r=await gapi.client.request({path:_mid?`/upload/drive/v3/files/${_mid}`:'/upload/drive/v3/files',method:_mid?'PATCH':'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary=${bnd}`},body});
+        _mid=r.result.id; _dStatus('✅ Respaldo guardado.',true,5000);
+    }catch(e){_dStatus('❌ Error al guardar.',false);}
+}
+
+async function _load(){
+    if(!_fid){alert("Reconectá a Drive.");return;}
+    if(!confirm('⚠️ Se reemplazarán los datos actuales con los de Drive. ¿Continuar?'))return;
+    _dStatus('📥 Cargando...', null);
+    try{
+        await _findFile(); if(!_mid){_dStatus('No hay respaldo en Drive.',false,5000);return;}
+        const r=await gapi.client.drive.files.get({fileId:_mid,alt:'media'});
+        const d=typeof r.result==='string'?JSON.parse(r.result):r.result;
+        if(typeof d==='object'&&!Array.isArray(d)&&d!==null){window.allData=d;window.saveData();window.renderApp();_dStatus('✅ Datos cargados de Drive.',true,5000);}
+        else throw new Error("Formato incorrecto.");
+    }catch(e){_dStatus(`❌ Error: ${e.message}`,false);}
+}
+</script>
 </body>
 </html>
