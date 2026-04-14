@@ -1208,6 +1208,12 @@
 
                     <div class="client-info"><h4>📋 Información del Caso</h4><div class="info-grid">
                         ${Object.entries(fieldsToShow).map(([key, label]) => getFieldHTML(key, label)).join('')}
+                        <div class="info-item" style="border-left:3px solid #27ae60;background:#f2fdf5;">
+                            <div class="info-label">📅 Fecha de Creación</div>
+                            <div class="editable-field" onclick="editField('${client.id}', 'fechaCreacion')">
+                                <div class="info-value" style="color:#27ae60;font-weight:600;">${client.fechaCreacion ? formatDate(client.fechaCreacion) : '<span style=\'color:#e74c3c;font-style:italic;\'>(click para agregar)</span>'}</div>
+                            </div>
+                        </div>
                         <div class="info-item" style="border-left: 3px solid ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? 'var(--warning-color)' : 'var(--success-color)'}; background: ${isPastDue(client.proximaRevision) ? '#fff5f5' : isToday(client.proximaRevision) ? '#fffbe6' : '#f2fdf5'};">
                             <div class="info-label">Próxima Tarea</div>
                             <div class="info-value" style="color: ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? '#e67e22' : 'var(--success-color)'}; font-weight: bold; font-size:1.05em;">
@@ -1609,6 +1615,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             
             if (fieldName === 'notas') {
                 inputElement.style.cssText = 'width: 100%; height: 120px; font-family: inherit; font-size: inherit;';
+            } else if (fieldName === 'fechaCreacion') {
+                inputElement.type = 'date';
             } else {
                 inputElement.type = 'text';
             }
@@ -2871,6 +2879,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 client.convenio.cuotasPagadas = [];
             }
             saveData();
+            actualizarAbonosDesdeJuridica(client); // Sincronizar con abonos
             const msg = document.getElementById('cv-save-msg');
             if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
         }
@@ -3261,8 +3270,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } 
                 // NUEVOS CAMPOS AÑADIDOS
-                const newClient = { id: generateId({}), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
-                const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); renderAll(); closeModal('newClientModal'); e.target.reset(); });
+                const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
+                const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
             iniciarVigilanteDeAlertas();
@@ -3271,12 +3280,103 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // RESETEAR BANDERA AL INICIO PARA NO MOLESTAR SI NO SE HIZO NADA
             setTimeout(() => { unsavedChanges = false; }, 1000); 
         } // fin initApp()
-        
+
+        // ====== ENVÍO AUTOMÁTICO A ABONOS DESDE JURÍDICA ======
+        function getTipoAbonoDesdeConvenio(client) {
+            const tipo = (client.convenio?.tipo || '').toUpperCase();
+            if (tipo === 'NEGRO')      return 'Abono Mensual';
+            if (tipo === 'BLANCO')     return 'Honorarios al Cierre';
+            if (tipo === 'REGULACION') return 'Regulación Honorarios';
+            return 'Abono Mensual';
+        }
+
+        function getMontoDesdeConvenio(client) {
+            const cv = client.convenio || {};
+            const tipo = (cv.tipo || '').toUpperCase();
+            if (tipo === 'NEGRO')      return parseFloat(cv.abonoMensual) || 0;
+            if (tipo === 'BLANCO')     return (parseFloat(cv.cuota1)||0) + (parseFloat(cv.cuota2)||0) + (parseFloat(cv.cuota3)||0);
+            if (tipo === 'REGULACION') {
+                const ius = parseFloat(cv.reg_importeIUS)||0;
+                const ap  = ius * (parseFloat(cv.reg_pctAportes)||0) / 100;
+                return ius + ap;
+            }
+            return 0;
+        }
+
+        function enviarJuridicaAAbonos(client) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            try {
+                const db = firebase.database();
+                const abonosRef = db.ref('planilla_abonos');
+                abonosRef.once('value', snapshot => {
+                    const abonos = snapshot.val();
+                    const lista = Array.isArray(abonos) ? abonos : [];
+                    const yaExiste = lista.some(a => a.juridicaId === client.id);
+                    if (yaExiste) return;
+                    const nuevoAbono = {
+                        id: 'JUR_' + client.id,
+                        juridicaId: client.id,
+                        cliente: client.nombre || '',
+                        expediente: client.expediente || client.caratula || '',
+                        telefono: client.telefono || '',
+                        autorizaWhatsapp: false,
+                        ultimoContactoAgente: '',
+                        respuestaCliente: '',
+                        escalarACamila: false,
+                        tipo: getTipoAbonoDesdeConvenio(client),
+                        monto: getMontoDesdeConvenio(client),
+                        montoBase: getMontoDesdeConvenio(client),
+                        deudaAcumulada: 0,
+                        montoPagado: '',
+                        fechaPago: '',
+                        estado: 'Pendiente',
+                        mesServicio: null,
+                        observaciones: `Generado desde Jurídica. Materia: ${client.materia||'S/N'}. Carátula: ${client.caratula||'S/N'}.`,
+                        observacionesAuto: '',
+                        origenJuridica: true
+                    };
+                    lista.push(nuevoAbono);
+                    abonosRef.set(lista).then(() => {
+                        updateDataStatus('✅ Caso jurídico enviado a Planilla de Abonos.');
+                    }).catch(err => console.error('Error al enviar a abonos:', err));
+                });
+            } catch(e) { console.error('Error en enviarJuridicaAAbonos:', e); }
+        }
+
+        function actualizarAbonosDesdeJuridica(client) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            try {
+                const db = firebase.database();
+                const abonosRef = db.ref('planilla_abonos');
+                abonosRef.once('value', snapshot => {
+                    const abonos = snapshot.val();
+                    if (!Array.isArray(abonos)) return;
+                    let modificado = false;
+                    abonos.forEach((a, i) => {
+                        if (a.juridicaId === client.id) {
+                            abonos[i].tipo      = getTipoAbonoDesdeConvenio(client);
+                            abonos[i].monto     = getMontoDesdeConvenio(client);
+                            abonos[i].montoBase = getMontoDesdeConvenio(client);
+                            abonos[i].expediente = client.expediente || client.caratula || a.expediente;
+                            abonos[i].telefono   = client.telefono || a.telefono;
+                            modificado = true;
+                        }
+                    });
+                    if (modificado) {
+                        abonosRef.set(abonos).then(() => {
+                            updateDataStatus('✅ Abono jurídico actualizado automáticamente.');
+                        });
+                    }
+                });
+            } catch(e) { console.error('Error en actualizarAbonosDesdeJuridica:', e); }
+        }
+        // ====== FIN ENVÍO A ABONOS ======
+
         // NUEVO LISTENER PARA EVITAR SALIR SIN GUARDAR
         window.addEventListener('beforeunload', (e) => {
             if (unsavedChanges) {
                 e.preventDefault();
-                e.returnValue = ''; // Requerido por Chrome
+                e.returnValue = '';
             }
         });
     </script>
