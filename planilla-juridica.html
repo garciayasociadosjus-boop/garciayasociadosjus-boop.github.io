@@ -475,16 +475,7 @@
                 <button class="btn" onclick="abrirMEV()" style="background:linear-gradient(135deg,#16a085,#0e6655);color:white;">🏛️ Abrir MEV</button>
             </section>
 
-            <!-- Modal MEV iframe -->
-            <div id="mevIframeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999;">
-                <div style="position:relative; width:95%; height:95%; margin:2.5% auto; background:white; border-radius:8px; overflow:hidden;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:#2980b9; color:white;">
-                        <span style="font-weight:bold;">🏛️ Mesa de Entradas Virtual</span>
-                        <button onclick="cerrarMEV()" style="background:none;border:none;color:white;font-size:1.5em;cursor:pointer;">✕</button>
-                    </div>
-                    <iframe id="mevIframe" src="" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
-                </div>
-            </div>
+
             
             <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive & Calendar</button>
@@ -1009,24 +1000,18 @@
         }
 
         function abrirMEV() {
-            const modal = document.getElementById('mevIframeModal');
-            const iframe = document.getElementById('mevIframe');
-            iframe.src = 'https://mev.scba.gov.ar/loguin.asp';
-            modal.style.display = 'block';
+            window.open('https://mev.scba.gov.ar/loguin.asp', 'MEV', 
+                'width=1100,height=700,scrollbars=yes,resizable=yes');
         }
 
         function cerrarMEV() {
-            const modal = document.getElementById('mevIframeModal');
-            const iframe = document.getElementById('mevIframe');
-            modal.style.display = 'none';
-            iframe.src = '';
+            // No aplica con popup
         }
 
         function abrirMEVEnCausa(urlCausa) {
-            const modal = document.getElementById('mevIframeModal');
-            const iframe = document.getElementById('mevIframe');
-            iframe.src = urlCausa || 'https://mev.scba.gov.ar/loguin.asp';
-            modal.style.display = 'block';
+            const url = urlCausa || 'https://mev.scba.gov.ar/loguin.asp';
+            window.open(url, 'MEV', 
+                'width=1100,height=700,scrollbars=yes,resizable=yes');
         }
 
         async function actualizarMEV() {
