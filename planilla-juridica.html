@@ -3055,6 +3055,18 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>
             `).join('');
 
+            // Movimientos MEV
+            const mev = client.mev_movimientos || [];
+            const mevUltimaSync = client.mev_ultima_sync 
+                ? new Date(client.mev_ultima_sync).toLocaleString('es-AR') 
+                : null;
+            const mevHtml = mev.map(m => `
+                <div style="display:flex; gap:12px; padding:8px 10px; border-bottom:1px solid #eee; align-items:flex-start;">
+                    <div style="min-width:100px; font-size:0.85em; color:#666; font-weight:600;">${m.fecha}</div>
+                    <div style="font-size:0.9em; color:#2c3e50;">${m.descripcion || ''}</div>
+                </div>
+            `).join('');
+
             return `
             <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
                 <h5>Agregar Proveído / Despacho</h5>
@@ -3064,7 +3076,19 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             </div>
             <div style="margin-top: 20px; max-height: 400px; overflow-y: auto;">
                 ${exp.length === 0 ? '<p style="color:#666; font-style:italic;">No hay actuaciones guardadas.</p>' : expHtml}
-            </div>`;
+            </div>
+
+            <!-- SECCIÓN MEV -->
+            <div style="margin-top:24px; border-top:2px solid #3498db; padding-top:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h5 style="margin:0; color:#2980b9;">🔄 Movimientos MEV</h5>
+                    ${mevUltimaSync ? `<span style="font-size:0.78em; color:#888;">Última sync: ${mevUltimaSync}</span>` : ''}
+                </div>
+                ${mev.length === 0 
+                    ? '<p style="color:#666; font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún.</p>'
+                    : `<div style="max-height:350px; overflow-y:auto; border:1px solid #dde; border-radius:6px; background:#fff;">${mevHtml}</div>`
+                }
+            </div>`
         }
 
         function saveExpediente(clientId) {
