@@ -942,6 +942,75 @@
             renderReviewList('todayReviews', todayItems, 'No hay revisiones para hoy', 'today');
             renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
             renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
+
+            // ====== MOVIMIENTOS MEV NUEVOS ======
+            renderMevAlertas(dataFiltrada);
+        }
+
+        function renderMevAlertas(dataFiltrada) {
+            // Buscar o crear el contenedor de alertas MEV
+            let mevContainer = document.getElementById('mevAlertasContainer');
+            if (!mevContainer) {
+                // Crear tarjeta MEV en el dashboard
+                const dashboard = document.querySelector('.dashboard');
+                if (!dashboard) return;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = 'border-top: 4px solid #2980b9;';
+                card.innerHTML = `
+                    <h3 style="color:#2980b9;">🔄 Movimientos MEV <span id="mevAlertaCount" style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;margin-left:6px;">0</span></h3>
+                    <div class="reviews-list" id="mevAlertasContainer"></div>`;
+                dashboard.appendChild(card);
+                mevContainer = document.getElementById('mevAlertasContainer');
+            }
+
+            // Buscar casos con movimientos nuevos no vistos
+            const alertas = [];
+            dataFiltrada.forEach(client => {
+                const movs = client.mev_movimientos || [];
+                const ultimaVista = client.mev_ultima_vista || null;
+                if (movs.length === 0) return;
+
+                // Movimientos nuevos = posteriores a la última vez que se vio
+                const nuevos = ultimaVista
+                    ? movs.filter(m => {
+                        // Comparar fechaHora si existe, sino fecha
+                        const fechaM = m.fechaHora || m.fecha;
+                        return fechaM > ultimaVista;
+                    })
+                    : movs.slice(0, 3); // Si nunca se vio, mostrar los 3 últimos
+
+                if (nuevos.length > 0) {
+                    alertas.push({ client, nuevos });
+                }
+            });
+
+            document.getElementById('mevAlertaCount').textContent = alertas.length;
+
+            if (alertas.length === 0) {
+                mevContainer.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">No hay movimientos nuevos en el MEV.</p>';
+                return;
+            }
+
+            mevContainer.innerHTML = alertas.map(({ client, nuevos }) => `
+                <div class="review-item" onclick="marcarMevVisto('${client.id}'); showClientModal('${client.id}');" style="cursor:pointer;">
+                    <div class="review-item-content">
+                        <div class="review-date" style="color:#3498db; font-weight:bold;">
+                            🔄 ${nuevos.length} movimiento${nuevos.length > 1 ? 's' : ''} nuevo${nuevos.length > 1 ? 's' : ''}
+                        </div>
+                        <div class="review-client">${getDisplayName(client)}</div>
+                        <div class="review-obs">${nuevos[0].descripcion || ''}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function marcarMevVisto(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            // Guardar timestamp actual como última vez vista
+            client.mev_ultima_vista = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            saveData();
         }
 
         function renderReviewList(containerId, items, emptyMsg, type) {
