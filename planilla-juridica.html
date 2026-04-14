@@ -471,7 +471,20 @@
                 <button class="btn btn-info" onclick="exportData()">💾 Exportar JSON</button>
                 <button class="btn btn-success" onclick="exportDataParaAgente()" style="background: linear-gradient(135deg, #6c3483, #9b59b6);">🤖 Exportar para Agente</button>
                 <button class="btn btn-warning" onclick="importData()">📥 Importar Datos</button>
+                <button class="btn" onclick="actualizarMEV()" id="btnActualizarMEV" style="background:linear-gradient(135deg,#2980b9,#1a5276);color:white;">🔄 Actualizar MEV</button>
+                <button class="btn" onclick="abrirMEV()" style="background:linear-gradient(135deg,#16a085,#0e6655);color:white;">🏛️ Abrir MEV</button>
             </section>
+
+            <!-- Modal MEV iframe -->
+            <div id="mevIframeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999;">
+                <div style="position:relative; width:95%; height:95%; margin:2.5% auto; background:white; border-radius:8px; overflow:hidden;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:#2980b9; color:white;">
+                        <span style="font-weight:bold;">🏛️ Mesa de Entradas Virtual</span>
+                        <button onclick="cerrarMEV()" style="background:none;border:none;color:white;font-size:1.5em;cursor:pointer;">✕</button>
+                    </div>
+                    <iframe id="mevIframe" src="" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
+                </div>
+            </div>
             
             <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
                 <button id="connectDriveBtn" class="btn">🔗 Conectar a Drive & Calendar</button>
@@ -993,6 +1006,64 @@
                         title="Marcar como visto">✓</button>
                 </div>
             `).join('');
+        }
+
+        function abrirMEV() {
+            const modal = document.getElementById('mevIframeModal');
+            const iframe = document.getElementById('mevIframe');
+            iframe.src = 'https://mev.scba.gov.ar/loguin.asp';
+            modal.style.display = 'block';
+        }
+
+        function cerrarMEV() {
+            const modal = document.getElementById('mevIframeModal');
+            const iframe = document.getElementById('mevIframe');
+            modal.style.display = 'none';
+            iframe.src = '';
+        }
+
+        function abrirMEVEnCausa(urlCausa) {
+            const modal = document.getElementById('mevIframeModal');
+            const iframe = document.getElementById('mevIframe');
+            iframe.src = urlCausa || 'https://mev.scba.gov.ar/loguin.asp';
+            modal.style.display = 'block';
+        }
+
+        async function actualizarMEV() {
+            const btn = document.getElementById('btnActualizarMEV');
+            btn.textContent = '⏳ Actualizando...';
+            btn.disabled = true;
+            try {
+                // Obtener el depto actual del progreso en Firebase
+                const db = firebase.database();
+                const snap = await db.ref('mev_progreso').once('value');
+                const progreso = snap.val() || { ultimoDepto: 0 };
+                const desde = progreso.ultimoDepto || 0;
+                const hasta = Math.min(desde + 1, 23);
+
+                const resp = await fetch(
+                    `https://mev-scraper.garciayasociadosjus.workers.dev/sync-batch?desde=${desde}&hasta=${hasta}`
+                );
+                const data = await resp.json();
+                
+                const nuevos = data.movimientosNuevos || 0;
+                const causas = data.causasMatcheadas || 0;
+                btn.textContent = `✅ ${causas} causas, ${nuevos} nuevos`;
+                
+                setTimeout(() => {
+                    btn.textContent = '🔄 Actualizar MEV';
+                    btn.disabled = false;
+                }, 3000);
+                
+                // Recargar datos de Firebase
+                if (nuevos > 0) {
+                    updateDataStatus('✅ MEV actualizado — ' + nuevos + ' movimientos nuevos');
+                }
+            } catch(e) {
+                btn.textContent = '❌ Error';
+                btn.disabled = false;
+                setTimeout(() => { btn.textContent = '🔄 Actualizar MEV'; }, 2000);
+            }
         }
 
         function marcarMevVisto(clientId) {
@@ -3130,14 +3201,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 ? new Date(client.mev_ultima_sync).toLocaleString('es-AR') 
                 : null;
             const mevHtml = mev.map(m => `
-                <div style="display:flex; gap:12px; padding:8px 10px; border-bottom:1px solid #eee; align-items:flex-start;">
+                <div style="display:flex; gap:12px; padding:8px 10px; border-bottom:1px solid #eee; align-items:center;">
                     <div style="min-width:100px; font-size:0.85em; color:#666; font-weight:600;">${m.fecha}</div>
-                    <div style="font-size:0.9em; color:#2c3e50; flex:1;">
-                        ${m.urlCausa
-                            ? `<a href="${m.urlCausa}" target="_blank" style="color:#2980b9;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${m.descripcion || ''} 🔗</a>`
-                            : (m.descripcion || '')
-                        }
-                    </div>
+                    <div style="font-size:0.9em; color:#2c3e50; flex:1;">${m.descripcion || ''}</div>
+                    ${m.urlCausa ? `<button onclick="abrirMEVEnCausa('${m.urlCausa}')" 
+                        style="font-size:0.75em;padding:3px 8px;border:1px solid #16a085;border-radius:4px;color:#16a085;background:white;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                        🏛️ Ver</button>` : ''}
                 </div>
             `).join('');
 
