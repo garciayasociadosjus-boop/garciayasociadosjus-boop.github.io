@@ -476,6 +476,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function tr(cur, prev, key, esMonto=true) {
             if(!prev) return '';
+            // Si el mes anterior no tiene datos reales, no mostrar tendencia
+            if((prev.ingresos_totales||0) === 0 && (prev.egresos_totales||0) === 0) return '';
             const diff = (cur[key]||0) - (prev[key]||0);
             if(diff === 0) return `<div class="fc-trend trend-eq">= igual al mes anterior</div>`;
             const label = esMonto ? fmt(Math.abs(diff)) : Math.abs(diff);
