@@ -1208,7 +1208,7 @@ function editField(sid,field,element){
     const s=siniestrosData.find(x=>x.id===sid),currentValue=s[field]||''; 
     let inputType='text'; 
     
-    if(field==='cobradoCliente'||field==='cobradoEstudio'||field==='genero')inputType='select'; 
+    if(field==='cobradoCliente'||field==='cobradoEstudio'||field==='genero'||field==='estado')inputType='select'; 
     else if(/presupuesto|indemnizacion|honorarios|dni|celular|conductorDni|anoCliente|anoTercero|telefonoTercero|honorariosPorcentaje|productorPorcentaje|productorImporte|cuotaLitisPorcentaje/.test(field))inputType='number'; 
     else if(field==='fechaNacimiento'||field.includes('fecha'))inputType='date'; 
     else if(field==='horaSiniestro')inputType='time'; 
@@ -1221,6 +1221,18 @@ function editField(sid,field,element){
             ['Sí','No'].forEach(opt=>{const o=document.createElement('option');o.value=o.textContent=opt;if(opt===currentValue)o.selected=true;input.appendChild(o);});
         } else if (field === 'genero') {
             [{v:'Masculino',t:'Sr. (Masculino)'},{v:'Femenino',t:'Sra. (Femenino)'},{v:'Otro',t:'Otro'}].forEach(opt=>{
+                const o=document.createElement('option');o.value=opt.v;o.textContent=opt.t;if(opt.v===currentValue)o.selected=true;input.appendChild(o);
+            });
+        } else if (field === 'estado') {
+            [
+                {v:'SIN INICIAR',t:'Sin Iniciar'},
+                {v:'EJECUCION',t:'Ejecución'},
+                {v:'MEDIACIONES',t:'Mediaciones'},
+                {v:'DEMORADA',t:'Demorada'},
+                {v:'FINALIZADA P',t:'Finalizada P'},
+                {v:'FINALIZADA',t:'Finalizada'},
+                {v:'RECHAZADO',t:'Rechazado'}
+            ].forEach(opt=>{
                 const o=document.createElement('option');o.value=opt.v;o.textContent=opt.t;if(opt.v===currentValue)o.selected=true;input.appendChild(o);
             });
         }
