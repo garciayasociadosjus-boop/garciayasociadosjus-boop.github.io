@@ -897,6 +897,7 @@ function addNewSiniestro(e){
     e.preventDefault(); 
     const newSiniestro={
         id:generateId({cliente:document.getElementById('newCliente').value}),
+        fechaCreacion: todayYMD,
         cliente:document.getElementById('newCliente').value,
         genero:document.getElementById('newGenero').value, 
         dni:document.getElementById('newDni').value,
@@ -930,9 +931,102 @@ function addNewSiniestro(e){
         fechaCobro:''
     }; 
     siniestrosData.push(newSiniestro); 
-    saveData(); 
+    saveData();
+    // Enviar automáticamente a planilla de abonos
+    enviarSiniestroAAbonos(newSiniestro);
     renderAll(); 
     closeModal('newSiniestroModal'); 
+}
+
+function enviarSiniestroAAbonos(s) {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    try {
+        const db = firebase.database();
+        const abonosRef = db.ref('planilla_abonos');
+        abonosRef.once('value', snapshot => {
+            const abonos = snapshot.val();
+            const lista = Array.isArray(abonos) ? abonos : [];
+            const yaExiste = lista.some(a => a.siniestroId === s.id);
+            if (yaExiste) return;
+            const mapEstado = {
+                'SIN INICIAR':    'Pendiente',
+                'EJECUCION':      'Pendiente',
+                'MEDIACIONES':    'Pendiente',
+                'DEMORADA':       'Pendiente',
+                'FINALIZADA P':   'Pendiente',
+                'FINALIZADA':     'Terminado',
+                'RECHAZADO':      'Terminado',
+            };
+            const nuevoAbono = {
+                id: 'SIN_' + s.id,
+                siniestroId: s.id,
+                cliente: s.cliente || '',
+                expediente: s.numeroReclamo || '',
+                telefono: s.celular || '',
+                autorizaWhatsapp: false,
+                ultimoContactoAgente: '',
+                respuestaCliente: '',
+                escalarACamila: false,
+                tipo: 'Honorarios Siniestro',
+                monto: parseFloat(s.honorarios) || 0,
+                montoBase: parseFloat(s.honorarios) || 0,
+                deudaAcumulada: 0,
+                montoPagado: '',
+                fechaPago: '',
+                estado: mapEstado[s.estado] || 'Ejecución de Honorarios',
+                observaciones: `Generado automáticamente desde Siniestros. Reclamo: ${s.numeroReclamo||'S/N'}. Aseguradora: ${s.contra||'S/N'}.`,
+                observacionesAuto: '',
+                mesServicio: null,
+                origenSiniestro: true
+            };
+            lista.push(nuevoAbono);
+            abonosRef.set(lista).then(() => {
+                updateDataStatus('✅ Siniestro enviado a Planilla de Abonos automáticamente.');
+            }).catch(err => {
+                console.error('Error al enviar a abonos:', err);
+            });
+        });
+    } catch(e) {
+        console.error('Error en enviarSiniestroAAbonos:', e);
+    }
+}
+
+function actualizarAbonosDesdeSiniestro(s) {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    try {
+        const db = firebase.database();
+        const abonosRef = db.ref('planilla_abonos');
+        abonosRef.once('value', snapshot => {
+            const abonos = snapshot.val();
+            if (!Array.isArray(abonos)) return;
+            const mapEstado = {
+                'SIN INICIAR':    'Pendiente',
+                'EJECUCION':      'Pendiente',
+                'MEDIACIONES':    'Pendiente',
+                'DEMORADA':       'Pendiente',
+                'FINALIZADA P':   'Pendiente',
+                'FINALIZADA':     'Terminado',
+                'RECHAZADO':      'Terminado',
+            };
+            let modificado = false;
+            abonos.forEach((a, i) => {
+                if (a.siniestroId === s.id) {
+                    abonos[i].estado = mapEstado[s.estado] || a.estado;
+                    abonos[i].monto = parseFloat(s.honorarios) || a.monto;
+                    abonos[i].montoBase = parseFloat(s.honorarios) || a.montoBase;
+                    abonos[i].expediente = s.numeroReclamo || a.expediente;
+                    modificado = true;
+                }
+            });
+            if (modificado) {
+                abonosRef.set(abonos).then(() => {
+                    updateDataStatus('✅ Abono actualizado automáticamente.');
+                });
+            }
+        });
+    } catch(e) {
+        console.error('Error en actualizarAbonosDesdeSiniestro:', e);
+    }
 }
 
 function showSiniestroSelectorModal(){ const modal=document.getElementById('siniestroSelectorModal'); modal.querySelector('.modal-content').innerHTML=`<span class="close" onclick="closeModal('siniestroSelectorModal')">&times;</span><h2>Seleccionar Siniestro</h2><div class="form-group"><select id="siniestroSelector" class="form-control" onchange="loadSiniestroInfo()"><option value="">-- Seleccionar --</option>${[...siniestrosData].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||'')).map(s=>`<option value="${s.id}">${getDisplayName(s)}</option>`).join('')}</select></div><div style="text-align:center;margin-top:20px;"><button class="btn" onclick="closeModal('siniestroSelectorModal')">Cancelar</button></div>`; modal.classList.add('active'); }
@@ -1175,6 +1269,10 @@ function editField(sid,field,element){
         }
 
         saveData();
+        // Si cambió el estado o los honorarios, actualizar en planilla de abonos
+        if (fieldToSave === 'estado' || fieldToSave === 'honorarios' || fieldToSave === 'honorariosPorcentaje') {
+            actualizarAbonosDesdeSiniestro(s);
+        }
         editingSiniestroId = null;
         editingField = null;
         showSiniestroModal(sid); 
