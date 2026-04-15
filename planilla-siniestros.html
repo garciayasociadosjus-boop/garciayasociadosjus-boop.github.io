@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -940,7 +941,6 @@ function addNewSiniestro(e){
 
 function enviarSiniestroAAbonos(s) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-    // Esperar 2 segundos para que Firebase termine de guardar el siniestro
     setTimeout(() => {
         try {
             const db = firebase.database();
@@ -977,18 +977,20 @@ function enviarSiniestroAAbonos(s) {
                 origenSiniestro: true
             };
 
+            // Leer solo el tamaño actual y escribir en el índice siguiente
             abonosRef.once('value', snapshot => {
                 const abonos = snapshot.val();
-                const lista = Array.isArray(abonos) ? [...abonos] : [];
+                const lista = Array.isArray(abonos) ? abonos : [];
                 const yaExiste = lista.some(a => a && a.siniestroId === s.id);
                 if (yaExiste) {
                     console.log('Abono ya existe para:', s.id);
                     return;
                 }
-                lista.push(nuevoAbono);
-                abonosRef.set(lista).then(() => {
+                // Escribir directamente en el índice siguiente sin tocar el resto
+                const nuevoIndice = lista.length;
+                db.ref(`planilla_abonos/${nuevoIndice}`).set(nuevoAbono).then(() => {
                     updateDataStatus('✅ Siniestro enviado a Planilla de Abonos automáticamente.');
-                    console.log('Abono creado OK para:', s.cliente);
+                    console.log('Abono creado en índice', nuevoIndice, 'para:', s.cliente);
                 }).catch(err => {
                     console.error('Error al enviar a abonos:', err);
                 });
