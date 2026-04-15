@@ -583,10 +583,13 @@
                 if (ignorarProximoCambioFirebase) { ignorarProximoCambioFirebase = false; return; }
                 const data = snapshot.val();
                 if (data && Array.isArray(data)) {
-                    abonosData = data;
-                    localStorage.setItem('abonosData', JSON.stringify(abonosData));
-                    render();
-                    updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    // Solo actualizar si Firebase tiene MÁS datos que local (cambio externo)
+                    if (data.length >= abonosData.length) {
+                        abonosData = data;
+                        localStorage.setItem('abonosData', JSON.stringify(abonosData));
+                        render();
+                        updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    }
                 } else if (data === null) {
                     const local = localStorage.getItem('abonosData');
                     if (local) {
