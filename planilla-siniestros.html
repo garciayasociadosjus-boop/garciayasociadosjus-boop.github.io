@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -943,48 +944,49 @@ function enviarSiniestroAAbonos(s) {
     try {
         const db = firebase.database();
         const abonosRef = db.ref('planilla_abonos');
-        abonosRef.once('value', snapshot => {
-            const abonos = snapshot.val();
+        const mapEstado = {
+            'SIN INICIAR':    'Pendiente',
+            'EJECUCION':      'Pendiente',
+            'MEDIACIONES':    'Pendiente',
+            'DEMORADA':       'Pendiente',
+            'FINALIZADA P':   'Pendiente',
+            'FINALIZADA':     'Terminado',
+            'RECHAZADO':      'Terminado',
+        };
+        const nuevoAbono = {
+            id: 'SIN_' + s.id,
+            siniestroId: s.id,
+            cliente: s.cliente || '',
+            expediente: s.numeroReclamo || '',
+            telefono: s.celular || '',
+            autorizaWhatsapp: false,
+            ultimoContactoAgente: '',
+            respuestaCliente: '',
+            escalarACamila: false,
+            tipo: 'Honorarios Siniestro',
+            monto: parseFloat(s.honorarios) || 0,
+            montoBase: parseFloat(s.honorarios) || 0,
+            deudaAcumulada: 0,
+            montoPagado: '',
+            fechaPago: '',
+            estado: mapEstado[s.estado] || 'Ejecución de Honorarios',
+            observaciones: `Generado automáticamente desde Siniestros. Reclamo: ${s.numeroReclamo||'S/N'}. Aseguradora: ${s.contra||'S/N'}.`,
+            observacionesAuto: '',
+            mesServicio: null,
+            origenSiniestro: true
+        };
+
+        // Usar transacción para evitar race condition
+        abonosRef.transaction(abonos => {
             const lista = Array.isArray(abonos) ? abonos : [];
-            const yaExiste = lista.some(a => a.siniestroId === s.id);
-            if (yaExiste) return;
-            const mapEstado = {
-                'SIN INICIAR':    'Pendiente',
-                'EJECUCION':      'Pendiente',
-                'MEDIACIONES':    'Pendiente',
-                'DEMORADA':       'Pendiente',
-                'FINALIZADA P':   'Pendiente',
-                'FINALIZADA':     'Terminado',
-                'RECHAZADO':      'Terminado',
-            };
-            const nuevoAbono = {
-                id: 'SIN_' + s.id,
-                siniestroId: s.id,
-                cliente: s.cliente || '',
-                expediente: s.numeroReclamo || '',
-                telefono: s.celular || '',
-                autorizaWhatsapp: false,
-                ultimoContactoAgente: '',
-                respuestaCliente: '',
-                escalarACamila: false,
-                tipo: 'Honorarios Siniestro',
-                monto: parseFloat(s.honorarios) || 0,
-                montoBase: parseFloat(s.honorarios) || 0,
-                deudaAcumulada: 0,
-                montoPagado: '',
-                fechaPago: '',
-                estado: mapEstado[s.estado] || 'Ejecución de Honorarios',
-                observaciones: `Generado automáticamente desde Siniestros. Reclamo: ${s.numeroReclamo||'S/N'}. Aseguradora: ${s.contra||'S/N'}.`,
-                observacionesAuto: '',
-                mesServicio: null,
-                origenSiniestro: true
-            };
+            const yaExiste = lista.some(a => a && a.siniestroId === s.id);
+            if (yaExiste) return abonos; // no modificar
             lista.push(nuevoAbono);
-            abonosRef.set(lista).then(() => {
-                updateDataStatus('✅ Siniestro enviado a Planilla de Abonos automáticamente.');
-            }).catch(err => {
-                console.error('Error al enviar a abonos:', err);
-            });
+            return lista;
+        }).then(() => {
+            updateDataStatus('✅ Siniestro enviado a Planilla de Abonos automáticamente.');
+        }).catch(err => {
+            console.error('Error al enviar a abonos:', err);
         });
     } catch(e) {
         console.error('Error en enviarSiniestroAAbonos:', e);
@@ -1372,7 +1374,33 @@ function aplicarHonorarioSugerido(sid, porcentaje) {
     showSiniestroModal(sid);
 }
 
-function deleteSiniestro(id){ if(!confirm('¿Eliminar siniestro y todo su historial?'))return; siniestrosData=siniestrosData.filter(s=>s.id!==id); saveData(); renderAll(); closeModal('siniestroInfoModal'); }
+function deleteSiniestro(id){ 
+    if(!confirm('¿Eliminar siniestro y todo su historial?'))return; 
+    siniestrosData=siniestrosData.filter(s=>s.id!==id); 
+    saveData(); 
+    renderAll(); 
+    closeModal('siniestroInfoModal');
+    // Borrar abono correspondiente en Firebase
+    borrarAbonosDeSiniestro(id);
+}
+
+function borrarAbonosDeSiniestro(siniestroId) {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    try {
+        const db = firebase.database();
+        const abonosRef = db.ref('planilla_abonos');
+        abonosRef.transaction(abonos => {
+            if (!Array.isArray(abonos)) return abonos;
+            return abonos.filter(a => a && a.siniestroId !== siniestroId);
+        }).then(() => {
+            updateDataStatus('✅ Abono eliminado de Planilla de Abonos.');
+        }).catch(err => {
+            console.error('Error al borrar abono:', err);
+        });
+    } catch(e) {
+        console.error('Error en borrarAbonosDeSiniestro:', e);
+    }
+}
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
 function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
