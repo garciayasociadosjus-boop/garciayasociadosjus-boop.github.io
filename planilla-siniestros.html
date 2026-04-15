@@ -1009,33 +1009,34 @@ function actualizarAbonosDesdeSiniestro(s) {
     try {
         const db = firebase.database();
         const abonosRef = db.ref('planilla_abonos');
+        const mapEstado = {
+            'SIN INICIAR':    'Pendiente',
+            'EJECUCION':      'Pendiente',
+            'MEDIACIONES':    'Pendiente',
+            'DEMORADA':       'Pendiente',
+            'FINALIZADA P':   'Pendiente',
+            'FINALIZADA':     'Terminado',
+            'RECHAZADO':      'Terminado',
+        };
         abonosRef.once('value', snapshot => {
             const abonos = snapshot.val();
             if (!Array.isArray(abonos)) return;
-            const mapEstado = {
-                'SIN INICIAR':    'Pendiente',
-                'EJECUCION':      'Pendiente',
-                'MEDIACIONES':    'Pendiente',
-                'DEMORADA':       'Pendiente',
-                'FINALIZADA P':   'Pendiente',
-                'FINALIZADA':     'Terminado',
-                'RECHAZADO':      'Terminado',
-            };
-            let modificado = false;
             abonos.forEach((a, i) => {
-                if (a.siniestroId === s.id) {
-                    abonos[i].estado = mapEstado[s.estado] || a.estado;
-                    abonos[i].monto = parseFloat(s.honorarios) || a.monto;
-                    abonos[i].montoBase = parseFloat(s.honorarios) || a.montoBase;
-                    abonos[i].expediente = s.numeroReclamo || a.expediente;
-                    modificado = true;
+                if (a && a.siniestroId === s.id) {
+                    const updates = {};
+                    updates[`planilla_abonos/${i}/estado`] = mapEstado[s.estado] || a.estado;
+                    if (s.honorarios) {
+                        updates[`planilla_abonos/${i}/monto`] = parseFloat(s.honorarios) || a.monto;
+                        updates[`planilla_abonos/${i}/montoBase`] = parseFloat(s.honorarios) || a.montoBase;
+                    }
+                    if (s.numeroReclamo) {
+                        updates[`planilla_abonos/${i}/expediente`] = s.numeroReclamo;
+                    }
+                    db.ref().update(updates).then(() => {
+                        updateDataStatus('✅ Abono actualizado automáticamente.');
+                    });
                 }
             });
-            if (modificado) {
-                abonosRef.set(abonos).then(() => {
-                    updateDataStatus('✅ Abono actualizado automáticamente.');
-                });
-            }
         });
     } catch(e) {
         console.error('Error en actualizarAbonosDesdeSiniestro:', e);
