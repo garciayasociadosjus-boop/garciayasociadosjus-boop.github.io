@@ -954,6 +954,8 @@ function enviarSiniestroAAbonos(s) {
                 'FINALIZADA':     'Terminado',
                 'RECHAZADO':      'Terminado',
             };
+            const fechaCreacion = s.fechaCreacion || new Date().toISOString().substring(0,10);
+            const mesServicio = fechaCreacion.substring(0,7); // YYYY-MM
             const nuevoAbono = {
                 id: 'SIN_' + s.id,
                 siniestroId: s.id,
@@ -973,7 +975,7 @@ function enviarSiniestroAAbonos(s) {
                 estado: mapEstado[s.estado] || 'Ejecución de Honorarios',
                 observaciones: `Generado automáticamente desde Siniestros. Reclamo: ${s.numeroReclamo||'S/N'}. Aseguradora: ${s.contra||'S/N'}.`,
                 observacionesAuto: '',
-                mesServicio: null,
+                mesServicio: mesServicio,
                 origenSiniestro: true
             };
 
