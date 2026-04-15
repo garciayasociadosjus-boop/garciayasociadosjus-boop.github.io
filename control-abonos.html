@@ -580,16 +580,21 @@
             firebaseRef = firebaseDB.ref(FIREBASE_KEY_ABONOS);
 
             firebaseRef.on('value', (snapshot) => {
-                if (ignorarProximoCambioFirebase) { ignorarProximoCambioFirebase = false; return; }
                 const data = snapshot.val();
-                if (data && Array.isArray(data)) {
-                    // Solo actualizar si Firebase tiene MÁS datos que local (cambio externo)
-                    if (data.length >= abonosData.length) {
-                        abonosData = data;
-                        localStorage.setItem('abonosData', JSON.stringify(abonosData));
-                        render();
-                        updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                if (ignorarProximoCambioFirebase) { 
+                    // Solo ignorar si no hay datos nuevos externos
+                    const dataLen = (data && Array.isArray(data)) ? data.length : 0;
+                    if (dataLen <= abonosData.length) {
+                        ignorarProximoCambioFirebase = false; 
+                        return; 
                     }
+                    ignorarProximoCambioFirebase = false;
+                }
+                if (data && Array.isArray(data)) {
+                    abonosData = data;
+                    localStorage.setItem('abonosData', JSON.stringify(abonosData));
+                    render();
+                    updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
                 } else if (data === null) {
                     const local = localStorage.getItem('abonosData');
                     if (local) {
