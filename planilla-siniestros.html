@@ -1025,9 +1025,9 @@ function actualizarAbonosDesdeSiniestro(s) {
                 if (a && a.siniestroId === s.id) {
                     const updates = {};
                     updates[`planilla_abonos/${i}/estado`] = mapEstado[s.estado] || a.estado;
-                    if (s.honorarios) {
-                        updates[`planilla_abonos/${i}/monto`] = parseFloat(s.honorarios) || a.monto;
-                        updates[`planilla_abonos/${i}/montoBase`] = parseFloat(s.honorarios) || a.montoBase;
+                    if (s.honorarios !== undefined && s.honorarios !== '') {
+                        updates[`planilla_abonos/${i}/monto`] = parseFloat(s.honorarios) || 0;
+                        updates[`planilla_abonos/${i}/montoBase`] = parseFloat(s.honorarios) || 0;
                     }
                     if (s.numeroReclamo) {
                         updates[`planilla_abonos/${i}/expediente`] = s.numeroReclamo;
@@ -1296,7 +1296,8 @@ function editField(sid,field,element){
 
         saveData();
         // Si cambió el estado o los honorarios, actualizar en planilla de abonos
-        if (fieldToSave === 'estado' || fieldToSave === 'honorarios' || fieldToSave === 'honorariosPorcentaje') {
+        if (fieldToSave === 'estado' || fieldToSave === 'honorarios' || 
+            fieldToSave === 'honorariosPorcentaje' || fieldToSave === 'indemnizacion') {
             actualizarAbonosDesdeSiniestro(s);
         }
         editingSiniestroId = null;
