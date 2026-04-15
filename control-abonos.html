@@ -1168,6 +1168,8 @@
     function diasMora(abono) {
       // Regulación Honorarios en Pago Parcial: sin mora (paga en cuotas)
       if (abono.tipo === 'Regulación Honorarios' && abono.estado === 'Pago Parcial') return null;
+      // Honorarios de Siniestro: sin mora (se cobra al cierre del caso)
+      if (abono.origenSiniestro) return null;
       // Solo calcular mora para estados con deuda
       var estadosConDeuda = ['Pendiente','Falta de Pago','Ejecución de Honorarios'];
       if (!estadosConDeuda.includes(abono.estado)) return null;
