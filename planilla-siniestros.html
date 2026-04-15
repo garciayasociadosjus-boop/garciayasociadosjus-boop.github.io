@@ -955,7 +955,8 @@ function enviarSiniestroAAbonos(s) {
                 'RECHAZADO':      'Terminado',
             };
             const fechaCreacion = s.fechaCreacion || new Date().toISOString().substring(0,10);
-            const mesServicio = fechaCreacion.substring(0,7); // YYYY-MM
+            const fechaObj = new Date(fechaCreacion + 'T00:00:00');
+            const mesServicio = { month: fechaObj.getMonth(), year: fechaObj.getFullYear() };
             const nuevoAbono = {
                 id: 'SIN_' + s.id,
                 siniestroId: s.id,
