@@ -97,8 +97,12 @@
         
         .main-content { padding: 30px; }
         .dashboard {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px; margin-bottom: 40px;
+            display: grid; grid-template-columns: 1fr;
+            gap: 20px; margin-bottom: 30px;
+        }
+        .dashboard-revisiones {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
         }
         .card {
             background: var(--light-text); border-radius: var(--border-radius); padding: 25px;
@@ -450,17 +454,22 @@
             </section>
 
             <section class="dashboard">
-                <div class="card today-reviews">
-                    <h3><i class="icon"></i>Revisiones de Hoy</h3>
-                    <div class="reviews-list" id="todayReviews"></div>
-                </div>
-                <div class="card overdue-reviews">
-                    <h3><i class="icon"></i>Revisiones Vencidas</h3>
-                    <div class="reviews-list" id="overdueReviews"></div>
-                </div>
-                <div class="card pending-reviews">
-                    <h3><i class="icon"></i>Próximas Revisiones</h3>
-                    <div class="reviews-list" id="upcomingReviews"></div>
+                <!-- Fila 1: MEV (se agrega dinámicamente por renderMevAlertas) -->
+                <div id="mevDashboardRow"></div>
+                <!-- Fila 2: Revisiones -->
+                <div class="dashboard-revisiones">
+                    <div class="card today-reviews">
+                        <h3><i class="icon"></i>Revisiones de Hoy</h3>
+                        <div class="reviews-list" id="todayReviews"></div>
+                    </div>
+                    <div class="card overdue-reviews">
+                        <h3><i class="icon"></i>Revisiones Vencidas</h3>
+                        <div class="reviews-list" id="overdueReviews"></div>
+                    </div>
+                    <div class="card pending-reviews">
+                        <h3><i class="icon"></i>Próximas Revisiones</h3>
+                        <div class="reviews-list" id="upcomingReviews"></div>
+                    </div>
                 </div>
             </section>
 
@@ -952,15 +961,19 @@
         function renderMevAlertas(dataFiltrada) {
             let mevContainer = document.getElementById('mevAlertasContainer');
             if (!mevContainer) {
-                const dashboard = document.querySelector('.dashboard');
-                if (!dashboard) return;
+                const mevRow = document.getElementById('mevDashboardRow');
+                if (!mevRow) return;
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.style.cssText = 'border-top: 4px solid #2980b9;';
+                card.style.cssText = 'border-top: 4px solid #2980b9; border-left: 4px solid #2980b9;';
                 card.innerHTML = `
-                    <h3 style="color:#2980b9;">🔄 Movimientos MEV <span id="mevAlertaCount" style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;margin-left:6px;">0</span></h3>
-                    <div class="reviews-list" id="mevAlertasContainer"></div>`;
-                dashboard.appendChild(card);
+                    <h3 style="color:#2980b9; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        🔄 Movimientos MEV 
+                        <span id="mevAlertaCount" style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">0</span>
+                        <button onclick="resetearVistasMEV()" style="margin-left:auto;background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;padding:2px 8px;font-size:0.7em;cursor:pointer;" title="Resetear todas las vistas">↺ Reset</button>
+                    </h3>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px;" id="mevAlertasContainer"></div>`;
+                mevRow.appendChild(card);
                 mevContainer = document.getElementById('mevAlertasContainer');
             }
 
@@ -984,15 +997,15 @@
             }
 
             mevContainer.innerHTML = alertas.map(({ client, nuevos }) => `
-                <div class="review-item" style="cursor:pointer;">
-                    <div class="review-item-content" onclick="showClientModal('${client.id}')">
+                <div class="review-item" style="cursor:pointer; display:flex; align-items:center;">
+                    <div class="review-item-content" onclick="showClientModal('${client.id}')" style="flex:1;">
                         <div class="review-date" style="color:#3498db;font-weight:bold;">
                             🔄 ${nuevos.length} movimiento${nuevos.length > 1 ? 's' : ''} nuevo${nuevos.length > 1 ? 's' : ''}
                         </div>
                         <div class="review-client">${getDisplayName(client)}</div>
                         <div class="review-obs">${nuevos[0].descripcion || ''}</div>
                     </div>
-                    <button onclick="marcarMevVisto('${client.id}')" 
+                    <button onclick="event.stopPropagation(); marcarMevVisto('${client.id}')" 
                         style="margin-left:8px; background:#27ae60; color:white; border:none; border-radius:50%; width:28px; height:28px; font-size:1em; cursor:pointer; flex-shrink:0;" 
                         title="Marcar como visto">✓</button>
                 </div>
