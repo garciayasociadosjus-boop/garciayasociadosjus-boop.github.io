@@ -985,7 +985,23 @@
                 const ultimaVista = client.mev_ultima_vista || null;
                 if (movs.length === 0) return;
                 const nuevos = ultimaVista
-                    ? movs.filter(m => (m.fechaHora || m.fecha) > ultimaVista)
+                    ? movs.filter(m => {
+                        // ultimaVista es timestamp numérico
+                        // mev_ultima_sync es ISO string
+                        if (typeof ultimaVista === 'number') {
+                            // Convertir fechaHora del movimiento a timestamp para comparar
+                            const fechaStr = m.fechaHora || m.fecha;
+                            // Formato: "DD/MM/YYYY HH:MM:SS" o "DD/MM/YYYY"
+                            if (fechaStr && fechaStr.includes('/')) {
+                                const partes = fechaStr.split(' ');
+                                const [d,mo,a] = partes[0].split('/');
+                                const hora = partes[1] || '00:00:00';
+                                const ts = new Date(`${a}-${mo}-${d}T${hora}`).getTime();
+                                return ts > ultimaVista;
+                            }
+                        }
+                        return false;
+                    })
                     : movs.slice(0, 3);
                 if (nuevos.length > 0) alertas.push({ client, nuevos });
             });
@@ -1089,16 +1105,9 @@
         function marcarMevVisto(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            // Guardar la fechaHora del movimiento más reciente como última vista
-            const movs = client.mev_movimientos || [];
-            if (movs.length > 0) {
-                const masReciente = movs[0].fechaHora || movs[0].fecha;
-                client.mev_ultima_vista = masReciente;
-            } else {
-                client.mev_ultima_vista = new Date().toISOString().replace('T', ' ').substring(0, 16);
-            }
+            // Guardar timestamp actual como última vista
+            client.mev_ultima_vista = Date.now();
             saveData();
-            // Re-renderizar dashboard para que desaparezca la alerta
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderMevAlertas(dataFiltrada);
