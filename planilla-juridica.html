@@ -958,26 +958,6 @@
             renderMevAlertas(dataFiltrada);
         }
 
-        // Delegación de eventos para botones MEV — se registra una sola vez
-        document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.mev-visto-btn');
-            if (btn) {
-                e.stopPropagation();
-                marcarMevVisto(btn.dataset.clientid);
-            }
-            const expandBtn = e.target.closest('#mevExpandBtn');
-            if (expandBtn) {
-                e.stopPropagation();
-                const card = document.getElementById('mevCard');
-                if (card) {
-                    card.dataset.expandido = card.dataset.expandido === 'true' ? 'false' : 'true';
-                    const socioSesion = sesionActual ? sesionActual.socio : null;
-                    const df = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
-                    renderMevAlertas(df);
-                }
-            }
-        });
-
         function renderMevAlertas(dataFiltrada) {
             let mevCard = document.getElementById('mevCard');
             if (!mevCard) {
@@ -988,6 +968,14 @@
                 mevCard.className = 'card';
                 mevCard.style.cssText = 'border-top: 4px solid #2980b9; border-left: 4px solid #2980b9; padding: 15px;';
                 mevCard.dataset.expandido = 'false';
+                mevCard.innerHTML = `
+                    <div id="mevCardHeader" style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+                        <h3 style="color:#2980b9; margin:0; font-size:1em;">🔄 Movimientos MEV</h3>
+                        <span id="mevAlertaCount" style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">0</span>
+                        <span id="mevExpandBtnHolder"></span>
+                        <button onclick="resetearVistasMEV()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>
+                    </div>
+                    <div id="mevTablaHolder"></div>`;
                 mevRow.appendChild(mevCard);
             }
 
@@ -1007,7 +995,30 @@
             const expandido = mevCard.dataset.expandido === 'true';
             const visibles = expandido ? alertas : alertas.slice(0, MOSTRAR);
 
-            const filasHTML = visibles.map(({ client, nuevos }) => `
+            // Actualizar contador
+            const countEl = document.getElementById('mevAlertaCount');
+            if (countEl) countEl.textContent = total;
+
+            // Actualizar botón expandir
+            const expandHolder = document.getElementById('mevExpandBtnHolder');
+            if (expandHolder) {
+                expandHolder.innerHTML = total > MOSTRAR
+                    ? `<button onclick="document.getElementById('mevCard').dataset.expandido = '${expandido ? 'false' : 'true'}'; renderMevAlertas(clientsData)" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
+                        ${expandido ? '▲ Ver menos' : '▼ Ver todos (' + total + ')'}
+                      </button>` : '';
+            }
+
+            // Actualizar tabla
+            const tablaHolder = document.getElementById('mevTablaHolder');
+            if (!tablaHolder) return;
+
+            if (total === 0) {
+                tablaHolder.innerHTML = '<p style="color:#888; font-size:0.88em; margin:0;">No hay movimientos nuevos en el MEV.</p>';
+                return;
+            }
+
+            tablaHolder.innerHTML = `<table style="width:100%; border-collapse:collapse;">
+                ${visibles.map(({ client, nuevos }) => `
                 <tr style="border-bottom:1px solid #eee;">
                     <td style="padding:6px 8px; color:#2980b9; font-weight:600; white-space:nowrap; font-size:0.85em; width:80px;">
                         🔄 ${nuevos.length} nuevo${nuevos.length > 1 ? 's' : ''}
@@ -1017,27 +1028,10 @@
                         <span style="color:#888; margin-left:8px; font-size:0.85em;">${nuevos[0].descripcion || ''}</span>
                     </td>
                     <td style="padding:6px 4px; text-align:right; width:36px;">
-                        <button class="mev-visto-btn" data-clientid="${client.id}"
-                            style="background:#27ae60; color:white; border:none; border-radius:50%; width:26px; height:26px; font-size:0.9em; cursor:pointer; line-height:1;"
-                            title="Marcar como visto">✓</button>
+                        <button class="complete-btn" onclick="marcarMevVisto('${client.id}')" title="Marcar como visto">✔</button>
                     </td>
-                </tr>
-            `).join('');
-
-            mevCard.innerHTML = `
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:${total > 0 ? '10px' : '0'}; flex-wrap:wrap;">
-                    <h3 style="color:#2980b9; margin:0; font-size:1em;">🔄 Movimientos MEV</h3>
-                    <span style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">${total}</span>
-                    ${total > MOSTRAR ? `<button id="mevExpandBtn" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
-                        ${expandido ? '▲ Ver menos' : '▼ Ver todos (' + total + ')'}
-                    </button>` : ''}
-                    ${total > 0 ? `<button onclick="resetearVistasMEV()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>` : ''}
-                </div>
-                ${total === 0
-                    ? '<p style="color:#888; font-size:0.88em; margin:0;">No hay movimientos nuevos en el MEV.</p>'
-                    : `<table style="width:100%; border-collapse:collapse;">${filasHTML}</table>`
-                }
-            `;
+                </tr>`).join('')}
+            </table>`;
         }
 
         function abrirMEV() {
