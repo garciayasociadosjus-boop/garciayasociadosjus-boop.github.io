@@ -958,8 +958,27 @@
             renderMevAlertas(dataFiltrada);
         }
 
+        // Delegación de eventos para botones MEV — se registra una sola vez
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.mev-visto-btn');
+            if (btn) {
+                e.stopPropagation();
+                marcarMevVisto(btn.dataset.clientid);
+            }
+            const expandBtn = e.target.closest('#mevExpandBtn');
+            if (expandBtn) {
+                e.stopPropagation();
+                const card = document.getElementById('mevCard');
+                if (card) {
+                    card.dataset.expandido = card.dataset.expandido === 'true' ? 'false' : 'true';
+                    const socioSesion = sesionActual ? sesionActual.socio : null;
+                    const df = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+                    renderMevAlertas(df);
+                }
+            }
+        });
+
         function renderMevAlertas(dataFiltrada) {
-            // Crear card si no existe
             let mevCard = document.getElementById('mevCard');
             if (!mevCard) {
                 const mevRow = document.getElementById('mevDashboardRow');
@@ -968,6 +987,7 @@
                 mevCard.id = 'mevCard';
                 mevCard.className = 'card';
                 mevCard.style.cssText = 'border-top: 4px solid #2980b9; border-left: 4px solid #2980b9; padding: 15px;';
+                mevCard.dataset.expandido = 'false';
                 mevRow.appendChild(mevCard);
             }
 
@@ -983,22 +1003,22 @@
             });
 
             const total = alertas.length;
-            const MOSTRAR = 3; // filas visibles por defecto
+            const MOSTRAR = 3;
             const expandido = mevCard.dataset.expandido === 'true';
             const visibles = expandido ? alertas : alertas.slice(0, MOSTRAR);
 
-            const filasHTML = visibles.map(({ client, nuevos }, idx) => `
+            const filasHTML = visibles.map(({ client, nuevos }) => `
                 <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px 8px; color:#2980b9; font-weight:600; white-space:nowrap; font-size:0.85em;">
+                    <td style="padding:6px 8px; color:#2980b9; font-weight:600; white-space:nowrap; font-size:0.85em; width:80px;">
                         🔄 ${nuevos.length} nuevo${nuevos.length > 1 ? 's' : ''}
                     </td>
                     <td style="padding:6px 8px; font-size:0.88em; cursor:pointer; color:#2c3e50;" onclick="showClientModal('${client.id}')">
                         <strong>${getDisplayName(client)}</strong>
                         <span style="color:#888; margin-left:8px; font-size:0.85em;">${nuevos[0].descripcion || ''}</span>
                     </td>
-                    <td style="padding:6px 8px; text-align:right;">
-                        <button data-clientid="${client.id}" class="mev-visto-btn"
-                            style="background:#27ae60; color:white; border:none; border-radius:50%; width:26px; height:26px; font-size:0.9em; cursor:pointer;"
+                    <td style="padding:6px 4px; text-align:right; width:36px;">
+                        <button class="mev-visto-btn" data-clientid="${client.id}"
+                            style="background:#27ae60; color:white; border:none; border-radius:50%; width:26px; height:26px; font-size:0.9em; cursor:pointer; line-height:1;"
                             title="Marcar como visto">✓</button>
                     </td>
                 </tr>
@@ -1008,36 +1028,16 @@
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:${total > 0 ? '10px' : '0'}; flex-wrap:wrap;">
                     <h3 style="color:#2980b9; margin:0; font-size:1em;">🔄 Movimientos MEV</h3>
                     <span style="background:#2980b9;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">${total}</span>
-                    ${total === 0 ? '' : `
-                        ${total > MOSTRAR ? `<button id="mevExpandBtn" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
-                            ${expandido ? '▲ Ver menos' : `▼ Ver todos (${total})`}
-                        </button>` : ''}
-                        <button onclick="resetearVistasMEV()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>
-                    `}
+                    ${total > MOSTRAR ? `<button id="mevExpandBtn" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
+                        ${expandido ? '▲ Ver menos' : '▼ Ver todos (' + total + ')'}
+                    </button>` : ''}
+                    ${total > 0 ? `<button onclick="resetearVistasMEV()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>` : ''}
                 </div>
-                ${total === 0 
+                ${total === 0
                     ? '<p style="color:#888; font-size:0.88em; margin:0;">No hay movimientos nuevos en el MEV.</p>'
                     : `<table style="width:100%; border-collapse:collapse;">${filasHTML}</table>`
                 }
             `;
-
-            // Botones ✓ — agregar eventos directamente
-            mevCard.querySelectorAll('.mev-visto-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    marcarMevVisto(this.dataset.clientid);
-                });
-            });
-
-            // Botón expandir
-            const expandBtn = document.getElementById('mevExpandBtn');
-            if (expandBtn) {
-                expandBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    mevCard.dataset.expandido = expandido ? 'false' : 'true';
-                    renderMevAlertas(dataFiltrada);
-                });
-            }
         }
 
         function abrirMEV() {
