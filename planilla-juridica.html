@@ -1326,9 +1326,7 @@
                     dni: 'DNI', 
                     telefono: 'Teléfono', 
                     caratula: 'Carátula',
-                    jurisdiccion: '🏛️ Jurisdicción',
                     expediente: 'N° Expediente',
-                    anioExpediente: '📅 Año de la Causa',
                     juzgado: 'Juzgado', 
                     direccionJuzgado: 'Dirección Juzgado', 
                     telJuzgado: 'Tel. Juzgado', 
@@ -1352,12 +1350,46 @@
                     if (key === 'estado') {
                         return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['EJECUCION', 'FINALIZADA', 'FINALIZADA PARCIAL', 'DEMORADA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
                     }
-                    if (key === 'jurisdiccion') {
-                        const jColor = client[key] === 'PROVINCIA' ? '#2980b9' : client[key] === 'CABA' ? '#8e44ad' : client[key] === 'FEDERAL' ? '#c0392b' : '#7f8c8d';
-                        return `<div class="info-item" style="border-left:4px solid ${jColor};background:#f0f8ff;"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldJurisdiccion('${client.id}')"><div class="info-value" style="color:${jColor};font-weight:bold;">${client[key] || 'Sin definir'}</div></div></div>`;
+                    if (key === 'expediente') {
+                        return `<div class="info-item">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%;">
+                                <div>
+                                    <div class="info-label">N° Expediente</div>
+                                    <div class="editable-field" id="field-expediente" onclick="editField('${client.id}', 'expediente')">
+                                        <div class="info-value">${client.expediente || 'S/D'}</div>
+                                    </div>
+                                </div>
+                                <div style="border-left:1px solid #e0e0e0;padding-left:8px;">
+                                    <div class="info-label">Año</div>
+                                    <div class="editable-field" id="field-anioExpediente" onclick="editField('${client.id}', 'anioExpediente')">
+                                        <div class="info-value">${client.anioExpediente || 'S/D'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
                     }
-                    if (key === 'anioExpediente') {
-                        return `<div class="info-item" style="border-left:4px solid #27ae60;background:#f2fdf5;"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value" style="font-weight:bold;">${client[key] || 'S/D'}</div></div></div>`;
+                    if (key === 'juzgado') {
+                        return `<div class="info-item">
+                            <div class="info-label">Juzgado</div>
+                            <div style="margin-bottom:6px;">
+                                <select id="field-jurisdiccion-sel" onchange="saveJurisdiccionInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;background:#f9f9f9;">
+                                    <option value="">-- Jurisdicción --</option>
+                                    <option value="PROVINCIA" ${client.jurisdiccion==='PROVINCIA'?'selected':''}>Provincia de Buenos Aires</option>
+                                    <option value="CABA" ${client.jurisdiccion==='CABA'?'selected':''}>CABA</option>
+                                    <option value="FEDERAL" ${client.jurisdiccion==='FEDERAL'?'selected':''}>Federal</option>
+                                </select>
+                            </div>
+                            ${client.jurisdiccion === 'PROVINCIA' ? `<div style="margin-bottom:6px;">
+                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;background:#f9f9f9;">
+                                    <option value="">-- Departamento Judicial --</option>
+                                    ${['Avellaneda-Lanús','Azul','Bahía Blanca','Dolores','Junín','La Matanza','La Plata','Lomas de Zamora','Mar del Plata','Mercedes','Moreno-Gral. Rodríguez','Morón','Necochea','Olavarría','Pergamino','Quilmes','San Isidro','San Martín','San Nicolás','Tandil','Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
+                                </select>
+                            </div>
+                            ${client.deptoJudicial === 'Otro (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;"></div>` : ''}` : ''}
+                            <div class="editable-field" id="field-juzgado" onclick="editField('${client.id}', 'juzgado')">
+                                <div class="info-value">${client.juzgado || 'S/D'}</div>
+                            </div>
+                        </div>`;
                     }
                     return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
                 };
@@ -1911,6 +1943,29 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             client.deptoJudicialManual = inp.value;
             updateClient(client);
             editFieldJurisdiccion(clientId);
+        }
+
+        function saveJurisdiccionInline(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.jurisdiccion = valor;
+            updateClient(client);
+            showClientModal(clientId);
+        }
+
+        function saveDeptoInline(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.deptoJudicial = valor;
+            updateClient(client);
+            showClientModal(clientId);
+        }
+
+        function saveDeptoManualInline(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.deptoJudicialManual = valor;
+            updateClient(client);
         }
 
         function toggleNewDepto() {
