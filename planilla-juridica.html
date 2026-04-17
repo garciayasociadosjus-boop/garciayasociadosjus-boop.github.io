@@ -1325,8 +1325,10 @@
                     nombre: 'Nombre', 
                     dni: 'DNI', 
                     telefono: 'Teléfono', 
-                    caratula: 'Carátula', 
-                    expediente: 'N° Expediente', 
+                    caratula: 'Carátula',
+                    jurisdiccion: '🏛️ Jurisdicción',
+                    expediente: 'N° Expediente',
+                    anioExpediente: '📅 Año de la Causa',
                     juzgado: 'Juzgado', 
                     direccionJuzgado: 'Dirección Juzgado', 
                     telJuzgado: 'Tel. Juzgado', 
@@ -1349,6 +1351,13 @@
                     }
                     if (key === 'estado') {
                         return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['EJECUCION', 'FINALIZADA', 'FINALIZADA PARCIAL', 'DEMORADA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                    }
+                    if (key === 'jurisdiccion') {
+                        const jColor = client[key] === 'PROVINCIA' ? '#2980b9' : client[key] === 'CABA' ? '#8e44ad' : client[key] === 'FEDERAL' ? '#c0392b' : '#7f8c8d';
+                        return `<div class="info-item" style="border-left:4px solid ${jColor};background:#f0f8ff;"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldJurisdiccion('${client.id}')"><div class="info-value" style="color:${jColor};font-weight:bold;">${client[key] || 'Sin definir'}</div></div></div>`;
+                    }
+                    if (key === 'anioExpediente') {
+                        return `<div class="info-item" style="border-left:4px solid #27ae60;background:#f2fdf5;"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value" style="font-weight:bold;">${client[key] || 'S/D'}</div></div></div>`;
                     }
                     return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
                 };
@@ -1835,6 +1844,83 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             fieldElement.innerHTML = ''; fieldElement.appendChild(wrapper); sel.focus();
         }
 
+        const DEPTOS_PBA = [
+            'Avellaneda-Lanús','Azul','Bahía Blanca','Dolores','Junín',
+            'La Matanza','La Plata','Lomas de Zamora','Mar del Plata','Mercedes',
+            'Moreno-Gral. Rodríguez','Morón','Necochea','Olavarría','Pergamino',
+            'Quilmes','San Isidro','San Martín','San Nicolás','Tandil',
+            'Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'
+        ];
+
+        function editFieldJurisdiccion(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const container = document.getElementById('field-jurisdiccion');
+            if (!container) return;
+            const jOpts = ['PROVINCIA', 'CABA', 'FEDERAL'];
+            let html = '<div style="display:flex;flex-direction:column;gap:8px;padding:8px;">';
+            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+            jOpts.forEach(j => {
+                const color = j === 'PROVINCIA' ? '#2980b9' : j === 'CABA' ? '#8e44ad' : '#c0392b';
+                const sel = client.jurisdiccion === j;
+                html += `<button onclick="selectJurisdiccion('${clientId}','${j}')" style="padding:6px 14px;border:2px solid ${color};border-radius:20px;cursor:pointer;background:${sel?color:'white'};color:${sel?'white':color};font-weight:bold;">${j}</button>`;
+            });
+            html += '</div>';
+            if (client.jurisdiccion === 'PROVINCIA') {
+                html += '<div style="margin-top:6px;">';
+                html += '<select id="deptoJudicial" onchange="saveDeptoJudicial(\'' + clientId + '\')" style="width:100%;padding:8px;border-radius:8px;border:2px solid #2980b9;">';
+                html += '<option value="">-- Seleccionar Departamento --</option>';
+                DEPTOS_PBA.forEach(d => {
+                    const sel2 = client.deptoJudicial === d ? 'selected' : '';
+                    html += `<option value="${d}" ${sel2}>${d}</option>`;
+                });
+                html += '</select>';
+                if (client.deptoJudicial === 'Otro (manual)') {
+                    html += `<input type="text" id="deptoManual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:2px solid #2980b9;">`;
+                    html += `<button onclick="saveDeptoManual('${clientId}')" style="margin-top:4px;padding:6px 12px;background:#2980b9;color:white;border:none;border-radius:8px;cursor:pointer;">Guardar</button>`;
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function selectJurisdiccion(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.jurisdiccion = valor;
+            updateClient(client);
+            editFieldJurisdiccion(clientId);
+        }
+
+        function saveDeptoJudicial(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const sel = document.getElementById('deptoJudicial');
+            if (!sel) return;
+            client.deptoJudicial = sel.value;
+            updateClient(client);
+            editFieldJurisdiccion(clientId);
+        }
+
+        function saveDeptoManual(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const inp = document.getElementById('deptoManual');
+            if (!inp) return;
+            client.deptoJudicialManual = inp.value;
+            updateClient(client);
+            editFieldJurisdiccion(clientId);
+        }
+
+        function toggleNewDepto() {
+            const j = document.getElementById('newJurisdiccion').value;
+            document.getElementById('newDeptoGroup').style.display = j === 'PROVINCIA' ? 'block' : 'none';
+        }
+        function toggleNewDeptoManual() {
+            const v = document.getElementById('newDeptoJudicial').value;
+            document.getElementById('newDeptoManual').style.display = v === 'Otro (manual)' ? 'block' : 'none';
+        }
         function editFieldSelect(clientId, fieldName, options) {
             if (editingField) return;
             const client = clientsData.find(c => c.id === clientId);
@@ -3462,11 +3548,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             updateClock(); setInterval(updateClock, 1000);
 
             // MODIFICADO: Añadidos campos titulo y materia
-            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required onchange="toggleNewMateriaOtros()"><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select><input type="text" id="newMateriaOtros" placeholder="Especificar materia..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>👤 Socio Asignado *</label><select id="newSocio" required><option value="GARCIA">⚖️ Estudio García</option><option value="ROCABADO">👨‍💼 Dr. Rocabado Maximiliano</option><option value="SAGLIMBENI">👨‍💼 Sr. Saglimbeni Marcos</option></select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2>➕ Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required onchange="toggleNewMateriaOtros()"><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select><input type="text" id="newMateriaOtros" placeholder="Especificar materia..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>👤 Socio Asignado *</label><select id="newSocio" required><option value="GARCIA">⚖️ Estudio García</option><option value="ROCABADO">👨‍💼 Dr. Rocabado Maximiliano</option><option value="SAGLIMBENI">👨‍💼 Sr. Saglimbeni Marcos</option></select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label>📅 Año de la Causa</label><input type="text" id="newAnioExpediente" placeholder="ej: 2024" maxlength="4"></div><div class="form-group"><label>🏛️ Jurisdicción</label><select id="newJurisdiccion" onchange="toggleNewDepto()"><option value="">Sin definir</option><option value="PROVINCIA">PROVINCIA</option><option value="CABA">CABA</option><option value="FEDERAL">FEDERAL</option></select></div><div class="form-group" id="newDeptoGroup" style="display:none;"><label>Departamento Judicial</label><select id="newDeptoJudicial" onchange="toggleNewDeptoManual()"><option value="">-- Seleccionar --</option><option>Avellaneda-Lanús</option><option>Azul</option><option>Bahía Blanca</option><option>Dolores</option><option>Junín</option><option>La Matanza</option><option>La Plata</option><option>Lomas de Zamora</option><option>Mar del Plata</option><option>Mercedes</option><option>Moreno-Gral. Rodríguez</option><option>Morón</option><option>Necochea</option><option>Olavarría</option><option>Pergamino</option><option>Quilmes</option><option>San Isidro</option><option>San Martín</option><option>San Nicolás</option><option>Tandil</option><option>Trenque Lauquen</option><option>Tres Arroyos</option><option>Zárate/Campana</option><option>Otro (manual)</option></select><input type="text" id="newDeptoManual" placeholder="Escribir departamento..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success">💾 Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2>👁️ Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim(); if (caratulaValue && clientsData.some(c => c.caratula && c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase())) { alert(`Error: Ya existe un caso con la carátula "${caratulaValue}".`); return; } 
                 // NUEVOS CAMPOS AÑADIDOS
-                const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
+                const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), anioExpediente: document.getElementById('newAnioExpediente').value.trim(), jurisdiccion: document.getElementById('newJurisdiccion').value, deptoJudicial: document.getElementById('newDeptoJudicial') ? document.getElementById('newDeptoJudicial').value : '', deptoJudicialManual: document.getElementById('newDeptoManual') ? document.getElementById('newDeptoManual').value : '', juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
                 const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
