@@ -26,6 +26,14 @@
             --shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        .custom-select-wrapper { position: relative; width: 100%; }
+        .custom-select-trigger { width: 100%; padding: 5px 28px 5px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85em; background: #f9f9f9; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .custom-select-trigger::after { content: '▼'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7em; color: #666; pointer-events: none; }
+        .custom-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; max-height: 250px; overflow-y: auto; display: none; min-width: 350px; }
+        .custom-select-dropdown.open { display: block; }
+        .custom-select-option { padding: 8px 12px; font-size: 0.85em; cursor: pointer; white-space: normal; word-break: break-word; border-bottom: 1px solid #f0f0f0; }
+        .custom-select-option:hover { background: #f0f7ff; }
+        .custom-select-option.selected { background: #e8f4fd; font-weight: 600; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
@@ -1404,12 +1412,13 @@
                             </div>
                             ${client.deptoJudicial === 'Otro (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;"></div>` : ''}` : ''}
                             ${client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL' ? `<div style="margin-bottom:6px;">
-                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;background:#f9f9f9;height:auto;">
+                                <select id="field-depto-pjn-${client.id}" onchange="saveDeptoInline('${client.id}', this.value)" size="1" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;background:#f9f9f9;">
                                     <option value="">-- ${labelDepto} --</option>
-                                    ${['CIV - Cámara Nacional de Apelaciones en lo Civil','CAF - Cámara Nacional de Apelaciones en lo Contencioso Administrativo Federal','CCF - Cámara Nacional de Apelaciones en lo Civil y Comercial Federal','CNE - Cámara Nacional Electoral','CSS - Cámara Federal de la Seguridad Social','CPE - Cámara Nacional de Apelaciones en lo Penal Económico','CNT - Cámara Nacional de Apelaciones del Trabajo','CFP - Cámara Criminal y Correccional Federal','CCC - Cámara Nacional de Apelaciones en lo Criminal y Correccional','COM - Cámara Nacional de Apelaciones en lo Comercial','CPF - Cámara Federal de Casación Penal','CPN - Cámara Nacional de Casación Penal','FBB - Justicia Federal de Bahía Blanca','FCR - Justicia Federal de Comodoro Rivadavia','FCB - Justicia Federal de Córdoba','FCT - Justicia Federal de Corrientes','FGR - Justicia Federal de General Roca','FLP - Justicia Federal de La Plata','FMP - Justicia Federal de Mar del Plata','FMZ - Justicia Federal de Mendoza','FPO - Justicia Federal de Posadas','FPA - Justicia Federal de Paraná','FRE - Justicia Federal de Resistencia','FSA - Justicia Federal de Salta','FRO - Justicia Federal de Rosario','FSM - Justicia Federal de San Martín','FTU - Justicia Federal de Tucumán','CSJ - Corte Suprema de Justicia de la Nación','Otra (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
+                                    ${JURISDICCIONES_PJN.map(d => '<option value="' + d + '" ' + (client.deptoJudicial === d ? 'selected' : '') + ' title="' + d + '">' + d + '</option>').join('')}
                                 </select>
+                                ${client.deptoJudicial ? '<div style="font-size:0.8em;color:#2980b9;margin-top:3px;word-break:break-word;">' + client.deptoJudicial + '</div>' : ''}
                             </div>
-                            ${client.deptoJudicial === 'Otra (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;"></div>` : ''}` : ''}
+                            ${client.deptoJudicial === 'Otra (manual)' ? '<div style="margin-bottom:6px;"><input type=\"text\" id=\"field-depto-manual\" value=\"' + (client.deptoJudicialManual||'') + '\" placeholder=\"Escribir...\" onblur=\"saveDeptoManualInline(\'' + client.id + '\', this.value)\" style=\"width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;\"></div>' : ''}` : ''}
                             <div class="editable-field" id="field-juzgado" onclick="editField('${client.id}', 'juzgado')">
                                 <div class="info-value">${client.juzgado || 'S/D'}</div>
                             </div>
@@ -1967,6 +1976,32 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             client.deptoJudicialManual = inp.value;
             updateClient(client);
             editFieldJurisdiccion(clientId);
+        }
+
+        function renderCustomSelect(containerId, opciones, valorActual, onChangeFn) {
+            const wrapper = document.getElementById(containerId);
+            if (!wrapper) return;
+            const trigger = wrapper.querySelector('.custom-select-trigger');
+            const dropdown = wrapper.querySelector('.custom-select-dropdown');
+            if (!trigger || !dropdown) return;
+            // Poblar opciones
+            dropdown.innerHTML = opciones.map(op =>
+                `<div class="custom-select-option${op === valorActual ? ' selected' : ''}" data-value="${op}">${op}</div>`
+            ).join('');
+            // Mostrar valor actual
+            trigger.textContent = valorActual || '-- Seleccionar --';
+            // Eventos
+            trigger.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('open'); };
+            dropdown.querySelectorAll('.custom-select-option').forEach(opt => {
+                opt.onclick = (e) => {
+                    e.stopPropagation();
+                    const val = opt.dataset.value;
+                    trigger.textContent = val;
+                    dropdown.classList.remove('open');
+                    onChangeFn(val);
+                };
+            });
+            document.addEventListener('click', () => dropdown.classList.remove('open'), { once: false });
         }
 
         function saveJurisdiccionInline(clientId, valor) {
