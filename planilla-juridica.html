@@ -3438,9 +3438,19 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <div style="font-size:0.85em; color:#2c3e50; flex:1;">${a.desc || ''}</div>
                     </div>
                 `).join('');
+                const expRaw = (client.expediente||'').toString().trim();
+                const expPartes = expRaw.split('/');
+                const nroExp = expPartes[0] || '';
+                const anioExp = expPartes[1] || '';
+                const pjnUrl = nroExp && anioExp
+                    ? 'https://scw.pjn.gov.ar/scw/consultaPublicaDetail.seam?nroExpediente=' + nroExp + '&anioExpediente=' + anioExp
+                    : 'https://scw.pjn.gov.ar/scw/consultaPublica.seam';
                 return `<div style="margin-top:24px; border-top:2px solid #8e44ad; padding-top:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <h5 style="margin:0; color:#8e44ad;">⚖️ Actuaciones PJN</h5>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <h5 style="margin:0; color:#8e44ad;">⚖️ Actuaciones PJN</h5>
+                            <button onclick="abrirExpedientePJN('${client.expediente||''}', this)" style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:#8e44ad;color:white;border-radius:20px;font-size:0.78em;font-weight:600;border:none;cursor:pointer;">🔗 Ver en SCW</button>
+                        </div>
                         <div style="display:flex; gap:12px; align-items:center;">
                             ${pjnSituacion ? `<span style="font-size:0.8em; background:#f3e5f5; color:#6a1b9a; padding:2px 8px; border-radius:10px; font-weight:600;">${pjnSituacion}</span>` : ''}
                             ${pjnSync ? `<span style="font-size:0.78em; color:#888;">Última sync: ${pjnSync}</span>` : ''}
@@ -3452,6 +3462,29 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     }
                 </div>`;
             })() : ''}`
+        }
+
+        const PJN_WORKER_URL = 'https://pjn-scraper.garciayasociadosjus.workers.dev';
+
+        async function abrirExpedientePJN(expediente, btn) {
+            if (!expediente) { alert('Este caso no tiene número de expediente cargado.'); return; }
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '⏳ Abriendo...';
+            btn.disabled = true;
+            try {
+                const res = await fetch(PJN_WORKER_URL + '/abrir-exp?expediente=' + encodeURIComponent(expediente));
+                const data = await res.json();
+                if (data.ok && data.url) {
+                    window.open(data.url, '_blank');
+                } else {
+                    alert('No se pudo abrir el expediente: ' + (data.error || 'Error desconocido'));
+                }
+            } catch(e) {
+                alert('Error al conectar con el worker PJN: ' + e.message);
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
         }
 
         function saveExpediente(clientId) {
