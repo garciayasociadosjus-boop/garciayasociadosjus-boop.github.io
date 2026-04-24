@@ -1396,12 +1396,18 @@
                                 </select>
                             </div>
                             ${client.jurisdiccion === 'PROVINCIA' ? `<div style="margin-bottom:6px;">
-                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;background:#f9f9f9;">
+                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #2980b9;border-radius:6px;font-size:0.85em;background:#f9f9f9;">
                                     <option value="">-- Departamento Judicial --</option>
                                     ${['Avellaneda-Lanús','Azul','Bahía Blanca','Dolores','Junín','La Matanza','La Plata','Lomas de Zamora','Mar del Plata','Mercedes','Moreno-Gral. Rodríguez','Morón','Necochea','Olavarría','Pergamino','Quilmes','San Isidro','San Martín','San Nicolás','Tandil','Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
                                 </select>
-                            </div>
-                            ${client.deptoJudicial === 'Otro (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85em;"></div>` : ''}` : ''}
+                                ${client.deptoJudicial === 'Otro (manual)' ? `<input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;margin-top:5px;padding:5px 8px;border:1px solid #2980b9;border-radius:6px;font-size:0.85em;">` : ''}
+                            </div>` : (client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? `<div style="margin-bottom:6px;">
+                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:5px 8px;border:1px solid ${client.jurisdiccion==='CABA'?'#8e44ad':'#c0392b'};border-radius:6px;font-size:0.85em;background:#f9f9f9;">
+                                    <option value="">-- Fuero / Cámara PJN --</option>
+                                    ${['Civil y Comercial Federal - CABA','Civil - CABA','Comercial - CABA','Contencioso Administrativo Federal - CABA','Trabajo - CABA','Seguridad Social - CABA','Penal Económico - CABA','Criminal y Correccional Federal - CABA','Criminal y Correccional - CABA','Electoral - CABA','Menores - CABA','Ejecuciones Fiscales Tributarias - CABA','Familia - CABA','Oral en lo Criminal Federal - CABA','Oral en lo Criminal - CABA','Oral en lo Penal Económico - CABA','Oral de Menores - CABA','Cámara Nacional de Apelaciones en lo Civil','Cámara Nacional de Apelaciones en lo Comercial','Cámara Nacional de Apelaciones en lo Criminal y Correccional','Cámara Nacional de Apelaciones en lo Trabajo','Cámara Federal de Apelaciones - CABA','Cámara Nacional Electoral','Cámara Federal de Casación Penal','Cámara Nacional de Casación en lo Criminal y Correccional','Corte Suprema de Justicia de la Nación','Otro (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
+                                </select>
+                                ${client.deptoJudicial === 'Otro (manual)' ? `<input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir fuero..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;margin-top:5px;padding:5px 8px;border:1px solid ${client.jurisdiccion==='CABA'?'#8e44ad':'#c0392b'};border-radius:6px;font-size:0.85em;">` : ''}
+                            </div>` : ''}
                             <div class="editable-field" id="field-juzgado" onclick="editField('${client.id}', 'juzgado')">
                                 <div class="info-value">${client.juzgado || 'S/D'}</div>
                             </div>
@@ -1900,38 +1906,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             'Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'
         ];
 
-        const JURISDICCIONES_PJN = [
-            'Civil y Comercial Federal - CABA',
-            'Civil - CABA',
-            'Comercial - CABA',
-            'Contencioso Administrativo Federal - CABA',
-            'Trabajo - CABA',
-            'Seguridad Social - CABA',
-            'Penal Económico - CABA',
-            'Criminal y Correccional Federal - CABA',
-            'Criminal y Correccional - CABA',
-            'Electoral - CABA',
-            'Menores - CABA',
-            'Paz - CABA',
-            'Ejecuciones Fiscales Tributarias - CABA',
-            'Familia - CABA',
-            'Notarial - CABA',
-            'Oral en lo Criminal Federal - CABA',
-            'Oral en lo Criminal - CABA',
-            'Oral en lo Penal Económico - CABA',
-            'Oral de Menores - CABA',
-            'Cámara Nacional de Apelaciones en lo Civil',
-            'Cámara Nacional de Apelaciones en lo Comercial',
-            'Cámara Nacional de Apelaciones en lo Criminal y Correccional',
-            'Cámara Nacional de Apelaciones en lo Trabajo',
-            'Cámara Federal de Apelaciones - CABA',
-            'Cámara Nacional Electoral',
-            'Cámara Federal de Casación Penal',
-            'Cámara Nacional de Casación en lo Criminal y Correccional',
-            'Corte Suprema de Justicia de la Nación',
-            'Otro (manual)'
-        ];
-
         function editFieldJurisdiccion(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
@@ -1958,21 +1932,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 if (client.deptoJudicial === 'Otro (manual)') {
                     html += `<input type="text" id="deptoManual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:2px solid #2980b9;">`;
                     html += `<button onclick="saveDeptoManual('${clientId}')" style="margin-top:4px;padding:6px 12px;background:#2980b9;color:white;border:none;border-radius:8px;cursor:pointer;">Guardar</button>`;
-                }
-                html += '</div>';
-            } else if (client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') {
-                const colorPJN = client.jurisdiccion === 'CABA' ? '#8e44ad' : '#c0392b';
-                html += `<div style="margin-top:6px;">`;
-                html += `<select id="deptoJudicial" onchange="saveDeptoJudicial('${clientId}')" style="width:100%;padding:8px;border-radius:8px;border:2px solid ${colorPJN};">`;
-                html += '<option value="">-- Seleccionar Fuero / Cámara --</option>';
-                JURISDICCIONES_PJN.forEach(d => {
-                    const sel2 = client.deptoJudicial === d ? 'selected' : '';
-                    html += `<option value="${d}" ${sel2}>${d}</option>`;
-                });
-                html += '</select>';
-                if (client.deptoJudicial === 'Otro (manual)') {
-                    html += `<input type="text" id="deptoManual" value="${client.deptoJudicialManual||''}" placeholder="Escribir fuero..." style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:2px solid ${colorPJN};">`;
-                    html += `<button onclick="saveDeptoManual('${clientId}')" style="margin-top:4px;padding:6px 12px;background:${colorPJN};color:white;border:none;border-radius:8px;cursor:pointer;">Guardar</button>`;
                 }
                 html += '</div>';
             }
@@ -2033,16 +1992,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         function toggleNewDepto() {
             const j = document.getElementById('newJurisdiccion').value;
-            const group = document.getElementById('newDeptoGroup');
-            const sel = document.getElementById('newDeptoJudicial');
-            if (!j) { group.style.display = 'none'; return; }
-            group.style.display = 'block';
-            const lista = (j === 'CABA' || j === 'FEDERAL') ? JURISDICCIONES_PJN : DEPTOS_PBA;
-            const label = (j === 'CABA' || j === 'FEDERAL') ? '-- Seleccionar Fuero / Cámara --' : '-- Seleccionar Departamento --';
-            const color = j === 'PROVINCIA' ? '#2980b9' : j === 'CABA' ? '#8e44ad' : '#c0392b';
-            sel.style.borderColor = color;
-            sel.innerHTML = '<option value="">' + label + '</option>' + lista.map(function(d){ return '<option value="' + d + '">' + d + '</option>'; }).join('');
-            document.getElementById('newDeptoManual').style.display = 'none';
+            document.getElementById('newDeptoGroup').style.display = j === 'PROVINCIA' ? 'block' : 'none';
         }
         function toggleNewDeptoManual() {
             const v = document.getElementById('newDeptoJudicial').value;
