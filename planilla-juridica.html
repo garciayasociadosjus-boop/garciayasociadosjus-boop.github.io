@@ -1076,19 +1076,20 @@
             const alertas = [];
             dataFiltrada.forEach(client => {
                 const acts = client.pjn_actuaciones || [];
-                const ultimaVista = client.pjn_ultima_vista || null;
                 if (acts.length === 0) return;
-                const nuevos = ultimaVista
-                    ? acts.filter(a => {
-                        if (typeof ultimaVista === 'number' && a.fecha && a.fecha.includes('/')) {
-                            const [d,mo,yr] = a.fecha.split('/');
-                            const ts = new Date(yr+'-'+mo+'-'+d+'T23:59:59').getTime();
-                            return ts > ultimaVista;
-                        }
-                        return false;
-                    })
-                    : acts.slice(0, 3);
-                if (nuevos.length > 0) alertas.push({ client, nuevos });
+                const ultimaVista = client.pjn_ultima_vista || null;
+                // Si tiene última vista, verificar si hubo sync nueva después
+                if (ultimaVista && client.pjn_ultima_sync) {
+                    const syncTs = new Date(client.pjn_ultima_sync).getTime();
+                    if (syncTs > ultimaVista) {
+                        // Sync nueva después de marcar visto — mostrar como nuevo
+                        alertas.push({ client, nuevos: acts.slice(0, 3) });
+                    }
+                    // Si no hubo sync nueva, no mostrar (ya lo vio)
+                    return;
+                }
+                // Nunca fue marcado como visto — mostrar
+                alertas.push({ client, nuevos: acts.slice(0, 3) });
             });
             const total = alertas.length;
             const MOSTRAR = 3;
@@ -3530,13 +3531,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <div style="font-size:0.85em; color:#2c3e50; flex:1;">${a.desc || ''}</div>
                     </div>
                 `).join('');
-                const expRaw = (client.expediente||'').toString().trim();
-                const expPartes = expRaw.split('/');
-                const nroExp = expPartes[0] || '';
-                const anioExp = expPartes[1] || '';
-                const pjnUrl = nroExp && anioExp
-                    ? 'https://scw.pjn.gov.ar/scw/consultaPublicaDetail.seam?nroExpediente=' + nroExp + '&anioExpediente=' + anioExp
-                    : 'https://scw.pjn.gov.ar/scw/consultaPublica.seam';
+
                 return `<div style="margin-top:24px; border-top:2px solid #8e44ad; padding-top:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <div style="display:flex; align-items:center; gap:12px;">
