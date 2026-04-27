@@ -1076,19 +1076,13 @@
             const alertas = [];
             dataFiltrada.forEach(client => {
                 const acts = client.pjn_actuaciones || [];
-                const ultimaVista = client.pjn_ultima_vista || null;
                 if (acts.length === 0) return;
-                const nuevos = ultimaVista
-                    ? acts.filter(a => {
-                        if (typeof ultimaVista === 'number' && a.fecha && a.fecha.includes('/')) {
-                            const [d,mo,yr] = a.fecha.split('/');
-                            const ts = new Date(yr+'-'+mo+'-'+d+'T00:00:00').getTime();
-                            return ts > ultimaVista;
-                        }
-                        return false;
-                    })
-                    : acts.slice(0, 3);
-                if (nuevos.length > 0) alertas.push({ client, nuevos });
+                // Si ya fue marcado como visto y no hay sync nueva, no mostrar
+                const ultimaVista = client.pjn_ultima_vista || 0;
+                const ultimaSync = client.pjn_ultima_sync ? new Date(client.pjn_ultima_sync).getTime() : 0;
+                if (ultimaVista > 0 && ultimaVista >= ultimaSync) return;
+                // Mostrar las 3 más recientes
+                alertas.push({ client, nuevos: acts.slice(0, 3) });
             });
             const total = alertas.length;
             const MOSTRAR = 3;
@@ -1130,7 +1124,7 @@
             if (!client) return;
             client.pjn_ultima_vista = Date.now();
             updateClient(client);
-            renderPjnAlertas(clientsData);
+            renderPjnAlertas(clientsData.filter(c => currentFilter === 'all' || c.socio === currentFilter));
         }
         function resetearVistasPJN() {
             clientsData.forEach(c => { c.pjn_ultima_vista = null; });
