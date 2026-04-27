@@ -456,6 +456,8 @@
             <section class="dashboard">
                 <!-- Fila 1: MEV (se agrega dinámicamente por renderMevAlertas) -->
                 <div id="mevDashboardRow"></div>
+                <!-- Fila PJN -->
+                <div id="pjnDashboardRow"></div>
                 <!-- Fila 2: Revisiones -->
                 <div class="dashboard-revisiones">
                     <div class="card today-reviews">
@@ -956,6 +958,7 @@
             renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
             renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
             renderMevAlertas(dataFiltrada);
+            renderPjnAlertas(dataFiltrada);
         }
 
         function renderMevAlertas(dataFiltrada) {
@@ -1048,6 +1051,91 @@
                     </td>
                 </tr>`).join('')}
             </table>`;
+        }
+
+        function renderPjnAlertas(dataFiltrada) {
+            let pjnCard = document.getElementById('pjnCard');
+            if (!pjnCard) {
+                const pjnRow = document.getElementById('pjnDashboardRow');
+                if (!pjnRow) return;
+                pjnCard = document.createElement('div');
+                pjnCard.id = 'pjnCard';
+                pjnCard.className = 'card';
+                pjnCard.style.cssText = 'border-top: 4px solid #8e44ad; border-left: 4px solid #8e44ad; padding: 15px;';
+                pjnCard.dataset.expandido = 'false';
+                pjnCard.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+                        <h3 style="color:#8e44ad; margin:0; font-size:1em;">⚖️ Actuaciones PJN</h3>
+                        <span id="pjnAlertaCount" style="background:#8e44ad;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">0</span>
+                        <span id="pjnExpandBtnHolder"></span>
+                        <button onclick="resetearVistasPJN()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>
+                    </div>
+                    <div id="pjnTablaHolder"></div>`;
+                pjnRow.appendChild(pjnCard);
+            }
+            const alertas = [];
+            dataFiltrada.forEach(client => {
+                const acts = client.pjn_actuaciones || [];
+                const ultimaVista = client.pjn_ultima_vista || null;
+                if (acts.length === 0) return;
+                const nuevos = ultimaVista
+                    ? acts.filter(a => {
+                        if (typeof ultimaVista === 'number' && a.fecha && a.fecha.includes('/')) {
+                            const [d,mo,yr] = a.fecha.split('/');
+                            const ts = new Date(yr+'-'+mo+'-'+d+'T00:00:00').getTime();
+                            return ts > ultimaVista;
+                        }
+                        return false;
+                    })
+                    : acts.slice(0, 3);
+                if (nuevos.length > 0) alertas.push({ client, nuevos });
+            });
+            const total = alertas.length;
+            const MOSTRAR = 3;
+            const expandido = pjnCard.dataset.expandido === 'true';
+            const visibles = expandido ? alertas : alertas.slice(0, MOSTRAR);
+            const countEl = document.getElementById('pjnAlertaCount');
+            if (countEl) countEl.textContent = total;
+            const expandHolder = document.getElementById('pjnExpandBtnHolder');
+            if (expandHolder) {
+                expandHolder.innerHTML = total > MOSTRAR
+                    ? `<button onclick="document.getElementById('pjnCard').dataset.expandido = '${expandido ? 'false' : 'true'}'; renderPjnAlertas(clientsData)" style="background:none;border:1px solid #8e44ad;color:#8e44ad;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
+                        ${expandido ? '▲ Ver menos' : '▼ Ver todos (' + total + ')'}
+                      </button>` : '';
+            }
+            const tablaHolder = document.getElementById('pjnTablaHolder');
+            if (!tablaHolder) return;
+            if (total === 0) {
+                tablaHolder.innerHTML = '<p style="color:#888; font-size:0.88em; margin:0;">No hay actuaciones nuevas en el PJN.</p>';
+                return;
+            }
+            tablaHolder.innerHTML = `<table style="width:100%; border-collapse:collapse;">
+                ${visibles.map(({ client, nuevos }) => `
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:6px 8px; color:#8e44ad; font-weight:600; white-space:nowrap; font-size:0.85em; width:80px;">
+                        ⚖️ ${nuevos.length}
+                    </td>
+                    <td style="padding:6px 8px; font-size:0.88em; cursor:pointer; color:#2c3e50;" onclick="showClientModal('${client.id}')">
+                        <strong>${getDisplayName(client)}</strong>
+                        <span style="color:#888; margin-left:8px; font-size:0.85em;">${nuevos[0].desc || nuevos[0].tipo || ''}</span>
+                    </td>
+                    <td style="padding:6px 4px; text-align:right; width:36px;">
+                        <button class="complete-btn" onclick="marcarPjnVisto('${client.id}')" title="Marcar como visto">✔</button>
+                    </td>
+                </tr>`).join('')}
+            </table>`;
+        }
+        function marcarPjnVisto(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.pjn_ultima_vista = Date.now();
+            updateClient(client);
+            renderPjnAlertas(clientsData);
+        }
+        function resetearVistasPJN() {
+            clientsData.forEach(c => { c.pjn_ultima_vista = null; });
+            clientsData.forEach(c => updateClient(c));
+            renderPjnAlertas(clientsData);
         }
 
         function abrirMEV() {
@@ -3475,7 +3563,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 const res = await fetch(PJN_WORKER_URL + '/abrir-exp?expediente=' + encodeURIComponent(expediente));
                 const data = await res.json();
                 if (data.ok && data.url) {
-                    window.open(data.url, '_blank');
+                    window.open(data.url, 'PJN', 'width=1100,height=700,scrollbars=yes,resizable=yes');
                 } else {
                     alert('No se pudo abrir el expediente: ' + (data.error || 'Error desconocido'));
                 }
