@@ -3551,27 +3551,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             })() : ''}`
         }
 
-        const PJN_WORKER_URL = 'https://pjn-scraper.garciayasociadosjus.workers.dev';
-
-        async function abrirExpedientePJN(expediente, btn) {
-            if (!expediente) { alert('Este caso no tiene número de expediente cargado.'); return; }
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '⏳ Abriendo...';
-            btn.disabled = true;
-            try {
-                const res = await fetch(PJN_WORKER_URL + '/abrir-exp?expediente=' + encodeURIComponent(expediente));
-                const data = await res.json();
-                if (data.ok && data.url) {
-                    window.open(data.url, 'PJN', 'width=1100,height=700,scrollbars=yes,resizable=yes');
-                } else {
-                    alert('No se pudo abrir el expediente: ' + (data.error || 'Error desconocido'));
-                }
-            } catch(e) {
-                alert('Error al conectar con el worker PJN: ' + e.message);
-            } finally {
-                btn.innerHTML = textoOriginal;
-                btn.disabled = false;
-            }
+        function abrirExpedientePJN(expediente, btn) {
+            window.open('https://scw.pjn.gov.ar/scw/consultaListaRelacionados.seam', 'PJN',
+                'width=1100,height=700,scrollbars=yes,resizable=yes');
         }
 
         function saveExpediente(clientId) {
