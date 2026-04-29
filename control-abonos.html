@@ -341,6 +341,54 @@
           <span class="alerta-sin-tel" id="alertaSinTel">⚠️ Se recomienda cargar teléfono para estados con deuda</span>
         </div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
+
+        <!-- CONVENIO BLANCO: sección de cuotas, visible solo para ese tipo -->
+        <div id="convenioBlancoDiv" style="display:none;border:2px solid #6366f1;border-radius:10px;padding:15px;margin-bottom:10px;background:#f5f3ff;">
+          <h4 style="color:#6366f1;margin-bottom:12px;">📋 Cuotas del Convenio Blanco</h4>
+          <p style="font-size:.82em;color:#64748b;margin-bottom:12px;">Cargá hasta 4 cuotas. Dejá vacío el importe si todavía no lo sabés — no genera deuda hasta que lo completes.</p>
+          <div style="display:grid;gap:8px;">
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;font-size:.82em;font-weight:600;color:#475569;">
+              <span>Cuota</span><span>Importe</span><span>Estado</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;">
+              <label style="font-weight:600;color:#6366f1;">Cuota 1</label>
+              <input type="number" id="cuota1monto" step="0.01" placeholder="Importe..." style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.9em;">
+              <select id="cuota1estado" style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">
+                <option value="Pendiente">⏳ Pendiente</option>
+                <option value="Pagado">✅ Pagado</option>
+                <option value="Falta de Pago">❌ Falta de Pago</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;">
+              <label style="font-weight:600;color:#6366f1;">Cuota 2</label>
+              <input type="number" id="cuota2monto" step="0.01" placeholder="Importe..." style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.9em;">
+              <select id="cuota2estado" style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">
+                <option value="Pendiente">⏳ Pendiente</option>
+                <option value="Pagado">✅ Pagado</option>
+                <option value="Falta de Pago">❌ Falta de Pago</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;">
+              <label style="font-weight:600;color:#6366f1;">Cuota 3</label>
+              <input type="number" id="cuota3monto" step="0.01" placeholder="Importe..." style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.9em;">
+              <select id="cuota3estado" style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">
+                <option value="Pendiente">⏳ Pendiente</option>
+                <option value="Pagado">✅ Pagado</option>
+                <option value="Falta de Pago">❌ Falta de Pago</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;">
+              <label style="font-weight:600;color:#6366f1;">Cuota 4 <span style="font-size:.75em;color:#94a3b8;">(opcional)</span></label>
+              <input type="number" id="cuota4monto" step="0.01" placeholder="Importe..." style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.9em;">
+              <select id="cuota4estado" style="padding:7px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">
+                <option value="Pendiente">⏳ Pendiente</option>
+                <option value="Pagado">✅ Pagado</option>
+                <option value="Falta de Pago">❌ Falta de Pago</option>
+              </select>
+            </div>
+          </div>
+          <p style="font-size:.78em;color:#94a3b8;margin-top:10px;">El monto que se muestra en la tabla y el arrastre se calculan automáticamente según las cuotas impagas.</p>
+        </div>
         <div class="form-group"><label>Monto del mes</label><input type="number" id="monto" required step="0.01"></div>
         <div class="form-group">
           <label>Abono / Jus Primitivo <span style="font-weight:400;color:#64748b;font-size:.85em;">(valor fijo base — se usa para el arrastre)</span></label>
@@ -464,7 +512,7 @@
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
-    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP'];
+    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -494,6 +542,22 @@
         var div = document.getElementById('pagoMontoParcialDiv');
         div.style.display = (this.value === 'Pago Parcial') ? 'block' : 'none';
         verificarAlertaTelefono();
+      });
+      document.getElementById('tipo').addEventListener('change', function() {
+        var cb = document.getElementById('convenioBlancoDiv');
+        cb.style.display = (this.value === 'Convenio Blanco') ? 'block' : 'none';
+        // Si es convenio blanco, el monto del mes lo calculamos de las cuotas, ocultamos monto manual
+        var montoGroup = document.getElementById('monto').closest('.form-group');
+        var primitiveGroup = document.getElementById('abonoPrimitivo').closest('.form-group');
+        if (this.value === 'Convenio Blanco') {
+          montoGroup.style.display = 'none';
+          primitiveGroup.style.display = 'none';
+          document.getElementById('monto').required = false;
+        } else {
+          montoGroup.style.display = '';
+          primitiveGroup.style.display = '';
+          document.getElementById('monto').required = true;
+        }
       });
       document.getElementById('telefono').addEventListener('input', verificarAlertaTelefono);
       
@@ -924,16 +988,19 @@
               ? (parseFloat(ultimoAbonoMensual.abonoPrimitivo) || parseFloat(ultimoAbonoMensual.montoBase) || parseFloat(ultimoAbonoMensual.monto) || 0)
               : 0;
 
-            // Deuda = suma de los montos REALES de todos los meses impagos del cliente
-            // (cada mes puede tener su propio monto, distinto del primitivo)
+            // Deuda = suma de lo que realmente se debe en cada mes impago.
+            // Usamos montoBase (lo acordado ese mes) + deudaAcumulada (deuda que ya venía de antes),
+            // porque `monto` puede o no incluir la deudaAcumulada según cómo se cargó el registro.
             var deudaTotal = 0;
             abonosmensuales.forEach(function(record) {
-              var montoReal = parseFloat(record.monto) || 0;
+              var base = parseFloat(record.montoBase) || parseFloat(record.monto) || 0;
+              var deudaVieja = parseFloat(record.deudaAcumulada) || 0;
+              var deudaRegistro = base + deudaVieja;
               if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
-                deudaTotal += montoReal;
+                deudaTotal += deudaRegistro;
               } else if (record.estado === 'Pago Parcial') {
                 var montoPagado = parseFloat(record.montoPagado) || 0;
-                var resta = montoReal - montoPagado;
+                var resta = deudaRegistro - montoPagado;
                 if (resta > 0) deudaTotal += resta;
               }
             });
@@ -970,7 +1037,49 @@
             }
           });
           
-          // === BONOS Y AP / HONORARIOS SINIESTRO: arrastre sin acumulación ===
+          // === CONVENIO BLANCO: arrastre por cuotas ===
+          var conveniosBlanco = clienteRecords.filter(function(r){ return r.tipo === 'Convenio Blanco'; });
+          conveniosBlanco.forEach(function(record) {
+            if (record.estado === 'Terminado' || record.estado === 'Pagado') return;
+            if (!record.cuotas || record.cuotas.length === 0) return;
+
+            // Copiar cuotas actualizando el estado de cada una
+            // Si el convenio estaba marcado pagado/terminado, no arrastrar
+            var cuotasNuevas = record.cuotas.map(function(cu) { return Object.assign({}, cu); });
+            var hayCuotasPendientes = cuotasNuevas.some(function(cu){ return cu.monto && cu.estado !== 'Pagado'; });
+            if (!hayCuotasPendientes) return;
+
+            var totalImpago = cuotasNuevas.reduce(function(s,cu){
+              return s + (cu.monto && cu.estado !== 'Pagado' ? parseFloat(cu.monto) : 0);
+            }, 0);
+
+            var cuotasDesc = cuotasNuevas.map(function(cu){
+              var icon = cu.estado === 'Pagado' ? '✅' : (cu.estado === 'Falta de Pago' ? '❌' : '⏳');
+              return icon + ' C' + cu.nro + ': ' + (cu.monto ? formatCurrency(cu.monto) : 'sin importe');
+            }).join(' | ');
+
+            addAbono({
+              cliente: cliente,
+              expediente: lastRecord.expediente||'',
+              telefono: telefono,
+              autorizaWhatsapp: lastRecord.autorizaWhatsapp || false,
+              ultimoContactoAgente: '',
+              respuestaCliente: '',
+              escalarACamila: false,
+              tipo: 'Convenio Blanco',
+              monto: totalImpago,
+              montoBase: totalImpago,
+              abonoPrimitivo: totalImpago,
+              deudaAcumulada: 0,
+              cuotas: cuotasNuevas,
+              fechaPago: '',
+              estado: 'Pendiente',
+              observaciones: record.observaciones||'',
+              observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nConvenio Blanco — ' + cuotasDesc,
+              mesServicio: mesServicioNuevo
+            });
+            registrosAgregados++;
+          });
           var otrosPagos = clienteRecords.filter(function(r){ 
             return (r.tipo === 'Pago de Bonos y AP' || r.tipo === 'Honorarios Siniestro');
           });
@@ -1268,16 +1377,32 @@
         else if(abono.estado==='Falta de Pago'){ tr.classList.add('highlight-falta'); }
         if(abono.deudaAcumulada && abono.deudaAcumulada > 0){ tr.classList.add('has-debt'); }
 
-        var montoDisplay = formatCurrency(abono.monto);
-        var additionalInfo = '';
-        if(abono.deudaAcumulada && abono.deudaAcumulada > 0){
-          additionalInfo += '<span class="debt-indicator">(Incluye deuda: '+formatCurrency(abono.deudaAcumulada)+')</span>';
+        var deudaAcum = parseFloat(abono.deudaAcumulada) || 0;
+        var montoBase = parseFloat(abono.montoBase) || parseFloat(abono.monto) || 0;
+        var montoTotal = parseFloat(abono.monto) || 0;
+        var montoDisplay = '';
+
+        if (abono.tipo === 'Convenio Blanco' && abono.cuotas && abono.cuotas.length > 0) {
+          // Mostrar cuotas individuales
+          var cuotasHtml = abono.cuotas.map(function(cu) {
+            if (!cu.monto) return '<span style="font-size:.75em;color:#94a3b8;">Cuota '+cu.nro+': sin importe</span>';
+            var col = cu.estado === 'Pagado' ? '#059669' : cu.estado === 'Falta de Pago' ? '#dc2626' : '#f59e0b';
+            var icon = cu.estado === 'Pagado' ? '✅' : cu.estado === 'Falta de Pago' ? '❌' : '⏳';
+            return '<span style="font-size:.75em;color:'+col+';display:block;">'+icon+' C'+cu.nro+': '+formatCurrency(cu.monto)+'</span>';
+          }).join('');
+          var totalImpago = abono.cuotas.reduce(function(s,cu){ return s + (cu.monto && cu.estado !== 'Pagado' ? cu.monto : 0); }, 0);
+          montoDisplay = (totalImpago > 0 ? '<span style="font-weight:700;font-size:1em;color:var(--danger-color);">'+formatCurrency(totalImpago)+' adeudado</span>' : '<span style="color:#059669;font-weight:700;">Convenio saldado</span>') + cuotasHtml;
+        } else if (deudaAcum > 0) {
+          montoDisplay = '<span style="font-weight:700;font-size:1em;color:var(--danger-color);">'+formatCurrency(montoTotal)+'</span>'+
+            '<span class="debt-indicator" style="margin-top:3px;">📌 Base: '+formatCurrency(montoBase)+'</span>'+
+            '<span class="debt-indicator">📛 Deuda: '+formatCurrency(deudaAcum)+'</span>';
+        } else {
+          montoDisplay = '<span style="font-weight:700;">'+formatCurrency(montoTotal)+'</span>';
         }
         if(abono.estado === 'Pago Parcial' && abono.montoPagado){
-          var montoRestante = parseFloat(abono.monto) - parseFloat(abono.montoPagado);
-          additionalInfo += '<span class="partial-payment-info">(Pagado: '+formatCurrency(abono.montoPagado)+' - Resta: '+formatCurrency(montoRestante)+')</span>';
+          var montoRestante = montoTotal - parseFloat(abono.montoPagado);
+          montoDisplay += '<span class="partial-payment-info">(Pagado: '+formatCurrency(abono.montoPagado)+' — Resta: '+formatCurrency(montoRestante)+')</span>';
         }
-        montoDisplay += additionalInfo;
 
         var hasObsClass = (abono.observaciones && abono.observaciones.trim() !== '') ? 'has-obs' : '';
         var hasAutoObs = (abono.observacionesAuto && abono.observacionesAuto.trim() !== '');
@@ -1421,6 +1546,20 @@
         document.getElementById('telefono').value = abono.telefono || '';
         document.getElementById('autorizaWhatsapp').checked = !!abono.autorizaWhatsapp;
         document.getElementById('tipo').value = abono.tipo || TIPO_OPTIONS[0];
+        // Mostrar/ocultar sección convenio blanco
+        var esConvenio = abono.tipo === 'Convenio Blanco';
+        document.getElementById('convenioBlancoDiv').style.display = esConvenio ? 'block' : 'none';
+        document.getElementById('monto').closest('.form-group').style.display = esConvenio ? 'none' : '';
+        document.getElementById('abonoPrimitivo').closest('.form-group').style.display = esConvenio ? 'none' : '';
+        document.getElementById('monto').required = !esConvenio;
+        if (esConvenio) {
+          var cuotas = abono.cuotas || [{},{},{},{}];
+          for (var c = 1; c <= 4; c++) {
+            var cu = cuotas[c-1] || {};
+            document.getElementById('cuota'+c+'monto').value = cu.monto || '';
+            document.getElementById('cuota'+c+'estado').value = cu.estado || 'Pendiente';
+          }
+        }
         document.getElementById('monto').value = abono.monto || '';
         document.getElementById('abonoPrimitivo').value = abono.abonoPrimitivo || abono.montoBase || abono.monto || '';
         document.getElementById('fechaVencimiento').value = abono.fechaVencimiento || '';
@@ -1436,6 +1575,14 @@
         // Modo alta
         form.removeAttribute('data-edit-id');
         document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
+        document.getElementById('convenioBlancoDiv').style.display = 'none';
+        document.getElementById('monto').closest('.form-group').style.display = '';
+        document.getElementById('abonoPrimitivo').closest('.form-group').style.display = '';
+        document.getElementById('monto').required = true;
+        for (var c = 1; c <= 4; c++) {
+          document.getElementById('cuota'+c+'monto').value = '';
+          document.getElementById('cuota'+c+'estado').value = 'Pendiente';
+        }
       }
       document.getElementById('abonoModal').classList.add('active');
     }
@@ -1451,16 +1598,35 @@
 
       var montoVal = parseFloat(document.getElementById('monto').value) || 0;
       var primitivo = parseFloat(document.getElementById('abonoPrimitivo').value) || montoVal;
+      var tipoVal = document.getElementById('tipo').value;
+
+      // Si es Convenio Blanco, leer cuotas y calcular monto de cuotas impagas
+      var cuotasData = null;
+      if (tipoVal === 'Convenio Blanco') {
+        cuotasData = [];
+        var montoImpago = 0;
+        for (var c = 1; c <= 4; c++) {
+          var cm = parseFloat(document.getElementById('cuota'+c+'monto').value) || 0;
+          var ce = document.getElementById('cuota'+c+'estado').value;
+          if (cm > 0 || c <= 3) { // siempre guardar las 3 primeras, la 4ta solo si tiene importe
+            if (cm > 0 || c < 4) cuotasData.push({ nro: c, monto: cm, estado: ce });
+          }
+          if (cm > 0 && ce !== 'Pagado') montoImpago += cm;
+        }
+        montoVal = montoImpago; // el monto del registro = suma de cuotas impagas con importe
+        primitivo = montoImpago;
+      }
 
       var data = {
         cliente: document.getElementById('cliente').value,
         expediente: document.getElementById('expediente').value,
         telefono: document.getElementById('telefono').value,
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
-        tipo: document.getElementById('tipo').value,
+        tipo: tipoVal,
         monto: montoVal,
         montoBase: montoVal,
         abonoPrimitivo: primitivo,
+        cuotas: cuotasData,
         fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
