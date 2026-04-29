@@ -1120,12 +1120,15 @@
               montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
               observacionOtro = 'Saldo pendiente de ' + record.tipo + ': ' + formatCurrency(montoRestante);
             } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
-              // Monto fijo: usar montoOriginal si existe, sino monto actual
               montoRestante = parseFloat(record.montoOriginal || record.monto) || 0;
-              observacionOtro = record.observaciones || (record.tipo + ' pendiente: ' + formatCurrency(montoRestante));
+              observacionOtro = record.observaciones || (record.tipo + ' pendiente: ' + (montoRestante > 0 ? formatCurrency(montoRestante) : 'importe a determinar'));
             }
             
-            if (montoRestante > 0) {
+            // Arrastrar siempre si es Honorarios Siniestro pendiente (aunque el monto sea 0)
+            var debeArrastrar = montoRestante > 0 || 
+              (record.tipo === 'Honorarios Siniestro' && ['Pendiente', 'Falta de Pago', 'Ejecución de Honorarios'].includes(record.estado));
+
+            if (debeArrastrar) {
               addAbono({ 
                 cliente: cliente,
                 expediente: lastRecord.expediente||'',
