@@ -389,6 +389,18 @@
           </div>
           <p style="font-size:.78em;color:#94a3b8;margin-top:10px;">El monto que se muestra en la tabla y el arrastre se calculan automáticamente según las cuotas impagas.</p>
         </div>
+
+        <!-- HONORARIOS EN CUOTAS: sección de hasta 12 cuotas -->
+        <div id="honorariosCuotasDiv" style="display:none;border:2px solid #e67e22;border-radius:10px;padding:15px;margin-bottom:10px;background:#fef9f3;">
+          <h4 style="color:#e67e22;margin-bottom:8px;">📋 Honorarios en Cuotas</h4>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <label style="font-size:.85em;font-weight:600;color:#475569;">Cantidad de cuotas:</label>
+            <select id="cantCuotasHC" style="padding:6px 10px;border:2px solid #e2e8f0;border-radius:6px;font-size:.9em;width:70px;"></select>
+          </div>
+          <p style="font-size:.82em;color:#64748b;margin-bottom:12px;">Cargá el importe de cada cuota. Si dejás vacío, no genera deuda hasta que lo completes.</p>
+          <div id="cuotasHCContainer" style="display:grid;gap:6px;max-height:350px;overflow-y:auto;"></div>
+          <p style="font-size:.78em;color:#94a3b8;margin-top:10px;">Cada mes se arrastra la cuota siguiente. Si no pagó, acumula.</p>
+        </div>
         <div class="form-group"><label>Monto del mes</label><input type="number" id="monto" required step="0.01"></div>
         <div class="form-group">
           <label>Abono / Jus Primitivo <span style="font-weight:400;color:#64748b;font-size:.85em;">(valor fijo base — se usa para el arrastre)</span></label>
@@ -512,7 +524,7 @@
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
-    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco'];
+    const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -545,11 +557,14 @@
       });
       document.getElementById('tipo').addEventListener('change', function() {
         var cb = document.getElementById('convenioBlancoDiv');
-        cb.style.display = (this.value === 'Convenio Blanco') ? 'block' : 'none';
-        // Si es convenio blanco, el monto del mes lo calculamos de las cuotas, ocultamos monto manual
+        var hc = document.getElementById('honorariosCuotasDiv');
+        var esConvenio = this.value === 'Convenio Blanco';
+        var esHonCuotas = this.value === 'Honorarios en Cuotas';
+        cb.style.display = esConvenio ? 'block' : 'none';
+        hc.style.display = esHonCuotas ? 'block' : 'none';
         var montoGroup = document.getElementById('monto').closest('.form-group');
         var primitiveGroup = document.getElementById('abonoPrimitivo').closest('.form-group');
-        if (this.value === 'Convenio Blanco') {
+        if (esConvenio || esHonCuotas) {
           montoGroup.style.display = 'none';
           primitiveGroup.style.display = 'none';
           document.getElementById('monto').required = false;
@@ -558,13 +573,33 @@
           primitiveGroup.style.display = '';
           document.getElementById('monto').required = true;
         }
+        if (esHonCuotas) renderCuotasHC(parseInt(document.getElementById('cantCuotasHC').value)||3);
       });
+
+      // Selector de cantidad de cuotas para Honorarios en Cuotas
+      var selCantHC = document.getElementById('cantCuotasHC');
+      for (var i = 1; i <= 12; i++) { var o = document.createElement('option'); o.value=i; o.textContent=i; selCantHC.appendChild(o); }
+      selCantHC.value = 3;
+      selCantHC.addEventListener('change', function(){ renderCuotasHC(parseInt(this.value)); });
       document.getElementById('telefono').addEventListener('input', verificarAlertaTelefono);
       
       document.getElementById('searchInput').addEventListener('input', function(e) {
           currentSearchTerm = e.target.value;
           render();
       });
+
+      function renderCuotasHC(cant) {
+        var container = document.getElementById('cuotasHCContainer');
+        container.innerHTML = '<div style="display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;font-size:.8em;font-weight:600;color:#475569;padding-bottom:4px;"><span>Cuota</span><span>Importe</span><span>Estado</span></div>';
+        for (var i = 1; i <= cant; i++) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;align-items:center;';
+          row.innerHTML = '<label style="font-weight:600;color:#e67e22;font-size:.85em;">C' + i + '</label>' +
+            '<input type="number" id="hcCuota' + i + 'monto" step="0.01" placeholder="Importe..." style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">' +
+            '<select id="hcCuota' + i + 'estado" style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.82em;"><option value="Pendiente">⏳ Pendiente</option><option value="Pagado">✅ Pagado</option><option value="Falta de Pago">❌ Falta de Pago</option></select>';
+          container.appendChild(row);
+        }
+      }
 
       document.getElementById('filtersBar').addEventListener('click', function(e){
         var btn = e.target.closest('.filter-btn');
@@ -1021,7 +1056,7 @@
           }
         }
 
-        else if (record.tipo === 'Convenio Blanco') {
+        else if (record.tipo === 'Convenio Blanco' || record.tipo === 'Honorarios en Cuotas') {
           if (!record.cuotasDefinicion || record.cuotasDefinicion.length === 0) return;
           var defs = record.cuotasDefinicion;
           var pagadasHasta = (record.cuotasPagadas || []).slice();
@@ -1046,7 +1081,7 @@
           var montoTotalCB = montoProx + montoCuotaImpaga;
           var cuotasRest = defs.filter(function(d){ return !pagadasHasta.includes(d.nro) && d.monto; });
           var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
-          addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Convenio Blanco', monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
+          addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
           added++;
         }
 
@@ -1323,7 +1358,7 @@
         var montoTotal = parseFloat(abono.monto) || 0;
         var montoDisplay = '';
 
-        if (abono.tipo === 'Convenio Blanco' && abono.cuotasDefinicion && abono.cuotasDefinicion.length > 0) {
+        if ((abono.tipo === 'Convenio Blanco' || abono.tipo === 'Honorarios en Cuotas') && abono.cuotasDefinicion && abono.cuotasDefinicion.length > 0) {
           var defs = abono.cuotasDefinicion;
           var pagadas = abono.cuotasPagadas || [];
           var cuotaNum = abono.cuotaActual || 1;
@@ -1500,20 +1535,36 @@
         document.getElementById('telefono').value = abono.telefono || '';
         document.getElementById('autorizaWhatsapp').checked = !!abono.autorizaWhatsapp;
         document.getElementById('tipo').value = abono.tipo || TIPO_OPTIONS[0];
-        // Mostrar/ocultar sección convenio blanco
+        // Mostrar/ocultar sección convenio blanco y honorarios cuotas
         var esConvenio = abono.tipo === 'Convenio Blanco';
+        var esHonCuotas = abono.tipo === 'Honorarios en Cuotas';
         document.getElementById('convenioBlancoDiv').style.display = esConvenio ? 'block' : 'none';
-        document.getElementById('monto').closest('.form-group').style.display = esConvenio ? 'none' : '';
-        document.getElementById('abonoPrimitivo').closest('.form-group').style.display = esConvenio ? 'none' : '';
-        document.getElementById('monto').required = !esConvenio;
+        document.getElementById('honorariosCuotasDiv').style.display = esHonCuotas ? 'block' : 'none';
+        document.getElementById('monto').closest('.form-group').style.display = (esConvenio || esHonCuotas) ? 'none' : '';
+        document.getElementById('abonoPrimitivo').closest('.form-group').style.display = (esConvenio || esHonCuotas) ? 'none' : '';
+        document.getElementById('monto').required = !(esConvenio || esHonCuotas);
         if (esConvenio) {
           var cuotas = abono.cuotasDefinicion || [];
           for (var c = 1; c <= 4; c++) {
             var cu = cuotas.find(function(x){ return x.nro === c; }) || {};
             document.getElementById('cuota'+c+'monto').value = cu.monto || '';
-            // estado visual solo para referencia — los estados reales los maneja cuotasPagadas
             var esPagada = (abono.cuotasPagadas || []).includes(c);
             document.getElementById('cuota'+c+'estado').value = esPagada ? 'Pagado' : (c === (abono.cuotaActual||1) ? (abono.estado||'Pendiente') : 'Pendiente');
+          }
+        }
+        if (esHonCuotas) {
+          var cuotasHC = abono.cuotasDefinicion || [];
+          var cantHC = cuotasHC.length || 3;
+          document.getElementById('cantCuotasHC').value = cantHC;
+          renderCuotasHC(cantHC);
+          for (var h = 0; h < cuotasHC.length; h++) {
+            var elM = document.getElementById('hcCuota' + cuotasHC[h].nro + 'monto');
+            var elE = document.getElementById('hcCuota' + cuotasHC[h].nro + 'estado');
+            if (elM) elM.value = cuotasHC[h].monto || '';
+            if (elE) {
+              var esPagadaHC = (abono.cuotasPagadas || []).includes(cuotasHC[h].nro);
+              elE.value = esPagadaHC ? 'Pagado' : (cuotasHC[h].nro === (abono.cuotaActual||1) ? (abono.estado||'Pendiente') : 'Pendiente');
+            }
           }
         }
         document.getElementById('monto').value = abono.monto || '';
@@ -1532,6 +1583,7 @@
         form.removeAttribute('data-edit-id');
         document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
         document.getElementById('convenioBlancoDiv').style.display = 'none';
+        document.getElementById('honorariosCuotasDiv').style.display = 'none';
         document.getElementById('monto').closest('.form-group').style.display = '';
         document.getElementById('abonoPrimitivo').closest('.form-group').style.display = '';
         document.getElementById('monto').required = true;
@@ -1539,6 +1591,8 @@
           document.getElementById('cuota'+c+'monto').value = '';
           document.getElementById('cuota'+c+'estado').value = 'Pendiente';
         }
+        document.getElementById('cantCuotasHC').value = 3;
+        document.getElementById('cuotasHCContainer').innerHTML = '';
       }
       document.getElementById('abonoModal').classList.add('active');
     }
@@ -1564,9 +1618,25 @@
           var cm = parseFloat(document.getElementById('cuota'+c+'monto').value) || 0;
           if (cm > 0) cuotasData.push({ nro: c, monto: cm });
         }
-        // La primera cuota con importe es la del mes actual
         var primeraConImporte = cuotasData[0];
         montoVal = primeraConImporte ? primeraConImporte.monto : 0;
+        primitivo = montoVal;
+      }
+
+      // Si es Honorarios en Cuotas, leer cuotas dinámicas
+      if (tipoVal === 'Honorarios en Cuotas') {
+        cuotasData = [];
+        var cantCuotas = parseInt(document.getElementById('cantCuotasHC').value) || 3;
+        for (var h = 1; h <= cantCuotas; h++) {
+          var el = document.getElementById('hcCuota'+h+'monto');
+          var elEst = document.getElementById('hcCuota'+h+'estado');
+          if (el) {
+            var hm = parseFloat(el.value) || 0;
+            if (hm > 0) cuotasData.push({ nro: h, monto: hm });
+          }
+        }
+        var primeraHC = cuotasData[0];
+        montoVal = primeraHC ? primeraHC.monto : 0;
         primitivo = montoVal;
       }
 
