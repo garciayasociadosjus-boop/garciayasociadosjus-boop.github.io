@@ -341,7 +341,11 @@
           <span class="alerta-sin-tel" id="alertaSinTel">⚠️ Se recomienda cargar teléfono para estados con deuda</span>
         </div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
-        <div class="form-group"><label>Monto</label><input type="number" id="monto" required step="0.01"></div>
+        <div class="form-group"><label>Monto del mes</label><input type="number" id="monto" required step="0.01"></div>
+        <div class="form-group">
+          <label>Abono / Jus Primitivo <span style="font-weight:400;color:#64748b;font-size:.85em;">(valor fijo base — se usa para el arrastre)</span></label>
+          <input type="number" id="abonoPrimitivo" step="0.01" placeholder="Igual al monto si no se indica otro">
+        </div>
         <div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="fechaVencimiento" placeholder="Día límite de pago"></div>
         <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><select id="formaPago"></select></div>
@@ -833,23 +837,22 @@
     function calcularDeudaCliente(cliente, abonos) {
       var deudaTotal = 0;
       var abonoMensual = 0;
-      
       abonos.forEach(function(record) {
         if (record.cliente === cliente) {
-          var montoBase = parseFloat(record.montoBase || record.monto) || 0;
-          var deudaPrevia = parseFloat(record.deudaAcumulada) || 0;
-          
+          // montoReal = lo que figura en el mes (puede haber sido modificado manualmente)
+          var montoReal = parseFloat(record.monto) || 0;
+          // montoBase = abono del mes sin deuda acumulada (para saber cuánto es "el abono en sí")
+          var montoBase = parseFloat(record.montoBase) || montoReal;
           if (record.tipo === 'Abono Mensual') { abonoMensual = montoBase; }
-          
           if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
             if (record.tipo !== 'Regulación Honorarios' || record.estado !== 'Falta de Pago') {
-              deudaTotal += montoBase + deudaPrevia;
+              // La deuda es el monto real del mes (ya incluye deudaAcumulada si fue arrastrado)
+              deudaTotal += montoReal;
             }
           } else if (record.estado === 'Pago Parcial') {
             if (record.tipo !== 'Regulación Honorarios') {
-              var montoTotalRecord = montoBase + deudaPrevia;
               var montoPagado = parseFloat(record.montoPagado) || 0;
-              var deudaRestante = montoTotalRecord - montoPagado;
+              var deudaRestante = montoReal - montoPagado;
               if (deudaRestante > 0) { deudaTotal += deudaRestante; }
             }
           }
@@ -875,8 +878,8 @@
                  a.mesServicio.year === y;
         });
         if (registros.length > 0) {
-          // Devuelve el que tenga montoBase más alto (el más actualizado)
-          return registros.sort(function(a,b){ return (parseFloat(b.montoBase||b.monto)||0) - (parseFloat(a.montoBase||a.monto)||0); })[0];
+          // Devuelve el primero (ya estamos en el mes más reciente disponible)
+          return registros[0];
         }
       }
       return null;
@@ -915,16 +918,24 @@
             var ultimoAbonoMensual = getUltimoRegistroCliente(cliente, 'Abono Mensual', currentMonth.month, currentMonth.year);
             var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
             var deudaTotal = calculoDeuda.deudaTotal;
-            var abonoMensual = ultimoAbonoMensual ? (parseFloat(ultimoAbonoMensual.montoBase) || calculoDeuda.abonoMensual) : calculoDeuda.abonoMensual;
+            // abonoMensual = el montoBase del último registro del mes actual (lo que se acordó cobrar ese mes,
+            // sin la deuda acumulada). Si se modificó en el mes, ese es el valor correcto.
+            var abonoMensual = ultimoAbonoMensual 
+              ? (parseFloat(ultimoAbonoMensual.montoBase) || calculoDeuda.abonoMensual) 
+              : calculoDeuda.abonoMensual;
+            // abonoPrimitivo se preserva del registro original si existe
+            var primitivoParaArrastre = ultimoAbonoMensual
+              ? (parseFloat(ultimoAbonoMensual.abonoPrimitivo) || abonoMensual)
+              : abonoMensual;
             // observaciones manuales se conservan, observacionesAuto se regenera
             var obsManual = lastRecord.observaciones || '';
             var obsAuto = '';
             if (deudaTotal > 0) {
               var mesNombreObs = MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year;
               obsAuto = '📅 ' + mesNombreObs + '\nDeuda acumulada: ' + formatCurrency(deudaTotal) + '\nAbono del mes: ' + formatCurrency(abonoMensual) + '\nTotal a cobrar: ' + formatCurrency(abonoMensual + deudaTotal);
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, abonoPrimitivo: primitivoParaArrastre, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
             } else {
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, abonoPrimitivo: primitivoParaArrastre, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
             }
             registrosAgregados++;
           }
@@ -1345,6 +1356,14 @@
           } else {
             render();
           }
+        } else if(field === 'monto') {
+          // Al modificar el monto del mes, actualizar también montoBase
+          // (montoBase = abono del mes sin deuda, que es lo que usará el arrastre)
+          var abono = abonosData.find(function(a){ return a.id===id; });
+          var deudaAcum = abono ? (parseFloat(abono.deudaAcumulada) || 0) : 0;
+          var nuevoMontoBase = newValue - deudaAcum;
+          if (nuevoMontoBase < 0) nuevoMontoBase = newValue;
+          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase });
         } else {
           updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
         }
@@ -1371,6 +1390,7 @@
       document.getElementById('fechaPago').value = '';
       document.getElementById('fechaVencimiento').value = '';
       document.getElementById('expediente').value = '';
+      document.getElementById('abonoPrimitivo').value = '';
       document.getElementById('autorizaWhatsapp').checked = false;
       document.getElementById('alertaSinTel').style.display = 'none';
       document.getElementById('telefono').classList.remove('telefono-missing');
@@ -1392,6 +1412,8 @@
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: document.getElementById('tipo').value,
         monto: parseFloat(document.getElementById('monto').value),
+        montoBase: parseFloat(document.getElementById('monto').value),
+        abonoPrimitivo: parseFloat(document.getElementById('abonoPrimitivo').value) || parseFloat(document.getElementById('monto').value),
         fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
