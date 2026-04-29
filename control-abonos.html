@@ -516,6 +516,8 @@
         var target = event.target;
         if(target.classList.contains('delete-btn')) {
           deleteAbono(target.getAttribute('data-id'));
+        } else if(target.classList.contains('edit-ficha-btn')) {
+          openModal(target.getAttribute('data-id'));
         } else if(target.classList.contains('receipt-btn')) {
           generateReceipt(target.getAttribute('data-id'));
         } else if(target.classList.contains('obs-btn')) {
@@ -916,26 +918,37 @@
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
           if (abonosmensuales.length > 0) {
             var ultimoAbonoMensual = getUltimoRegistroCliente(cliente, 'Abono Mensual', currentMonth.month, currentMonth.year);
-            var calculoDeuda = calcularDeudaCliente(cliente, abonosmensuales);
-            var deudaTotal = calculoDeuda.deudaTotal;
-            // abonoMensual = el montoBase del último registro del mes actual (lo que se acordó cobrar ese mes,
-            // sin la deuda acumulada). Si se modificó en el mes, ese es el valor correcto.
-            var abonoMensual = ultimoAbonoMensual 
-              ? (parseFloat(ultimoAbonoMensual.montoBase) || calculoDeuda.abonoMensual) 
-              : calculoDeuda.abonoMensual;
-            // abonoPrimitivo se preserva del registro original si existe
-            var primitivoParaArrastre = ultimoAbonoMensual
-              ? (parseFloat(ultimoAbonoMensual.abonoPrimitivo) || abonoMensual)
-              : abonoMensual;
-            // observaciones manuales se conservan, observacionesAuto se regenera
+
+            // abonoPrimitivo = valor fijo del cliente para el mes nuevo
+            var primitivoBase = ultimoAbonoMensual
+              ? (parseFloat(ultimoAbonoMensual.abonoPrimitivo) || parseFloat(ultimoAbonoMensual.montoBase) || parseFloat(ultimoAbonoMensual.monto) || 0)
+              : 0;
+
+            // Deuda = suma de los montos REALES de todos los meses impagos del cliente
+            // (cada mes puede tener su propio monto, distinto del primitivo)
+            var deudaTotal = 0;
+            abonosmensuales.forEach(function(record) {
+              var montoReal = parseFloat(record.monto) || 0;
+              if (record.estado === 'Pendiente' || record.estado === 'Falta de Pago' || record.estado === 'Ejecución de Honorarios') {
+                deudaTotal += montoReal;
+              } else if (record.estado === 'Pago Parcial') {
+                var montoPagado = parseFloat(record.montoPagado) || 0;
+                var resta = montoReal - montoPagado;
+                if (resta > 0) deudaTotal += resta;
+              }
+            });
+
             var obsManual = lastRecord.observaciones || '';
             var obsAuto = '';
+            var mesNombreObs = MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year;
+
             if (deudaTotal > 0) {
-              var mesNombreObs = MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year;
-              obsAuto = '📅 ' + mesNombreObs + '\nDeuda acumulada: ' + formatCurrency(deudaTotal) + '\nAbono del mes: ' + formatCurrency(abonoMensual) + '\nTotal a cobrar: ' + formatCurrency(abonoMensual + deudaTotal);
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual + deudaTotal, montoBase: abonoMensual, abonoPrimitivo: primitivoParaArrastre, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
+              // Monto del nuevo mes = primitivo + deuda acumulada
+              var montoNuevo = primitivoBase + deudaTotal;
+              obsAuto = '📅 ' + mesNombreObs + '\nDeuda acumulada: ' + formatCurrency(deudaTotal) + '\nAbono del mes: ' + formatCurrency(primitivoBase) + '\nTotal a cobrar: ' + formatCurrency(montoNuevo);
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: montoNuevo, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
             } else {
-              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: abonoMensual, montoBase: abonoMensual, abonoPrimitivo: primitivoParaArrastre, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
+              addAbono({ cliente: cliente, expediente: lastRecord.expediente||'', telefono: telefono, autorizaWhatsapp: lastRecord.autorizaWhatsapp || false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: primitivoBase, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
             }
             registrosAgregados++;
           }
@@ -1305,6 +1318,7 @@
           '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
           '<td style="text-align:center;min-width:90px;">'+agenteCell+'</td>'+
           '<td class="no-print"><div class="action-buttons">'+
+            '<button class="btn btn-small edit-ficha-btn" data-id="'+abono.id+'" title="Editar ficha completa" style="background:#8e44ad;">✏️</button>'+
             '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="'+obsTitle+'">'+obsIcon+'</button>'+
             '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
             '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
@@ -1384,7 +1398,7 @@
       FORMA_PAGO_OPTIONS.forEach(function(opt){ var o=document.createElement('option'); o.value=opt; o.textContent=opt; formaPago.appendChild(o); });
     }
 
-    function openModal(){
+    function openModal(editId){
       var form = document.getElementById('abonoForm');
       form.reset();
       document.getElementById('fechaPago').value = '';
@@ -1394,8 +1408,35 @@
       document.getElementById('autorizaWhatsapp').checked = false;
       document.getElementById('alertaSinTel').style.display = 'none';
       document.getElementById('telefono').classList.remove('telefono-missing');
-      document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
+
+      if (editId) {
+        // Modo edición: cargar datos del registro existente
+        var abono = abonosData.find(function(a){ return a.id === editId; });
+        if (!abono) return;
+        form.setAttribute('data-edit-id', editId);
+        document.getElementById('modalTitle').textContent = '✏️ Editar Ficha: ' + (abono.cliente || '');
+        document.getElementById('cliente').value = abono.cliente || '';
+        document.getElementById('expediente').value = abono.expediente || '';
+        document.getElementById('telefono').value = abono.telefono || '';
+        document.getElementById('autorizaWhatsapp').checked = !!abono.autorizaWhatsapp;
+        document.getElementById('tipo').value = abono.tipo || TIPO_OPTIONS[0];
+        document.getElementById('monto').value = abono.monto || '';
+        document.getElementById('abonoPrimitivo').value = abono.abonoPrimitivo || abono.montoBase || abono.monto || '';
+        document.getElementById('fechaVencimiento').value = abono.fechaVencimiento || '';
+        document.getElementById('fechaPago').value = abono.fechaPago || '';
+        document.getElementById('formaPago').value = abono.formaPago || FORMA_PAGO_OPTIONS[0];
+        document.getElementById('estado').value = abono.estado || ESTADO_OPTIONS[0];
+        document.getElementById('observaciones').value = abono.observaciones || '';
+        if (abono.estado === 'Pago Parcial') {
+          document.getElementById('pagoMontoParcialDiv').style.display = 'block';
+          document.getElementById('montoPagadoParcial').value = abono.montoPagado || '';
+        }
+      } else {
+        // Modo alta
+        form.removeAttribute('data-edit-id');
+        document.getElementById('modalTitle').textContent = 'Agregar Nuevo Registro';
+      }
       document.getElementById('abonoModal').classList.add('active');
     }
     function closeModal(){ document.getElementById('abonoModal').classList.remove('active'); }
@@ -1405,30 +1446,28 @@
 
     function handleFormSubmit(e){
       e.preventDefault();
+      var form = document.getElementById('abonoForm');
+      var editId = form.getAttribute('data-edit-id');
+
+      var montoVal = parseFloat(document.getElementById('monto').value) || 0;
+      var primitivo = parseFloat(document.getElementById('abonoPrimitivo').value) || montoVal;
+
       var data = {
         cliente: document.getElementById('cliente').value,
         expediente: document.getElementById('expediente').value,
         telefono: document.getElementById('telefono').value,
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: document.getElementById('tipo').value,
-        monto: parseFloat(document.getElementById('monto').value),
-        montoBase: parseFloat(document.getElementById('monto').value),
-        abonoPrimitivo: parseFloat(document.getElementById('abonoPrimitivo').value) || parseFloat(document.getElementById('monto').value),
+        monto: montoVal,
+        montoBase: montoVal,
+        abonoPrimitivo: primitivo,
         fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
         estado: document.getElementById('estado').value,
         observaciones: document.getElementById('observaciones').value,
-        ultimoContactoAgente: '',
-        respuestaCliente: '',
-        escalarACamila: false,
-        historialContactos: [],
-        mesServicio: {
-          month: currentMonth.month,
-          year: currentMonth.year
-        }
       };
-      
+
       if(data.estado === 'Pago Parcial') {
         var montoPagado = parseFloat(document.getElementById('montoPagadoParcial').value);
         if(montoPagado && montoPagado > 0) {
@@ -1438,8 +1477,19 @@
           return;
         }
       }
-      
-      addAbono(data);
+
+      if (editId) {
+        // Modo edición: preservar campos del sistema, actualizar solo los editables
+        updateAbono(editId, data);
+      } else {
+        // Modo alta: crear registro nuevo completo
+        data.ultimoContactoAgente = '';
+        data.respuestaCliente = '';
+        data.escalarACamila = false;
+        data.historialContactos = [];
+        data.mesServicio = { month: currentMonth.month, year: currentMonth.year };
+        addAbono(data);
+      }
       closeModal();
     }
 
