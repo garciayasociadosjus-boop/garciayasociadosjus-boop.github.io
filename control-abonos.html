@@ -960,13 +960,12 @@
       
       var unique = Array.from(new Set(curr.map(function(a){ return a.cliente; })));
       var next = getAbonosForMonth(nm, ny);
-      var existing = new Set(next.map(function(a){ return a.cliente; }));
+      // Chequear por cliente+tipo para no saltear tipos que aún no se corrieron
+      var existingSet = new Set(next.map(function(a){ return a.cliente + '||' + a.tipo; }));
       var added=0;
 
       unique.forEach(function(cliente){
-        if(!existing.has(cliente)){
           var clienteRecords = curr.filter(function(a){ return a.cliente===cliente; });
-          // Usamos el primer registro del mes actual para datos generales
           var lastRecord = clienteRecords[0];
           
           if (lastRecord.estado === 'Terminado') {
@@ -980,7 +979,7 @@
           var mesServicioNuevo = { month: nm, year: ny };
           
           var abonosmensuales = clienteRecords.filter(function(r){ return r.tipo === 'Abono Mensual'; });
-          if (abonosmensuales.length > 0) {
+          if (abonosmensuales.length > 0 && !existingSet.has(cliente + '||Abono Mensual')) {
             var ultimoAbonoMensual = getUltimoRegistroCliente(cliente, 'Abono Mensual', currentMonth.month, currentMonth.year);
 
             // abonoPrimitivo = valor fijo del cliente para el mes nuevo
@@ -1022,6 +1021,7 @@
           
           var regulaciones = clienteRecords.filter(function(r){ return r.tipo === 'Regulación Honorarios'; });
           regulaciones.forEach(function(record) {
+            if (existingSet.has(cliente + '||Regulación Honorarios')) return;
             var montoRestante = 0, observacionRegulacion = '';
             if (record.estado === 'Pago Parcial') {
               montoRestante = (parseFloat(record.monto) || 0) - (parseFloat(record.montoPagado) || 0);
@@ -1040,6 +1040,7 @@
           // === CONVENIO BLANCO: una cuota por mes, acumula si no pagó ===
           var conveniosBlanco = clienteRecords.filter(function(r){ return r.tipo === 'Convenio Blanco'; });
           conveniosBlanco.forEach(function(record) {
+            if (existingSet.has(cliente + '||Convenio Blanco')) return;
             if (record.estado === 'Terminado') return;
             if (!record.cuotasDefinicion || record.cuotasDefinicion.length === 0) return;
 
@@ -1112,6 +1113,7 @@
           });
           
           otrosPagos.forEach(function(record) {
+            if (existingSet.has(cliente + '||' + record.tipo)) return;
             var montoRestante = 0, observacionOtro = '';
             
             if (record.estado === 'Pago Parcial') {
@@ -1151,7 +1153,6 @@
           });
           
           if (registrosAgregados > 0) { added++; }
-        }
       });
 
       if(added>0){
