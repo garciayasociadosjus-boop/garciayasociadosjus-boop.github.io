@@ -1037,26 +1037,48 @@
             }
           });
           
-          // === CONVENIO BLANCO: arrastre por cuotas ===
+          // === CONVENIO BLANCO: una cuota por mes, acumula si no pagó ===
           var conveniosBlanco = clienteRecords.filter(function(r){ return r.tipo === 'Convenio Blanco'; });
           conveniosBlanco.forEach(function(record) {
-            if (record.estado === 'Terminado' || record.estado === 'Pagado') return;
-            if (!record.cuotas || record.cuotas.length === 0) return;
+            if (record.estado === 'Terminado') return;
+            if (!record.cuotasDefinicion || record.cuotasDefinicion.length === 0) return;
 
-            // Copiar cuotas actualizando el estado de cada una
-            // Si el convenio estaba marcado pagado/terminado, no arrastrar
-            var cuotasNuevas = record.cuotas.map(function(cu) { return Object.assign({}, cu); });
-            var hayCuotasPendientes = cuotasNuevas.some(function(cu){ return cu.monto && cu.estado !== 'Pagado'; });
-            if (!hayCuotasPendientes) return;
+            var defs = record.cuotasDefinicion; // definición fija de todas las cuotas
+            var pagadasHasta = record.cuotasPagadas || []; // array de nros de cuota ya cobradas
 
-            var totalImpago = cuotasNuevas.reduce(function(s,cu){
-              return s + (cu.monto && cu.estado !== 'Pagado' ? parseFloat(cu.monto) : 0);
-            }, 0);
+            // Si el mes actual estaba pagado, avanzar al siguiente número de cuota pendiente
+            var cuotaActual = record.cuotaActual || 1;
+            if (record.estado === 'Pagado' || record.estado === 'Pago Parcial') {
+              // Esta cuota se cobró (total o parcialmente) → avanzar
+              pagadasHasta = pagadasHasta.concat([cuotaActual]);
+            }
 
-            var cuotasDesc = cuotasNuevas.map(function(cu){
-              var icon = cu.estado === 'Pagado' ? '✅' : (cu.estado === 'Falta de Pago' ? '❌' : '⏳');
-              return icon + ' C' + cu.nro + ': ' + (cu.monto ? formatCurrency(cu.monto) : 'sin importe');
-            }).join(' | ');
+            // Próxima cuota pendiente
+            var proximaCuota = null;
+            for (var i = 0; i < defs.length; i++) {
+              if (!pagadasHasta.includes(defs[i].nro) && defs[i].monto) {
+                proximaCuota = defs[i];
+                break;
+              }
+            }
+            if (!proximaCuota) return; // todas pagadas
+
+            // ¿Hay mora? Si el mes actual estaba impago, sumar esa cuota también
+            var montoCuotaImpaga = 0;
+            var labelMora = '';
+            if (record.estado !== 'Pagado' && record.estado !== 'Terminado') {
+              // La cuota del mes actual no se pagó → va como mora
+              var cuotaActualDef = defs.find(function(d){ return d.nro === cuotaActual; });
+              if (cuotaActualDef && cuotaActualDef.monto && cuotaActualDef.nro !== proximaCuota.nro) {
+                montoCuotaImpaga = parseFloat(cuotaActualDef.monto) || 0;
+                labelMora = ' + C' + cuotaActual + ' impaga: ' + formatCurrency(montoCuotaImpaga);
+              }
+            }
+
+            var montoProx = parseFloat(proximaCuota.monto) || 0;
+            var montoTotal = montoProx + montoCuotaImpaga;
+            var cuotasRestantes = defs.filter(function(d){ return !pagadasHasta.includes(d.nro) && d.monto; });
+            var resumenCuotas = cuotasRestantes.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
 
             addAbono({
               cliente: cliente,
@@ -1067,15 +1089,20 @@
               respuestaCliente: '',
               escalarACamila: false,
               tipo: 'Convenio Blanco',
-              monto: totalImpago,
-              montoBase: totalImpago,
-              abonoPrimitivo: totalImpago,
-              deudaAcumulada: 0,
-              cuotas: cuotasNuevas,
+              monto: montoTotal,
+              montoBase: montoProx,
+              abonoPrimitivo: montoProx,
+              deudaAcumulada: montoCuotaImpaga,
+              cuotaActual: proximaCuota.nro,
+              cuotasPagadas: pagadasHasta,
+              cuotasDefinicion: defs,
               fechaPago: '',
               estado: 'Pendiente',
               observaciones: record.observaciones||'',
-              observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nConvenio Blanco — ' + cuotasDesc,
+              observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year +
+                '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) +
+                labelMora +
+                '\nRestantes: ' + resumenCuotas,
               mesServicio: mesServicioNuevo
             });
             registrosAgregados++;
@@ -1382,16 +1409,29 @@
         var montoTotal = parseFloat(abono.monto) || 0;
         var montoDisplay = '';
 
-        if (abono.tipo === 'Convenio Blanco' && abono.cuotas && abono.cuotas.length > 0) {
-          // Mostrar cuotas individuales
-          var cuotasHtml = abono.cuotas.map(function(cu) {
-            if (!cu.monto) return '<span style="font-size:.75em;color:#94a3b8;">Cuota '+cu.nro+': sin importe</span>';
-            var col = cu.estado === 'Pagado' ? '#059669' : cu.estado === 'Falta de Pago' ? '#dc2626' : '#f59e0b';
-            var icon = cu.estado === 'Pagado' ? '✅' : cu.estado === 'Falta de Pago' ? '❌' : '⏳';
-            return '<span style="font-size:.75em;color:'+col+';display:block;">'+icon+' C'+cu.nro+': '+formatCurrency(cu.monto)+'</span>';
+        if (abono.tipo === 'Convenio Blanco' && abono.cuotasDefinicion && abono.cuotasDefinicion.length > 0) {
+          var defs = abono.cuotasDefinicion;
+          var pagadas = abono.cuotasPagadas || [];
+          var cuotaNum = abono.cuotaActual || 1;
+          var cuotaDef = defs.find(function(d){ return d.nro === cuotaNum; });
+          var montoCuota = cuotaDef ? parseFloat(cuotaDef.monto) || 0 : montoTotal;
+          var deudaCuota = parseFloat(abono.deudaAcumulada) || 0;
+
+          // Resumen de cuotas: pagadas ✅, actual ⏳/❌, pendientes sin importe aún
+          var resumenHtml = defs.map(function(d) {
+            if (pagadas.includes(d.nro)) return '<span style="font-size:.75em;color:#059669;display:block;">✅ C'+d.nro+': '+formatCurrency(d.monto)+'</span>';
+            if (d.nro === cuotaNum) {
+              var col = abono.estado === 'Falta de Pago' ? '#dc2626' : '#f59e0b';
+              var icon = abono.estado === 'Falta de Pago' ? '❌' : '⏳';
+              return '<span style="font-size:.75em;color:'+col+';display:block;font-weight:700;">'+icon+' C'+d.nro+' (este mes): '+formatCurrency(montoCuota)+'</span>';
+            }
+            return '<span style="font-size:.75em;color:#94a3b8;display:block;">🔜 C'+d.nro+': '+(d.monto ? formatCurrency(d.monto) : 'sin importe')+'</span>';
           }).join('');
-          var totalImpago = abono.cuotas.reduce(function(s,cu){ return s + (cu.monto && cu.estado !== 'Pagado' ? cu.monto : 0); }, 0);
-          montoDisplay = (totalImpago > 0 ? '<span style="font-weight:700;font-size:1em;color:var(--danger-color);">'+formatCurrency(totalImpago)+' adeudado</span>' : '<span style="color:#059669;font-weight:700;">Convenio saldado</span>') + cuotasHtml;
+
+          var montoMostrar = deudaCuota > 0
+            ? '<span style="font-weight:700;color:var(--danger-color);">'+formatCurrency(montoTotal)+'</span><span class="debt-indicator">📌 C'+cuotaNum+': '+formatCurrency(montoCuota)+'</span><span class="debt-indicator">📛 Mora C'+(cuotaNum-1)+': '+formatCurrency(deudaCuota)+'</span>'
+            : '<span style="font-weight:700;">'+formatCurrency(montoCuota)+'</span>';
+          montoDisplay = montoMostrar + resumenHtml;
         } else if (deudaAcum > 0) {
           montoDisplay = '<span style="font-weight:700;font-size:1em;color:var(--danger-color);">'+formatCurrency(montoTotal)+'</span>'+
             '<span class="debt-indicator" style="margin-top:3px;">📌 Base: '+formatCurrency(montoBase)+'</span>'+
@@ -1553,11 +1593,13 @@
         document.getElementById('abonoPrimitivo').closest('.form-group').style.display = esConvenio ? 'none' : '';
         document.getElementById('monto').required = !esConvenio;
         if (esConvenio) {
-          var cuotas = abono.cuotas || [{},{},{},{}];
+          var cuotas = abono.cuotasDefinicion || [];
           for (var c = 1; c <= 4; c++) {
-            var cu = cuotas[c-1] || {};
+            var cu = cuotas.find(function(x){ return x.nro === c; }) || {};
             document.getElementById('cuota'+c+'monto').value = cu.monto || '';
-            document.getElementById('cuota'+c+'estado').value = cu.estado || 'Pendiente';
+            // estado visual solo para referencia — los estados reales los maneja cuotasPagadas
+            var esPagada = (abono.cuotasPagadas || []).includes(c);
+            document.getElementById('cuota'+c+'estado').value = esPagada ? 'Pagado' : (c === (abono.cuotaActual||1) ? (abono.estado||'Pendiente') : 'Pendiente');
           }
         }
         document.getElementById('monto').value = abono.monto || '';
@@ -1600,21 +1642,18 @@
       var primitivo = parseFloat(document.getElementById('abonoPrimitivo').value) || montoVal;
       var tipoVal = document.getElementById('tipo').value;
 
-      // Si es Convenio Blanco, leer cuotas y calcular monto de cuotas impagas
+      // Si es Convenio Blanco, leer cuotas y calcular monto de la primera cuota con importe
       var cuotasData = null;
       if (tipoVal === 'Convenio Blanco') {
         cuotasData = [];
-        var montoImpago = 0;
         for (var c = 1; c <= 4; c++) {
           var cm = parseFloat(document.getElementById('cuota'+c+'monto').value) || 0;
-          var ce = document.getElementById('cuota'+c+'estado').value;
-          if (cm > 0 || c <= 3) { // siempre guardar las 3 primeras, la 4ta solo si tiene importe
-            if (cm > 0 || c < 4) cuotasData.push({ nro: c, monto: cm, estado: ce });
-          }
-          if (cm > 0 && ce !== 'Pagado') montoImpago += cm;
+          if (cm > 0) cuotasData.push({ nro: c, monto: cm });
         }
-        montoVal = montoImpago; // el monto del registro = suma de cuotas impagas con importe
-        primitivo = montoImpago;
+        // La primera cuota con importe es la del mes actual
+        var primeraConImporte = cuotasData[0];
+        montoVal = primeraConImporte ? primeraConImporte.monto : 0;
+        primitivo = montoVal;
       }
 
       var data = {
@@ -1626,7 +1665,9 @@
         monto: montoVal,
         montoBase: montoVal,
         abonoPrimitivo: primitivo,
-        cuotas: cuotasData,
+        cuotasDefinicion: cuotasData,
+        cuotaActual: cuotasData && cuotasData.length > 0 ? cuotasData[0].nro : null,
+        cuotasPagadas: [],
         fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
         formaPago: document.getElementById('formaPago').value,
