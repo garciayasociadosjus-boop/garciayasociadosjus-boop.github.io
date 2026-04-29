@@ -1460,11 +1460,17 @@
         var toggleAuthColor = abono.autorizaWhatsapp ? '#64748b' : '#059669';
         var hasLogClass = (abono.historialContactos && abono.historialContactos.length > 0) ? 'btn-warning' : 'btn-info';
         var obsIcon = hasObsClass ? '📝' : (hasAutoObs ? '🤖' : '📝');
+        var tipoLabel = abono.tipo||'N/A';
+        if (abono.tipo === 'Convenio Blanco' && abono.convenioTipo) {
+          var _cc = abono.convenioTipo === 'Definitivo' ? '#059669' : '#e67e22';
+          var _ci = abono.convenioTipo === 'Definitivo' ? '✅' : '📝';
+          tipoLabel += '<br><span style="font-size:.72em;font-weight:700;color:'+_cc+';">'+_ci+' '+abono.convenioTipo+'</span>';
+        }
         tr.innerHTML =
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text" style="font-size:.82em;color:#1e3a8a;">'+(abono.expediente||'—')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+(abono.tipo||'N/A')+'</td>'+
+          '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+tipoLabel+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaVencimiento" data-type="date">'+renderVencimiento(abono)+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
