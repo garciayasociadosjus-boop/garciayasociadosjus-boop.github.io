@@ -1078,14 +1078,14 @@
                 const acts = client.pjn_actuaciones || [];
                 if (acts.length === 0) return;
                 const ultimaVista = client.pjn_ultima_vista || null;
-                // Si tiene última vista, verificar si hubo sync nueva después
+                // pjn_ultima_sync solo se actualiza cuando hay actuaciones NUEVAS
                 if (ultimaVista && client.pjn_ultima_sync) {
                     const syncTs = new Date(client.pjn_ultima_sync).getTime();
                     if (syncTs > ultimaVista) {
-                        // Sync nueva después de marcar visto — mostrar como nuevo
+                        // Hay actuaciones nuevas desde que lo marcó como trabajado
                         alertas.push({ client, nuevos: acts.slice(0, 3) });
                     }
-                    // Si no hubo sync nueva, no mostrar (ya lo vio)
+                    // Si syncTs <= ultimaVista: ya lo vio, no mostrar
                     return;
                 }
                 // Nunca fue marcado como visto — mostrar
@@ -3540,7 +3540,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         </div>
                         <div style="display:flex; gap:12px; align-items:center;">
                             ${pjnSituacion ? `<span style="font-size:0.8em; background:#f3e5f5; color:#6a1b9a; padding:2px 8px; border-radius:10px; font-weight:600;">${pjnSituacion}</span>` : ''}
-                            ${pjnSync ? `<span style="font-size:0.78em; color:#888;">Última sync: ${pjnSync}</span>` : ''}
+                            ${(() => {
+                        const revision = client.pjn_ultima_revision
+                            ? new Date(client.pjn_ultima_revision).toLocaleString('es-AR')
+                            : pjnSync;
+                        return revision ? `<span style="font-size:0.78em; color:#888;">Última revisión: ${revision}</span>` : '';
+                    })()}
                         </div>
                     </div>
                     ${pjn.length === 0
