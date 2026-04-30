@@ -458,6 +458,8 @@
                 <div id="mevDashboardRow"></div>
                 <!-- Fila PJN -->
                 <div id="pjnDashboardRow"></div>
+                <!-- Fila SCBA -->
+                <div id="scbaDashboardRow"></div>
                 <!-- Fila 2: Revisiones -->
                 <div class="dashboard-revisiones">
                     <div class="card today-reviews">
@@ -959,6 +961,102 @@
             renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
             renderMevAlertas(dataFiltrada);
             renderPjnAlertas(dataFiltrada);
+            renderScbaAlertas(dataFiltrada);
+        }
+
+        function renderScbaAlertas(dataFiltrada) {
+            let scbaCard = document.getElementById('scbaCard');
+            if (!scbaCard) {
+                const scbaRow = document.getElementById('scbaDashboardRow');
+                if (!scbaRow) return;
+                scbaCard = document.createElement('div');
+                scbaCard.id = 'scbaCard';
+                scbaCard.className = 'card';
+                scbaCard.style.cssText = 'border-top: 4px solid #e74c3c; border-left: 4px solid #e74c3c; padding: 15px;';
+                scbaCard.dataset.expandido = 'false';
+                scbaCard.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+                        <h3 style="color:#c0392b; margin:0; font-size:1em;">📬 Notificaciones SCBA</h3>
+                        <span id="scbaAlertaCount" style="background:#e74c3c;color:white;border-radius:50%;padding:2px 7px;font-size:0.8em;">0</span>
+                        <span id="scbaExpandBtnHolder"></span>
+                        <button onclick="resetearVistasScba()" style="margin-left:auto;background:none;border:1px solid #95a5a6;color:#95a5a6;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">↺ Reset</button>
+                    </div>
+                    <div id="scbaTablaHolder"></div>`;
+                scbaRow.appendChild(scbaCard);
+            }
+
+            const alertas = [];
+            dataFiltrada.forEach(client => {
+                const notifs = client.scba_notificaciones || [];
+                if (notifs.length === 0) return;
+                const ultimaVista = client.scba_ultima_vista || null;
+                if (ultimaVista && client.scba_ultima_sync) {
+                    const syncTs = new Date(client.scba_ultima_sync).getTime();
+                    if (syncTs > ultimaVista) {
+                        alertas.push({ client, nuevos: notifs.slice(0, 3) });
+                    }
+                    return;
+                }
+                alertas.push({ client, nuevos: notifs.slice(0, 3) });
+            });
+
+            const total = alertas.length;
+            const MOSTRAR = 3;
+            const expandido = scbaCard.dataset.expandido === 'true';
+            const visibles = expandido ? alertas : alertas.slice(0, MOSTRAR);
+
+            const countEl = document.getElementById('scbaAlertaCount');
+            if (countEl) countEl.textContent = total;
+
+            const expandHolder = document.getElementById('scbaExpandBtnHolder');
+            if (expandHolder) {
+                expandHolder.innerHTML = total > MOSTRAR
+                    ? `<button onclick="document.getElementById('scbaCard').dataset.expandido = '${expandido ? 'false' : 'true'}'; renderScbaAlertas(clientsData)" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">
+                        ${expandido ? '▲ Ver menos' : '▼ Ver todos (' + total + ')'}
+                      </button>` : '';
+            }
+
+            const tablaHolder = document.getElementById('scbaTablaHolder');
+            if (!tablaHolder) return;
+
+            if (total === 0) {
+                tablaHolder.innerHTML = '<p style="color:#888; font-size:0.88em; margin:0;">No hay notificaciones nuevas del SCBA.</p>';
+                return;
+            }
+
+            tablaHolder.innerHTML = `<table style="width:100%; border-collapse:collapse;">
+                ${visibles.map(({ client, nuevos }) => `
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:6px 8px; color:#c0392b; font-weight:600; white-space:nowrap; font-size:0.85em; width:80px;">
+                        📬 ${nuevos.length}
+                    </td>
+                    <td style="padding:6px 8px; font-size:0.88em; cursor:pointer; color:#2c3e50;" onclick="showClientModal('${client.id}')">
+                        <strong>${getDisplayName(client)}</strong>
+                        <span style="color:#888; margin-left:8px; font-size:0.85em;">${nuevos[0].tramite || ''}</span>
+                    </td>
+                    <td style="padding:6px 4px; text-align:right; width:36px;">
+                        <button class="complete-btn" onclick="marcarScbaVisto('${client.id}')" title="Marcar como visto">✔</button>
+                    </td>
+                </tr>`).join('')}
+            </table>`;
+        }
+
+        function marcarScbaVisto(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.scba_ultima_vista = Date.now();
+            saveData();
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            renderScbaAlertas(dataFiltrada);
+        }
+
+        function resetearVistasScba() {
+            clientsData.forEach(c => { c.scba_ultima_vista = null; });
+            saveData();
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            renderScbaAlertas(dataFiltrada);
         }
 
         function renderMevAlertas(dataFiltrada) {
@@ -3517,6 +3615,21 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 }
             </div>
 
+            <!-- SECCIÓN SCBA -->
+            ${client.scba_notificaciones?.length > 0 ? (() => {
+                const scba = client.scba_notificaciones || [];
+                const scbaRevision = client.scba_ultima_revision
+                    ? new Date(client.scba_ultima_revision).toLocaleString('es-AR')
+                    : (client.scba_ultima_sync ? new Date(client.scba_ultima_sync).toLocaleString('es-AR') : null);
+                return `<div style="margin-top:24px; border-top:2px solid #e74c3c; padding-top:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <h5 style="margin:0; color:#c0392b;">📬 Notificaciones SCBA</h5>
+                        ${scbaRevision ? `<span style="font-size:0.78em; color:#888;">Última revisión: ${scbaRevision}</span>` : ''}
+                    </div>
+                    ${renderScbaNotifs(client)}
+                </div>`;
+            })() : ''}
+
             <!-- SECCIÓN PJN -->
             ${(client.pjn_actuaciones?.length > 0 || client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? (() => {
                 const pjn = client.pjn_actuaciones || [];
@@ -3554,6 +3667,17 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     }
                 </div>`;
             })() : ''}`
+        }
+
+        function renderScbaNotifs(client) {
+            const notifs = client.scba_notificaciones || [];
+            if (notifs.length === 0) return '<p style="color:#666; font-style:italic; font-size:0.9em;">No hay notificaciones del SCBA sincronizadas aún.</p>';
+            return `<div style="max-height:350px; overflow-y:auto; border:1px solid #fce4ec; border-radius:6px; background:#fff;">${notifs.map(n => `
+                <div style="display:flex; gap:12px; padding:8px 10px; border-bottom:1px solid #eee; align-items:flex-start;">
+                    <div style="min-width:90px; font-size:0.82em; color:#666; font-weight:600; flex-shrink:0;">${n.fecha || ''}</div>
+                    <div style="font-size:0.82em; color:#c0392b; font-weight:600; min-width:130px; flex-shrink:0;">${n.tramite || ''}</div>
+                    <div style="font-size:0.85em; color:#2c3e50; flex:1;">${n.organismo || ''}</div>
+                </div>`).join('')}</div>`;
         }
 
         function abrirExpedientePJN(expediente, btn) {
