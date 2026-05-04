@@ -1180,6 +1180,7 @@
                 // pjn_ultima_sync solo se actualiza cuando hay actuaciones NUEVAS
                 if (ultimaVista && client.pjn_ultima_sync) {
                     const syncTs = new Date(client.pjn_ultima_sync).getTime();
+                    console.log(`PJN DEBUG [${client.caratula?.substring(0,30)}]: syncTs=${syncTs}, ultimaVista=${ultimaVista}, diff=${syncTs - ultimaVista}, mostrar=${syncTs > ultimaVista}`);
                     if (syncTs > ultimaVista) {
                         // Hay actuaciones nuevas desde que lo marcó como trabajado
                         alertas.push({ client, nuevos: acts.slice(0, 3) });
@@ -1187,6 +1188,7 @@
                     // Si syncTs <= ultimaVista: ya lo vio, no mostrar
                     return;
                 }
+                console.log(`PJN DEBUG [${client.caratula?.substring(0,30)}]: sin ultimaVista o sin sync — MOSTRANDO`);
                 // Nunca fue marcado como visto — mostrar
                 alertas.push({ client, nuevos: acts.slice(0, 3) });
             });
