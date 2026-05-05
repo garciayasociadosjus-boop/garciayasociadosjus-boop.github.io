@@ -1045,16 +1045,23 @@
         function marcarScbaVisto(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            client.scba_ultima_vista = Date.now();
-            saveData();
+            const ahora = Date.now();
+            client.scba_ultima_vista = ahora;
+            const idx = clientsData.indexOf(client);
+            if (idx > -1 && firebaseDB) {
+                firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/scba_ultima_vista').set(ahora);
+            }
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderScbaAlertas(dataFiltrada);
         }
 
         function resetearVistasScba() {
-            clientsData.forEach(c => { c.scba_ultima_vista = null; });
-            saveData();
+            const updates = {};
+            clientsData.forEach((c, idx) => { c.scba_ultima_vista = null; updates[idx + '/scba_ultima_vista'] = null; });
+            if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderScbaAlertas(dataFiltrada);
@@ -1230,15 +1237,23 @@
         function marcarPjnVisto(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            client.pjn_ultima_vista = Date.now();
-            saveData();
+            const ahora = Date.now();
+            client.pjn_ultima_vista = ahora;
+            // Escribir DIRECTO a Firebase para evitar race condition
+            const idx = clientsData.indexOf(client);
+            if (idx > -1 && firebaseDB) {
+                firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/pjn_ultima_vista').set(ahora);
+            }
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderPjnAlertas(dataFiltrada);
         }
         function resetearVistasPJN() {
-            clientsData.forEach(c => { c.pjn_ultima_vista = null; });
-            saveData();
+            const updates = {};
+            clientsData.forEach((c, idx) => { c.pjn_ultima_vista = null; updates[idx + '/pjn_ultima_vista'] = null; });
+            if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderPjnAlertas(dataFiltrada);
@@ -1304,9 +1319,23 @@
         function marcarMevVisto(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            // Guardar timestamp actual como última vista
-            client.mev_ultima_vista = Date.now();
-            saveData();
+            const ahora = Date.now();
+            client.mev_ultima_vista = ahora;
+            const idx = clientsData.indexOf(client);
+            if (idx > -1 && firebaseDB) {
+                firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/mev_ultima_vista').set(ahora);
+            }
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            renderMevAlertas(dataFiltrada);
+        }
+
+        function resetearVistasMEV() {
+            const updates = {};
+            clientsData.forEach((c, idx) => { c.mev_ultima_vista = null; updates[idx + '/mev_ultima_vista'] = null; });
+            if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
+            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
             const socioSesion = sesionActual ? sesionActual.socio : null;
             const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
             renderMevAlertas(dataFiltrada);
