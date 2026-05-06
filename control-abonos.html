@@ -229,9 +229,18 @@
           <div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div>
         </div>
          <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
-         <div class="card" style="border-left:4px solid #8b5cf6;">
-           <h3>Abonos Puros <span style="font-size:.65em;color:#94a3b8;">(sin deuda)</span></h3>
+         <div class="card" style="border-left:4px solid #8b5cf6;position:relative;">
+           <div class="title-container">
+             <h3>Abonos Puros <span style="font-size:.65em;color:#94a3b8;">(sin deuda)</span></h3>
+             <button class="toggle-visibility" id="toggleAbonosPurosSelector" title="Seleccionar clientes a sumar" style="font-size:1em;">☑️</button>
+           </div>
            <div class="value" id="totalAbonosPuros" style="color:#8b5cf6;">$0.00</div>
+           <div id="abonosPurosSelector" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #8b5cf6;border-radius:0 0 10px 10px;padding:12px;z-index:50;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;">
+             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
+               <input type="checkbox" id="abonosPurosTodos" checked style="width:1.1em;height:1.1em;"> Todos
+             </label>
+             <div id="abonosPurosClientesList"></div>
+           </div>
          </div>
       </div>
 
@@ -308,8 +317,8 @@
                   <th>Teléfono</th>
                   <th id="thTipo" onclick="toggleSort('tipo')" title="Ordenar por tipo">Tipo <span id="sortIconTipo">⇅</span></th>
                   <th>Monto Abono</th>
-                  <th>Vencimiento</th>
-                  <th>Fecha de Pago</th>
+                  <th>Fecha Límite</th>
+                  <th>Fecha Real Pago</th>
                   <th>Forma de Pago</th>
                   <th>Estado</th>
                   <th>🤖 Agente</th>
@@ -417,8 +426,8 @@
           <label>Abono / Jus Primitivo <span style="font-weight:400;color:#64748b;font-size:.85em;">(valor fijo base — se usa para el arrastre)</span></label>
           <input type="number" id="abonoPrimitivo" step="0.01" placeholder="Igual al monto si no se indica otro">
         </div>
-        <div class="form-group"><label>Fecha de Vencimiento</label><input type="date" id="fechaVencimiento" placeholder="Día límite de pago"></div>
-        <div class="form-group"><label>Fecha de Pago</label><input type="date" id="fechaPago"></div>
+        <div class="form-group"><label>Fecha Límite de Pago <span style="font-weight:400;color:#64748b;font-size:.85em;">(vencimiento — después de esta fecha se considera moroso)</span></label><input type="date" id="fechaVencimiento" placeholder="Día límite de pago"></div>
+        <div class="form-group"><label>Fecha Real de Pago <span style="font-weight:400;color:#64748b;font-size:.85em;">(fecha efectiva en que pagó — se usa para el recibo)</span></label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><select id="formaPago"></select></div>
         <div class="form-group"><label>Estado</label><select id="estado"></select></div>
         <div id="pagoMontoParcialDiv" class="form-group" style="display:none;">
@@ -427,6 +436,25 @@
         </div>
         <div class="form-group"><label>Notas manuales</label><textarea id="observaciones" placeholder="Notas propias sobre este registro (nunca se borran automáticamente)..."></textarea></div>
         
+        <div style="border-top:2px solid #e2e8f0;margin-top:15px;padding-top:15px;">
+          <h4 style="color:#8b5cf6;margin-bottom:12px;">💰 Comisión</h4>
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
+            <input type="checkbox" id="esComisionable" style="width:1.3em;height:1.3em;cursor:pointer;">
+            <label for="esComisionable" style="cursor:pointer;font-weight:600;">¿Es comisionable?</label>
+          </div>
+          <div id="comisionDiv" style="display:none;margin-top:10px;border:2px solid #8b5cf6;border-radius:10px;padding:15px;background:#f5f3ff;">
+            <div class="form-group" style="margin-bottom:10px;">
+              <label>Nombre del colega comisionado</label>
+              <input type="text" id="comisionColega" placeholder="Ej: Dr. Pérez">
+            </div>
+            <div class="form-group">
+              <label>Porcentaje de comisión (%)</label>
+              <input type="number" id="comisionPorcentaje" min="1" max="99" step="1" placeholder="Ej: 50">
+            </div>
+            <p id="comisionPreview" style="font-size:.82em;color:#6366f1;margin-top:8px;font-weight:600;"></p>
+          </div>
+        </div>
+
         <div style="border-top:2px solid #e2e8f0;margin-top:15px;padding-top:15px;">
           <h4 style="color:var(--secondary-color);margin-bottom:12px;">🤖 Configuración del Agente de Cobranzas</h4>
           <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
@@ -535,6 +563,7 @@
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
+    let abonosPurosExcluidos = new Set(); // clientes excluidos de la suma de abonos puros
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
@@ -593,6 +622,34 @@
       selCantHC.value = 3;
       selCantHC.addEventListener('change', function(){ renderCuotasHC(parseInt(this.value)); });
       document.getElementById('telefono').addEventListener('input', verificarAlertaTelefono);
+
+      // Comisión
+      document.getElementById('esComisionable').addEventListener('change', function() {
+        document.getElementById('comisionDiv').style.display = this.checked ? 'block' : 'none';
+      });
+      document.getElementById('comisionPorcentaje').addEventListener('input', actualizarPreviewComision);
+      document.getElementById('monto').addEventListener('input', actualizarPreviewComision);
+
+      // Selector de Abonos Puros
+      document.getElementById('toggleAbonosPurosSelector').addEventListener('click', function(e) {
+        e.stopPropagation();
+        var sel = document.getElementById('abonosPurosSelector');
+        sel.style.display = sel.style.display === 'none' ? 'block' : 'none';
+      });
+      document.addEventListener('click', function(e) {
+        var sel = document.getElementById('abonosPurosSelector');
+        var card = sel.closest('.card');
+        if (!card.contains(e.target)) sel.style.display = 'none';
+      });
+      document.getElementById('abonosPurosTodos').addEventListener('change', function() {
+        var checked = this.checked;
+        document.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) { cb.checked = checked; });
+        if (checked) abonosPurosExcluidos.clear();
+        else {
+          document.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) { abonosPurosExcluidos.add(cb.dataset.cliente); });
+        }
+        recalcularAbonosPuros();
+      });
       
       document.getElementById('searchInput').addEventListener('input', function(e) {
           currentSearchTerm = e.target.value;
@@ -867,6 +924,87 @@
     }
 
     // ====== FILTROS ======
+    function actualizarPreviewComision() {
+      var monto = parseFloat(document.getElementById('monto').value) || 0;
+      var pct = parseFloat(document.getElementById('comisionPorcentaje').value) || 0;
+      var colega = document.getElementById('comisionColega').value || 'colega';
+      var preview = document.getElementById('comisionPreview');
+      if (monto > 0 && pct > 0) {
+        var comision = monto * pct / 100;
+        var neto = monto - comision;
+        preview.textContent = 'Recibo: ' + formatCurrency(monto) + ' → Comisión ' + colega + ': ' + formatCurrency(comision) + ' (' + pct + '%) → Tu neto: ' + formatCurrency(neto);
+      } else {
+        preview.textContent = '';
+      }
+    }
+
+    function renderAbonosPurosSelector(abonos) {
+      var container = document.getElementById('abonosPurosClientesList');
+      var clientesAbono = [];
+      var seen = {};
+      abonos.forEach(function(a) {
+        if (a.tipo === 'Abono Mensual' && !seen[a.cliente]) {
+          seen[a.cliente] = true;
+          clientesAbono.push(a.cliente);
+        }
+      });
+      clientesAbono.sort(function(a,b) { return a.localeCompare(b, 'es'); });
+      var html = '';
+      clientesAbono.forEach(function(nombre) {
+        var checked = !abonosPurosExcluidos.has(nombre);
+        var montoBase = 0;
+        abonos.forEach(function(a) {
+          if (a.tipo === 'Abono Mensual' && a.cliente === nombre) {
+            var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
+            // Descontar comisión si es comisionable
+            if (a.esComisionable && a.comisionPorcentaje) {
+              base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
+            }
+            montoBase += base;
+          }
+        });
+        html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0;font-size:.85em;">';
+        html += '<input type="checkbox" class="abonos-puros-cliente-cb" data-cliente="' + nombre + '" ' + (checked ? 'checked' : '') + ' style="width:1em;height:1em;">';
+        html += '<span style="flex:1;">' + nombre + '</span>';
+        html += '<span style="color:#8b5cf6;font-weight:600;font-size:.9em;">' + formatCurrency(montoBase) + '</span>';
+        html += '</label>';
+      });
+      container.innerHTML = html;
+      // Event listeners para cada checkbox
+      container.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          if (this.checked) abonosPurosExcluidos.delete(this.dataset.cliente);
+          else abonosPurosExcluidos.add(this.dataset.cliente);
+          document.getElementById('abonosPurosTodos').checked = abonosPurosExcluidos.size === 0;
+          recalcularAbonosPuros();
+        });
+      });
+    }
+
+    function recalcularAbonosPuros() {
+      var sourceData;
+      if (currentStatusFilter === 'todos-terminados') {
+        sourceData = abonosData.filter(function(a) { return a.estado === 'Terminado'; });
+      } else {
+        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
+      }
+      var abonosPuros = sourceData.filter(function(a) {
+        return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente);
+      }).reduce(function(sum, a) {
+        var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
+        if (a.esComisionable && a.comisionPorcentaje) {
+          base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
+        }
+        return sum + base;
+      }, 0);
+      realAmounts.abonosPuros = abonosPuros;
+      var el = document.getElementById('totalAbonosPuros');
+      if (isAmountHidden) {
+        el.textContent = '••••••'; el.classList.add('hidden-value');
+      } else {
+        el.textContent = formatCurrency(abonosPuros); el.classList.remove('hidden-value');
+      }
+    }
     function renderTypeFilters() {
       const container = document.getElementById('typeFilters');
       let html = `<label><input type="checkbox" class="type-filter-checkbox" data-type="todos" checked> <strong>Todos los Tipos</strong></label>`;
@@ -1045,9 +1183,9 @@
           if (deudaTotal > 0) {
             var montoNuevo = primitivoBase + deudaTotal;
             obsAuto = '📅 ' + mesNombreObs + '\nDeuda acumulada: ' + formatCurrency(deudaTotal) + '\nAbono del mes: ' + formatCurrency(primitivoBase) + '\nTotal a cobrar: ' + formatCurrency(montoNuevo);
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: montoNuevo, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: deudaTotal, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: montoNuevo, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: deudaTotal, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
           } else {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: primitivoBase, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: primitivoBase, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: 0, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
           }
           added++;
         }
@@ -1241,9 +1379,19 @@
       var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
 
       // Abonos puros = suma de montoBase de todos los Abonos Mensuales (sin deuda acumulada)
-      // Esto indica cuánto cobrás por mes solo de abonos, sin contar lo que te deben
-      var abonosPuros = abonos.filter(function(a){ return a.tipo === 'Abono Mensual'; })
-        .reduce(function(sum, a){ return sum + (parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0); }, 0);
+      // Descontando comisión si es comisionable
+      // Solo suma los clientes no excluidos del selector
+      var abonosPuros = abonos.filter(function(a){ return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente); })
+        .reduce(function(sum, a){
+          var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
+          if (a.esComisionable && a.comisionPorcentaje) {
+            base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
+          }
+          return sum + base;
+        }, 0);
+
+      // Renderizar selector de clientes para abonos puros
+      renderAbonosPurosSelector(abonos);
 
       realAmounts = {
         cobrado: honorariosCobrados,
@@ -1303,6 +1451,7 @@
       // Si tiene deuda acumulada de meses anteriores → moroso directo
       if (abono.deudaAcumulada && parseFloat(abono.deudaAcumulada) > 0) return 999;
       var hoy = new Date(); hoy.setHours(0,0,0,0);
+      // Usar fechaVencimiento (fecha límite de pago que pone el usuario)
       var ref = abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00') : null;
       if (!ref && abono.mesServicio) { ref = new Date(abono.mesServicio.year, abono.mesServicio.month, 10); }
       if (!ref) return null;
@@ -1431,6 +1580,13 @@
         if(abono.estado === 'Pago Parcial' && abono.montoPagado){
           var montoRestante = montoTotal - parseFloat(abono.montoPagado);
           montoDisplay += '<span class="partial-payment-info">(Pagado: '+formatCurrency(abono.montoPagado)+' — Resta: '+formatCurrency(montoRestante)+')</span>';
+        }
+        // Indicador de comisión
+        if (abono.esComisionable && abono.comisionPorcentaje) {
+          var comPct = parseFloat(abono.comisionPorcentaje);
+          var montoParaComision = parseFloat(abono.montoBase) || parseFloat(abono.monto) || 0;
+          var netoComision = montoParaComision * (1 - comPct / 100);
+          montoDisplay += '<span style="display:block;font-size:.75em;color:#8b5cf6;margin-top:3px;">💰 Com. ' + comPct + '% → Neto: ' + formatCurrency(netoComision) + '</span>';
         }
 
         var hasObsClass = (abono.observaciones && abono.observaciones.trim() !== '') ? 'has-obs' : '';
@@ -1566,6 +1722,11 @@
       document.getElementById('expediente').value = '';
       document.getElementById('abonoPrimitivo').value = '';
       document.getElementById('autorizaWhatsapp').checked = false;
+      document.getElementById('esComisionable').checked = false;
+      document.getElementById('comisionDiv').style.display = 'none';
+      document.getElementById('comisionColega').value = '';
+      document.getElementById('comisionPorcentaje').value = '';
+      document.getElementById('comisionPreview').textContent = '';
       document.getElementById('alertaSinTel').style.display = 'none';
       document.getElementById('telefono').classList.remove('telefono-missing');
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
@@ -1580,6 +1741,10 @@
         document.getElementById('expediente').value = abono.expediente || '';
         document.getElementById('telefono').value = abono.telefono || '';
         document.getElementById('autorizaWhatsapp').checked = !!abono.autorizaWhatsapp;
+        document.getElementById('esComisionable').checked = !!abono.esComisionable;
+        document.getElementById('comisionDiv').style.display = abono.esComisionable ? 'block' : 'none';
+        document.getElementById('comisionColega').value = abono.comisionColega || '';
+        document.getElementById('comisionPorcentaje').value = abono.comisionPorcentaje || '';
         document.getElementById('tipo').value = abono.tipo || TIPO_OPTIONS[0];
         // Mostrar/ocultar sección convenio blanco y honorarios cuotas
         var esConvenio = abono.tipo === 'Convenio Blanco';
@@ -1698,6 +1863,9 @@
         monto: montoVal,
         montoBase: montoVal,
         abonoPrimitivo: primitivo,
+        esComisionable: document.getElementById('esComisionable').checked,
+        comisionColega: document.getElementById('esComisionable').checked ? document.getElementById('comisionColega').value : '',
+        comisionPorcentaje: document.getElementById('esComisionable').checked ? (parseFloat(document.getElementById('comisionPorcentaje').value) || 0) : 0,
         cuotasDefinicion: cuotasData,
         cuotaActual: cuotasData && cuotasData.length > 0 ? cuotasData[0].nro : null,
         cuotasPagadas: [],
@@ -1754,6 +1922,22 @@
       if(!['Pagado', 'Pago Parcial', 'Terminado'].includes(abono.estado)){ 
         alert('Solo se pueden generar recibos para pagos completos, parciales o terminados.');
         return; 
+      }
+
+      // Si no tiene fecha real de pago, preguntar
+      var fechaPagoReal = abono.fechaPago;
+      if (!fechaPagoReal) {
+        var hoy = new Date().toISOString().slice(0,10);
+        fechaPagoReal = prompt('Ingrese la fecha real de pago (AAAA-MM-DD):', hoy);
+        if (!fechaPagoReal) return;
+        // Validar formato básico
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaPagoReal)) {
+          alert('Formato de fecha inválido. Use AAAA-MM-DD (ej: 2026-05-14)');
+          return;
+        }
+        // Guardar la fecha real de pago en el registro
+        updateAbono(abonoId, { fechaPago: fechaPagoReal });
+        abono.fechaPago = fechaPagoReal;
       }
 
       var receiptDate = new Date().toLocaleDateString('es-AR');
@@ -1955,7 +2139,7 @@
         html += '<div class="resumen">'+telDisplay+' &nbsp; '+badgeDeuda+badgePag+badgeParcial+'<span style="font-size:1.2em;">▾</span></div>';
         html += '</div>';
         html += '<div class="cliente-group-body" id="'+groupId+'">';
-        html += '<table><thead><tr><th>Expediente</th><th>Tipo</th><th>Monto</th><th>Vencimiento</th><th>Fecha Pago</th><th>Estado</th><th>Agente</th></tr></thead><tbody>';
+        html += '<table><thead><tr><th>Expediente</th><th>Tipo</th><th>Monto</th><th>Fecha Límite</th><th>Fecha Real Pago</th><th>Estado</th><th>Agente</th></tr></thead><tbody>';
         registros.forEach(function(r) {
           // Usar campo expediente si existe, sino sacar del S/ del nombre
           var expte = r.expediente || (r.cliente && r.cliente.includes(' S/') ? r.cliente.split(' S/').slice(1).join(' S/') : '—');
