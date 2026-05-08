@@ -569,6 +569,20 @@
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
     const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+    // Función global — necesita estar fuera del DOMContentLoaded para que openModal pueda accederla
+    function renderCuotasHC(cant) {
+        var container = document.getElementById('cuotasHCContainer');
+        container.innerHTML = '<div style="display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;font-size:.8em;font-weight:600;color:#475569;padding-bottom:4px;"><span>Cuota</span><span>Importe</span><span>Estado</span></div>';
+        for (var i = 1; i <= cant; i++) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;align-items:center;';
+          row.innerHTML = '<label style="font-weight:600;color:#e67e22;font-size:.85em;">C' + i + '</label>' +
+            '<input type="number" id="hcCuota' + i + 'monto" step="0.01" placeholder="Importe..." style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">' +
+            '<select id="hcCuota' + i + 'estado" style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.82em;"><option value="Pendiente">⏳ Pendiente</option><option value="Pagado">✅ Pagado</option><option value="Falta de Pago">❌ Falta de Pago</option></select>';
+          container.appendChild(row);
+        }
+    }
+
     // ====== INIT ======
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('toggleAmountBtn').addEventListener('click', toggleAmountVisibility);
@@ -655,19 +669,6 @@
           currentSearchTerm = e.target.value;
           render();
       });
-
-      function renderCuotasHC(cant) {
-        var container = document.getElementById('cuotasHCContainer');
-        container.innerHTML = '<div style="display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;font-size:.8em;font-weight:600;color:#475569;padding-bottom:4px;"><span>Cuota</span><span>Importe</span><span>Estado</span></div>';
-        for (var i = 1; i <= cant; i++) {
-          var row = document.createElement('div');
-          row.style.cssText = 'display:grid;grid-template-columns:65px 1fr 1fr;gap:6px;align-items:center;';
-          row.innerHTML = '<label style="font-weight:600;color:#e67e22;font-size:.85em;">C' + i + '</label>' +
-            '<input type="number" id="hcCuota' + i + 'monto" step="0.01" placeholder="Importe..." style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.85em;">' +
-            '<select id="hcCuota' + i + 'estado" style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.82em;"><option value="Pendiente">⏳ Pendiente</option><option value="Pagado">✅ Pagado</option><option value="Falta de Pago">❌ Falta de Pago</option></select>';
-          container.appendChild(row);
-        }
-      }
 
       document.getElementById('filtersBar').addEventListener('click', function(e){
         var btn = e.target.closest('.filter-btn');
