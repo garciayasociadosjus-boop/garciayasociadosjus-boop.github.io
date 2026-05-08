@@ -1766,7 +1766,7 @@
         }
         if (esHonCuotas) {
           var cuotasHC = abono.cuotasDefinicion || [];
-          var cantHC = cuotasHC.length || 3;
+          var cantHC = cuotasHC.length > 0 ? cuotasHC.length : 3;
           document.getElementById('cantCuotasHC').value = cantHC;
           renderCuotasHC(cantHC);
           for (var h = 0; h < cuotasHC.length; h++) {
@@ -1846,10 +1846,12 @@
           var elEst = document.getElementById('hcCuota'+h+'estado');
           if (el) {
             var hm = parseFloat(el.value) || 0;
-            if (hm > 0) cuotasData.push({ nro: h, monto: hm });
+            // Guardar TODAS las cuotas aunque tengan importe 0 — para mantener la definición completa
+            cuotasData.push({ nro: h, monto: hm });
           }
         }
-        var primeraHC = cuotasData[0];
+        // Usar el importe de la primera cuota con importe > 0, o 0 si todas están vacías
+        var primeraHC = cuotasData.find(function(c){ return c.monto > 0; }) || cuotasData[0];
         montoVal = primeraHC ? primeraHC.monto : 0;
         primitivo = montoVal;
       }
@@ -1867,8 +1869,6 @@
         comisionColega: document.getElementById('esComisionable').checked ? document.getElementById('comisionColega').value : '',
         comisionPorcentaje: document.getElementById('esComisionable').checked ? (parseFloat(document.getElementById('comisionPorcentaje').value) || 0) : 0,
         cuotasDefinicion: cuotasData,
-        cuotaActual: cuotasData && cuotasData.length > 0 ? cuotasData[0].nro : null,
-        cuotasPagadas: [],
         convenioTipo: convenioTipoVal,
         fechaVencimiento: document.getElementById('fechaVencimiento').value,
         fechaPago: document.getElementById('fechaPago').value,
@@ -1876,6 +1876,13 @@
         estado: document.getElementById('estado').value,
         observaciones: document.getElementById('observaciones').value,
       };
+
+      // En modo edición: NO sobreescribir cuotasPagadas ni cuotaActual
+      // Esos campos los maneja el sistema de pagos, no el formulario
+      if (!editId) {
+        data.cuotasPagadas = [];
+        data.cuotaActual = cuotasData && cuotasData.length > 0 ? cuotasData[0].nro : null;
+      }
 
       if(data.estado === 'Pago Parcial') {
         var montoPagado = parseFloat(document.getElementById('montoPagadoParcial').value);
