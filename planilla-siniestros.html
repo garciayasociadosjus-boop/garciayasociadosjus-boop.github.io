@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -378,105 +379,9 @@ const COMPANIAS_SEGUROS = [
 ];
 
 // === LISTA DE MARCAS DE VEHÍCULOS ===
-// ============================================================
-// SISTEMA DE VEHÍCULOS EN CAPAS: TIPO → MARCA → MODELO
-// ============================================================
-const TIPOS_VEHICULO = ['Auto / Camioneta', 'Moto', 'Acoplado / Camión', 'Otro'];
-
-const MARCAS_POR_TIPO = {
-    'Auto / Camioneta': [
-        'Acura','Aion','Alfa Romeo','Arcfox','Astivia','Audi','BAIC','Bestune','BMW','BYD',
-        'Changan','Chery','Chevrolet','Chrysler','Citroën','Comar','Deepal','DFSK','Dodge',
-        'Dongfeng','DS Automobiles','Fiat','Ford','Forthing','Foton','GAC Motor','Geely',
-        'Gomatro','Great Wall','Haval','Helvética','Honda','Hyundai','Infiniti','Ivane',
-        'Jac','Jeep','Jetour','JMEV','Kaiyi','Kia','KYC','Leapmotor','Lexus','Lifan',
-        'Lincoln','Lynk & Co','Mahindra','Maserati','Maxus','Mazda','Mercedes-Benz','MG',
-        'Mini','Mitsubishi','Nissan','Ora','Peugeot','Porsche','RAM','Renault','Seat',
-        'Skoda','Skywell','Soueast','Subaru','Suzuki','Tank','Tesla','Toyota','Volkswagen',
-        'Volvo','Zane','OTRAS'
-    ],
-    'Moto': [
-        'Aprilia','Bajaj','Benelli','BMW','CFMoto','Corven','Ducati','GasGas','Gilera',
-        'Guerrero','Guerrieri','Harley-Davidson','Hermann','Honda','Husqvarna',
-        'Indian Motorcycle','Kawasaki','Keller','KTM','Kymco','Lambert','Lifan',
-        'Mondial','Montenegro','Moto Guzzi','Motomel','MV Agusta','Royal Enfield',
-        'Salto','Shineray','Suzuki','TVS','Voge','Yamaha','Zanella','Zontes','OTRAS'
-    ],
-    'Acoplado / Camión': [
-        'Ford','Mercedes-Benz','Volkswagen','Scania','Volvo','Iveco','MAN','DAF',
-        'Renault Trucks','Agrale','Foton','Prati-Fruehauf','Sola y Brusa','Pulieth',
-        'Ombú','OTRAS'
-    ],
-    'Otro': ['OTRAS']
-};
-
-// Lista plana para compatibilidad con código existente
-const MARCAS_VEHICULOS = [...new Set([
-    ...MARCAS_POR_TIPO['Auto / Camioneta'],
-    ...MARCAS_POR_TIPO['Moto'],
-    ...MARCAS_POR_TIPO['Acoplado / Camión']
-])].sort();
-
-const MODELOS_POR_MARCA = {
-    // AUTOS
-    'Fiat':['500','500e','500X','Cronos','Doblò','Fastback','Fiorino','Mobi','Palio','Pulse','Siena','Strada','Toro','OTRA'],
-    'Ford':['Bronco Sport','Ecosport','Edge','Escape','Expedition','Explorer','F-150','F-4000','Fiesta','Focus','Fusion','Kuga','Maverick','Mondeo','Mustang','Mustang Mach-E','Puma','Ranger','Territory','Transit','OTRA'],
-    'Chevrolet':['Agile','Blazer','Camaro','Captiva','Colorado','Corvette','Cruze','Equinox','Montana','Onix','Onix Plus','S10','Silverado','Spin','Suburban','Tahoe','Tracker','Trailblazer','Traverse','OTRA'],
-    'Volkswagen':['Amarok','Fox','Gol','Golf','Jetta','Nivus','Passat','Polo','Saveiro','T-Cross','Taos','Tiguan','Touareg','Touareg R','Virtus','Vento','OTRA'],
-    'Toyota':['Camry','Corolla','Corolla Cross','Etios','FJ Cruiser','GR86','GR Supra','Hilux','Land Cruiser','Prado','RAV4','Rush','Sequoia','SW4','Tundra','Yaris','OTRA'],
-    'Renault':['Alaskan','Captur','Clio','Clio Mío','Duster','Fluence','Kangoo','Koleos','Laguna','Logan','Megane','Oroch','Sandero','Stepway','Symbol','Triber','OTRA'],
-    'Peugeot':['2008','208','3008','301','308','408','5008','508','Partner','Rifter','OTRA'],
-    'Citroën':['Berlingo','C3','C3 Aircross','C4','C4 Cactus','C5 Aircross','C-Elysée','Jumper','Jumpy','Xsara','OTRA'],
-    'Honda':['Accord','City','Civic','CR-V','Fit','HR-V','Pilot','Ridgeline','WR-V','OTRA'],
-    'Hyundai':['Accent','Creta','Elantra','Ioniq 5','Ioniq 6','Kona','Santa Fe','Sonata','Tucson','Veloster','OTRA'],
-    'Kia':['Carnival','EV6','Forte','Niro','Picanto','Rio','Seltos','Sorento','Soul','Sportage','Stinger','OTRA'],
-    'Nissan':['Frontier','Kicks','Leaf','March','Murano','Navara','Note','Pathfinder','Qashqai','Sentra','Terra','Tiida','X-Trail','OTRA'],
-    'Mercedes-Benz':['A 200','C 200','C 300','CLA','E 220d','GLA','GLC','GLE','GLS','Sprinter','Vito','OTRA'],
-    'BMW':['116i','118i','120i','218i','318i','330i','420i','530i','730i','M2','M3','M4','M5','X1','X2','X3','X4','X5','X6','X7','Z4','OTRA'],
-    'Audi':['A1','A3','A4','A5','A6','A7','A8','e-tron','Q2','Q3','Q5','Q7','Q8','RS3','RS6','S3','TT','OTRA'],
-    'Jeep':['Avenger','Commander','Compass','Gladiator','Grand Cherokee','Renegade','Wrangler','OTRA'],
-    'Mazda':['2','3','6','CX-3','CX-30','CX-5','CX-60','CX-9','MX-5','OTRA'],
-    'Mitsubishi':['ASX','Eclipse Cross','Galant','L200','Montero','Outlander','Pajero','OTRA'],
-    'Subaru':['BRZ','Crosstrek','Forester','Impreza','Legacy','Outback','WRX','XV','OTRA'],
-    'Suzuki':['Baleno','Celerio','Ciaz','Grand Vitara','Ignis','Jimny','S-Cross','Vitara','OTRA'],
-    'Chery':['Arrizo 5','Arrizo 6','Arrizo 8','Tiggo 2','Tiggo 3','Tiggo 4','Tiggo 7','Tiggo 8','OTRA'],
-    'BYD':['Atto 3','Dolphin','Han','King','Seal','Song Plus','Tang','Yuan Plus','OTRA'],
-    'MG':['3','5','6','GT','HS','Marvel R','One','RX5','ZS','ZS EV','OTRA'],
-    'Haval':['Dargo','F7','H1','H2','H6','Jolion','OTRA'],
-    'GWM':['Cannon','Ora','Poer','Tank 300','OTRA'],
-    'JAC':['E10X','J4','J7','S2','S3','S4','T8','OTRA'],
-    'Geely':['Azkarra','Coolray','Emgrand','Okavango','Tugella','OTRA'],
-    'Tesla':['Cybertruck','Model 3','Model S','Model X','Model Y','Roadster','OTRA'],
-    'Porsche':['718 Boxster','718 Cayman','911','Cayenne','Macan','Panamera','Taycan','OTRA'],
-    'RAM':['700','1500','2500','3500','ProMaster','OTRA'],
-    // MOTOS
-    'Yamaha':['Crosser','Fazer','FZ-15','FZ-25','MT-03','MT-07','MT-09','R1','R3','R6','Tenere','XTZ','XMAX','YBR','YZF','OTRA'],
-    'Honda Moto':['CB 190','CB 300','CB 500','CB 650','CBR 600','CG 150','CG 160','CRF 300','Falcon','NC 750','PCX','Sahel','Titan','XRE 300','OTRA'],
-    'Kawasaki':['Ninja 300','Ninja 400','Ninja 650','Ninja 1000','Versys','W800','Z400','Z650','Z900','ZX-10R','OTRA'],
-    'Zanella':['Ceccato','Due','FX','Patagonia','RX','Styler','Zb','ZR','OTRA'],
-    'Motomel':['Blitz','CG','Dakar','Max','S2','S3','Sirius','Skua','OTRA'],
-    'Gilera':['City','RK6','SMT','VC 200','OTRA'],
-    'Guerrero':['GS','GX','TRIP','OTRA'],
-    'Bajaj':['Boxer','Dominar','NS 200','Platina','Pulsar','Rouser','OTRA'],
-    'KTM':['125 Duke','200 Duke','390 Duke','390 Adventure','690','790','890','1290','RC 390','OTRA'],
-    'Royal Enfield':['Bullet','Classic 350','Continental GT','Himalayan','Hunter 350','Interceptor 650','Meteor','OTRA'],
-    'Harley-Davidson':['Fat Bob','Iron 883','Nightster','Pan America','Road King','Softail','Sportster','Street Glide','OTRA'],
-    'Ducati':['Diavel','Hypermotard','Monster','Multistrada','Panigale','Scrambler','OTRA'],
-    'Corven':['Energy','Mirage','Terrain','TXR','OTRA'],
-    // CAMIONES / ACOPLADOS
-    'Scania':['P-Series','R-Series','S-Series','G-Series','OTRA'],
-    'Volvo Trucks':['FH','FM','FMX','FL','FE','OTRA'],
-    'Iveco':['Daily','Eurocargo','Hi-Way','S-Way','Stralis','Trakker','OTRA'],
-    'Agrale':['6000','7500','9200','10000','OTRA'],
-};
-
-function getMarcasPorTipo(tipo) {
-    return MARCAS_POR_TIPO[tipo] || MARCAS_POR_TIPO['Otro'];
-}
-
-function getModelosPorMarca(marca) {
-    return MODELOS_POR_MARCA[marca] || null; // null = texto libre
-}
+const MARCAS_VEHICULOS = [
+'Acura','Aion','Alfa Romeo','Arcfox','Audi','BAIC','Bestune','BMW','BYD','Changan','Chery','Chevrolet','Chrysler','Citroën','Deepal','DFSK','Dodge','Dongfeng','DS Automobiles','Fiat','Ford','Forthing','Foton','GAC Motor','Geely','Great Wall','Haval','Honda','Hyundai','Infiniti','Ivane','Jac','Jeep','Jetour','JMEV','Kaiyi','Kia','KYC','Leapmotor','Lexus','Lifan','Lincoln','Lynk & Co','Mahindra','Maserati','Maxus','Mazda','Mercedes-Benz','MG','Mini','Mitsubishi','Nissan','Ora','Peugeot','Porsche','RAM','Renault','Seat','Shineray','Skoda','Skywell','Soueast','Subaru','Suzuki','Tank','Tesla','Toyota','Volkswagen','Volvo','Zane','OTRAS'
+];
 
 // --- INICIO: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 let tokenClient, gapiReady = false, gisReady = false, gdDataFileId = null;
@@ -608,7 +513,7 @@ const FIREBASE_KEY = 'planilla_siniestros'; // Clave en la base de datos
 
 let firebaseApp, firebaseDB, firebaseRef;
 let firebaseConectado = false;
-let ignorarProximoCambioFirebase = false; // Evita bucles al guardar
+let ignorarHastaTimestamp = 0; // Evita bucles al guardar (timestamp en ms)
 
 function initFirebase() {
     if (typeof firebase === 'undefined') {
@@ -622,8 +527,7 @@ function initFirebase() {
 
         // Escuchar cambios en tiempo real
         firebaseRef.on('value', (snapshot) => {
-            if (ignorarProximoCambioFirebase) {
-                ignorarProximoCambioFirebase = false;
+            if (Date.now() < ignorarHastaTimestamp) {
                 return;
             }
             const data = snapshot.val();
@@ -689,15 +593,15 @@ function updateFirebaseStatus(msg, tipo) {
 function saveToFirebase() {
     if (!firebaseRef) return;
     try {
-        ignorarProximoCambioFirebase = true;
+        ignorarHastaTimestamp = Date.now() + 5000; // Ignorar respuestas de Firebase por 5 segundos
         firebaseRef.set(siniestrosData)
             .catch(e => {
                 console.error('Error guardando en Firebase:', e);
-                ignorarProximoCambioFirebase = false;
+                ignorarHastaTimestamp = 0;
             });
     } catch(e) {
         console.error('Error en saveToFirebase:', e);
-        ignorarProximoCambioFirebase = false;
+        ignorarHastaTimestamp = 0;
     }
 }
 // =====================================================
@@ -744,25 +648,6 @@ function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach
     s.dniTercero = s.dniTercero || '';
     s.marcaClienteOtros = s.marcaClienteOtros || '';
     s.marcaTerceroOtros = s.marcaTerceroOtros || '';
-    s.tipoVehiculo = s.tipoVehiculo || '';
-    s.tipoVehiculoTercero = s.tipoVehiculoTercero || '';
-    s.versionCliente = s.versionCliente || '';
-    s.versionTercero = s.versionTercero || '';
-    // Nuevos campos domicilio cliente
-    s.domicilioCliente = s.domicilioCliente || '';
-    s.provinciaCliente = s.provinciaCliente || '';
-    s.partidoCliente = s.partidoCliente || '';
-    s.localidadCliente = s.localidadCliente || '';
-    // Nuevos campos ubicación siniestro
-    s.provinciaSiniestro = s.provinciaSiniestro || '';
-    s.partidoSiniestro = s.partidoSiniestro || '';
-    s.localidadSiniestro = s.localidadSiniestro || '';
-    // Conductor del tercero
-    s.conductorTerceroNombre = s.conductorTerceroNombre || '';
-    s.conductorTerceroDni = s.conductorTerceroDni || '';
-    // Conductor (ya existían, refuerzo)
-    s.conductorNombre = s.conductorNombre || '';
-    s.conductorDni = s.conductorDni || '';
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
 function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';el.style.display=msg?'block':'none';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
@@ -792,299 +677,6 @@ function getDaysDifference(d){ if(!d)return 999; return Math.ceil((new Date(d)-n
 function generateId(it){ return`EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1e3)}`; }
 function getDisplayName(s){ return`${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`; }
 function formatCurrency(v){ if(v==null||v==='')return'S/D'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
-
-const PROVINCIAS_AR = [
-    'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes',
-    'Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones',
-    'Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe',
-    'Santiago del Estero','Tierra del Fuego','Tucumán'
-];
-
-// ============================================================
-// SISTEMA GEOGRÁFICO EN CAPAS: PROVINCIA → PARTIDO → LOCALIDAD
-// ============================================================
-const BARRIOS_CABA = [
-    'Agronomía','Almagro','Balvanera','Barracas','Belgrano','Boedo','Caballito',
-    'Chacarita','Coghlan','Colegiales','Constitución','Flores','Floresta','La Boca',
-    'La Paternal','Liniers','Mataderos','Monte Castro','Montserrat','Nueva Pompeya',
-    'Núñez','Palermo','Parque Avellaneda','Parque Chacabuco','Parque Chas',
-    'Parque Patricios','Puerto Madero','Recoleta','Retiro','Saavedra','San Cristóbal',
-    'San Nicolás','San Telmo','Vélez Sársfield','Versalles','Villa Crespo',
-    'Villa del Parque','Villa Devoto','Villa General Mitre','Villa Lugano','Villa Luro',
-    'Villa Ortúzar','Villa Pueyrredón','Villa Real','Villa Riachuelo','Villa Santa Rita',
-    'Villa Soldati','Villa Urquiza','OTRO'
-];
-
-// Partidos de PBA → Localidades
-const LOCALIDADES_POR_PARTIDO = {
-    'Adolfo Alsina':['Carhué','Colonia San Martín','OTRA'],
-    'Avellaneda':['Avellaneda','Dock Sud','Gerli','Piñeyro','Sarandí','Villa Dominico','Wilde','OTRA'],
-    'Azul':['Azul','Cacharí','Chillar','OTRA'],
-    'Bahía Blanca':['Bahía Blanca','Cabildo','General Daniel Cerri','Ingeniero White','OTRA'],
-    'Berazategui':['Berazategui','El Pato','Guillermo Hudson','Juan María Gutiérrez','Ranelagh','Villa España','OTRA'],
-    'Berisso':['Berisso','El Dique','El Pescado','Villa Arguello','OTRA'],
-    'Brandsen':['Brandsen','Gómez','Las Hermanas','OTRA'],
-    'Campana':['Campana','Ingeniero Maschwitz','Otamendi','OTRA'],
-    'Cañuelas':['Cañuelas','Máximo Paz','Vicente Casares','OTRA'],
-    'Ensenada':['Ensenada','Punta Lara','Villa Catella','OTRA'],
-    'Escobar':['Belén de Escobar','Garín','Ingeniero Maschwitz','Loma Verde','Matheu','OTRA'],
-    'Esteban Echeverría':['El Jagüel','La Unión','Luis Guillón','Monte Grande','San José','OTRA'],
-    'Exaltación de la Cruz':['Capilla del Señor','Caribunas','Parada Robles','Rawson','OTRA'],
-    'Ezeiza':['Carlos Spegazzini','Canning','Ezeiza','La Unión','Tristán Suárez','OTRA'],
-    'Florencio Varela':['Bosques','Florencio Varela','Ingeniero Allan','Ing. Juan Allan','La Capilla','Zeballos','OTRA'],
-    'General Pueyrredón':['Mar del Plata','Batán','Sierra de los Padres','OTRA'],
-    'General Rodríguez':['General Rodríguez','Villa Boquete','OTRA'],
-    'General San Martín':['San Martín','José León Suárez','Palermo','Villa Ballester','Villa del Parque','Villa Maipú','Villa Zagala','OTRA'],
-    'Hurlingham':['Hurlingham','Villa Tesei','William Morris','OTRA'],
-    'Ituzaingó':['Ituzaingó','Ibuera','Paso del Rey','OTRA'],
-    'José C. Paz':['José C. Paz','OTRA'],
-    'La Matanza':['Ciudad Evita','González Catán','Gregorio de Laferrere','Isidro Casanova','La Tablada','Lomas del Mirador','Rafael Castillo','Ramos Mejía','San Justo','Tapiales','Villa Luzuriaga','Villa Madero','OTRA'],
-    'La Plata':['La Plata','City Bell','Arturo Seguí','El Peligro','Gonnet','Los Hornos','Ringuelet','Romero','Tolosa','Villa Elvira','OTRA'],
-    'Lanús':['Gerli','Lanús Este','Lanús Oeste','Monte Chingolo','Remedios de Escalada','OTRA'],
-    'Lomas de Zamora':['Banfield','Llavallol','Lomas de Zamora','Mmount Brown','Temperley','Turdera','Villa Centenario','Villa Fiorito','OTRA'],
-    'Luján':['Carlos Keen','Luján','Open Door','Torres','OTRA'],
-    'Malvinas Argentinas':['Grand Bourg','Ing. Adolfo Surdeaux','Los Polvorines','Malvinas Argentinas','Pablo Nogués','Tortuguitas','Villa de Mayo','OTRA'],
-    'Marcos Paz':['Marcos Paz','OTRA'],
-    'Merlo':['Mariano Acosta','Merlo','Pontevedra','San Antonio de Padua','Libertad','OTRA'],
-    'Moreno':['Francisco Álvarez','La Reja','Moreno','Trujui','Villa Marini','OTRA'],
-    'Morón':['El Palomar','Haedo','Morón','Villa Sarmiento','OTRA'],
-    'Pilar':['Del Viso','Fátima','Manuel Alberti','Manzanares','Pilar','Villa Rosa','Zárate','OTRA'],
-    'Presidente Perón':['Guernica','Guernica Norte','OTRA'],
-    'Quilmes':['Bernal','Bernal Oeste','Don Bosco','Ezpeleta','Quilmes','San Francisco Solano','OTRA'],
-    'San Fernando':['San Fernando','Victoria','OTRA'],
-    'San Isidro':['Acassuso','Beccar','Boulogne','El Talar','Martínez','San Isidro','Villa Adelina','OTRA'],
-    'San Miguel':['Santa María','San Miguel','Muñiz','Bella Vista','OTRA'],
-    'San Nicolás':['San Nicolás de los Arroyos','Villa Constitución','OTRA'],
-    'San Pedro':['San Pedro','Baradero','OTRA'],
-    'San Vicente':['San Vicente','Alejandro Korn','OTRA'],
-    'Tandil':['Tandil','María Ignacia','OTRA'],
-    'Tigre':['Don Torcuato','El Talar','General Pacheco','Rincón de Milberg','Tigre','Ricardo Rojas','OTRA'],
-    'Tres de Febrero':['Caseros','Ciudadela','El Palomar','Loma Hermosa','Pablo Podestá','Valentín Alsina','Villa Bosch','Villa del Parque','Villa Raffo','OTRA'],
-    'Vicente López':['Florida','Florida Oeste','La Lucila','Munro','Olivos','Vicente López','Villa Martelli','OTRA'],
-    'Zárate':['Zárate','Lima','OTRA'],
-    'OTRO':['OTRA']
-};
-
-// Lista de partidos ordenada
-const PARTIDOS_PBA = Object.keys(LOCALIDADES_POR_PARTIDO).sort((a,b) => a === 'OTRO' ? 1 : b === 'OTRO' ? -1 : a.localeCompare(b));
-
-// ---- Funciones del sistema geográfico ----
-
-function renderUbicacionEnCapas(sid, prefijo, provinciaVal, partidoVal, localidadVal) {
-    const provId = `prov_${prefijo}`;
-    const partId = `part_${prefijo}`;
-    const partLibreId = `partLibre_${prefijo}`;
-    const locId = `loc_${prefijo}`;
-    const locLibreId = `locLibre_${prefijo}`;
-    const esPBA = provinciaVal === 'Buenos Aires';
-    const esCABA = provinciaVal === 'CABA';
-    const otraProv = provinciaVal && !esPBA && !esCABA;
-    const tienePartidos = esPBA;
-    const locaciones = esPBA ? (LOCALIDADES_POR_PARTIDO[partidoVal] || []) : esCABA ? BARRIOS_CABA : [];
-    const tieneLocalidades = locaciones.length > 0;
-
-    return `
-    <div class="info-item">
-        <div class="info-label">Provincia</div>
-        <select id="${provId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
-            onchange="onUbicProvChange('${sid}','${prefijo}','${provId}','${partId}','${partLibreId}','${locId}','${locLibreId}')">
-            <option value="">-- Provincia --</option>
-            ${PROVINCIAS_AR.map(p=>`<option value="${p}" ${p===provinciaVal?'selected':''}>${p}</option>`).join('')}
-        </select>
-    </div>
-    <div class="info-item" ${!esPBA&&!otraProv?'':''}> 
-        <div class="info-label">${esPBA?'Partido':'Departamento / Ciudad'}</div>
-        <select id="${partId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!tienePartidos?'display:none;':''}"
-            onchange="onUbicPartChange('${sid}','${prefijo}','${partId}','${locId}','${locLibreId}')">
-            <option value="">-- Partido --</option>
-            ${PARTIDOS_PBA.map(p=>`<option value="${p}" ${p===partidoVal?'selected':''}>${p}</option>`).join('')}
-        </select>
-        <input type="text" id="${partLibreId}" placeholder="Ingrese ciudad/depto..."
-            value="${otraProv ? partidoVal : ''}"
-            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${otraProv?'':'display:none;'}"
-            onblur="onUbicPartLibreBlur('${sid}','${prefijo}','${partLibreId}')">
-    </div>
-    <div class="info-item">
-        <div class="info-label">Localidad / Barrio</div>
-        <select id="${locId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!tieneLocalidades?'display:none;':''}"
-            onchange="onUbicLocChange('${sid}','${prefijo}','${locId}')">
-            <option value="">-- Localidad --</option>
-            ${locaciones.map(l=>`<option value="${l}" ${l===localidadVal?'selected':''}>${l}</option>`).join('')}
-        </select>
-        <input type="text" id="${locLibreId}" placeholder="Ingrese localidad..."
-            value="${!tieneLocalidades ? localidadVal : ''}"
-            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${tieneLocalidades?'display:none;':''}"
-            onblur="onUbicLocLibreBlur('${sid}','${prefijo}','${locLibreId}')">
-    </div>`;
-}
-
-function onUbicProvChange(sid, pref, provId, partId, partLibreId, locId, locLibreId) {
-    const prov = document.getElementById(provId)?.value || '';
-    const partSel = document.getElementById(partId);
-    const partLibre = document.getElementById(partLibreId);
-    const locSel = document.getElementById(locId);
-    const locLibre = document.getElementById(locLibreId);
-    const esPBA = prov === 'Buenos Aires';
-    const esCABA = prov === 'CABA';
-    const otraProv = prov && !esPBA && !esCABA;
-    // Mostrar/ocultar partido
-    if (partSel) { partSel.innerHTML = `<option value="">-- Partido --</option>` + PARTIDOS_PBA.map(p=>`<option value="${p}">${p}</option>`).join(''); partSel.style.display = esPBA ? 'block' : 'none'; partSel.value = ''; }
-    if (partLibre) { partLibre.style.display = otraProv ? 'block' : 'none'; partLibre.value = ''; }
-    // Limpiar localidad
-    if (locSel) { locSel.innerHTML = '<option value="">-- Localidad --</option>'; if (esCABA) { locSel.innerHTML += BARRIOS_CABA.map(b=>`<option value="${b}">${b}</option>`).join(''); locSel.style.display = 'block'; } else { locSel.style.display = 'none'; } }
-    if (locLibre) { locLibre.style.display = 'none'; locLibre.value = ''; }
-    // Guardar
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) {
-        const pf = geoFieldsForPref(pref);
-        s[pf.prov] = prov; s[pf.part] = ''; s[pf.loc] = '';
-        saveData();
-    }
-}
-
-function onUbicPartChange(sid, pref, partId, locId, locLibreId) {
-    const partido = document.getElementById(partId)?.value || '';
-    const locSel = document.getElementById(locId);
-    const locLibre = document.getElementById(locLibreId);
-    // Si eligió OTRO en partido, mostrar campo libre para partido y localidad
-    if (partido === 'OTRO') {
-        const partLibreId = partId.replace('part_', 'partLibre_');
-        const partLibre = document.getElementById(partLibreId);
-        if (partLibre) { partLibre.style.display = 'block'; partLibre.value = ''; partLibre.focus(); }
-        document.getElementById(partId).style.display = 'none';
-        if (locSel) { locSel.style.display = 'none'; }
-        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; }
-        const s = siniestrosData.find(x => x.id === sid);
-        if (s) { const pf = geoFieldsForPref(pref); s[pf.part] = ''; s[pf.loc] = ''; saveData(); }
-        return;
-    }
-    const localidades = LOCALIDADES_POR_PARTIDO[partido] || [];
-    if (locSel) { locSel.innerHTML = `<option value="">-- Localidad --</option>` + localidades.map(l=>`<option value="${l}">${l}</option>`).join(''); locSel.style.display = localidades.length ? 'block' : 'none'; }
-    if (locLibre) { locLibre.style.display = !localidades.length && partido ? 'block' : 'none'; locLibre.value = ''; }
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { const pf = geoFieldsForPref(pref); s[pf.part] = partido; s[pf.loc] = ''; saveData(); }
-}
-
-function onUbicPartLibreBlur(sid, pref, inputId) {
-    const val = document.getElementById(inputId)?.value || '';
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { const pf = geoFieldsForPref(pref); s[pf.part] = val; saveData(); }
-}
-
-function onUbicLocChange(sid, pref, locId) {
-    const val = document.getElementById(locId)?.value || '';
-    // Si eligió OTRA, mostrar campo libre
-    if (val === 'OTRA' || val === 'OTRO') {
-        const locLibreId = locId.replace('loc_', 'locLibre_');
-        const locLibre = document.getElementById(locLibreId);
-        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; locLibre.focus(); }
-        document.getElementById(locId).style.display = 'none';
-        const s = siniestrosData.find(x => x.id === sid);
-        if (s) { const pf = geoFieldsForPref(pref); s[pf.loc] = ''; saveData(); }
-        return;
-    }
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { const pf = geoFieldsForPref(pref); s[pf.loc] = val; saveData(); }
-}
-
-function onUbicLocLibreBlur(sid, pref, inputId) {
-    const val = document.getElementById(inputId)?.value || '';
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { const pf = geoFieldsForPref(pref); s[pf.loc] = val; saveData(); }
-}
-
-// Mapea prefijo → campos del objeto siniestro
-function geoFieldsForPref(pref) {
-    if (pref === 'cli') return { prov:'provinciaCliente', part:'partidoCliente', loc:'localidadCliente' };
-    if (pref === 'sin') return { prov:'provinciaSiniestro', part:'partidoSiniestro', loc:'localidadSiniestro' };
-    return { prov:`provincia_${pref}`, part:`partido_${pref}`, loc:`localidad_${pref}` };
-}
-
-// Helpers para el formulario de NUEVO siniestro
-function onNuevoUbicProvChange(pref) {
-    const provId = `new_prov_${pref}`, partId = `new_part_${pref}`, partLibreId = `new_partLibre_${pref}`, locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
-    const prov = document.getElementById(provId)?.value || '';
-    const esPBA = prov === 'Buenos Aires', esCABA = prov === 'CABA', otraProv = prov && !esPBA && !esCABA;
-    const partSel = document.getElementById(partId), partLibre = document.getElementById(partLibreId);
-    const locSel = document.getElementById(locId), locLibre = document.getElementById(locLibreId);
-    if (partSel) { partSel.innerHTML = `<option value="">-- Partido --</option>` + PARTIDOS_PBA.map(p=>`<option value="${p}">${p}</option>`).join(''); partSel.style.display = esPBA ? 'block' : 'none'; }
-    if (partLibre) { partLibre.style.display = otraProv ? 'block' : 'none'; partLibre.value = ''; }
-    if (locSel) { if (esCABA) { locSel.innerHTML = `<option value="">-- Barrio --</option>` + BARRIOS_CABA.map(b=>`<option value="${b}">${b}</option>`).join(''); locSel.style.display = 'block'; } else { locSel.innerHTML = '<option value="">-- Localidad --</option>'; locSel.style.display = 'none'; } }
-    if (locLibre) { locLibre.style.display = 'none'; locLibre.value = ''; }
-}
-
-function onNuevoUbicPartChange(pref) {
-    const partId = `new_part_${pref}`, partLibreId = `new_partLibre_${pref}`, locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
-    const partido = document.getElementById(partId)?.value || '';
-    const locSel = document.getElementById(locId), locLibre = document.getElementById(locLibreId);
-    const partSel = document.getElementById(partId), partLibre = document.getElementById(partLibreId);
-    // Si eligió OTRO en partido
-    if (partido === 'OTRO') {
-        if (partSel) partSel.style.display = 'none';
-        if (partLibre) { partLibre.style.display = 'block'; partLibre.value = ''; partLibre.focus(); }
-        if (locSel) locSel.style.display = 'none';
-        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; }
-        return;
-    }
-    const localidades = LOCALIDADES_POR_PARTIDO[partido] || [];
-    if (locSel) { locSel.innerHTML = `<option value="">-- Localidad --</option>` + localidades.map(l=>`<option value="${l}">${l}</option>`).join(''); locSel.style.display = localidades.length ? 'block' : 'none'; }
-    if (locLibre) { locLibre.style.display = !localidades.length && partido ? 'block' : 'none'; locLibre.value = ''; }
-}
-
-// Detectar OTRA/OTRO en localidad del formulario nuevo
-function onNuevoUbicLocChange(pref) {
-    const locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
-    const val = document.getElementById(locId)?.value || '';
-    if (val === 'OTRA' || val === 'OTRO') {
-        const locSel = document.getElementById(locId), locLibre = document.getElementById(locLibreId);
-        if (locSel) locSel.style.display = 'none';
-        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; locLibre.focus(); }
-    }
-}
-
-// Lee los valores del formulario nuevo para un prefijo dado
-function getNuevoUbicValues(pref) {
-    const prov = document.getElementById(`new_prov_${pref}`)?.value || '';
-    const esPBA = prov === 'Buenos Aires', esCABA = prov === 'CABA', otraProv = prov && !esPBA && !esCABA;
-    // Partido: si el select está oculto, usar el campo libre
-    const partSel = document.getElementById(`new_part_${pref}`);
-    const partLibre = document.getElementById(`new_partLibre_${pref}`);
-    let partido = '';
-    if (esPBA) {
-        const partVal = partSel?.value || '';
-        partido = (partVal === 'OTRO' || partSel?.style.display === 'none') ? (partLibre?.value || '') : partVal;
-    } else if (otraProv) {
-        partido = partLibre?.value || '';
-    }
-    // Localidad: si el select está oculto, usar el campo libre
-    const locSel = document.getElementById(`new_loc_${pref}`);
-    const locLibre = document.getElementById(`new_locLibre_${pref}`);
-    const locVal = locSel?.value || '';
-    const localidad = (locVal === 'OTRA' || locVal === 'OTRO' || locSel?.style.display === 'none') ? (locLibre?.value || '') : locVal;
-    return { prov, partido, localidad };
-}
-
-// HTML para ubicación en formulario nuevo siniestro
-function htmlNuevoUbic(pref, labelPref) {
-    return `
-    <div class="form-group"><label>Provincia ${labelPref}</label>
-        <select id="new_prov_${pref}" onchange="onNuevoUbicProvChange('${pref}')">
-            <option value="">-- Provincia --</option>${PROVINCIAS_AR.map(p=>`<option value="${p}">${p}</option>`).join('')}
-        </select>
-    </div>
-    <div class="form-group"><label>Partido ${labelPref}</label>
-        <select id="new_part_${pref}" style="display:none;" onchange="onNuevoUbicPartChange('${pref}')">
-            <option value="">-- Partido --</option>
-        </select>
-        <input type="text" id="new_partLibre_${pref}" placeholder="Ciudad / Departamento" style="display:none;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em;">
-    </div>
-    <div class="form-group"><label>Localidad / Barrio ${labelPref}</label>
-        <select id="new_loc_${pref}" style="display:none;" onchange="onNuevoUbicLocChange('${pref}')">
-            <option value="">-- Localidad --</option>
-        </select>
-        <input type="text" id="new_locLibre_${pref}" placeholder="Localidad" style="display:none;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em;">
-    </div>`;
-}
 function toggleVisibility(id){ const el=document.getElementById(id),icon=el.previousElementSibling.querySelector('.toggle-icon'); const isSection=id.includes('weeklyGlanceSection'); if(getComputedStyle(el).display==='none'){el.style.display=isSection?'block':'block';icon.textContent='➖';}else{el.style.display='none';icon.textContent='➕';}}
 function updateSiniestroNextRevision(s){ if(!s)return; const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;if(future[0].textoPrivado)s.observacion+=` (Privado: ${future[0].textoPrivado})`;}else{s.fechaRevision='';s.observacion='No hay tareas pendientes';}}
 
@@ -1290,7 +882,7 @@ function renderAllSiniestrosList(){
 
 function showNewSiniestroModal(){ 
     const modal=document.getElementById('newSiniestroModal'); 
-    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newFechaNacimiento"></div> <div class="form-group"><label>CUIL</label><input type="text" id="newCuil" placeholder="20-12345678-9"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Domicilio</label><input type="text" id="newDomicilioCliente" placeholder="Calle y número"></div> ${htmlNuevoUbic('cli','')}  <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Contra (Aseguradora Tercero)</label><input type="text" id="newContra" list="companiasSegurosList" onchange="sugerirHonorariosNuevo()" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Tipo de Gestión</label><select id="newTipoGestion"><option value="">-- Seleccionar --</option><option value="ADMINISTRATIVO">⚙️ Administrativo</option><option value="MEDIACION">⚖️ Mediación</option></select></div> <div class="form-group"><label>N° Póliza Tercero</label><input type="text" id="newPolizaTercero"></div> <div class="form-group"><label>DNI Tercero (Titular)</label><input type="text" id="newDniTercero"></div> <div class="form-group"><label>Conductor Tercero (si ≠ titular)</label><input type="text" id="newConductorTerceroNombre" placeholder="Nombre del conductor"></div> <div class="form-group"><label>DNI Conductor Tercero</label><input type="text" id="newConductorTerceroDni"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios % <span id="honorariosSugerenciaLabel" style="color:#27ae60;font-size:0.8em;"></span></label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newFechaNacimiento"></div> <div class="form-group"><label>CUIL</label><input type="text" id="newCuil" placeholder="20-12345678-9"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Contra (Aseguradora Tercero)</label><input type="text" id="newContra" list="companiasSegurosList" onchange="sugerirHonorariosNuevo()" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Tipo de Gestión</label><select id="newTipoGestion"><option value="">-- Seleccionar --</option><option value="ADMINISTRATIVO">⚙️ Administrativo</option><option value="MEDIACION">⚖️ Mediación</option></select></div> <div class="form-group"><label>N° Póliza Tercero</label><input type="text" id="newPolizaTercero"></div> <div class="form-group"><label>DNI Tercero</label><input type="text" id="newDniTercero"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios % <span id="honorariosSugerenciaLabel" style="color:#27ae60;font-size:0.8em;"></span></label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
     modal.querySelector('.modal-content').innerHTML=content; 
     modal.classList.add('active'); 
 }
@@ -1311,27 +903,6 @@ function autocompletarCliente(nombre) {
             document.getElementById('newAseguradoEn').value = clienteExistente.aseguradoEn || '';
             if (document.getElementById('newFechaNacimiento')) document.getElementById('newFechaNacimiento').value = clienteExistente.fechaNacimiento || '';
             if (document.getElementById('newCuil')) document.getElementById('newCuil').value = clienteExistente.cuil || '';
-            if (document.getElementById('newDomicilioCliente')) document.getElementById('newDomicilioCliente').value = clienteExistente.domicilioCliente || '';
-            if (clienteExistente.provinciaCliente) {
-                const provEl = document.getElementById('new_prov_cli');
-                if (provEl) {
-                    provEl.value = clienteExistente.provinciaCliente;
-                    onNuevoUbicProvChange('cli');
-                    const esPBA = clienteExistente.provinciaCliente === 'Buenos Aires';
-                    const esCABA = clienteExistente.provinciaCliente === 'CABA';
-                    if (esPBA && clienteExistente.partidoCliente) {
-                        setTimeout(()=>{
-                            const partEl = document.getElementById('new_part_cli');
-                            if (partEl) { partEl.value = clienteExistente.partidoCliente; onNuevoUbicPartChange('cli'); }
-                            setTimeout(()=>{ const locEl = document.getElementById('new_loc_cli'); if(locEl) locEl.value = clienteExistente.localidadCliente||''; },50);
-                        },50);
-                    } else if (esCABA) {
-                        setTimeout(()=>{ const locEl = document.getElementById('new_loc_cli'); if(locEl) locEl.value = clienteExistente.localidadCliente||''; },50);
-                    } else {
-                        setTimeout(()=>{ const partLibre = document.getElementById('new_partLibre_cli'); if(partLibre) partLibre.value = clienteExistente.partidoCliente||''; const locLibre = document.getElementById('new_locLibre_cli'); if(locLibre) locLibre.value = clienteExistente.localidadCliente||''; },50);
-                    }
-                }
-            }
         };
 
         showConfirmModal(message, autocompletarAccion);
@@ -1363,10 +934,6 @@ function addNewSiniestro(e){
         cuil:document.getElementById('newCuil')?.value || '',
         celular:document.getElementById('newCelular').value,
         mailCliente:document.getElementById('newMailCliente').value,
-        domicilioCliente:document.getElementById('newDomicilioCliente')?.value || '',
-        provinciaCliente:(()=>getNuevoUbicValues('cli').prov)(),
-        partidoCliente:(()=>getNuevoUbicValues('cli').partido)(),
-        localidadCliente:(()=>getNuevoUbicValues('cli').localidad)(),
         estado:document.getElementById('newEstado').value,
         aseguradoEn:document.getElementById('newAseguradoEn').value,
         contra:document.getElementById('newContra').value,
@@ -1374,8 +941,6 @@ function addNewSiniestro(e){
         contraOtros:'',
         polizaTercero:document.getElementById('newPolizaTercero')?.value || '',
         dniTercero:document.getElementById('newDniTercero')?.value || '',
-        conductorTerceroNombre:document.getElementById('newConductorTerceroNombre')?.value || '',
-        conductorTerceroDni:document.getElementById('newConductorTerceroDni')?.value || '',
         numeroReclamo:document.getElementById('newNumeroReclamo').value,
         presupuesto:document.getElementById('newPresupuesto').value,
         indemnizacion:document.getElementById('newIndemnizacion').value,
@@ -1383,12 +948,6 @@ function addNewSiniestro(e){
         honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,
         cuotaLitisPorcentaje:document.getElementById('newCuotaLitisPorcentaje').value, 
         chasis:'', motor:'', colorVehiculo:'',
-        tipoVehiculo:'', tipoVehiculoTercero:'',
-        versionCliente:'', versionTercero:'',
-        domicilioCliente:'', provinciaCliente:'', partidoCliente:'', localidadCliente:'',
-        provinciaSiniestro:'', partidoSiniestro:'', localidadSiniestro:'',
-        conductorNombre:'', conductorDni:'',
-        conductorTerceroNombre:'', conductorTerceroDni:'',
         marcaClienteOtros:'', marcaTerceroOtros:'',
         productor:'',
         productorPorcentaje:'',
@@ -1532,17 +1091,12 @@ function showSiniestroModal(id){
         cuil:'CUIL',
         celular:'Celular',
         mailCliente:'Mail Cliente',
-        domicilioCliente:'Domicilio',
-        provinciaCliente:'Provincia',
-        partidoCliente:'Partido',
-        localidadCliente:'Localidad',
         estado:'Estado',
         cuotaLitisPorcentaje:'Pacto Cuota Litis %', 
         conductorNombre:'Nombre Conductor',
         conductorDni:'DNI Conductor',
         aseguradoEn:'Aseguradora Cliente',
         polizaCliente:'Póliza Cliente',
-        tipoVehiculo:'Tipo Veh. Cliente',
         marcaCliente:'Marca Veh. Cliente',
         modeloCliente:'Modelo Veh. Cliente',
         dominioCliente:'Dominio Veh. Cliente',
@@ -1555,18 +1109,12 @@ function showSiniestroModal(id){
         numeroReclamo:'N° Reclamo',
         fechaSiniestro:'Fecha Siniestro',
         horaSiniestro:'Hora Siniestro',
-        lugarSiniestro:'Dirección Siniestro',
-        provinciaSiniestro:'Provincia Siniestro',
-        partidoSiniestro:'Partido Siniestro',
-        localidadSiniestro:'Localidad Siniestro',
-        nombreTercero:'Nombre Tercero (Titular)',
-        dniTercero:'DNI Tercero (Titular)',
-        conductorTerceroNombre:'Conductor Tercero',
-        conductorTerceroDni:'DNI Conductor Tercero',
+        lugarSiniestro:'Lugar Siniestro',
+        nombreTercero:'Nombre Tercero',
+        dniTercero:'DNI Tercero',
         polizaTercero:'N° Póliza Tercero',
         mailTercero:'Mail Tercero',
         telefonoTercero:'Teléfono Tercero',
-        tipoVehiculoTercero:'Tipo Veh. Tercero',
         marcaTercero:'Marca Veh. Tercero',
         modeloTercero:'Modelo Veh. Tercero',
         dominioTercero:'Dominio Veh. Tercero',
@@ -1617,69 +1165,29 @@ function showSiniestroModal(id){
         </div>` : ''}
     </div>` : '';
 
-    // Sistema en capas: Tipo → Marca → Modelo
-    const renderVehiculoEnCapas = (tipoField, marcaField, modeloField, prefijo) => {
-        const versionField = prefijo === 'cli' ? 'versionCliente' : 'versionTercero';
-        const tipoActual = s[tipoField] || '';
-        const marcaActual = s[marcaField] || '';
-        const modeloActual = s[modeloField] || '';
-        const versionActual = s[versionField] || '';
-        const marcasDelTipo = tipoActual ? getMarcasPorTipo(tipoActual) : [];
-        const modelosDelaMarca = marcaActual ? getModelosPorMarca(marcaActual) : null;
-        const tipoId = `tipo_${prefijo}`;
-        const marcaId = `marca_${prefijo}`;
-        const modeloId = `modelo_${prefijo}`;
-        const modeloLibreId = `modeloLibre_${prefijo}`;
-        const versionId = `version_${prefijo}`;
-        return `
-        <div class="info-item">
-            <div class="info-label">Tipo Vehículo</div>
-            <select id="${tipoId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
-                onchange="onTipoVehChange('${s.id}','${tipoField}','${marcaField}','${tipoId}','${marcaId}','${modeloId}','${modeloLibreId}')">
-                <option value="">-- Tipo --</option>
-                ${TIPOS_VEHICULO.map(t=>`<option value="${t}" ${t===tipoActual?'selected':''}>${t}</option>`).join('')}
-            </select>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Marca</div>
-            <select id="${marcaId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;" ${!tipoActual?'disabled':''}
-                onchange="onMarcaVehChange('${s.id}','${marcaField}','${modeloField}','${marcaId}','${modeloId}','${modeloLibreId}')">
-                <option value="">-- Marca --</option>
-                ${marcasDelTipo.map(m=>`<option value="${m}" ${m===marcaActual?'selected':''}>${m}</option>`).join('')}
-            </select>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Modelo</div>
-            <select id="${modeloId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(!modelosDelaMarca||!marcaActual)?'display:none;':''}"
-                onchange="saveModeloVeh('${s.id}','${modeloField}','${modeloId}')">
-                <option value="">-- Modelo --</option>
-                ${modelosDelaMarca ? modelosDelaMarca.map(m=>`<option value="${m}" ${m===modeloActual?'selected':''}>${m}</option>`).join('') : ''}
-            </select>
-            <input type="text" id="${modeloLibreId}" placeholder="Ingresar modelo..."
-                value="${!modelosDelaMarca && marcaActual ? modeloActual : (modelosDelaMarca ? '' : modeloActual)}"
-                style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(modelosDelaMarca && marcaActual)?'display:none;':''}"
-                onblur="saveModeloVehLibre('${s.id}','${modeloField}','${modeloLibreId}')">
-        </div>
-        <div class="info-item">
-            <div class="info-label">Versión / Detalle</div>
-            <input type="text" id="${versionId}" placeholder="Ej: 1.8 CVT, 4x4, Pack..."
-                value="${versionActual}"
-                style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
-                onblur="saveVersionVeh('${s.id}','${versionField}','${versionId}')">
+    // Función para renderizar campo de marca con select + "OTRAS"
+    const renderMarcaField = (field, label, otrosField) => {
+        const currentVal = s[field] || '';
+        const otrosVal = s[otrosField] || '';
+        const estaEnLista = MARCAS_VEHICULOS.includes(currentVal) || currentVal === '';
+        const displayVal = !estaEnLista ? currentVal : (currentVal || 'S/D');
+        const marcaSelectId = `marcaSelect-${field}`;
+        const otrosInputId = `marcaOtros-${field}`;
+        return `<div class="info-item">
+            <div class="info-label">${label}</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <select id="${marcaSelectId}" style="width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;" onchange="onMarcaSelectChange('${s.id}','${field}','${otrosField}','${marcaSelectId}','${otrosInputId}')">
+                    <option value="">-- Seleccionar marca --</option>
+                    ${MARCAS_VEHICULOS.map(m=>`<option value="${m}" ${(currentVal===m||(!estaEnLista&&m==='OTRAS'))?'selected':''}>${m}</option>`).join('')}
+                </select>
+                <input type="text" id="${otrosInputId}" placeholder="Especificar marca..." value="${!estaEnLista?currentVal:otrosVal}" style="display:${(!estaEnLista||currentVal==='OTRAS')?'block':'none'};width:100%;padding:4px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;" onblur="saveMarcaOtros('${s.id}','${field}','${otrosField}','${marcaSelectId}','${otrosInputId}')">
+            </div>
         </div>`;
     };
 
     const getFieldHtml = (k, l) => {
-        if (k === 'tipoVehiculo') return renderVehiculoEnCapas('tipoVehiculo','marcaCliente','modeloCliente','cli');
-        if (k === 'marcaCliente' || k === 'modeloCliente') return ''; // ya se renderizan dentro de tipoVehiculo
-        if (k === 'tipoVehiculoTercero') return renderVehiculoEnCapas('tipoVehiculoTercero','marcaTercero','modeloTercero','ter');
-        if (k === 'marcaTercero' || k === 'modeloTercero') return ''; // ya se renderizan dentro de tipoVehiculoTercero
-
-        // Campos de ubicación en capas: Provincia → Partido → Localidad
-        if (k === 'provinciaCliente') return renderUbicacionEnCapas(s.id, 'cli', s.provinciaCliente||'', s.partidoCliente||'', s.localidadCliente||'');
-        if (k === 'partidoCliente' || k === 'localidadCliente') return ''; // renderizados dentro de provinciaCliente
-        if (k === 'provinciaSiniestro') return renderUbicacionEnCapas(s.id, 'sin', s.provinciaSiniestro||'', s.partidoSiniestro||'', s.localidadSiniestro||'');
-        if (k === 'partidoSiniestro' || k === 'localidadSiniestro') return ''; // renderizados dentro de provinciaSiniestro
+        if (k === 'marcaCliente') return renderMarcaField('marcaCliente', l, 'marcaClienteOtros');
+        if (k === 'marcaTercero') return renderMarcaField('marcaTercero', l, 'marcaTerceroOtros');
         if (k === 'aseguradoEn' || k === 'contra') {
             const otrosField = k === 'contra' ? 'contraOtros' : 'aseguradoEnOtros';
             const selectId = k === 'contra' ? 'contraSelect' : 'aseguradoEnSelect';
@@ -1876,70 +1384,6 @@ function saveTipoGestion(sid, valor) {
     showSiniestroModal(sid);
 }
 
-// ============ SISTEMA VEHÍCULO EN CAPAS ============
-function onTipoVehChange(sid, tipoField, marcaField, tipoId, marcaId, modeloId, modeloLibreId) {
-    const tipo = document.getElementById(tipoId)?.value || '';
-    const marcaSel = document.getElementById(marcaId);
-    const modeloSel = document.getElementById(modeloId);
-    const modeloLibre = document.getElementById(modeloLibreId);
-    if (!marcaSel) return;
-    // Guardar tipo
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { s[tipoField] = tipo; s[marcaField] = ''; saveData(); }
-    // Actualizar lista de marcas
-    const marcas = getMarcasPorTipo(tipo);
-    marcaSel.innerHTML = `<option value="">-- Marca --</option>` + marcas.map(m=>`<option value="${m}">${m}</option>`).join('');
-    marcaSel.disabled = !tipo;
-    // Limpiar modelo
-    if (modeloSel) { modeloSel.innerHTML = '<option value="">-- Modelo --</option>'; modeloSel.style.display = 'none'; }
-    if (modeloLibre) { modeloLibre.style.display = 'block'; modeloLibre.value = ''; }
-}
-
-function onMarcaVehChange(sid, marcaField, modeloField, marcaId, modeloId, modeloLibreId) {
-    const marca = document.getElementById(marcaId)?.value || '';
-    const modeloSel = document.getElementById(modeloId);
-    const modeloLibre = document.getElementById(modeloLibreId);
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { s[marcaField] = marca; s[modeloField] = ''; saveData(); }
-    const modelos = getModelosPorMarca(marca);
-    if (modelos && marca && marca !== 'OTRAS') {
-        if (modeloSel) {
-            modeloSel.innerHTML = `<option value="">-- Modelo --</option>` + modelos.map(m=>`<option value="${m}">${m}</option>`).join('');
-            modeloSel.style.display = 'block';
-        }
-        if (modeloLibre) { modeloLibre.style.display = 'none'; modeloLibre.value = ''; }
-    } else {
-        if (modeloSel) { modeloSel.style.display = 'none'; }
-        if (modeloLibre) { modeloLibre.style.display = 'block'; modeloLibre.value = ''; modeloLibre.focus(); }
-    }
-}
-
-function saveModeloVeh(sid, modeloField, modeloId) {
-    const val = document.getElementById(modeloId)?.value || '';
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { s[modeloField] = val; saveData(); }
-    // Si eligió OTRA, mostrar campo libre
-    const libreId = modeloId.replace('modelo_', 'modeloLibre_');
-    const modeloLibre = document.getElementById(libreId);
-    const modeloSel = document.getElementById(modeloId);
-    if (val === 'OTRA') {
-        if (modeloLibre) { modeloLibre.style.display = 'block'; modeloLibre.value = ''; modeloLibre.focus(); }
-        if (modeloSel) { modeloSel.style.display = 'none'; }
-    }
-}
-
-function saveModeloVehLibre(sid, modeloField, inputId) {
-    const val = document.getElementById(inputId)?.value || '';
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { s[modeloField] = val; saveData(); }
-}
-
-function saveVersionVeh(sid, versionField, inputId) {
-    const val = document.getElementById(inputId)?.value || '';
-    const s = siniestrosData.find(x => x.id === sid);
-    if (s) { s[versionField] = val; saveData(); }
-}
-
 function onMarcaSelectChange(sid, field, otrosField, selectId, otrosId) {
     const sel = document.getElementById(selectId);
     const otros = document.getElementById(otrosId);
@@ -1999,11 +1443,11 @@ function borrarAbonosDeSiniestro(siniestroId) {
     }
 }
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Domicilio':s.domicilioCliente,'Provincia':s.provinciaCliente,'Partido':s.partidoCliente,'Localidad':s.localidadCliente,'Conductor Cliente':s.conductorNombre,'DNI Conductor Cliente':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Versión Veh. Cliente':s.versionCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Dirección Siniestro':s.lugarSiniestro,'Provincia Siniestro':s.provinciaSiniestro,'Partido Siniestro':s.partidoSiniestro,'Localidad Siniestro':s.localidadSiniestro,'Tercero (Titular)':s.nombreTercero,'DNI Tercero (Titular)':s.dniTercero,'Conductor Tercero':s.conductorTerceroNombre,'DNI Conductor Tercero':s.conductorTerceroDni,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Versión Veh. Tercero':s.versionTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
+function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
-function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',domicilioCliente:'Domicilio',provinciaCliente:'Provincia',localidadCliente:'Localidad',conductorNombre:'Conductor Cliente',conductorDni:'DNI Conductor Cliente',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero (Titular)',dniTercero:'DNI Tercero (Titular)',conductorTerceroNombre:'Conductor Tercero',conductorTerceroDni:'DNI Conductor Tercero',marcaTercero:'Veh. Tercero',lugarSiniestro:'Dirección Siniestro',provinciaSiniestro:'Prov. Siniestro',localidadSiniestro:'Localidad Siniestro',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
+function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
 function updateClock(){ const now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(); const hD=(h%12)*30+m*0.5,mD=m*6+s*0.1,sD=s*6; const hourHand=document.querySelector('.hour-hand'),minHand=document.querySelector('.min-hand'),secondHand=document.querySelector('.second-hand'),digitalClock=document.getElementById('digital-clock'); if(hourHand)hourHand.style.transform=`rotate(${hD}deg)`; if(minHand)minHand.style.transform=`rotate(${mD}deg)`; if(secondHand)secondHand.style.transform=`rotate(${sD}deg)`; if(digitalClock)digitalClock.innerHTML=`${now.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function mostrarAlertaDeMediaciones(mediacionesPorAlertar){ if(mediacionesPorAlertar.length===0)return; const modal=document.getElementById('alertModal'); if(modal.classList.contains('active'))return; const content=`<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height:60vh;">${mediacionesPorAlertar.map(alert=>`<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size:1.1em;color:var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center;margin-top:15px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}','${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}','${alert.item.id}')">🗓️ Posponer</button></div></div></div>`).join('')}</div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); mediacionesPorAlertar.forEach(alerta=>{const s=siniestrosData.find(s=>s.id===alerta.siniestro.id); const m=s.mediaciones_list.find(m=>m.id===alerta.item.id); if(m)m.alertaMostrada=true;}); saveData(); }
 function revisarMediacionesVencidasAlCargar(){ const ahora=new Date(),horaActual=`${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`; const mediacionesVencidas=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&m.hora&&m.hora<=horaActual&&!m.completed&&!m.alertaMostrada).map(m=>({siniestro:s,item:m}))); mostrarAlertaDeMediaciones(mediacionesVencidas); }
@@ -2016,8 +1460,8 @@ function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); 
     if (!s) return; 
     
-    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.versionCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); 
-    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.versionTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); 
+    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); 
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); 
     
     const isFemenino = s.genero === 'Femenino' ? 'selected' : '';
     const isMasculino = s.genero === 'Masculino' ? 'selected' : '';
@@ -2054,7 +1498,7 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div> 
                 <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div> 
                 <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div> 
-                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${[s.lugarSiniestro, s.localidadSiniestro, s.partidoSiniestro ? 'Partido de ' + s.partidoSiniestro : '', s.provinciaSiniestro].filter(Boolean).join(', ')}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> 
+                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> 
                 <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div> 
                 <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div> 
                 <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div> 
@@ -2241,7 +1685,7 @@ function startConvenioGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); 
     if (!s) return; 
 
-    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.versionTercero, s.dominioTercero].filter(Boolean).join(', ');
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.dominioTercero].filter(Boolean).join(', ');
 
     const modal = document.getElementById('convenioGenerationModal'); 
     modal.querySelector('.modal-content').innerHTML = `
@@ -2254,13 +1698,13 @@ function startConvenioGeneration(siniestroId) {
             <div class="info-grid">
                 <div class="form-group"><label>Cliente</label><input type="text" id="convClienteNombre" value="${s.cliente || ''}" readonly style="background:#eee;"></div>
                 <div class="form-group"><label>DNI</label><input type="text" id="convClienteDNI" value="${s.dni || ''}" readonly style="background:#eee;"></div>
-                <div class="form-group"><label>Domicilio del Cliente</label><input type="text" id="convClienteDomicilio" value="${[s.domicilioCliente, s.localidadCliente, s.partidoCliente ? 'Partido de ' + s.partidoCliente : '', s.provinciaCliente].filter(Boolean).join(', ')}" placeholder="Ej: Calle N° 123, Localidad" required></div>
+                <div class="form-group"><label>Domicilio del Cliente (¡Completar!)</label><input type="text" id="convClienteDomicilio" placeholder="Ej: Calle N° 123, Localidad" required></div>
             </div>
 
             <h4 style="margin-top:15px;margin-bottom:5px;">Datos del Siniestro y Tercero</h4>
             <div class="info-grid">
                 <div class="form-group"><label>Fecha Siniestro</label><input type="date" id="convFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div>
-                <div class="form-group"><label>Lugar Siniestro</label><input type="text" id="convLugarSiniestro" value="${[s.lugarSiniestro, s.localidadSiniestro, s.partidoSiniestro ? 'Partido de ' + s.partidoSiniestro : '', s.provinciaSiniestro].filter(Boolean).join(', ')}" placeholder="Ej: Calle 1 y Calle 2" required></div>
+                <div class="form-group"><label>Lugar Siniestro</label><input type="text" id="convLugarSiniestro" value="${s.lugarSiniestro || ''}" placeholder="Ej: Calle 1 y Calle 2" required></div>
                 <div class="form-group"><label>Vehículo Tercero (Datos)</label><input type="text" id="convVehiculoTercero" value="${vehiculoTerceroString}" required></div>
                 <div class="form-group"><label>Aseguradora Tercero</label><input type="text" id="convAseguradoraTercero" value="${s.contra || ''}" required></div>
             </div>
