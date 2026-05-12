@@ -818,7 +818,7 @@ const BARRIOS_CABA = [
 // Partidos de PBA → Localidades
 const LOCALIDADES_POR_PARTIDO = {
     'Adolfo Alsina':['Carhué','Colonia San Martín','OTRA'],
-    'Avellaneda':['Avellaneda','Dock Sud','Gerli','Piñeyro','Sarandí','Villa Dominico','OTRA'],
+    'Avellaneda':['Avellaneda','Dock Sud','Gerli','Piñeyro','Sarandí','Villa Dominico','Wilde','OTRA'],
     'Azul':['Azul','Cacharí','Chillar','OTRA'],
     'Bahía Blanca':['Bahía Blanca','Cabildo','General Daniel Cerri','Ingeniero White','OTRA'],
     'Berazategui':['Berazategui','El Pato','Guillermo Hudson','Juan María Gutiérrez','Ranelagh','Villa España','OTRA'],
@@ -946,6 +946,18 @@ function onUbicPartChange(sid, pref, partId, locId, locLibreId) {
     const partido = document.getElementById(partId)?.value || '';
     const locSel = document.getElementById(locId);
     const locLibre = document.getElementById(locLibreId);
+    // Si eligió OTRO en partido, mostrar campo libre para partido y localidad
+    if (partido === 'OTRO') {
+        const partLibreId = partId.replace('part_', 'partLibre_');
+        const partLibre = document.getElementById(partLibreId);
+        if (partLibre) { partLibre.style.display = 'block'; partLibre.value = ''; partLibre.focus(); }
+        document.getElementById(partId).style.display = 'none';
+        if (locSel) { locSel.style.display = 'none'; }
+        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; }
+        const s = siniestrosData.find(x => x.id === sid);
+        if (s) { const pf = geoFieldsForPref(pref); s[pf.part] = ''; s[pf.loc] = ''; saveData(); }
+        return;
+    }
     const localidades = LOCALIDADES_POR_PARTIDO[partido] || [];
     if (locSel) { locSel.innerHTML = `<option value="">-- Localidad --</option>` + localidades.map(l=>`<option value="${l}">${l}</option>`).join(''); locSel.style.display = localidades.length ? 'block' : 'none'; }
     if (locLibre) { locLibre.style.display = !localidades.length && partido ? 'block' : 'none'; locLibre.value = ''; }
@@ -961,6 +973,16 @@ function onUbicPartLibreBlur(sid, pref, inputId) {
 
 function onUbicLocChange(sid, pref, locId) {
     const val = document.getElementById(locId)?.value || '';
+    // Si eligió OTRA, mostrar campo libre
+    if (val === 'OTRA' || val === 'OTRO') {
+        const locLibreId = locId.replace('loc_', 'locLibre_');
+        const locLibre = document.getElementById(locLibreId);
+        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; locLibre.focus(); }
+        document.getElementById(locId).style.display = 'none';
+        const s = siniestrosData.find(x => x.id === sid);
+        if (s) { const pf = geoFieldsForPref(pref); s[pf.loc] = ''; saveData(); }
+        return;
+    }
     const s = siniestrosData.find(x => x.id === sid);
     if (s) { const pf = geoFieldsForPref(pref); s[pf.loc] = val; saveData(); }
 }
@@ -992,21 +1014,53 @@ function onNuevoUbicProvChange(pref) {
 }
 
 function onNuevoUbicPartChange(pref) {
-    const partId = `new_part_${pref}`, locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
+    const partId = `new_part_${pref}`, partLibreId = `new_partLibre_${pref}`, locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
     const partido = document.getElementById(partId)?.value || '';
-    const localidades = LOCALIDADES_POR_PARTIDO[partido] || [];
     const locSel = document.getElementById(locId), locLibre = document.getElementById(locLibreId);
+    const partSel = document.getElementById(partId), partLibre = document.getElementById(partLibreId);
+    // Si eligió OTRO en partido
+    if (partido === 'OTRO') {
+        if (partSel) partSel.style.display = 'none';
+        if (partLibre) { partLibre.style.display = 'block'; partLibre.value = ''; partLibre.focus(); }
+        if (locSel) locSel.style.display = 'none';
+        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; }
+        return;
+    }
+    const localidades = LOCALIDADES_POR_PARTIDO[partido] || [];
     if (locSel) { locSel.innerHTML = `<option value="">-- Localidad --</option>` + localidades.map(l=>`<option value="${l}">${l}</option>`).join(''); locSel.style.display = localidades.length ? 'block' : 'none'; }
     if (locLibre) { locLibre.style.display = !localidades.length && partido ? 'block' : 'none'; locLibre.value = ''; }
+}
+
+// Detectar OTRA/OTRO en localidad del formulario nuevo
+function onNuevoUbicLocChange(pref) {
+    const locId = `new_loc_${pref}`, locLibreId = `new_locLibre_${pref}`;
+    const val = document.getElementById(locId)?.value || '';
+    if (val === 'OTRA' || val === 'OTRO') {
+        const locSel = document.getElementById(locId), locLibre = document.getElementById(locLibreId);
+        if (locSel) locSel.style.display = 'none';
+        if (locLibre) { locLibre.style.display = 'block'; locLibre.value = ''; locLibre.focus(); }
+    }
 }
 
 // Lee los valores del formulario nuevo para un prefijo dado
 function getNuevoUbicValues(pref) {
     const prov = document.getElementById(`new_prov_${pref}`)?.value || '';
     const esPBA = prov === 'Buenos Aires', esCABA = prov === 'CABA', otraProv = prov && !esPBA && !esCABA;
-    const partido = esPBA ? (document.getElementById(`new_part_${pref}`)?.value || '') : otraProv ? (document.getElementById(`new_partLibre_${pref}`)?.value || '') : '';
-    const localidades = esPBA ? (LOCALIDADES_POR_PARTIDO[partido] || []) : esCABA ? BARRIOS_CABA : [];
-    const localidad = localidades.length ? (document.getElementById(`new_loc_${pref}`)?.value || '') : (document.getElementById(`new_locLibre_${pref}`)?.value || '');
+    // Partido: si el select está oculto, usar el campo libre
+    const partSel = document.getElementById(`new_part_${pref}`);
+    const partLibre = document.getElementById(`new_partLibre_${pref}`);
+    let partido = '';
+    if (esPBA) {
+        const partVal = partSel?.value || '';
+        partido = (partVal === 'OTRO' || partSel?.style.display === 'none') ? (partLibre?.value || '') : partVal;
+    } else if (otraProv) {
+        partido = partLibre?.value || '';
+    }
+    // Localidad: si el select está oculto, usar el campo libre
+    const locSel = document.getElementById(`new_loc_${pref}`);
+    const locLibre = document.getElementById(`new_locLibre_${pref}`);
+    const locVal = locSel?.value || '';
+    const localidad = (locVal === 'OTRA' || locVal === 'OTRO' || locSel?.style.display === 'none') ? (locLibre?.value || '') : locVal;
     return { prov, partido, localidad };
 }
 
@@ -1025,7 +1079,7 @@ function htmlNuevoUbic(pref, labelPref) {
         <input type="text" id="new_partLibre_${pref}" placeholder="Ciudad / Departamento" style="display:none;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em;">
     </div>
     <div class="form-group"><label>Localidad / Barrio ${labelPref}</label>
-        <select id="new_loc_${pref}" style="display:none;">
+        <select id="new_loc_${pref}" style="display:none;" onchange="onNuevoUbicLocChange('${pref}')">
             <option value="">-- Localidad --</option>
         </select>
         <input type="text" id="new_locLibre_${pref}" placeholder="Localidad" style="display:none;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em;">
@@ -1864,6 +1918,14 @@ function saveModeloVeh(sid, modeloField, modeloId) {
     const val = document.getElementById(modeloId)?.value || '';
     const s = siniestrosData.find(x => x.id === sid);
     if (s) { s[modeloField] = val; saveData(); }
+    // Si eligió OTRA, mostrar campo libre
+    const libreId = modeloId.replace('modelo_', 'modeloLibre_');
+    const modeloLibre = document.getElementById(libreId);
+    const modeloSel = document.getElementById(modeloId);
+    if (val === 'OTRA') {
+        if (modeloLibre) { modeloLibre.style.display = 'block'; modeloLibre.value = ''; modeloLibre.focus(); }
+        if (modeloSel) { modeloSel.style.display = 'none'; }
+    }
 }
 
 function saveModeloVehLibre(sid, modeloField, inputId) {
