@@ -881,8 +881,18 @@ function renderUbicacionEnCapas(sid, prefijo, provinciaVal, partidoVal, localida
     const esCABA = provinciaVal === 'CABA';
     const otraProv = provinciaVal && !esPBA && !esCABA;
     const tienePartidos = esPBA;
+    // Detectar si el partido guardado no está en la lista (fue ingresado libre)
+    const partidoEstaEnLista = esPBA && PARTIDOS_PBA.includes(partidoVal);
+    const partidoEsLibre = esPBA && partidoVal && !partidoEstaEnLista;
+    const mostrarPartSelect = tienePartidos && !partidoEsLibre;
+    const mostrarPartLibre = otraProv || partidoEsLibre;
+    // Localidades según partido
     const locaciones = esPBA ? (LOCALIDADES_POR_PARTIDO[partidoVal] || []) : esCABA ? BARRIOS_CABA : [];
-    const tieneLocalidades = locaciones.length > 0;
+    // Detectar si la localidad guardada no está en la lista
+    const locEstaEnLista = locaciones.includes(localidadVal);
+    const locEsLibre = localidadVal && !locEstaEnLista;
+    const mostrarLocSelect = locaciones.length > 0 && !locEsLibre;
+    const mostrarLocLibre = !mostrarLocSelect;
 
     return `
     <div class="info-item">
@@ -893,28 +903,28 @@ function renderUbicacionEnCapas(sid, prefijo, provinciaVal, partidoVal, localida
             ${PROVINCIAS_AR.map(p=>`<option value="${p}" ${p===provinciaVal?'selected':''}>${p}</option>`).join('')}
         </select>
     </div>
-    <div class="info-item" ${!esPBA&&!otraProv?'':''}> 
+    <div class="info-item"> 
         <div class="info-label">${esPBA?'Partido':'Departamento / Ciudad'}</div>
-        <select id="${partId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!tienePartidos?'display:none;':''}"
+        <select id="${partId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!mostrarPartSelect?'display:none;':''}"
             onchange="onUbicPartChange('${sid}','${prefijo}','${partId}','${locId}','${locLibreId}')">
             <option value="">-- Partido --</option>
             ${PARTIDOS_PBA.map(p=>`<option value="${p}" ${p===partidoVal?'selected':''}>${p}</option>`).join('')}
         </select>
         <input type="text" id="${partLibreId}" placeholder="Ingrese ciudad/depto..."
-            value="${otraProv ? partidoVal : ''}"
-            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${otraProv?'':'display:none;'}"
+            value="${mostrarPartLibre ? partidoVal : ''}"
+            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${mostrarPartLibre?'':'display:none;'}"
             onblur="onUbicPartLibreBlur('${sid}','${prefijo}','${partLibreId}')">
     </div>
     <div class="info-item">
         <div class="info-label">Localidad / Barrio</div>
-        <select id="${locId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!tieneLocalidades?'display:none;':''}"
+        <select id="${locId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!mostrarLocSelect?'display:none;':''}"
             onchange="onUbicLocChange('${sid}','${prefijo}','${locId}')">
             <option value="">-- Localidad --</option>
             ${locaciones.map(l=>`<option value="${l}" ${l===localidadVal?'selected':''}>${l}</option>`).join('')}
         </select>
         <input type="text" id="${locLibreId}" placeholder="Ingrese localidad..."
-            value="${!tieneLocalidades ? localidadVal : ''}"
-            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${tieneLocalidades?'display:none;':''}"
+            value="${mostrarLocLibre ? localidadVal : ''}"
+            style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!mostrarLocLibre?'display:none;':''}"
             onblur="onUbicLocLibreBlur('${sid}','${prefijo}','${locLibreId}')">
     </div>`;
 }
@@ -1627,6 +1637,12 @@ function showSiniestroModal(id){
         const versionActual = s[versionField] || '';
         const marcasDelTipo = tipoActual ? getMarcasPorTipo(tipoActual) : [];
         const modelosDelaMarca = marcaActual ? getModelosPorMarca(marcaActual) : null;
+        // Detectar si el modelo guardado es libre (no está en la lista o es vacío con marca OTRAS)
+        const modeloEstaEnLista = modelosDelaMarca && modelosDelaMarca.includes(modeloActual);
+        const modeloEsLibre = marcaActual && modeloActual && !modeloEstaEnLista;
+        const marcaEsOtras = marcaActual === 'OTRAS';
+        const mostrarSelect = modelosDelaMarca && marcaActual && !marcaEsOtras && !modeloEsLibre;
+        const mostrarLibre = !mostrarSelect;
         const tipoId = `tipo_${prefijo}`;
         const marcaId = `marca_${prefijo}`;
         const modeloId = `modelo_${prefijo}`;
@@ -1651,14 +1667,14 @@ function showSiniestroModal(id){
         </div>
         <div class="info-item">
             <div class="info-label">Modelo</div>
-            <select id="${modeloId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(!modelosDelaMarca||!marcaActual)?'display:none;':''}"
+            <select id="${modeloId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!mostrarSelect?'display:none;':''}"
                 onchange="saveModeloVeh('${s.id}','${modeloField}','${modeloId}')">
                 <option value="">-- Modelo --</option>
                 ${modelosDelaMarca ? modelosDelaMarca.map(m=>`<option value="${m}" ${m===modeloActual?'selected':''}>${m}</option>`).join('') : ''}
             </select>
             <input type="text" id="${modeloLibreId}" placeholder="Ingresar modelo..."
-                value="${!modelosDelaMarca && marcaActual ? modeloActual : (modelosDelaMarca ? '' : modeloActual)}"
-                style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(modelosDelaMarca && marcaActual)?'display:none;':''}"
+                value="${modeloEsLibre ? modeloActual : (mostrarLibre && marcaActual ? modeloActual : '')}"
+                style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${!mostrarLibre?'display:none;':''}"
                 onblur="saveModeloVehLibre('${s.id}','${modeloField}','${modeloLibreId}')">
         </div>
         <div class="info-item">
