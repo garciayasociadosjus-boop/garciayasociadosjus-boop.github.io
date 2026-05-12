@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -747,6 +746,8 @@ function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach
     s.marcaTerceroOtros = s.marcaTerceroOtros || '';
     s.tipoVehiculo = s.tipoVehiculo || '';
     s.tipoVehiculoTercero = s.tipoVehiculoTercero || '';
+    s.versionCliente = s.versionCliente || '';
+    s.versionTercero = s.versionTercero || '';
     // Nuevos campos domicilio cliente
     s.domicilioCliente = s.domicilioCliente || '';
     s.provinciaCliente = s.provinciaCliente || '';
@@ -1329,6 +1330,7 @@ function addNewSiniestro(e){
         cuotaLitisPorcentaje:document.getElementById('newCuotaLitisPorcentaje').value, 
         chasis:'', motor:'', colorVehiculo:'',
         tipoVehiculo:'', tipoVehiculoTercero:'',
+        versionCliente:'', versionTercero:'',
         domicilioCliente:'', provinciaCliente:'', partidoCliente:'', localidadCliente:'',
         provinciaSiniestro:'', partidoSiniestro:'', localidadSiniestro:'',
         conductorNombre:'', conductorDni:'',
@@ -1563,15 +1565,18 @@ function showSiniestroModal(id){
 
     // Sistema en capas: Tipo → Marca → Modelo
     const renderVehiculoEnCapas = (tipoField, marcaField, modeloField, prefijo) => {
+        const versionField = prefijo === 'cli' ? 'versionCliente' : 'versionTercero';
         const tipoActual = s[tipoField] || '';
         const marcaActual = s[marcaField] || '';
         const modeloActual = s[modeloField] || '';
+        const versionActual = s[versionField] || '';
         const marcasDelTipo = tipoActual ? getMarcasPorTipo(tipoActual) : [];
         const modelosDelaMarca = marcaActual ? getModelosPorMarca(marcaActual) : null;
         const tipoId = `tipo_${prefijo}`;
         const marcaId = `marca_${prefijo}`;
         const modeloId = `modelo_${prefijo}`;
         const modeloLibreId = `modeloLibre_${prefijo}`;
+        const versionId = `version_${prefijo}`;
         return `
         <div class="info-item">
             <div class="info-label">Tipo Vehículo</div>
@@ -1600,6 +1605,13 @@ function showSiniestroModal(id){
                 value="${!modelosDelaMarca && marcaActual ? modeloActual : (modelosDelaMarca ? '' : modeloActual)}"
                 style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(modelosDelaMarca && marcaActual)?'display:none;':''}"
                 onblur="saveModeloVehLibre('${s.id}','${modeloField}','${modeloLibreId}')">
+        </div>
+        <div class="info-item">
+            <div class="info-label">Versión / Detalle</div>
+            <input type="text" id="${versionId}" placeholder="Ej: 1.8 CVT, 4x4, Pack..."
+                value="${versionActual}"
+                style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
+                onblur="saveVersionVeh('${s.id}','${versionField}','${versionId}')">
         </div>`;
     };
 
@@ -1860,6 +1872,12 @@ function saveModeloVehLibre(sid, modeloField, inputId) {
     if (s) { s[modeloField] = val; saveData(); }
 }
 
+function saveVersionVeh(sid, versionField, inputId) {
+    const val = document.getElementById(inputId)?.value || '';
+    const s = siniestrosData.find(x => x.id === sid);
+    if (s) { s[versionField] = val; saveData(); }
+}
+
 function onMarcaSelectChange(sid, field, otrosField, selectId, otrosId) {
     const sel = document.getElementById(selectId);
     const otros = document.getElementById(otrosId);
@@ -1919,7 +1937,7 @@ function borrarAbonosDeSiniestro(siniestroId) {
     }
 }
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Domicilio':s.domicilioCliente,'Provincia':s.provinciaCliente,'Partido':s.partidoCliente,'Localidad':s.localidadCliente,'Conductor Cliente':s.conductorNombre,'DNI Conductor Cliente':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Dirección Siniestro':s.lugarSiniestro,'Provincia Siniestro':s.provinciaSiniestro,'Partido Siniestro':s.partidoSiniestro,'Localidad Siniestro':s.localidadSiniestro,'Tercero (Titular)':s.nombreTercero,'DNI Tercero (Titular)':s.dniTercero,'Conductor Tercero':s.conductorTerceroNombre,'DNI Conductor Tercero':s.conductorTerceroDni,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
+function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Domicilio':s.domicilioCliente,'Provincia':s.provinciaCliente,'Partido':s.partidoCliente,'Localidad':s.localidadCliente,'Conductor Cliente':s.conductorNombre,'DNI Conductor Cliente':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Versión Veh. Cliente':s.versionCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Dirección Siniestro':s.lugarSiniestro,'Provincia Siniestro':s.provinciaSiniestro,'Partido Siniestro':s.partidoSiniestro,'Localidad Siniestro':s.localidadSiniestro,'Tercero (Titular)':s.nombreTercero,'DNI Tercero (Titular)':s.dniTercero,'Conductor Tercero':s.conductorTerceroNombre,'DNI Conductor Tercero':s.conductorTerceroDni,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Versión Veh. Tercero':s.versionTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
@@ -1936,8 +1954,8 @@ function startLetterGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); 
     if (!s) return; 
     
-    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); 
-    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); 
+    const vehiculoClienteString = [s.marcaCliente, s.modeloCliente, s.versionCliente, s.anoCliente, s.dominioCliente].filter(Boolean).join(', '); 
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.versionTercero, s.anoTercero, s.dominioTercero].filter(Boolean).join(', '); 
     
     const isFemenino = s.genero === 'Femenino' ? 'selected' : '';
     const isMasculino = s.genero === 'Masculino' ? 'selected' : '';
@@ -2161,7 +2179,7 @@ function startConvenioGeneration(siniestroId) {
     const s = siniestrosData.find(x => x.id === siniestroId); 
     if (!s) return; 
 
-    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.dominioTercero].filter(Boolean).join(', ');
+    const vehiculoTerceroString = [s.marcaTercero, s.modeloTercero, s.versionTercero, s.dominioTercero].filter(Boolean).join(', ');
 
     const modal = document.getElementById('convenioGenerationModal'); 
     modal.querySelector('.modal-content').innerHTML = `
