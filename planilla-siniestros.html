@@ -648,6 +648,19 @@ function sanitizeData(data){ if(!Array.isArray(data))data=[]; (data||[]).forEach
     s.dniTercero = s.dniTercero || '';
     s.marcaClienteOtros = s.marcaClienteOtros || '';
     s.marcaTerceroOtros = s.marcaTerceroOtros || '';
+    // Nuevos campos domicilio cliente
+    s.domicilioCliente = s.domicilioCliente || '';
+    s.provinciaCliente = s.provinciaCliente || '';
+    s.localidadCliente = s.localidadCliente || '';
+    // Nuevos campos ubicación siniestro
+    s.provinciaSiniestro = s.provinciaSiniestro || '';
+    s.localidadSiniestro = s.localidadSiniestro || '';
+    // Conductor del tercero
+    s.conductorTerceroNombre = s.conductorTerceroNombre || '';
+    s.conductorTerceroDni = s.conductorTerceroDni || '';
+    // Conductor (ya existían, refuerzo)
+    s.conductorNombre = s.conductorNombre || '';
+    s.conductorDni = s.conductorDni || '';
     s.observaciones=Array.isArray(s.observaciones)?s.observaciones:[]; s.mediaciones_list=Array.isArray(s.mediaciones_list)?s.mediaciones_list:[]; s.vencimientos_list=Array.isArray(s.vencimientos_list)?s.vencimientos_list:[]; s.observaciones.forEach(o=>{o.id=o.id||generateId({});o.completed=typeof o.completed==='boolean'?o.completed:false;}); s.mediaciones_list.forEach(m=>{m.id=m.id||generateId({});m.completed=typeof m.completed==='boolean'?m.completed:false;m.alertaMostrada=typeof m.alertaMostrada==='boolean'?m.alertaMostrada:false;m.avisoPrevio=m.avisoPrevio||'1';}); s.vencimientos_list.forEach(v=>{v.id=v.id||generateId({});v.completed=typeof v.completed==='boolean'?v.completed:false;v.avisoPrevio=v.avisoPrevio||'1';}); try{updateSiniestroNextRevision(s);}catch(e){console.error('Error en revisión:',e);}}); return data; }
 function updateDataStatus(msg,isError=false){ const el=document.getElementById('dataStatus'); if(el){el.textContent=msg;el.style.background=isError?'#f8d7da':'#d4edda';el.style.color=isError?'#721c24':'#155724';el.style.display=msg?'block':'none';}}
 function updateDriveStatus(msg){ const el=document.getElementById('driveStatus'); if(el){el.textContent=msg;el.style.display='block';el.style.background='#d1ecf1';el.style.color='#0c5460';setTimeout(()=>{el.style.display='none';},5e3);}}
@@ -677,6 +690,105 @@ function getDaysDifference(d){ if(!d)return 999; return Math.ceil((new Date(d)-n
 function generateId(it){ return`EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1e3)}`; }
 function getDisplayName(s){ return`${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`; }
 function formatCurrency(v){ if(v==null||v==='')return'S/D'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
+
+const PROVINCIAS_AR = [
+    'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes',
+    'Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones',
+    'Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe',
+    'Santiago del Estero','Tierra del Fuego','Tucumán'
+];
+
+const LOCALIDADES_PBA = [
+    'Adolfo Alsina','Adolfo Gonzales Chaves','Alberti','Almirante Brown','Arrecifes',
+    'Avellaneda','Ayacucho','Azul','Bahía Blanca','Balcarce','Baradero','Benito Juárez',
+    'Berazategui','Berisso','Bolívar','Bragado','Brandsen','Campana','Cañuelas',
+    'Capitán Sarmiento','Carlos Casares','Carlos Tejedor','Carmen de Areco','Castelli',
+    'Chacabuco','Chascomús','Chivilcoy','Colón','Coronel Dorrego','Coronel Pringles',
+    'Coronel Rosales','Coronel Suárez','Daireaux','Dolores','Ensenada','Escobar',
+    'Esteban Echeverría','Exaltación de la Cruz','Ezeiza','Florencio Varela','Florentino Ameghino',
+    'General Alvarado','General Alvear','General Arenales','General Belgrano','General Guido',
+    'General Juan Madariaga','General La Madrid','General Las Heras','General Lavalle',
+    'General Paz','General Pinto','General Pueyrredón','General Rodríguez','General San Martín',
+    'General Sarmiento','General Viamonte','General Villegas','Guaminí','Hipólito Yrigoyen',
+    'Hurlingham','Ituzaingó','José C. Paz','Junín','La Costa','La Matanza','La Plata',
+    'Lanús','Laprida','Las Flores','Leandro N. Alem','Lincoln','Lobería','Lobos','Lomas de Zamora',
+    'Luján','Magdalena','Maipú','Malvinas Argentinas','Mar Chiquita','Marcos Paz','Mercedes',
+    'Merlo','Monte','Monte Hermoso','Moreno','Morón','Navarro','Necochea','Nueve de Julio',
+    'Olavarría','Patagones','Pehuajó','Pellegrini','Pergamino','Pila','Pilar','Pinamar',
+    'Presidente Perón','Puán','Punta Indio','Quilmes','Ramallo','Rauch','Rivadavia',
+    'Rojas','Roque Pérez','Saavedra','Saladillo','Salliqueló','Salto','San Andrés de Giles',
+    'San Antonio de Areco','San Cayetano','San Fernando','San Isidro','San Miguel',
+    'San Nicolás','San Pedro','San Vicente','Suipacha','Tandil','Tapalqué','Tigre',
+    'Tordillo','Tornquist','Trenque Lauquen','Tres Arroyos','Tres de Febrero',
+    'Tres Lomas','Vicente López','Villa Gesell','Villarino','Zárate'
+];
+
+const BARRIOS_CABA = [
+    'Agronomía','Almagro','Balvanera','Barracas','Belgrano','Boedo','Caballito',
+    'Chacarita','Coghlan','Colegiales','Constitución','Flores','Floresta','La Boca',
+    'La Paternal','Liniers','Mataderos','Monte Castro','Montserrat','Nueva Pompeya',
+    'Núñez','Palermo','Parque Avellaneda','Parque Chacabuco','Parque Chas',
+    'Parque Patricios','Puerto Madero','Recoleta','Retiro','Saavedra','San Cristóbal',
+    'San Nicolás','San Telmo','Vélez Sársfield','Versalles','Villa Crespo',
+    'Villa del Parque','Villa Devoto','Villa General Mitre','Villa Gral. Mitre',
+    'Villa Lugano','Villa Luro','Villa Ortúzar','Villa Pueyrredón','Villa Real',
+    'Villa Riachuelo','Villa Santa Rita','Villa Soldati','Villa Urquiza'
+];
+
+function getLocalidadesOptions(provincia, valorActual='') {
+    let lista = [];
+    if (provincia === 'Buenos Aires') lista = LOCALIDADES_PBA;
+    else if (provincia === 'CABA') lista = BARRIOS_CABA;
+    if (!lista.length) return `<option value="">-- Primero seleccione una provincia --</option>`;
+    const label = provincia === 'CABA' ? '-- Seleccionar barrio --' : '-- Seleccionar localidad --';
+    return `<option value="">${label}</option>` + lista.map(l=>`<option value="${l}" ${l===valorActual?'selected':''}>${l}</option>`).join('');
+}
+
+function onProvinciaChange(sid, field, selectId, localidadSelectId) {
+    const sel = document.getElementById(selectId);
+    const locSel = document.getElementById(localidadSelectId);
+    if (!sel || !locSel) return;
+    const provincia = sel.value;
+    locSel.innerHTML = getLocalidadesOptions(provincia, '');
+    locSel.disabled = (provincia !== 'Buenos Aires' && provincia !== 'CABA');
+    // Habilitar input libre para otras provincias
+    const inputLibre = document.getElementById(localidadSelectId + '_libre');
+    if (inputLibre) {
+        inputLibre.style.display = (provincia && provincia !== 'Buenos Aires' && provincia !== 'CABA') ? 'block' : 'none';
+        locSel.style.display = (provincia === 'Buenos Aires' || provincia === 'CABA') ? 'block' : 'none';
+    }
+    if (sid) {
+        const s = siniestrosData.find(x => x.id === sid);
+        if (s) { s[field] = provincia; saveData(); }
+    }
+}
+
+function saveLocalidad(sid, field, selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const s = siniestrosData.find(x => x.id === sid);
+    if (s) { s[field] = sel.value; saveData(); }
+}
+
+function saveLocalidadLibre(sid, field, inputId) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    const s = siniestrosData.find(x => x.id === sid);
+    if (s) { s[field] = inp.value; saveData(); }
+}
+
+function onNuevoProvincia(provSelectId, locSelectId, locLibreId) {
+    const prov = document.getElementById(provSelectId)?.value || '';
+    const locSel = document.getElementById(locSelectId);
+    const locLibre = document.getElementById(locLibreId);
+    if (!locSel || !locLibre) return;
+    const isPBAorCABA = prov === 'Buenos Aires' || prov === 'CABA';
+    locSel.innerHTML = getLocalidadesOptions(prov, '');
+    locSel.disabled = !isPBAorCABA;
+    locSel.style.display = isPBAorCABA ? 'block' : 'none';
+    locLibre.style.display = (prov && !isPBAorCABA) ? 'block' : 'none';
+    locLibre.value = '';
+}
 function toggleVisibility(id){ const el=document.getElementById(id),icon=el.previousElementSibling.querySelector('.toggle-icon'); const isSection=id.includes('weeklyGlanceSection'); if(getComputedStyle(el).display==='none'){el.style.display=isSection?'block':'block';icon.textContent='➖';}else{el.style.display='none';icon.textContent='➕';}}
 function updateSiniestroNextRevision(s){ if(!s)return; const future=(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); if(future.length){s.fechaRevision=future[0].proximaRevision;s.observacion=future[0].texto;if(future[0].textoPrivado)s.observacion+=` (Privado: ${future[0].textoPrivado})`;}else{s.fechaRevision='';s.observacion='No hay tareas pendientes';}}
 
@@ -882,7 +994,7 @@ function renderAllSiniestrosList(){
 
 function showNewSiniestroModal(){ 
     const modal=document.getElementById('newSiniestroModal'); 
-    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newFechaNacimiento"></div> <div class="form-group"><label>CUIL</label><input type="text" id="newCuil" placeholder="20-12345678-9"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Contra (Aseguradora Tercero)</label><input type="text" id="newContra" list="companiasSegurosList" onchange="sugerirHonorariosNuevo()" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Tipo de Gestión</label><select id="newTipoGestion"><option value="">-- Seleccionar --</option><option value="ADMINISTRATIVO">⚙️ Administrativo</option><option value="MEDIACION">⚖️ Mediación</option></select></div> <div class="form-group"><label>N° Póliza Tercero</label><input type="text" id="newPolizaTercero"></div> <div class="form-group"><label>DNI Tercero</label><input type="text" id="newDniTercero"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios % <span id="honorariosSugerenciaLabel" style="color:#27ae60;font-size:0.8em;"></span></label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
+    const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span><h2>Agregar Nuevo Siniestro</h2> <form onsubmit="addNewSiniestro(event)"><div class="info-grid"> <div class="form-group"><label>Cliente</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required></div> <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div> <div class="form-group"><label>DNI</label><input type="text" id="newDni"></div> <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newFechaNacimiento"></div> <div class="form-group"><label>CUIL</label><input type="text" id="newCuil" placeholder="20-12345678-9"></div> <div class="form-group"><label>Celular</label><input type="text" id="newCelular"></div> <div class="form-group"><label>Mail Cliente</label><input type="email" id="newMailCliente"></div> <div class="form-group"><label>Domicilio</label><input type="text" id="newDomicilioCliente" placeholder="Calle y número"></div> <div class="form-group"><label>Provincia</label><select id="newProvinciaCliente" onchange="onNuevoProvincia('newProvinciaCliente','newLocalidadCliente','newLocalidadClienteLibre')"><option value="">-- Seleccionar --</option>${PROVINCIAS_AR.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div> <div class="form-group"><label>Localidad / Barrio</label><select id="newLocalidadCliente" disabled><option value="">-- Primero seleccione provincia --</option></select><input type="text" id="newLocalidadClienteLibre" placeholder="Ingrese localidad..." style="display:none;margin-top:4px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.9em;"></div> <div class="form-group"><label>Estado</label><select id="newEstado"><option value="SIN INICIAR">Sin iniciar</option><option value="EJECUCION">Ejecución</option><option value="DEMORADA">Demorada</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA P">Finalizada P</option><option value="RECHAZADO">Rechazado</option><option value="MEDIACIONES">Mediaciones</option></select></div> <div class="form-group"><label>Asegurado En</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Contra (Aseguradora Tercero)</label><input type="text" id="newContra" list="companiasSegurosList" onchange="sugerirHonorariosNuevo()" placeholder="Escribir o seleccionar..."></div> <div class="form-group"><label>Tipo de Gestión</label><select id="newTipoGestion"><option value="">-- Seleccionar --</option><option value="ADMINISTRATIVO">⚙️ Administrativo</option><option value="MEDIACION">⚖️ Mediación</option></select></div> <div class="form-group"><label>N° Póliza Tercero</label><input type="text" id="newPolizaTercero"></div> <div class="form-group"><label>DNI Tercero (Titular)</label><input type="text" id="newDniTercero"></div> <div class="form-group"><label>Conductor Tercero (si ≠ titular)</label><input type="text" id="newConductorTerceroNombre" placeholder="Nombre del conductor"></div> <div class="form-group"><label>DNI Conductor Tercero</label><input type="text" id="newConductorTerceroDni"></div> <div class="form-group"><label>N° Reclamo</label><input type="text" id="newNumeroReclamo"></div> <div class="form-group"><label>Presupuesto</label><input type="number" id="newPresupuesto" step="0.01"></div> <div class="form-group"><label>Indemnización</label><input type="number" id="newIndemnizacion" step="0.01"></div> <div class="form-group"><label>Honorarios</label><input type="number" id="newHonorarios" step="0.01"></div> <div class="form-group"><label>Honorarios % <span id="honorariosSugerenciaLabel" style="color:#27ae60;font-size:0.8em;"></span></label><input type="number" id="newHonorariosPorcentaje" step="0.01" min="0" max="100"></div> <div class="form-group"><label>Pacto Cuota Litis %</label><input type="number" id="newCuotaLitisPorcentaje" step="0.01" min="0" max="100" value="10"></div> </div><div style="text-align:center;margin-top:20px;"><button type="submit" class="btn btn-success">Guardar Siniestro</button><button type="button" class="btn" onclick="closeModal('newSiniestroModal')">Cancelar</button></div></form>`; 
     modal.querySelector('.modal-content').innerHTML=content; 
     modal.classList.add('active'); 
 }
@@ -903,6 +1015,17 @@ function autocompletarCliente(nombre) {
             document.getElementById('newAseguradoEn').value = clienteExistente.aseguradoEn || '';
             if (document.getElementById('newFechaNacimiento')) document.getElementById('newFechaNacimiento').value = clienteExistente.fechaNacimiento || '';
             if (document.getElementById('newCuil')) document.getElementById('newCuil').value = clienteExistente.cuil || '';
+            if (document.getElementById('newDomicilioCliente')) document.getElementById('newDomicilioCliente').value = clienteExistente.domicilioCliente || '';
+            if (clienteExistente.provinciaCliente && document.getElementById('newProvinciaCliente')) {
+                document.getElementById('newProvinciaCliente').value = clienteExistente.provinciaCliente;
+                onNuevoProvincia('newProvinciaCliente','newLocalidadCliente','newLocalidadClienteLibre');
+                const isPBAorCABA = clienteExistente.provinciaCliente === 'Buenos Aires' || clienteExistente.provinciaCliente === 'CABA';
+                if (isPBAorCABA) {
+                    setTimeout(()=>{ if(document.getElementById('newLocalidadCliente')) document.getElementById('newLocalidadCliente').value = clienteExistente.localidadCliente || ''; },50);
+                } else {
+                    if(document.getElementById('newLocalidadClienteLibre')) document.getElementById('newLocalidadClienteLibre').value = clienteExistente.localidadCliente || '';
+                }
+            }
         };
 
         showConfirmModal(message, autocompletarAccion);
@@ -934,6 +1057,9 @@ function addNewSiniestro(e){
         cuil:document.getElementById('newCuil')?.value || '',
         celular:document.getElementById('newCelular').value,
         mailCliente:document.getElementById('newMailCliente').value,
+        domicilioCliente:document.getElementById('newDomicilioCliente')?.value || '',
+        provinciaCliente:document.getElementById('newProvinciaCliente')?.value || '',
+        localidadCliente:(()=>{const prov=document.getElementById('newProvinciaCliente')?.value||''; const isPBAorCABA=prov==='Buenos Aires'||prov==='CABA'; return isPBAorCABA?(document.getElementById('newLocalidadCliente')?.value||''):(document.getElementById('newLocalidadClienteLibre')?.value||'');})(),
         estado:document.getElementById('newEstado').value,
         aseguradoEn:document.getElementById('newAseguradoEn').value,
         contra:document.getElementById('newContra').value,
@@ -941,6 +1067,8 @@ function addNewSiniestro(e){
         contraOtros:'',
         polizaTercero:document.getElementById('newPolizaTercero')?.value || '',
         dniTercero:document.getElementById('newDniTercero')?.value || '',
+        conductorTerceroNombre:document.getElementById('newConductorTerceroNombre')?.value || '',
+        conductorTerceroDni:document.getElementById('newConductorTerceroDni')?.value || '',
         numeroReclamo:document.getElementById('newNumeroReclamo').value,
         presupuesto:document.getElementById('newPresupuesto').value,
         indemnizacion:document.getElementById('newIndemnizacion').value,
@@ -948,6 +1076,10 @@ function addNewSiniestro(e){
         honorariosPorcentaje:document.getElementById('newHonorariosPorcentaje').value,
         cuotaLitisPorcentaje:document.getElementById('newCuotaLitisPorcentaje').value, 
         chasis:'', motor:'', colorVehiculo:'',
+        domicilioCliente:'', provinciaCliente:'', localidadCliente:'',
+        provinciaSiniestro:'', localidadSiniestro:'',
+        conductorNombre:'', conductorDni:'',
+        conductorTerceroNombre:'', conductorTerceroDni:'',
         marcaClienteOtros:'', marcaTerceroOtros:'',
         productor:'',
         productorPorcentaje:'',
@@ -1091,6 +1223,9 @@ function showSiniestroModal(id){
         cuil:'CUIL',
         celular:'Celular',
         mailCliente:'Mail Cliente',
+        domicilioCliente:'Domicilio',
+        provinciaCliente:'Provincia',
+        localidadCliente:'Localidad',
         estado:'Estado',
         cuotaLitisPorcentaje:'Pacto Cuota Litis %', 
         conductorNombre:'Nombre Conductor',
@@ -1109,9 +1244,13 @@ function showSiniestroModal(id){
         numeroReclamo:'N° Reclamo',
         fechaSiniestro:'Fecha Siniestro',
         horaSiniestro:'Hora Siniestro',
-        lugarSiniestro:'Lugar Siniestro',
-        nombreTercero:'Nombre Tercero',
-        dniTercero:'DNI Tercero',
+        lugarSiniestro:'Dirección Siniestro',
+        provinciaSiniestro:'Provincia Siniestro',
+        localidadSiniestro:'Localidad Siniestro',
+        nombreTercero:'Nombre Tercero (Titular)',
+        dniTercero:'DNI Tercero (Titular)',
+        conductorTerceroNombre:'Conductor Tercero',
+        conductorTerceroDni:'DNI Conductor Tercero',
         polizaTercero:'N° Póliza Tercero',
         mailTercero:'Mail Tercero',
         telefonoTercero:'Teléfono Tercero',
@@ -1188,6 +1327,37 @@ function showSiniestroModal(id){
     const getFieldHtml = (k, l) => {
         if (k === 'marcaCliente') return renderMarcaField('marcaCliente', l, 'marcaClienteOtros');
         if (k === 'marcaTercero') return renderMarcaField('marcaTercero', l, 'marcaTerceroOtros');
+
+        // Campos de provincia/localidad
+        if (k === 'provinciaCliente' || k === 'provinciaSiniestro') {
+            const locField = k === 'provinciaCliente' ? 'localidadCliente' : 'localidadSiniestro';
+            const selectId = `prov_${k}`;
+            const locSelectId = `loc_${locField}`;
+            const locLibreId = `loc_${locField}_libre`;
+            const currentProv = s[k] || '';
+            const currentLoc = s[locField] || '';
+            const isPBAorCABA = currentProv === 'Buenos Aires' || currentProv === 'CABA';
+            return `<div class="info-item">
+                <div class="info-label">${l}</div>
+                <select id="${selectId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;margin-bottom:4px;"
+                    onchange="onProvinciaChange('${s.id}','${k}','${selectId}','${locSelectId}')">
+                    <option value="">-- Seleccionar provincia --</option>
+                    ${PROVINCIAS_AR.map(p=>`<option value="${p}" ${p===currentProv?'selected':''}>${p}</option>`).join('')}
+                </select>
+            </div>
+            <div class="info-item">
+                <div class="info-label">${k === 'provinciaCliente' ? 'Localidad' : 'Localidad Siniestro'}</div>
+                <select id="${locSelectId}" style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${isPBAorCABA?'':'display:none;'}"
+                    onchange="saveLocalidad('${s.id}','${locField}','${locSelectId}')">
+                    ${getLocalidadesOptions(currentProv, currentLoc)}
+                </select>
+                <input type="text" id="${locLibreId}" placeholder="Ingrese localidad..."
+                    value="${!isPBAorCABA ? currentLoc : ''}"
+                    style="display:${!isPBAorCABA && currentProv ? 'block' : 'none'};width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;"
+                    onblur="saveLocalidadLibre('${s.id}','${locField}','${locLibreId}')">
+            </div>`;
+        }
+        if (k === 'localidadCliente' || k === 'localidadSiniestro') return ''; // ya se renderiza dentro de provincia
         if (k === 'aseguradoEn' || k === 'contra') {
             const otrosField = k === 'contra' ? 'contraOtros' : 'aseguradoEnOtros';
             const selectId = k === 'contra' ? 'contraSelect' : 'aseguradoEnSelect';
@@ -1443,11 +1613,11 @@ function borrarAbonosDeSiniestro(siniestroId) {
     }
 }
 function addObservation(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); s.observaciones.push({id:generateId({}),fecha:todayYMD,texto:document.getElementById('newObsText').value,textoPrivado:document.getElementById('newObsTextPrivate').value,proximaRevision:document.getElementById('newRevisionDate').value,completed:false,fechaTrabajado:todayYMD}); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Conductor':s.conductorNombre,'DNI Conductor':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Lugar Siniestro':s.lugarSiniestro,'Tercero':s.nombreTercero,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
+function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observaciones||[]).map(o=>`${formatDate(o.fecha)} (Rev:${formatDate(o.proximaRevision)}) Público: ${o.texto} | Privado: ${o.textoPrivado||''}`).join(' | ');const med=(s.mediaciones_list||[]).map(m=>`${formatDate(m.fecha)} ${formatTime(m.hora)}: ${m.texto}`).join(' | ');const venc=(s.vencimientos_list||[]).map(v=>`${formatDate(v.fecha)}: ${v.texto}`).join(' | ');return{'Cliente':s.cliente,'Género':s.genero,'DNI':s.dni,'Celular':s.celular,'Mail Cliente':s.mailCliente,'Domicilio':s.domicilioCliente,'Provincia':s.provinciaCliente,'Localidad':s.localidadCliente,'Conductor Cliente':s.conductorNombre,'DNI Conductor Cliente':s.conductorDni,'Estado':s.estado,'N° Reclamo':s.numeroReclamo,'Aseguradora Cliente':s.aseguradoEn,'Póliza Cliente':s.polizaCliente,'Marca Veh. Cliente':s.marcaCliente,'Modelo Veh. Cliente':s.modeloCliente,'Dominio Veh. Cliente':s.dominioCliente,'Año Veh. Cliente':s.anoCliente,'Fecha Siniestro':formatDate(s.fechaSiniestro),'Hora Siniestro':s.horaSiniestro,'Dirección Siniestro':s.lugarSiniestro,'Provincia Siniestro':s.provinciaSiniestro,'Localidad Siniestro':s.localidadSiniestro,'Tercero (Titular)':s.nombreTercero,'DNI Tercero (Titular)':s.dniTercero,'Conductor Tercero':s.conductorTerceroNombre,'DNI Conductor Tercero':s.conductorTerceroDni,'Aseguradora Tercero':s.contra,'Tel. Tercero':s.telefonoTercero,'Mail Tercero':s.mailTercero,'Marca Veh. Tercero':s.marcaTercero,'Modelo Veh. Tercero':s.modeloTercero,'Dominio Veh. Tercero':s.dominioTercero,'Año Veh. Tercero':s.anoTercero,'Próxima Revisión':formatDate(s.fechaRevision),'Última Tarea':s.observacion,'Presupuesto':s.presupuesto,'Indemnización':s.indemnizacion,'Honorarios':s.honorarios,'Honorarios %':s.honorariosPorcentaje,'Pacto Cuota Litis %':s.cuotaLitisPorcentaje,'Cobrado Cliente':s.cobradoCliente,'Cobrado Estudio':s.cobradoEstudio,'Fecha Cobro Estudio':formatDate(s.fechaCobro),'Productor':s.productor,'Productor %':s.productorPorcentaje,'Productor Importe':s.productorImporte,'Historial Tareas':hist,'Historial Mediaciones':med,'Historial Vencimientos':venc};}); const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Siniestros');XLSX.writeFile(wb,`Siniestros_${todayYMD}.xlsx`); }
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
-function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero',marcaTercero:'Veh. Tercero',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
+function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',domicilioCliente:'Domicilio',provinciaCliente:'Provincia',localidadCliente:'Localidad',conductorNombre:'Conductor Cliente',conductorDni:'DNI Conductor Cliente',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero (Titular)',dniTercero:'DNI Tercero (Titular)',conductorTerceroNombre:'Conductor Tercero',conductorTerceroDni:'DNI Conductor Tercero',marcaTercero:'Veh. Tercero',lugarSiniestro:'Dirección Siniestro',provinciaSiniestro:'Prov. Siniestro',localidadSiniestro:'Localidad Siniestro',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
 function updateClock(){ const now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(); const hD=(h%12)*30+m*0.5,mD=m*6+s*0.1,sD=s*6; const hourHand=document.querySelector('.hour-hand'),minHand=document.querySelector('.min-hand'),secondHand=document.querySelector('.second-hand'),digitalClock=document.getElementById('digital-clock'); if(hourHand)hourHand.style.transform=`rotate(${hD}deg)`; if(minHand)minHand.style.transform=`rotate(${mD}deg)`; if(secondHand)secondHand.style.transform=`rotate(${sD}deg)`; if(digitalClock)digitalClock.innerHTML=`${now.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function mostrarAlertaDeMediaciones(mediacionesPorAlertar){ if(mediacionesPorAlertar.length===0)return; const modal=document.getElementById('alertModal'); if(modal.classList.contains('active'))return; const content=`<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height:60vh;">${mediacionesPorAlertar.map(alert=>`<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size:1.1em;color:var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center;margin-top:15px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}','${alert.item.id}')">✅ Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}','${alert.item.id}')">🗓️ Posponer</button></div></div></div>`).join('')}</div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); mediacionesPorAlertar.forEach(alerta=>{const s=siniestrosData.find(s=>s.id===alerta.siniestro.id); const m=s.mediaciones_list.find(m=>m.id===alerta.item.id); if(m)m.alertaMostrada=true;}); saveData(); }
 function revisarMediacionesVencidasAlCargar(){ const ahora=new Date(),horaActual=`${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`; const mediacionesVencidas=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&m.hora&&m.hora<=horaActual&&!m.completed&&!m.alertaMostrada).map(m=>({siniestro:s,item:m}))); mostrarAlertaDeMediaciones(mediacionesVencidas); }
