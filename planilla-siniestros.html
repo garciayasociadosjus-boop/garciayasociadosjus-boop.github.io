@@ -609,7 +609,7 @@ const FIREBASE_KEY = 'planilla_siniestros'; // Clave en la base de datos
 
 let firebaseApp, firebaseDB, firebaseRef;
 let firebaseConectado = false;
-let ignorarHastaTimestamp = 0; // Evita bucles al guardar (timestamp ms)
+let ignorarProximoCambioFirebase = false; // Evita bucles al guardar
 
 function initFirebase() {
     if (typeof firebase === 'undefined') {
@@ -623,7 +623,8 @@ function initFirebase() {
 
         // Escuchar cambios en tiempo real
         firebaseRef.on('value', (snapshot) => {
-            if (Date.now() < ignorarHastaTimestamp) {
+            if (ignorarProximoCambioFirebase) {
+                ignorarProximoCambioFirebase = false;
                 return;
             }
             const data = snapshot.val();
@@ -689,15 +690,15 @@ function updateFirebaseStatus(msg, tipo) {
 function saveToFirebase() {
     if (!firebaseRef) return;
     try {
-        ignorarHastaTimestamp = Date.now() + 5000;
+        ignorarProximoCambioFirebase = true;
         firebaseRef.set(siniestrosData)
             .catch(e => {
                 console.error('Error guardando en Firebase:', e);
-                ignorarHastaTimestamp = 0;
+                ignorarProximoCambioFirebase = false;
             });
     } catch(e) {
         console.error('Error en saveToFirebase:', e);
-        ignorarHastaTimestamp = 0;
+        ignorarProximoCambioFirebase = false;
     }
 }
 // =====================================================
@@ -1596,7 +1597,7 @@ function showSiniestroModal(id){
                 ${modelosDelaMarca ? modelosDelaMarca.map(m=>`<option value="${m}" ${m===modeloActual?'selected':''}>${m}</option>`).join('') : ''}
             </select>
             <input type="text" id="${modeloLibreId}" placeholder="Ingresar modelo..."
-                value="${modeloActual}"
+                value="${!modelosDelaMarca && marcaActual ? modeloActual : (modelosDelaMarca ? '' : modeloActual)}"
                 style="width:100%;padding:5px;border:1px solid #667eea;border-radius:4px;font-size:0.85em;${(modelosDelaMarca && marcaActual)?'display:none;':''}"
                 onblur="saveModeloVehLibre('${s.id}','${modeloField}','${modeloLibreId}')">
         </div>`;
