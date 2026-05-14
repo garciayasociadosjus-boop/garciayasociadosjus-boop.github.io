@@ -1434,6 +1434,11 @@ function isPastDue(d){ return d&&d<todayYMD; }
 function getDaysDifference(d){ if(!d)return 999; return Math.ceil((new Date(d)-new Date(todayYMD))/864e5); }
 function generateId(it){ return`EVT_${(it.cliente||'S').slice(0,3).toUpperCase()}_${Date.now()}_${Math.floor(Math.random()*1e3)}`; }
 function getDisplayName(s){ return`${s.cliente||'S/N'} - Reclamo: ${s.numeroReclamo||'S/N'} (${s.estado||'S/E'})`; }
+function formatDNIInput(val) {
+    var n = val.replace(/\D/g, '').slice(0, 8);
+    return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 function formatDNI(val) {
     if (!val) return '';
     var n = String(val).replace(/\D/g, '');
@@ -1455,7 +1460,7 @@ function formatCUIL(val) {
     return val; // si no tiene largo correcto, mostrar como está
 }
 
-function formatCurrency(v){ if(v==null||v==='')return'S/D'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
+function formatCurrency(v){ if(v==null||v==='')return'<span class="val-empty">—</span>'; return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(v); }
 
 const PROVINCIAS_AR = [
     'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes',
@@ -1970,7 +1975,7 @@ function showNewSiniestroModal(){
     <form onsubmit="addNewSiniestro(event)">
         <div class="info-grid">
             <div class="form-group"><label>Nombre y Apellido *</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required placeholder="Ej: PEREZ JUAN"></div>
-            <div class="form-group"><label>DNI</label><input type="text" id="newDni" placeholder="Sin puntos"></div>
+            <div class="form-group"><label>DNI</label><input type="text" id="newDni" placeholder="Ej: 34.566.518" oninput="this.value=formatDNIInput(this.value)"></div>
             <div class="form-group"><label>Género</label><select id="newGenero"><option value="Masculino" selected>Sr. (Masculino)</option><option value="Femenino">Sra. (Femenino)</option><option value="Otro">Otro</option></select></div>
             <div class="form-group"><label>Celular</label><input type="text" id="newCelular" placeholder="Ej: 1164233680"></div>
             <div class="form-group"><label>Aseg. Cliente (donde está asegurado)</label><input type="text" id="newAseguradoEn" list="companiasSegurosList" placeholder="Escribir o seleccionar..."></div>
@@ -2378,6 +2383,23 @@ function showSiniestroModal(id){
             </div>`;
         }
 
+        // ACUERDO y FACTURA — toggle Sí/No
+        if (k === 'acuerdo' || k === 'factura') {
+            const val = s[k] || 'No';
+            const esSi = val === 'Sí' || val === 'Si' || val === 'SI';
+            return `<div class="info-item">
+                <div class="info-label">${l}</div>
+                <div style="display:flex;gap:8px;margin-top:4px;">
+                    <button onclick="toggleSiNo('${s.id}','${k}',this)" 
+                        class="btn btn-sm ${esSi ? 'btn-success' : 'btn-neutral'}"
+                        style="min-width:44px;padding:4px 12px;">Sí</button>
+                    <button onclick="toggleSiNo('${s.id}','${k}',this)"
+                        class="btn btn-sm ${!esSi ? 'btn-danger' : 'btn-neutral'}"
+                        style="min-width:44px;padding:4px 12px;">No</button>
+                </div>
+            </div>`;
+        }
+
         const isCurrency = /presupuesto|indemnizacion|honorarios|productorImporte/.test(k);
         const isDate = k.includes('fecha');
         let val;
@@ -2473,11 +2495,11 @@ function showSiniestroModal(id){
         <div class="info-grid">
             <div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div>
             <div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div>
-            <div class="info-item"><div class="info-label">Fecha de Cobro — Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'S/F'}</div></div>
-            <div class="info-item"><div class="info-label">Fecha de Cobro — Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaPago',this)">${s.fechaPago?formatDate(s.fechaPago):'S/F'}</div></div>
-            <div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'S/D'}</div></div>
-            <div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'S/D'}</div></div>
-            <div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'S/D'}</div></div>
+            <div class="info-item"><div class="info-label">Fecha de Cobro — Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaCobro',this)">${s.fechaCobro?formatDate(s.fechaCobro):'<span class="val-empty">—</span>'}</div></div>
+            <div class="info-item"><div class="info-label">Fecha de Cobro — Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','fechaPago',this)">${s.fechaPago?formatDate(s.fechaPago):'<span class="val-empty">—</span>'}</div></div>
+            <div class="info-item"><div class="info-label">Productor</div><div class="info-value editable-field" onclick="editField('${s.id}','productor',this)">${s.productor||'<span class="val-empty">—</span>'}</div></div>
+            <div class="info-item"><div class="info-label">Productor %</div><div class="info-value editable-field" onclick="editField('${s.id}','productorPorcentaje',this)">${s.productorPorcentaje||'<span class="val-empty">—</span>'}</div></div>
+            <div class="info-item"><div class="info-label">Productor Importe</div><div class="info-value editable-field" onclick="editField('${s.id}','productorImporte',this)">${s.productorImporte?formatCurrency(s.productorImporte):'<span class="val-empty">—</span>'}</div></div>
         </div>
     </div> <div style="margin-top:18px;"><h4 style="margin-bottom:8px;font-size:.9em;">Historial de Eventos</h4><div id="history-list-${s.id}" style="max-height:230px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div></div> <div style="display:grid;grid-template-columns:1fr;gap:15px;margin-top:15px;"> <div class="form-section"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div> <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;"> <div class="form-section"><h4 onclick="toggleVisibility('mediacion-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span> Agendar Mediación</h4><form id="mediacion-form-fields" onsubmit="addMediacion(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newMediacionText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newMediacionDate" required></div><div class="form-group"><label>Hora</label><input type="time" id="newMediacionTime" required></div><div class="form-group"><label>Aviso Previo</label><select id="newMediacionAvisoPrevio"><option value="1" selected>1 día antes</option><option value="2">2 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Mediación</button></form></div> <div class="form-section"><h4 onclick="toggleVisibility('vencimiento-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span> Agregar Vencimiento</h4><form id="vencimiento-form-fields" onsubmit="addVencimiento(event,'${s.id}')" style="display:none;margin-top:15px;"><div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div><div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div><div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="1" selected>1 día antes</option><option value="3">3 días</option><option value="7">1 semana</option><option value="0">Sin aviso</option></select></div><button class="btn btn-success" type="submit">Guardar Vencimiento</button></form></div> </div> </div> <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M12 3v18M3 9l9-6 9 6M5 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3L8 9M19 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3l-2-6"/></svg> Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Eliminar</button></div>${datalistsHTML}`; 
     document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
@@ -2531,6 +2553,19 @@ function onAnoSelectChange(sid, field, selectId, inputId, val) {
         input.style.display = 'none';
         saveSimpleField(sid, field, val);
     }
+}
+
+function toggleSiNo(sid, field, btn) {
+    var s = siniestrosData.find(function(x){ return x.id === sid; });
+    if (!s) return;
+    var nuevoVal = btn.textContent.trim(); // "Sí" o "No"
+    s[field] = nuevoVal;
+    saveData();
+    // Refrescar los dos botones del grupo
+    var container = btn.parentElement;
+    var btns = container.querySelectorAll('button');
+    btns[0].className = 'btn btn-sm ' + (nuevoVal === 'Sí' ? 'btn-success' : 'btn-neutral');
+    btns[1].className = 'btn btn-sm ' + (nuevoVal === 'No' ? 'btn-danger' : 'btn-neutral');
 }
 
 function saveSimpleField(sid, field, val) {
