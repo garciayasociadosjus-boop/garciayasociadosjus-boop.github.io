@@ -44,6 +44,7 @@ body.modo-dia {
     --bg-card:       #f7f4ef;
     --bg-card-hover: #faf7f2;
     --bg-input:      #ffffff;
+    --bg-option:     #ffffff;
     --bg-modal:      #faf8f4;
     --bg-item:       #f0ece4;
     --bg-item-hover: #f0ebe0;
@@ -77,6 +78,7 @@ body.modo-noche {
     --bg-card:       #1a1a20;
     --bg-card-hover: #1e1e26;
     --bg-input:      rgba(255,255,255,0.05);
+    --bg-option:     #1a1a20;
     --bg-modal:      #1a1a20;
     --bg-item:       rgba(255,255,255,0.03);
     --bg-item-hover: rgba(201,169,110,0.07);
@@ -251,7 +253,7 @@ body.modo-noche .data-status{color:#3ecfa0}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{
     outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,169,110,0.12);
 }
-body.modo-noche .form-group select option{background:#1a1a20;color:#fff}
+body.modo-noche .form-group select option{background:var(--bg-option);color:#fff}
 
 /* ── LISTA REVISIONES ── */
 .reviews-list{max-height:400px;overflow:auto}
@@ -458,7 +460,7 @@ body.modo-dia .data-status{background:rgba(31,158,114,0.08);color:#0f6040;border
 body.modo-dia .complete-btn{color:#5a5550}
 body.modo-dia .close{color:#7a7570}
 
-body.modo-dia select option{background:#fff;color:#1a1612}
+body.modo-dia select option{background:var(--bg-input);color:var(--text-primary)}
 
 
 /* ── HEADER REDISEÑADO ── */
@@ -561,7 +563,7 @@ body.modo-noche .modal-content strong { color: rgba(255,255,255,0.88) !important
 body.modo-noche .modal-content label { color: rgba(255,255,255,0.45) !important }
 body.modo-noche .modal-content span:not(.history-tag):not(.tag-task):not(.tag-mediacion):not(.tag-vencimiento):not(.tg-badge):not(.val-empty):not(.fecha-alerta) { color: rgba(255,255,255,0.75) }
 /* form-section y expandibles */
-body.modo-noche .form-section { background: rgba(255,255,255,0.04) !important }
+body.modo-noche .form-section { background: var(--bg-form-sec) !important }
 body.modo-noche .form-section h4 { color: rgba(255,255,255,0.78) !important }
 body.modo-noche .form-section label { color: rgba(255,255,255,0.45) !important }
 body.modo-noche .form-section p,
@@ -672,24 +674,27 @@ body.modo-noche .history-date { color: var(--gold) !important }
 
 /* ═══ SELECT & OPTIONS — legibles en AMBOS modos ═══ */
 body.modo-noche select,
-body.modo-noche select option,
 body.modo-noche input,
 body.modo-noche textarea,
 body.modo-noche .modal-content select,
-body.modo-noche .modal-content select option,
 body.modo-noche .modal-content input,
 body.modo-noche .ficha-section select,
-body.modo-noche .ficha-section select option,
 body.modo-noche .ficha-section input {
-    background: #1e1e26 !important;
+    background: var(--bg-input) !important;
     color: rgba(255,255,255,0.88) !important;
-    border-color: rgba(255,255,255,0.15) !important;
+    border-color: var(--border-input) !important;
+}
+body.modo-noche select option,
+body.modo-noche .modal-content select option,
+body.modo-noche .ficha-section select option {
+    background: var(--bg-option) !important;
+    color: rgba(255,255,255,0.88) !important;
 }
 body.modo-noche select:focus,
 body.modo-noche input:focus,
 body.modo-noche textarea:focus {
     border-color: var(--gold) !important;
-    box-shadow: 0 0 0 3px rgba(201,169,110,0.15) !important;
+    box-shadow: 0 0 0 3px var(--gold-dim) !important;
 }
 /* Placeholder en noche */
 body.modo-noche input::placeholder { color: rgba(255,255,255,0.3) !important }
@@ -697,35 +702,38 @@ body.modo-noche textarea::placeholder { color: rgba(255,255,255,0.3) !important 
 
 /* Modo día — todos los selects/inputs legibles */
 body.modo-dia select,
-body.modo-dia select option,
 body.modo-dia input,
 body.modo-dia textarea,
 body.modo-dia .modal-content select,
-body.modo-dia .modal-content select option,
 body.modo-dia .modal-content input,
 body.modo-dia .ficha-section select,
-body.modo-dia .ficha-section select option,
 body.modo-dia .ficha-section input {
-    background: #f5f0e8 !important;
-    color: #1a1612 !important;
-    border-color: #b0a590 !important;
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-input) !important;
+}
+body.modo-dia select option,
+body.modo-dia .modal-content select option,
+body.modo-dia .ficha-section select option {
+    background: var(--bg-option) !important;
+    color: var(--text-primary) !important;
 }
 body.modo-dia select:focus,
 body.modo-dia input:focus,
 body.modo-dia textarea:focus {
     border-color: var(--gold-dark) !important;
-    box-shadow: 0 0 0 3px rgba(160,120,64,0.15) !important;
+    box-shadow: 0 0 0 3px var(--gold-dim) !important;
 }
 
 
 /* ═══ MODO DÍA — contraste y volumen en fichas ═══ */
 body.modo-dia .ficha-section {
     background: var(--bg-ficha) !important;
-    border-color: rgba(140,120,80,0.25) !important;
+    border-color: var(--border-item) !important;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
 }
 body.modo-dia .ficha-section .info-item {
-    background: #faf8f4 !important;
+    background: var(--bg-info-item) !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(160,140,100,0.1) !important;
     border-left-width: 3px !important;
 }
@@ -734,78 +742,224 @@ body.modo-dia .ficha-section .info-item:hover {
 }
 body.modo-dia .tipo-gestion-panel {
     background: var(--bg-ficha) !important;
-    border-color: rgba(140,120,80,0.2) !important;
+    border-color: var(--border-item) !important;
 }
 body.modo-dia .form-section {
     background: var(--bg-ficha) !important;
-    border-color: rgba(140,120,80,0.2) !important;
+    border-color: var(--border-item) !important;
 }
 body.modo-dia .modal-content {
-    background: #f0ece4 !important;
+    background: var(--bg-modal) !important;
 }
 
 /* ── RESPONSIVE ── */
 @media (max-width:780px){.reviews-list{max-height:300px}.action-buttons .btn{flex:1 1 100%}}
 @media print{body *{visibility:hidden}.print-area,.print-area *{visibility:visible}.print-area{position:absolute;left:0;top:0;width:100%;padding:20px;background:#fff!important;color:#000!important}.btn,.no-print{display:none!important}#generatedLetterText{white-space:pre-wrap}}
+
+/* ══════════════════════════════════════════════════════
+   SISTEMA DE 6 TEMAS — se sobreescriben las variables
+   Solo tocan --gold, --gold-light, --gold-dark, --gold-dim, --gold-border
+   y los colores de fondo/texto ya definidos en modo-dia/modo-noche
+   ══════════════════════════════════════════════════════ */
+
+/* Tema 1: Día Clásico — ya es el default, no necesita sobreescribir nada */
+/* Tema 2: Noche Clásico — ya es el default nocturno */
+
+/* Tema 3: Esmeralda — verde profundo */
+body.tema-3.modo-noche {
+    --bg-option: #0a1a12;
+    --gold: #50c878; --gold-light: #88e8a8; --gold-dark: #2a8a4a;
+    --gold-dim: rgba(80,200,120,0.12); --gold-border: rgba(80,200,120,0.28);
+    --bg-page: #040d08; --bg-container: #071410; --bg-header: #020a06;
+    --bg-main: #060f0a; --bg-card: #0a1a12; --bg-card-hover: #0e2018;
+    --bg-input: rgba(80,200,120,0.08); --bg-modal: #081610;
+    --bg-item: rgba(80,200,120,0.06); --bg-item-hover: rgba(80,200,120,0.12);
+    --bg-filter: rgba(80,200,120,0.05); --bg-form-sec: rgba(80,200,120,0.06);
+    --bg-ficha: rgba(80,200,120,0.07); --bg-info-item: rgba(80,200,120,0.1);
+    --bg-history: rgba(80,200,120,0.05);
+    --border-card: rgba(80,200,120,0.18); --border-input: rgba(80,200,120,0.25);
+    --border-item: rgba(80,200,120,0.14); --border-modal: rgba(80,200,120,0.3);
+    --shadow-container: 0 20px 60px rgba(0,10,5,0.8); --shadow-card: 0 4px 24px rgba(0,10,5,0.5);
+}
+
+/* Tema 4: Pergamino — beige/bordo */
+body.tema-4.modo-dia {
+    --bg-option: #f2eade;
+    --gold: #8a1c30; --gold-light: #b84058; --gold-dark: #5c0818;
+    --gold-dim: rgba(138,28,48,0.1); --gold-border: rgba(138,28,48,0.25);
+    --bg-page: #ddd4c4; --bg-container: #e8dece; --bg-header: #180406;
+    --bg-main: #d8cebe; --bg-card: #e8dece; --bg-card-hover: #e0d6c4;
+    --bg-input: #f2eade; --bg-modal: #e4d8c8; --bg-item: #ccc2b0;
+    --bg-item-hover: #c4b8a4; --bg-filter: #c8bca8; --bg-form-sec: #c8bca8;
+    --bg-ficha: #c0b4a0; --bg-info-item: #f0e8da; --bg-history: #e8e2d8;
+    --border-card: rgba(138,28,48,0.22); --border-input: #b8a898;
+    --border-item: rgba(138,28,48,0.2); --border-modal: rgba(138,28,48,0.35);
+    --text-primary: #1e0c04; --text-secondary: #3a2010;
+    --text-muted: #685040; --text-label: #584030; --text-on-header: #ffffff;
+    --shadow-container: 0 8px 32px rgba(30,10,0,0.15); --shadow-card: 0 2px 14px rgba(30,10,0,0.1);
+}
+
+/* Tema 5: Océano — azul profundo/cian */
+body.tema-5.modo-noche {
+    --bg-option: #081828;
+    --gold: #00d4ff; --gold-light: #60e8ff; --gold-dark: #0098c0;
+    --gold-dim: rgba(0,212,255,0.1); --gold-border: rgba(0,212,255,0.25);
+    --bg-page: #020c14; --bg-container: #051220; --bg-header: #010810;
+    --bg-main: #040e18; --bg-card: #081828; --bg-card-hover: #0c1e30;
+    --bg-input: rgba(0,212,255,0.08); --bg-modal: #061420;
+    --bg-item: rgba(0,212,255,0.06); --bg-item-hover: rgba(0,212,255,0.12);
+    --bg-filter: rgba(0,212,255,0.05); --bg-form-sec: rgba(0,212,255,0.06);
+    --bg-ficha: rgba(0,212,255,0.07); --bg-info-item: rgba(0,212,255,0.1);
+    --bg-history: rgba(0,212,255,0.05);
+    --border-card: rgba(0,212,255,0.16); --border-input: rgba(0,212,255,0.22);
+    --border-item: rgba(0,212,255,0.13); --border-modal: rgba(0,212,255,0.28);
+    --shadow-container: 0 20px 60px rgba(0,8,20,0.85); --shadow-card: 0 4px 24px rgba(0,15,40,0.6);
+}
+
+/* Tema 6: Justicia — negro/rojo carmesí */
+body.tema-6.modo-noche {
+    --bg-option: #140808;
+    --gold: #d4203c; --gold-light: #ff4060; --gold-dark: #a00820;
+    --gold-dim: rgba(212,32,60,0.12); --gold-border: rgba(212,32,60,0.3);
+    --bg-page: #060404; --bg-container: #0e0606; --bg-header: #040202;
+    --bg-main: #0a0505; --bg-card: #140808; --bg-card-hover: #1a0c0c;
+    --bg-input: rgba(212,32,60,0.08); --bg-modal: #100606;
+    --bg-item: rgba(212,32,60,0.07); --bg-item-hover: rgba(212,32,60,0.13);
+    --bg-filter: rgba(212,32,60,0.06); --bg-form-sec: rgba(212,32,60,0.07);
+    --bg-ficha: rgba(212,32,60,0.07); --bg-info-item: rgba(212,32,60,0.1);
+    --bg-history: rgba(212,32,60,0.06);
+    --border-card: rgba(212,32,60,0.2); --border-input: rgba(212,32,60,0.28);
+    --border-item: rgba(212,32,60,0.16); --border-modal: rgba(212,32,60,0.35);
+    --shadow-container: 0 24px 64px rgba(20,0,0,0.85); --shadow-card: 0 4px 24px rgba(40,0,0,0.6);
+}
+
+
+/* Pergamino — eyebrow siempre visible sobre header oscuro */
+body.tema-4 .header-eyebrow,
+body.tema-4 #nombreEstudio { color: #e8c8a0 !important; }
+
+/* ═══ SELECTOR DE TEMAS UI ═══ */
+#tema-panel {
+    display:none; position:fixed; top:48px; right:16px; z-index:9999;
+    background:var(--bg-modal); border:1px solid var(--gold-border);
+    border-radius:12px; padding:14px 16px; min-width:220px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+#tema-panel.visible { display:block }
+.tema-option {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:8px; cursor:pointer; transition:background .15s;
+    border:1px solid transparent; color:var(--text-primary);
+}
+.tema-option:hover { background:var(--gold-dim) }
+.tema-option.activo { border-color:var(--gold-border); background:var(--gold-dim) }
+.tema-swatch {
+    width:32px; height:20px; border-radius:4px; flex-shrink:0;
+    border:1px solid rgba(128,128,128,0.3);
+}
+.tema-name { font-size:.82em; font-weight:500 }
+.tema-sub { font-size:.68em; color:var(--text-muted) }
+
 </style>
 
 <script>
-/* ── SISTEMA DÍA/NOCHE ─ 07:00 claro · 19:00 oscuro · click para override ── */
+/* ═══ SISTEMA DE 6 TEMAS + auto día/noche ═══ */
 (function(){
-    var modoManual = null; // null = automático, 'dia' o 'noche' = forzado
+    var TEMAS = [
+        {id:1, nombre:'Día Clásico',   sub:'Crema & Dorado',  modo:'dia',   bg:'#ddd6c8', acc:'#c9a96e', emoji:'☀️'},
+        {id:2, nombre:'Noche Clásico', sub:'Oscuro & Dorado', modo:'noche', bg:'#0a0a0f', acc:'#c9a96e', emoji:'🌙'},
+        {id:3, nombre:'Esmeralda',     sub:'Verde & Dorado',  modo:'noche', bg:'#040d08', acc:'#50c878', emoji:'🌿'},
+        {id:4, nombre:'Pergamino',     sub:'Beige & Bordo',   modo:'dia',   bg:'#ddd4c4', acc:'#8a1c30', emoji:'📜'},
+        {id:5, nombre:'Océano',        sub:'Azul & Cian',     modo:'noche', bg:'#020c14', acc:'#00d4ff', emoji:'🌊'},
+        {id:6, nombre:'Justicia',      sub:'Negro & Carmesí', modo:'noche', bg:'#060404', acc:'#d4203c', emoji:'⚖️'}
+    ];
+    var temaManual = null;
 
-    function esDiaAhora(){
+    function temaAutoPorHora(){
         var h = new Date().getHours();
-        return h >= 7 && h < 19;
+        return (h >= 7 && h < 19) ? 1 : 2;
     }
 
-    function aplicarModo(forzar){
-        var esDia = (forzar !== undefined) ? forzar : (modoManual !== null ? modoManual === 'dia' : esDiaAhora());
-        document.body.classList.toggle('modo-dia', esDia);
-        document.body.classList.toggle('modo-noche', !esDia);
+    function aplicarTema(id){
+        var t = TEMAS.find(function(x){return x.id===id;});
+        if(!t) return;
+        // Quitar clases anteriores
+        for(var i=1;i<=6;i++) document.body.classList.remove('tema-'+i);
+        document.body.classList.remove('modo-dia','modo-noche');
+        // Aplicar modo + tema
+        document.body.classList.add('modo-'+t.modo);
+        document.body.classList.add('tema-'+id);
+        // Badge
         var badge = document.getElementById('modo-badge');
         if(badge){
-            badge.textContent = esDia ? '☀️ Modo día' : '🌙 Modo noche';
-            badge.title = modoManual ? 'Manual · click para volver a automático' : 'Automático · click para cambiar';
+            var auto = !temaManual;
+            badge.innerHTML = t.emoji+' '+t.nombre+(auto?' <span style="font-size:.65em;opacity:.5">AUTO</span>':'');
         }
+        // Panel
+        actualizarPanel(id);
+        // Guardar
+        try{localStorage.setItem('ga_tema',temaManual||'auto');}catch(e){}
+        try{
+            if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)
+                firebase.database().ref('config/tema').set(temaManual||'auto');
+        }catch(e){}
     }
 
-    function toggleModo(){
-        var esDiaActual = document.body.classList.contains('modo-dia');
-        if(modoManual !== null){
-            // Si ya estaba en manual, volver a automático
-            modoManual = null;
-            aplicarModo();
-        } else {
-            // Pasar a manual con el modo opuesto
-            modoManual = esDiaActual ? 'noche' : 'dia';
-            aplicarModo();
-        }
+    function actualizarPanel(activo){
+        var p=document.getElementById('tema-panel');
+        if(!p)return;
+        p.innerHTML='<div style="font-size:.68em;letter-spacing:.15em;text-transform:uppercase;color:var(--text-label);margin-bottom:10px;">Seleccionar tema</div>'+
+            TEMAS.map(function(t){
+                return '<div class="tema-option '+(t.id===activo?'activo':'')+'" onclick="window._elegirTema('+t.id+')">'+
+                    '<div class="tema-swatch" style="background:linear-gradient(135deg,'+t.bg+' 50%,'+t.acc+' 50%)"></div>'+
+                    '<div><div class="tema-name">'+t.emoji+' '+t.nombre+'</div><div class="tema-sub">'+t.sub+'</div></div></div>';
+            }).join('')+
+            (temaManual?'<div style="margin-top:10px;text-align:center"><button onclick="window._volverAuto()" style="background:none;border:1px solid var(--gold-border);color:var(--gold);padding:4px 12px;border-radius:16px;cursor:pointer;font-size:.72em;font-family:DM Sans,sans-serif">↺ Automático</button></div>':'');
     }
+
+    window._elegirTema = function(id){
+        temaManual = id;
+        aplicarTema(id);
+        document.getElementById('tema-panel').classList.remove('visible');
+    };
+    window._volverAuto = function(){
+        temaManual = null;
+        aplicarTema(temaAutoPorHora());
+        document.getElementById('tema-panel').classList.remove('visible');
+    };
 
     function init(){
-        aplicarModo();
+        try{
+            var saved=localStorage.getItem('ga_tema');
+            if(saved&&saved!=='auto') temaManual=parseInt(saved);
+        }catch(e){}
+        aplicarTema(temaManual||temaAutoPorHora());
+        // Badge click → toggle panel
+        var badge=document.getElementById('modo-badge');
+        if(badge) badge.addEventListener('click',function(e){
+            e.stopPropagation();
+            document.getElementById('tema-panel').classList.toggle('visible');
+        });
+        // Click afuera cierra panel
+        document.addEventListener('click',function(e){
+            var sel=document.getElementById('tema-panel');
+            if(sel&&!sel.contains(e.target)) sel.classList.remove('visible');
+        });
+        // Auto-cambio cada minuto
         setInterval(function(){
-            if(modoManual === null) aplicarModo(); // solo auto-cambia si no hay override
-        }, 60000);
-        var badge = document.getElementById('modo-badge');
-        if(badge){
-            badge.style.cursor = 'pointer';
-            badge.addEventListener('click', toggleModo);
-        }
+            if(!temaManual) aplicarTema(temaAutoPorHora());
+        },60000);
     }
 
-    if(document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+    else init();
 })();
 </script>
 </head>
 <body>
 
 <div id="modo-badge">☀️ Modo día</div>
+<div id="tema-panel"></div>
 
 <datalist id="marcasVehiculosList"></datalist>
 <datalist id="versionesSugeridsList" id="versionesSugeridsList"></datalist>
@@ -2515,6 +2669,32 @@ function deleteVencimiento(sid,vid){ if(!confirm('¿Eliminar vencimiento?'))retu
 function addMediacion(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); const newMediacion={id:generateId({}),fecha:document.getElementById('newMediacionDate').value,hora:document.getElementById('newMediacionTime').value,texto:document.getElementById('newMediacionText').value,completed:false,alertaMostrada:false,avisoPrevio:document.getElementById('newMediacionAvisoPrevio').value}; s.mediaciones_list.push(newMediacion); saveData(); addEventToGoogleCalendar(s,newMediacion,'Mediación'); renderAll(); showSiniestroModal(sid); }
 function deleteMediacion(sid,mid){ if(!confirm('¿Eliminar mediación?'))return; const s=siniestrosData.find(x=>x.id===sid); s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid); saveData(); renderAll(); showSiniestroModal(sid); }
 
+function saveColorVehiculo(sid, select) {
+    var val = select.value;
+    if (val === 'Otro') {
+        var libreId = 'colorLibre_' + sid;
+        var libre = document.getElementById(libreId);
+        if (libre) { libre.style.display = 'block'; libre.focus(); }
+        select.style.display = 'none';
+    } else {
+        var s = siniestrosData.find(function(x){ return x.id === sid; });
+        if (s) { s.colorVehiculo = val; saveData(); }
+    }
+}
+
+function saveColorLibre(sid, input) {
+    var val = input.value;
+    if (!val) {
+        input.style.display = 'none';
+        var selId = 'colorSelect_' + sid;
+        var sel = document.getElementById(selId);
+        if (sel) { sel.style.display = 'block'; sel.value = ''; }
+    } else {
+        var s = siniestrosData.find(function(x){ return x.id === sid; });
+        if (s) { s.colorVehiculo = val; saveData(); }
+    }
+}
+
 function onColorVehChange(sid, selectId, inputId, val) {
     var sel = document.getElementById(selectId);
     var inp = document.getElementById(inputId);
@@ -2859,7 +3039,112 @@ function exportToExcel(){ const rows=siniestrosData.map(s=>{const hist=(s.observ
 function exportData(){ const data=JSON.stringify(siniestrosData,null,2); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download=`siniestros_${todayYMD}.json`; a.click(); }
 function importData(){ document.getElementById('importInput').click(); }
 function handleImport(ev){ const f=ev.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{try{const imp=JSON.parse(e.target.result);if(Array.isArray(imp)&&confirm(`Importar ${imp.length} registros? Esto sobreescribirá los datos locales.`)){siniestrosData=sanitizeData(imp);saveData();renderAll();}}catch(err){alert('Error al importar el archivo.');}}; r.readAsText(f); ev.target.value=''; }
-function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',domicilioCliente:'Domicilio',provinciaCliente:'Provincia',localidadCliente:'Localidad',conductorNombre:'Conductor Cliente',conductorDni:'DNI Conductor Cliente',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero (Titular)',dniTercero:'DNI Tercero (Titular)',conductorTerceroNombre:'Conductor Tercero',conductorTerceroDni:'DNI Conductor Tercero',marcaTercero:'Veh. Tercero',lugarSiniestro:'Dirección Siniestro',provinciaSiniestro:'Prov. Siniestro',localidadSiniestro:'Localidad Siniestro',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
+function printFicha(id){ const s=siniestrosData.find(x=>x.id===id); if(!s)return; const html=`<div class="print-area"><h2>Ficha</h2><h3>${getDisplayName(s)}</h3><div>${Object.entries({cliente:'Cliente',genero:'Género',dni:'DNI',celular:'Celular',mailCliente:'Mail',domicilioCliente:'Domicilio',provinciaCliente:'Provincia',localidadCliente:'Localidad',conductorNombre:'Conductor Cliente',conductorDni:'DNI Conductor Cliente',estado:'Estado',aseguradoEn:'Asegurado En',contra:'Contra',numeroReclamo:'Reclamo',marcaCliente:'Veh. Cliente',nombreTercero:'Tercero (Titular)',dniTercero:'DNI Tercero (Titular)',conductorTerceroNombre:'Conductor Tercero',conductorTerceroDni:'DNI Conductor Tercero',marcaTercero:'Veh. Tercero',lugarSiniestro:'Dirección Siniestro',provinciaSiniestro:'Prov. Siniestro',localidadSiniestro:'Localidad Siniestro',presupuesto:'Presupuesto',indemnizacion:'Indemnización',honorarios:'Honorarios',honorariosPorcentaje:'Honorarios %',cuotaLitisPorcentaje:'Pacto Cuota Litis %',acuerdo:'Acuerdo',fechaPago:'Fecha Pago Cliente',factura:'Factura',cobradoCliente:'Cobrado Cliente',cobradoEstudio:'Cobrado Estudio',fechaCobro:'Fecha de Cobro Estudio',productor:'Productor',productorPorcentaje:'Productor %',productorImporte:'Productor Importe'}).map(([k,l])=>{let val=s[k];if(k==='marcaCliente')val=`${s.marcaCliente||''} ${s.modeloCliente||''} (${s.dominioCliente||''})`;if(k==='marcaTercero')val=`${s.marcaTercero||''} ${s.modeloTercero||''} (${s.dominioTercero||''})`;if(k==='genero'){if(val==='Femenino')val='Sra.';else if(val==='Masculino')val='Sr.';}return`<div style="margin:4px 0;"><b>${l}:</b> ${/presupuesto|indemnizacion|honorarios|productorImporte/.test(k)?formatCurrency(val):(k.includes('fecha')?formatDate(val):(val||'S/D'))}</div>`;}).join('')}</div></div>`; const w=window.open('','_blank'); w.document.write(`<html><head><title>Ficha</title><style>${document.querySelector('style').innerHTML}
+/* ══════════════════════════════════════════════════════
+   SISTEMA DE 6 TEMAS — se sobreescriben las variables
+   Solo tocan --gold, --gold-light, --gold-dark, --gold-dim, --gold-border
+   y los colores de fondo/texto ya definidos en modo-dia/modo-noche
+   ══════════════════════════════════════════════════════ */
+
+/* Tema 1: Día Clásico — ya es el default, no necesita sobreescribir nada */
+/* Tema 2: Noche Clásico — ya es el default nocturno */
+
+/* Tema 3: Esmeralda — verde profundo */
+body.tema-3.modo-noche {
+    --bg-option: #0a1a12;
+    --gold: #50c878; --gold-light: #88e8a8; --gold-dark: #2a8a4a;
+    --gold-dim: rgba(80,200,120,0.12); --gold-border: rgba(80,200,120,0.28);
+    --bg-page: #040d08; --bg-container: #071410; --bg-header: #020a06;
+    --bg-main: #060f0a; --bg-card: #0a1a12; --bg-card-hover: #0e2018;
+    --bg-input: rgba(80,200,120,0.08); --bg-modal: #081610;
+    --bg-item: rgba(80,200,120,0.06); --bg-item-hover: rgba(80,200,120,0.12);
+    --bg-filter: rgba(80,200,120,0.05); --bg-form-sec: rgba(80,200,120,0.06);
+    --bg-ficha: rgba(80,200,120,0.07); --bg-info-item: rgba(80,200,120,0.1);
+    --bg-history: rgba(80,200,120,0.05);
+    --border-card: rgba(80,200,120,0.18); --border-input: rgba(80,200,120,0.25);
+    --border-item: rgba(80,200,120,0.14); --border-modal: rgba(80,200,120,0.3);
+    --shadow-container: 0 20px 60px rgba(0,10,5,0.8); --shadow-card: 0 4px 24px rgba(0,10,5,0.5);
+}
+
+/* Tema 4: Pergamino — beige/bordo */
+body.tema-4.modo-dia {
+    --bg-option: #f2eade;
+    --gold: #8a1c30; --gold-light: #b84058; --gold-dark: #5c0818;
+    --gold-dim: rgba(138,28,48,0.1); --gold-border: rgba(138,28,48,0.25);
+    --bg-page: #ddd4c4; --bg-container: #e8dece; --bg-header: #180406;
+    --bg-main: #d8cebe; --bg-card: #e8dece; --bg-card-hover: #e0d6c4;
+    --bg-input: #f2eade; --bg-modal: #e4d8c8; --bg-item: #ccc2b0;
+    --bg-item-hover: #c4b8a4; --bg-filter: #c8bca8; --bg-form-sec: #c8bca8;
+    --bg-ficha: #c0b4a0; --bg-info-item: #f0e8da; --bg-history: #e8e2d8;
+    --border-card: rgba(138,28,48,0.22); --border-input: #b8a898;
+    --border-item: rgba(138,28,48,0.2); --border-modal: rgba(138,28,48,0.35);
+    --text-primary: #1e0c04; --text-secondary: #3a2010;
+    --text-muted: #685040; --text-label: #584030; --text-on-header: #ffffff;
+    --shadow-container: 0 8px 32px rgba(30,10,0,0.15); --shadow-card: 0 2px 14px rgba(30,10,0,0.1);
+}
+
+/* Tema 5: Océano — azul profundo/cian */
+body.tema-5.modo-noche {
+    --bg-option: #081828;
+    --gold: #00d4ff; --gold-light: #60e8ff; --gold-dark: #0098c0;
+    --gold-dim: rgba(0,212,255,0.1); --gold-border: rgba(0,212,255,0.25);
+    --bg-page: #020c14; --bg-container: #051220; --bg-header: #010810;
+    --bg-main: #040e18; --bg-card: #081828; --bg-card-hover: #0c1e30;
+    --bg-input: rgba(0,212,255,0.08); --bg-modal: #061420;
+    --bg-item: rgba(0,212,255,0.06); --bg-item-hover: rgba(0,212,255,0.12);
+    --bg-filter: rgba(0,212,255,0.05); --bg-form-sec: rgba(0,212,255,0.06);
+    --bg-ficha: rgba(0,212,255,0.07); --bg-info-item: rgba(0,212,255,0.1);
+    --bg-history: rgba(0,212,255,0.05);
+    --border-card: rgba(0,212,255,0.16); --border-input: rgba(0,212,255,0.22);
+    --border-item: rgba(0,212,255,0.13); --border-modal: rgba(0,212,255,0.28);
+    --shadow-container: 0 20px 60px rgba(0,8,20,0.85); --shadow-card: 0 4px 24px rgba(0,15,40,0.6);
+}
+
+/* Tema 6: Justicia — negro/rojo carmesí */
+body.tema-6.modo-noche {
+    --bg-option: #140808;
+    --gold: #d4203c; --gold-light: #ff4060; --gold-dark: #a00820;
+    --gold-dim: rgba(212,32,60,0.12); --gold-border: rgba(212,32,60,0.3);
+    --bg-page: #060404; --bg-container: #0e0606; --bg-header: #040202;
+    --bg-main: #0a0505; --bg-card: #140808; --bg-card-hover: #1a0c0c;
+    --bg-input: rgba(212,32,60,0.08); --bg-modal: #100606;
+    --bg-item: rgba(212,32,60,0.07); --bg-item-hover: rgba(212,32,60,0.13);
+    --bg-filter: rgba(212,32,60,0.06); --bg-form-sec: rgba(212,32,60,0.07);
+    --bg-ficha: rgba(212,32,60,0.07); --bg-info-item: rgba(212,32,60,0.1);
+    --bg-history: rgba(212,32,60,0.06);
+    --border-card: rgba(212,32,60,0.2); --border-input: rgba(212,32,60,0.28);
+    --border-item: rgba(212,32,60,0.16); --border-modal: rgba(212,32,60,0.35);
+    --shadow-container: 0 24px 64px rgba(20,0,0,0.85); --shadow-card: 0 4px 24px rgba(40,0,0,0.6);
+}
+
+
+/* Pergamino — eyebrow siempre visible sobre header oscuro */
+body.tema-4 .header-eyebrow,
+body.tema-4 #nombreEstudio { color: #e8c8a0 !important; }
+
+/* ═══ SELECTOR DE TEMAS UI ═══ */
+#tema-panel {
+    display:none; position:fixed; top:48px; right:16px; z-index:9999;
+    background:var(--bg-modal); border:1px solid var(--gold-border);
+    border-radius:12px; padding:14px 16px; min-width:220px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+#tema-panel.visible { display:block }
+.tema-option {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:8px; cursor:pointer; transition:background .15s;
+    border:1px solid transparent; color:var(--text-primary);
+}
+.tema-option:hover { background:var(--gold-dim) }
+.tema-option.activo { border-color:var(--gold-border); background:var(--gold-dim) }
+.tema-swatch {
+    width:32px; height:20px; border-radius:4px; flex-shrink:0;
+    border:1px solid rgba(128,128,128,0.3);
+}
+.tema-name { font-size:.82em; font-weight:500 }
+.tema-sub { font-size:.68em; color:var(--text-muted) }
+
+</style></head><body>${html}</body></html>`); w.document.close(); setTimeout(()=>{w.print();w.close();},250); }
 function updateClock(){ const now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(); const hD=(h%12)*30+m*0.5,mD=m*6+s*0.1,sD=s*6; const hourHand=document.querySelector('.hour-hand'),minHand=document.querySelector('.min-hand'),secondHand=document.querySelector('.second-hand'),digitalClock=document.getElementById('digital-clock'); if(hourHand)hourHand.style.transform=`rotate(${hD}deg)`; if(minHand)minHand.style.transform=`rotate(${mD}deg)`; if(secondHand)secondHand.style.transform=`rotate(${sD}deg)`; if(digitalClock)digitalClock.innerHTML=`${now.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function mostrarAlertaDeMediaciones(mediacionesPorAlertar){ if(mediacionesPorAlertar.length===0)return; const modal=document.getElementById('alertModal'); if(modal.classList.contains('active'))return; const content=`<span class="close" onclick="closeModal('alertModal')">&times;</span><h2>⚠️ ¡Alerta de Mediaciones para Hoy!</h2><div class="reviews-list" style="max-height:60vh;">${mediacionesPorAlertar.map(alert=>`<div class="review-item today"><div class="review-item-content" style="width:100%;"><div class="review-date" style="font-size:1.1em;color:var(--danger-color);">HOY - ${formatTime(alert.item.hora)}</div><div class="review-client">${getDisplayName(alert.siniestro)}</div><div class="review-obs"><strong>Mediación:</strong> ${alert.item.texto}</div><div style="text-align:center;margin-top:15px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"><button class="btn btn-success btn-sm" onclick="marcarMediacionCompleta('${alert.siniestro.id}','${alert.item.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg> Hecho</button><button class="btn btn-warning btn-sm" onclick="showRescheduleModal('${alert.siniestro.id}','${alert.item.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 15v4M10 17h4"/></svg> Posponer</button></div></div></div>`).join('')}</div>`; modal.querySelector('.modal-content').innerHTML=content; modal.classList.add('active'); mediacionesPorAlertar.forEach(alerta=>{const s=siniestrosData.find(s=>s.id===alerta.siniestro.id); const m=s.mediaciones_list.find(m=>m.id===alerta.item.id); if(m)m.alertaMostrada=true;}); saveData(); }
 function revisarMediacionesVencidasAlCargar(){ const ahora=new Date(),horaActual=`${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`; const mediacionesVencidas=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>isToday(m.fecha)&&m.hora&&m.hora<=horaActual&&!m.completed&&!m.alertaMostrada).map(m=>({siniestro:s,item:m}))); mostrarAlertaDeMediaciones(mediacionesVencidas); }
@@ -3240,10 +3525,220 @@ async function callAIApi(data, apiPath){
 
 function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
 function downloadAsPDF(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedLetterText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('CartaDePatrocinio.pdf'); }
-function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
+function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}
+/* ══════════════════════════════════════════════════════
+   SISTEMA DE 6 TEMAS — se sobreescriben las variables
+   Solo tocan --gold, --gold-light, --gold-dark, --gold-dim, --gold-border
+   y los colores de fondo/texto ya definidos en modo-dia/modo-noche
+   ══════════════════════════════════════════════════════ */
+
+/* Tema 1: Día Clásico — ya es el default, no necesita sobreescribir nada */
+/* Tema 2: Noche Clásico — ya es el default nocturno */
+
+/* Tema 3: Esmeralda — verde profundo */
+body.tema-3.modo-noche {
+    --bg-option: #0a1a12;
+    --gold: #50c878; --gold-light: #88e8a8; --gold-dark: #2a8a4a;
+    --gold-dim: rgba(80,200,120,0.12); --gold-border: rgba(80,200,120,0.28);
+    --bg-page: #040d08; --bg-container: #071410; --bg-header: #020a06;
+    --bg-main: #060f0a; --bg-card: #0a1a12; --bg-card-hover: #0e2018;
+    --bg-input: rgba(80,200,120,0.08); --bg-modal: #081610;
+    --bg-item: rgba(80,200,120,0.06); --bg-item-hover: rgba(80,200,120,0.12);
+    --bg-filter: rgba(80,200,120,0.05); --bg-form-sec: rgba(80,200,120,0.06);
+    --bg-ficha: rgba(80,200,120,0.07); --bg-info-item: rgba(80,200,120,0.1);
+    --bg-history: rgba(80,200,120,0.05);
+    --border-card: rgba(80,200,120,0.18); --border-input: rgba(80,200,120,0.25);
+    --border-item: rgba(80,200,120,0.14); --border-modal: rgba(80,200,120,0.3);
+    --shadow-container: 0 20px 60px rgba(0,10,5,0.8); --shadow-card: 0 4px 24px rgba(0,10,5,0.5);
+}
+
+/* Tema 4: Pergamino — beige/bordo */
+body.tema-4.modo-dia {
+    --bg-option: #f2eade;
+    --gold: #8a1c30; --gold-light: #b84058; --gold-dark: #5c0818;
+    --gold-dim: rgba(138,28,48,0.1); --gold-border: rgba(138,28,48,0.25);
+    --bg-page: #ddd4c4; --bg-container: #e8dece; --bg-header: #180406;
+    --bg-main: #d8cebe; --bg-card: #e8dece; --bg-card-hover: #e0d6c4;
+    --bg-input: #f2eade; --bg-modal: #e4d8c8; --bg-item: #ccc2b0;
+    --bg-item-hover: #c4b8a4; --bg-filter: #c8bca8; --bg-form-sec: #c8bca8;
+    --bg-ficha: #c0b4a0; --bg-info-item: #f0e8da; --bg-history: #e8e2d8;
+    --border-card: rgba(138,28,48,0.22); --border-input: #b8a898;
+    --border-item: rgba(138,28,48,0.2); --border-modal: rgba(138,28,48,0.35);
+    --text-primary: #1e0c04; --text-secondary: #3a2010;
+    --text-muted: #685040; --text-label: #584030; --text-on-header: #ffffff;
+    --shadow-container: 0 8px 32px rgba(30,10,0,0.15); --shadow-card: 0 2px 14px rgba(30,10,0,0.1);
+}
+
+/* Tema 5: Océano — azul profundo/cian */
+body.tema-5.modo-noche {
+    --bg-option: #081828;
+    --gold: #00d4ff; --gold-light: #60e8ff; --gold-dark: #0098c0;
+    --gold-dim: rgba(0,212,255,0.1); --gold-border: rgba(0,212,255,0.25);
+    --bg-page: #020c14; --bg-container: #051220; --bg-header: #010810;
+    --bg-main: #040e18; --bg-card: #081828; --bg-card-hover: #0c1e30;
+    --bg-input: rgba(0,212,255,0.08); --bg-modal: #061420;
+    --bg-item: rgba(0,212,255,0.06); --bg-item-hover: rgba(0,212,255,0.12);
+    --bg-filter: rgba(0,212,255,0.05); --bg-form-sec: rgba(0,212,255,0.06);
+    --bg-ficha: rgba(0,212,255,0.07); --bg-info-item: rgba(0,212,255,0.1);
+    --bg-history: rgba(0,212,255,0.05);
+    --border-card: rgba(0,212,255,0.16); --border-input: rgba(0,212,255,0.22);
+    --border-item: rgba(0,212,255,0.13); --border-modal: rgba(0,212,255,0.28);
+    --shadow-container: 0 20px 60px rgba(0,8,20,0.85); --shadow-card: 0 4px 24px rgba(0,15,40,0.6);
+}
+
+/* Tema 6: Justicia — negro/rojo carmesí */
+body.tema-6.modo-noche {
+    --bg-option: #140808;
+    --gold: #d4203c; --gold-light: #ff4060; --gold-dark: #a00820;
+    --gold-dim: rgba(212,32,60,0.12); --gold-border: rgba(212,32,60,0.3);
+    --bg-page: #060404; --bg-container: #0e0606; --bg-header: #040202;
+    --bg-main: #0a0505; --bg-card: #140808; --bg-card-hover: #1a0c0c;
+    --bg-input: rgba(212,32,60,0.08); --bg-modal: #100606;
+    --bg-item: rgba(212,32,60,0.07); --bg-item-hover: rgba(212,32,60,0.13);
+    --bg-filter: rgba(212,32,60,0.06); --bg-form-sec: rgba(212,32,60,0.07);
+    --bg-ficha: rgba(212,32,60,0.07); --bg-info-item: rgba(212,32,60,0.1);
+    --bg-history: rgba(212,32,60,0.06);
+    --border-card: rgba(212,32,60,0.2); --border-input: rgba(212,32,60,0.28);
+    --border-item: rgba(212,32,60,0.16); --border-modal: rgba(212,32,60,0.35);
+    --shadow-container: 0 24px 64px rgba(20,0,0,0.85); --shadow-card: 0 4px 24px rgba(40,0,0,0.6);
+}
+
+
+/* Pergamino — eyebrow siempre visible sobre header oscuro */
+body.tema-4 .header-eyebrow,
+body.tema-4 #nombreEstudio { color: #e8c8a0 !important; }
+
+/* ═══ SELECTOR DE TEMAS UI ═══ */
+#tema-panel {
+    display:none; position:fixed; top:48px; right:16px; z-index:9999;
+    background:var(--bg-modal); border:1px solid var(--gold-border);
+    border-radius:12px; padding:14px 16px; min-width:220px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+#tema-panel.visible { display:block }
+.tema-option {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:8px; cursor:pointer; transition:background .15s;
+    border:1px solid transparent; color:var(--text-primary);
+}
+.tema-option:hover { background:var(--gold-dim) }
+.tema-option.activo { border-color:var(--gold-border); background:var(--gold-dim) }
+.tema-swatch {
+    width:32px; height:20px; border-radius:4px; flex-shrink:0;
+    border:1px solid rgba(128,128,128,0.3);
+}
+.tema-name { font-size:.82em; font-weight:500 }
+.tema-sub { font-size:.68em; color:var(--text-muted) }
+
+</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
 
 function downloadAsPDFConvenio(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedConvenioText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('ConvenioDeHonorarios.pdf'); }
-function downloadAsWordConvenio(){ const text=document.getElementById('generatedConvenioText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'ConvenioDeHonorarios.doc'); }
+function downloadAsWordConvenio(){ const text=document.getElementById('generatedConvenioText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;}pre{font-family:Times New Roman,sans-serif;font-size:12pt;white-space:pre-wrap;word-wrap:break-word;}
+/* ══════════════════════════════════════════════════════
+   SISTEMA DE 6 TEMAS — se sobreescriben las variables
+   Solo tocan --gold, --gold-light, --gold-dark, --gold-dim, --gold-border
+   y los colores de fondo/texto ya definidos en modo-dia/modo-noche
+   ══════════════════════════════════════════════════════ */
+
+/* Tema 1: Día Clásico — ya es el default, no necesita sobreescribir nada */
+/* Tema 2: Noche Clásico — ya es el default nocturno */
+
+/* Tema 3: Esmeralda — verde profundo */
+body.tema-3.modo-noche {
+    --bg-option: #0a1a12;
+    --gold: #50c878; --gold-light: #88e8a8; --gold-dark: #2a8a4a;
+    --gold-dim: rgba(80,200,120,0.12); --gold-border: rgba(80,200,120,0.28);
+    --bg-page: #040d08; --bg-container: #071410; --bg-header: #020a06;
+    --bg-main: #060f0a; --bg-card: #0a1a12; --bg-card-hover: #0e2018;
+    --bg-input: rgba(80,200,120,0.08); --bg-modal: #081610;
+    --bg-item: rgba(80,200,120,0.06); --bg-item-hover: rgba(80,200,120,0.12);
+    --bg-filter: rgba(80,200,120,0.05); --bg-form-sec: rgba(80,200,120,0.06);
+    --bg-ficha: rgba(80,200,120,0.07); --bg-info-item: rgba(80,200,120,0.1);
+    --bg-history: rgba(80,200,120,0.05);
+    --border-card: rgba(80,200,120,0.18); --border-input: rgba(80,200,120,0.25);
+    --border-item: rgba(80,200,120,0.14); --border-modal: rgba(80,200,120,0.3);
+    --shadow-container: 0 20px 60px rgba(0,10,5,0.8); --shadow-card: 0 4px 24px rgba(0,10,5,0.5);
+}
+
+/* Tema 4: Pergamino — beige/bordo */
+body.tema-4.modo-dia {
+    --bg-option: #f2eade;
+    --gold: #8a1c30; --gold-light: #b84058; --gold-dark: #5c0818;
+    --gold-dim: rgba(138,28,48,0.1); --gold-border: rgba(138,28,48,0.25);
+    --bg-page: #ddd4c4; --bg-container: #e8dece; --bg-header: #180406;
+    --bg-main: #d8cebe; --bg-card: #e8dece; --bg-card-hover: #e0d6c4;
+    --bg-input: #f2eade; --bg-modal: #e4d8c8; --bg-item: #ccc2b0;
+    --bg-item-hover: #c4b8a4; --bg-filter: #c8bca8; --bg-form-sec: #c8bca8;
+    --bg-ficha: #c0b4a0; --bg-info-item: #f0e8da; --bg-history: #e8e2d8;
+    --border-card: rgba(138,28,48,0.22); --border-input: #b8a898;
+    --border-item: rgba(138,28,48,0.2); --border-modal: rgba(138,28,48,0.35);
+    --text-primary: #1e0c04; --text-secondary: #3a2010;
+    --text-muted: #685040; --text-label: #584030; --text-on-header: #ffffff;
+    --shadow-container: 0 8px 32px rgba(30,10,0,0.15); --shadow-card: 0 2px 14px rgba(30,10,0,0.1);
+}
+
+/* Tema 5: Océano — azul profundo/cian */
+body.tema-5.modo-noche {
+    --bg-option: #081828;
+    --gold: #00d4ff; --gold-light: #60e8ff; --gold-dark: #0098c0;
+    --gold-dim: rgba(0,212,255,0.1); --gold-border: rgba(0,212,255,0.25);
+    --bg-page: #020c14; --bg-container: #051220; --bg-header: #010810;
+    --bg-main: #040e18; --bg-card: #081828; --bg-card-hover: #0c1e30;
+    --bg-input: rgba(0,212,255,0.08); --bg-modal: #061420;
+    --bg-item: rgba(0,212,255,0.06); --bg-item-hover: rgba(0,212,255,0.12);
+    --bg-filter: rgba(0,212,255,0.05); --bg-form-sec: rgba(0,212,255,0.06);
+    --bg-ficha: rgba(0,212,255,0.07); --bg-info-item: rgba(0,212,255,0.1);
+    --bg-history: rgba(0,212,255,0.05);
+    --border-card: rgba(0,212,255,0.16); --border-input: rgba(0,212,255,0.22);
+    --border-item: rgba(0,212,255,0.13); --border-modal: rgba(0,212,255,0.28);
+    --shadow-container: 0 20px 60px rgba(0,8,20,0.85); --shadow-card: 0 4px 24px rgba(0,15,40,0.6);
+}
+
+/* Tema 6: Justicia — negro/rojo carmesí */
+body.tema-6.modo-noche {
+    --bg-option: #140808;
+    --gold: #d4203c; --gold-light: #ff4060; --gold-dark: #a00820;
+    --gold-dim: rgba(212,32,60,0.12); --gold-border: rgba(212,32,60,0.3);
+    --bg-page: #060404; --bg-container: #0e0606; --bg-header: #040202;
+    --bg-main: #0a0505; --bg-card: #140808; --bg-card-hover: #1a0c0c;
+    --bg-input: rgba(212,32,60,0.08); --bg-modal: #100606;
+    --bg-item: rgba(212,32,60,0.07); --bg-item-hover: rgba(212,32,60,0.13);
+    --bg-filter: rgba(212,32,60,0.06); --bg-form-sec: rgba(212,32,60,0.07);
+    --bg-ficha: rgba(212,32,60,0.07); --bg-info-item: rgba(212,32,60,0.1);
+    --bg-history: rgba(212,32,60,0.06);
+    --border-card: rgba(212,32,60,0.2); --border-input: rgba(212,32,60,0.28);
+    --border-item: rgba(212,32,60,0.16); --border-modal: rgba(212,32,60,0.35);
+    --shadow-container: 0 24px 64px rgba(20,0,0,0.85); --shadow-card: 0 4px 24px rgba(40,0,0,0.6);
+}
+
+
+/* Pergamino — eyebrow siempre visible sobre header oscuro */
+body.tema-4 .header-eyebrow,
+body.tema-4 #nombreEstudio { color: #e8c8a0 !important; }
+
+/* ═══ SELECTOR DE TEMAS UI ═══ */
+#tema-panel {
+    display:none; position:fixed; top:48px; right:16px; z-index:9999;
+    background:var(--bg-modal); border:1px solid var(--gold-border);
+    border-radius:12px; padding:14px 16px; min-width:220px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+#tema-panel.visible { display:block }
+.tema-option {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:8px; cursor:pointer; transition:background .15s;
+    border:1px solid transparent; color:var(--text-primary);
+}
+.tema-option:hover { background:var(--gold-dim) }
+.tema-option.activo { border-color:var(--gold-border); background:var(--gold-dim) }
+.tema-swatch {
+    width:32px; height:20px; border-radius:4px; flex-shrink:0;
+    border:1px solid rgba(128,128,128,0.3);
+}
+.tema-name { font-size:.82em; font-weight:500 }
+.tema-sub { font-size:.68em; color:var(--text-muted) }
+
+</style></head><body><pre>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'ConvenioDeHonorarios.doc'); }
 
 </script>
 
