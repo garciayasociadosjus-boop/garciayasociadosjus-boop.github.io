@@ -3654,7 +3654,7 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div> 
                 <div class="form-group"><label>Fecha del Siniestro</label><input type="date" id="letterFechaSiniestro" value="${s.fechaSiniestro || ''}" required></div> 
                 <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div> 
-                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${[s.lugarSiniestro, s.localidadSiniestro, s.partidoSiniestro ? 'Partido de ' + s.partidoSiniestro : '', s.provinciaSiniestro].filter(Boolean).join(', ')}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> 
+                <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${[s.lugarSiniestro, s.localidadSiniestro, (s.partidoSiniestro && s.partidoSiniestro !== s.localidadSiniestro) ? 'Partido de ' + s.partidoSiniestro : '', s.provinciaSiniestro].filter(Boolean).join(', ')}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> 
                 <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div> 
                 <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div> 
                 <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div> 
@@ -3756,6 +3756,8 @@ async function processLetterData(event,siniestroId){
         nombreTercero:document.getElementById('letterNombreTercero').value,
         vehiculoTercero:document.getElementById('letterVehiculoTercero').value,
         relato:relatoOriginal, // Relato con info del conductor incrustada si aplica
+        franquiciaActiva: s.franquicia === 'Sí' || s.franquicia === 'Si' || s.franquicia === 'SI',
+        montoFranquicia: s.presupuesto || 0,
         infracciones:document.getElementById('letterInfracciones').value,
         hayLesiones:hayLesiones,
         lesionesDesc:hayLesiones?document.getElementById('letterLesionesDesc').value:'',
@@ -3984,13 +3986,13 @@ async function callAIApi(data, apiPath){
 
 function copyToClipboard(elementId){ const textArea=document.getElementById(elementId); textArea.select(); document.execCommand('copy'); updateDataStatus('✅ Texto copiado al portapeles.'); }
 function downloadAsPDF(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedLetterText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('CartaDePatrocinio.pdf'); }
-function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;color:#000;background:#fff;}
+function downloadAsWord(){ const text=document.getElementById('generatedLetterText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;background:#fff;}
 h2,h3,b,strong{color:#000;}
 .print-area{padding:20px;}
 pre{white-space:pre-wrap;font-family:Arial,sans-serif;font-size:11pt;}</style></head><body><pre>>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'CartaDePatrocinio.doc'); }
 
 function downloadAsPDFConvenio(){ const{jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const text=document.getElementById('generatedConvenioText').value; const splitText=doc.splitTextToSize(text,180); const pageHeight=doc.internal.pageSize.getHeight(); let y=15; doc.setFontSize(11); for(let i=0;i<splitText.length;i++){ if(y>pageHeight-15){doc.addPage();y=15;} doc.text(splitText[i],15,y); y+=7; } doc.save('ConvenioDeHonorarios.pdf'); }
-function downloadAsWordConvenio(){ const text=document.getElementById('generatedConvenioText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;color:#000;background:#fff;}
+function downloadAsWordConvenio(){ const text=document.getElementById('generatedConvenioText').value; const content=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;background:#fff;}
 h2,h3,b,strong{color:#000;}
 .print-area{padding:20px;}
 pre{white-space:pre-wrap;font-family:Arial,sans-serif;font-size:11pt;}</style></head><body><pre>>${text}</pre></body></html>`; const blob=htmlDocx.asBlob(content); saveAs(blob,'ConvenioDeHonorarios.doc'); }
