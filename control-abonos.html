@@ -1697,12 +1697,14 @@
             render();
           }
         } else if(field === 'monto') {
-          // Al modificar el monto del mes, actualizar montoBase (sin tocar abonoPrimitivo)
+          // Al modificar el monto, sincronizar la descomposición interna:
+          // montoBase = abonoPrimitivo (base contractual)
+          // deudaAcumulada = monto - abonoPrimitivo (lo que excede la base)
           var abono = abonosData.find(function(a){ return a.id===id; });
-          var deudaAcum = abono ? (parseFloat(abono.deudaAcumulada) || 0) : 0;
-          var nuevoMontoBase = newValue - deudaAcum;
-          if (nuevoMontoBase < 0) nuevoMontoBase = newValue;
-          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase });
+          var primitivo = abono ? (parseFloat(abono.abonoPrimitivo) || parseFloat(abono.montoBase) || newValue) : newValue;
+          var nuevaDeuda = newValue - primitivo;
+          if (nuevaDeuda < 0) nuevaDeuda = 0;
+          updateAbono(id, { monto: newValue, montoBase: primitivo, deudaAcumulada: nuevaDeuda });
         } else {
           updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
         }
