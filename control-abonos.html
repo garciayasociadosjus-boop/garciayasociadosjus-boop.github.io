@@ -353,6 +353,10 @@
           <input type="tel" id="telefono" placeholder="Ej: 1123456789">
           <span class="alerta-sin-tel" id="alertaSinTel">⚠️ Se recomienda cargar teléfono para estados con deuda</span>
         </div>
+        <div class="form-group">
+          <label>DNI del cliente <span style="font-weight:400;color:#64748b;font-size:.85em;">(para acceso al portal de pagos)</span></label>
+          <input type="text" id="dniCliente" placeholder="Ej: 30123456" maxlength="10" pattern="[0-9]*" inputmode="numeric">
+        </div>
         <div class="form-group"><label>Tipo</label><select id="tipo"></select></div>
 
         <!-- CONVENIO BLANCO: sección de cuotas, visible solo para ese tipo -->
@@ -1167,6 +1171,7 @@
         var record = records[0];
         var cliente = record.cliente;
         var telefono = record.telefono || '';
+        var dniCliente = record.dniCliente || '';
         // Si CUALQUIER registro del grupo es Terminado, no arrastrar
         var algunoTerminado = records.some(function(r){ return r.estado === 'Terminado'; });
         if (algunoTerminado) { skipTerminado++; return; }
@@ -1196,9 +1201,9 @@
           if (deudaTotal > 0) {
             var montoNuevo = primitivoBase + deudaTotal;
             obsAuto = '📅 ' + mesNombreObs + '\nDeuda acumulada: ' + formatCurrency(deudaTotal) + '\nAbono del mes: ' + formatCurrency(primitivoBase) + '\nTotal a cobrar: ' + formatCurrency(montoNuevo);
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: montoNuevo, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: deudaTotal, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: montoNuevo, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: deudaTotal, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: obsAuto, mesServicio: mesServicioNuevo });
           } else {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: primitivoBase, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: 0, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Abono Mensual', monto: primitivoBase, montoBase: primitivoBase, abonoPrimitivo: primitivoBase, deudaAcumulada: 0, esComisionable: record.esComisionable||false, comisionColega: record.comisionColega||'', comisionPorcentaje: record.comisionPorcentaje||0, fechaPago: '', estado: 'Pendiente', observaciones: obsManual, observacionesAuto: '', mesServicio: mesServicioNuevo });
           }
           added++;
         }
@@ -1213,7 +1218,7 @@
             obsReg = 'Regulación de honorarios pendiente: ' + formatCurrency(montoRestanteReg);
           }
           if (montoRestanteReg > 0) {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Regulación Honorarios', monto: montoRestanteReg, montoBase: montoRestanteReg, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + obsReg, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: 'Regulación Honorarios', monto: montoRestanteReg, montoBase: montoRestanteReg, deudaAcumulada: 0, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + obsReg, mesServicio: mesServicioNuevo });
             added++;
           }
         }
@@ -1227,7 +1232,7 @@
           var tieneAlgunaCuotaConMonto = defs.some(function(d){ return d.monto && d.monto > 0; });
           if (!tieneAlgunaCuotaConMonto) {
             // Placeholder: cuotas sin importes definidos, arrastrar estructura vacía
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: 0, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: 0, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '', mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: 0, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: 0, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '', mesServicio: mesServicioNuevo });
             added++;
             return;
           }
@@ -1263,14 +1268,14 @@
 
           // Si no hay cuota siguiente pero hay deuda impaga, arrastrar solo la deuda
           if (!proximaCuota && montoCuotaImpaga > 0) {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoCuotaImpaga, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: montoCuotaImpaga, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nSaldo impago C' + cuotaActual + ': ' + formatCurrency(montoCuotaImpaga), mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoCuotaImpaga, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: montoCuotaImpaga, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nSaldo impago C' + cuotaActual + ': ' + formatCurrency(montoCuotaImpaga), mesServicio: mesServicioNuevo });
             added++;
           } else if (proximaCuota) {
             var montoProx = parseFloat(proximaCuota.monto)||0;
             var montoTotalCB = montoProx + montoCuotaImpaga;
             var cuotasRest = defs.filter(function(d){ return d.nro >= proximaCuota.nro && !pagadasHasta.includes(d.nro) && d.monto; });
             var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
             added++;
           }
         }
@@ -1287,7 +1292,7 @@
           }
           var debeArrastrar = montoRestante > 0 || (record.tipo === 'Honorarios Siniestro' && ['Pendiente', 'Falta de Pago', 'Ejecución de Honorarios'].includes(record.estado));
           if (debeArrastrar) {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
             added++;
           }
         }
@@ -1787,6 +1792,7 @@
       document.getElementById('alertaSinTel').style.display = 'none';
       document.getElementById('telefono').classList.remove('telefono-missing');
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
+      document.getElementById('dniCliente').value = '';
 
       if (editId) {
         // Modo edición: cargar datos del registro existente
@@ -1797,6 +1803,7 @@
         document.getElementById('cliente').value = abono.cliente || '';
         document.getElementById('expediente').value = abono.expediente || '';
         document.getElementById('telefono').value = abono.telefono || '';
+        document.getElementById('dniCliente').value = abono.dniCliente || '';
         document.getElementById('autorizaWhatsapp').checked = !!abono.autorizaWhatsapp;
         document.getElementById('esComisionable').checked = !!abono.esComisionable;
         document.getElementById('comisionDiv').style.display = abono.esComisionable ? 'block' : 'none';
@@ -1937,6 +1944,7 @@
         cliente: document.getElementById('cliente').value,
         expediente: document.getElementById('expediente').value,
         telefono: document.getElementById('telefono').value,
+        dniCliente: document.getElementById('dniCliente').value.trim(),
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: tipoVal,
         monto: montoVal,
