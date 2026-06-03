@@ -1151,6 +1151,7 @@
       var next = getAbonosForMonth(nm, ny);
       var existingSet = new Set(next.map(function(a){ return a.cliente + '||' + a.tipo + '||' + (a.expediente||''); }));
       var added=0;
+      var skipExistente=0, skipTerminado=0, skipPagoUnico=0;
       var mesServicioNuevo = { month: nm, year: ny };
 
       var registrosPorClave = {};
@@ -1161,12 +1162,12 @@
       });
 
       Object.keys(registrosPorClave).forEach(function(clave) {
-        if (existingSet.has(clave)) return;
+        if (existingSet.has(clave)) { skipExistente++; return; }
         var records = registrosPorClave[clave];
         var record = records[0];
         var cliente = record.cliente;
         var telefono = record.telefono || '';
-        if (record.estado === 'Terminado') return;
+        if (record.estado === 'Terminado') { skipTerminado++; return; }
 
         if (record.tipo === 'Abono Mensual') {
           var primitivoBase = parseFloat(record.abonoPrimitivo) || parseFloat(record.montoBase) || parseFloat(record.monto) || 0;
@@ -1175,6 +1176,10 @@
             var base = parseFloat(r.montoBase) || parseFloat(r.monto) || 0;
             var deudaVieja = parseFloat(r.deudaAcumulada) || 0;
             var deudaRegistro = base + deudaVieja;
+            // Red de seguridad: si el monto visible es mayor que la descomposición
+            // interna (datos desincronizados por edición manual), usar el monto
+            var montoVisible = parseFloat(r.monto) || 0;
+            if (montoVisible > deudaRegistro) deudaRegistro = montoVisible;
             if (r.estado === 'Pendiente' || r.estado === 'Falta de Pago' || r.estado === 'Ejecución de Honorarios') {
               deudaTotal += deudaRegistro;
             } else if (r.estado === 'Pago Parcial') {
@@ -1216,34 +1221,49 @@
           var defs = record.cuotasDefinicion;
           var pagadasHasta = (record.cuotasPagadas || []).slice();
           var cuotaActual = record.cuotaActual || 1;
+
+          // Marcar cuota actual como pagada si corresponde
           if (record.estado === 'Pagado' || record.estado === 'Pago Parcial') {
             if (!pagadasHasta.includes(cuotaActual)) pagadasHasta.push(cuotaActual);
           }
-          var proximaCuota = null;
-          for (var i = 0; i < defs.length; i++) {
-            if (!pagadasHasta.includes(defs[i].nro) && defs[i].monto) { proximaCuota = defs[i]; break; }
-          }
-          if (!proximaCuota) return;
+
+          // Calcular deuda de la cuota actual si no se pagó completa
           var montoCuotaImpaga = 0, labelMora = '';
-          if (record.estado !== 'Pagado' && record.estado !== 'Terminado') {
-            var cuotaActualDef = defs.find(function(d){ return d.nro === cuotaActual; });
-            if (cuotaActualDef && cuotaActualDef.monto && cuotaActualDef.nro !== proximaCuota.nro) {
-              // Cuota anterior: si fue pago parcial, arrastrar solo el saldo (cuota - pagado)
+          var cuotaActualDef = defs.find(function(d){ return d.nro === cuotaActual; });
+          if (cuotaActualDef && cuotaActualDef.monto) {
+            if (record.estado === 'Pago Parcial') {
+              // Pago parcial: deuda = cuota - lo que pagó
+              montoCuotaImpaga = Math.max(0, (parseFloat(cuotaActualDef.monto)||0) - (parseFloat(record.montoPagado)||0));
+            } else if (record.estado !== 'Pagado' && record.estado !== 'Terminado') {
+              // Falta de Pago, Pendiente, Ejecución: cuota completa como deuda
               montoCuotaImpaga = parseFloat(cuotaActualDef.monto)||0;
-              if (record.estado === 'Pago Parcial') {
-                montoCuotaImpaga = Math.max(0, montoCuotaImpaga - (parseFloat(record.montoPagado)||0));
-              }
-              if (montoCuotaImpaga > 0) {
-                labelMora = ' + C' + cuotaActual + ' saldo: ' + formatCurrency(montoCuotaImpaga);
-              }
+            }
+            if (montoCuotaImpaga > 0) {
+              labelMora = ' + C' + cuotaActual + ' impaga: ' + formatCurrency(montoCuotaImpaga);
             }
           }
-          var montoProx = parseFloat(proximaCuota.monto)||0;
-          var montoTotalCB = montoProx + montoCuotaImpaga;
-          var cuotasRest = defs.filter(function(d){ return !pagadasHasta.includes(d.nro) && d.monto; });
-          var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
-          addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
-          added++;
+
+          // Buscar la SIGUIENTE cuota (siempre avanzar, la actual ya se contó como deuda)
+          var proximaCuota = null;
+          for (var i = 0; i < defs.length; i++) {
+            if (defs[i].nro > cuotaActual && !pagadasHasta.includes(defs[i].nro) && defs[i].monto) {
+              proximaCuota = defs[i]; break;
+            }
+          }
+
+          // Si no hay cuota siguiente pero hay deuda impaga, arrastrar solo la deuda
+          if (!proximaCuota && montoCuotaImpaga > 0) {
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoCuotaImpaga, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: montoCuotaImpaga, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nSaldo impago C' + cuotaActual + ': ' + formatCurrency(montoCuotaImpaga), mesServicio: mesServicioNuevo });
+            added++;
+          } else if (proximaCuota) {
+            var montoProx = parseFloat(proximaCuota.monto)||0;
+            var montoTotalCB = montoProx + montoCuotaImpaga;
+            var cuotasRest = defs.filter(function(d){ return d.nro >= proximaCuota.nro && !pagadasHasta.includes(d.nro) && d.monto; });
+            var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
+            added++;
+          }
+          // Si no hay próxima cuota y no hay deuda → todo pagado, no arrastrar
         }
 
         else if (record.tipo === 'Honorarios Siniestro' || record.tipo === 'Pago de Bonos y AP') {
@@ -1252,23 +1272,37 @@
             montoRestante = (parseFloat(record.monto)||0) - (parseFloat(record.montoPagado)||0);
             observacionOtro = 'Saldo pendiente de ' + record.tipo + ': ' + formatCurrency(montoRestante);
           } else if (['Pendiente', 'Ejecución de Honorarios', 'Falta de Pago'].includes(record.estado)) {
-            montoRestante = parseFloat(record.montoOriginal || record.monto)||0;
+            // Usar monto visible (puede haber sido editado manualmente)
+            montoRestante = parseFloat(record.monto)||0;
             observacionOtro = record.observaciones || (record.tipo + ' pendiente: ' + (montoRestante > 0 ? formatCurrency(montoRestante) : 'importe a determinar'));
           }
           var debeArrastrar = montoRestante > 0 || (record.tipo === 'Honorarios Siniestro' && ['Pendiente', 'Falta de Pago', 'Ejecución de Honorarios'].includes(record.estado));
           if (debeArrastrar) {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: parseFloat(record.montoOriginal || record.monto) || montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
             added++;
           }
         }
       });
 
 
+      var totalClaves = Object.keys(registrosPorClave).length;
+      var skipPagoUnico = totalClaves - added - skipExistente - skipTerminado;
+      if (skipPagoUnico < 0) skipPagoUnico = 0;
+
       if(added>0){
-        alert('Se arrastraron '+added+' clientes a '+MONTHS[nm]+' '+ny+'. Cambiando al mes siguiente...');
+        var detalle = 'Se arrastraron ' + added + ' de ' + totalClaves + ' registros a ' + MONTHS[nm] + ' ' + ny + '.';
+        var saltados = [];
+        if (skipExistente > 0) saltados.push(skipExistente + ' ya existían en ' + MONTHS[nm]);
+        if (skipTerminado > 0) saltados.push(skipTerminado + ' terminados');
+        if (skipPagoUnico > 0) saltados.push(skipPagoUnico + ' pagos completos sin saldo');
+        if (saltados.length > 0) detalle += '\n\nSaltados: ' + saltados.join(', ') + '.';
+        alert(detalle);
         currentMonth = { month:nm, year:ny }; updateMonthDisplay(); render();
       } else {
-        alert('Todos los clientes ya existen en el próximo mes o estaban terminados.');
+        alert('No se arrastró ningún registro.\n\nDe ' + totalClaves + ' registros: ' +
+          (skipExistente > 0 ? skipExistente + ' ya existían en ' + MONTHS[nm] + '. ' : '') +
+          (skipTerminado > 0 ? skipTerminado + ' terminados. ' : '') +
+          (skipPagoUnico > 0 ? skipPagoUnico + ' pagos completos sin saldo.' : ''));
       }
     }
 
