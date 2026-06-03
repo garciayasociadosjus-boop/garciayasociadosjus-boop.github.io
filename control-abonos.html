@@ -426,6 +426,11 @@
           <label>Abono / Jus Primitivo <span style="font-weight:400;color:#64748b;font-size:.85em;">(valor fijo base — se usa para el arrastre)</span></label>
           <input type="number" id="abonoPrimitivo" step="0.01" placeholder="Igual al monto si no se indica otro">
         </div>
+        <div id="deudaAcumuladaDiv" class="form-group" style="display:none;">
+          <label style="color:var(--danger-color);font-weight:700;">📛 Deuda Acumulada <span style="font-weight:400;font-size:.85em;">(meses anteriores impagos — editá este valor para corregir la cuenta)</span></label>
+          <input type="number" id="deudaAcumuladaInput" step="0.01" min="0" placeholder="0.00" style="border-color:var(--danger-color);">
+          <span id="deudaRecalcInfo" style="font-size:.8em;color:var(--info-color);margin-top:4px;display:none;"></span>
+        </div>
         <div class="form-group"><label>Fecha Límite de Pago <span style="font-weight:400;color:#64748b;font-size:.85em;">(vencimiento — después de esta fecha se considera moroso)</span></label><input type="date" id="fechaVencimiento" placeholder="Día límite de pago"></div>
         <div class="form-group"><label>Fecha Real de Pago <span style="font-weight:400;color:#64748b;font-size:.85em;">(fecha efectiva en que pagó — se usa para el recibo)</span></label><input type="date" id="fechaPago"></div>
         <div class="form-group"><label>Forma de Pago</label><select id="formaPago"></select></div>
@@ -621,10 +626,16 @@
         if (esConvenio || esHonCuotas) {
           montoGroup.style.display = 'none';
           primitiveGroup.style.display = 'none';
+          document.getElementById('deudaAcumuladaDiv').style.display = 'none';
           document.getElementById('monto').required = false;
         } else {
           montoGroup.style.display = '';
           primitiveGroup.style.display = '';
+          // Mostrar deuda para Abono Mensual o si ya tiene valor
+          var deudaInput = document.getElementById('deudaAcumuladaInput');
+          if (this.value === 'Abono Mensual' || (parseFloat(deudaInput.value) || 0) > 0) {
+            document.getElementById('deudaAcumuladaDiv').style.display = 'block';
+          }
           document.getElementById('monto').required = true;
         }
         if (esHonCuotas) renderCuotasHC(parseInt(document.getElementById('cantCuotasHC').value)||3);
@@ -643,6 +654,10 @@
       });
       document.getElementById('comisionPorcentaje').addEventListener('input', actualizarPreviewComision);
       document.getElementById('monto').addEventListener('input', actualizarPreviewComision);
+
+      // Recalcular monto cuando cambia deuda acumulada o abono primitivo
+      document.getElementById('deudaAcumuladaInput').addEventListener('input', recalcularMontoDesdeDeuda);
+      document.getElementById('abonoPrimitivo').addEventListener('input', recalcularMontoDesdeDeuda);
 
       // Selector de Abonos Puros
       document.getElementById('toggleAbonosPurosSelector').addEventListener('click', function(e) {
@@ -925,6 +940,23 @@
     }
 
     // ====== FILTROS ======
+    function recalcularMontoDesdeDeuda() {
+      var deudaDiv = document.getElementById('deudaAcumuladaDiv');
+      if (deudaDiv.style.display === 'none') return;
+      var base = parseFloat(document.getElementById('abonoPrimitivo').value) || 0;
+      var deuda = parseFloat(document.getElementById('deudaAcumuladaInput').value) || 0;
+      var nuevoMonto = base + deuda;
+      document.getElementById('monto').value = nuevoMonto;
+      var info = document.getElementById('deudaRecalcInfo');
+      if (deuda > 0) {
+        info.textContent = '💡 Monto total = ' + formatCurrency(base) + ' (base) + ' + formatCurrency(deuda) + ' (deuda) = ' + formatCurrency(nuevoMonto);
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
+      }
+      actualizarPreviewComision();
+    }
+
     function actualizarPreviewComision() {
       var monto = parseFloat(document.getElementById('monto').value) || 0;
       var pct = parseFloat(document.getElementById('comisionPorcentaje').value) || 0;
@@ -1184,8 +1216,7 @@
           var defs = record.cuotasDefinicion;
           var pagadasHasta = (record.cuotasPagadas || []).slice();
           var cuotaActual = record.cuotaActual || 1;
-          // Solo marcar como pagada si el estado es Pagado completo (NO Pago Parcial)
-          if (record.estado === 'Pagado') {
+          if (record.estado === 'Pagado' || record.estado === 'Pago Parcial') {
             if (!pagadasHasta.includes(cuotaActual)) pagadasHasta.push(cuotaActual);
           }
           var proximaCuota = null;
@@ -1197,22 +1228,17 @@
           if (record.estado !== 'Pagado' && record.estado !== 'Terminado') {
             var cuotaActualDef = defs.find(function(d){ return d.nro === cuotaActual; });
             if (cuotaActualDef && cuotaActualDef.monto && cuotaActualDef.nro !== proximaCuota.nro) {
-              // Cuota anterior impaga: arrastrar monto completo o diferencia si hubo pago parcial
+              // Cuota anterior: si fue pago parcial, arrastrar solo el saldo (cuota - pagado)
               montoCuotaImpaga = parseFloat(cuotaActualDef.monto)||0;
               if (record.estado === 'Pago Parcial') {
                 montoCuotaImpaga = Math.max(0, montoCuotaImpaga - (parseFloat(record.montoPagado)||0));
               }
               if (montoCuotaImpaga > 0) {
-                labelMora = ' + C' + cuotaActual + ' impaga: ' + formatCurrency(montoCuotaImpaga);
+                labelMora = ' + C' + cuotaActual + ' saldo: ' + formatCurrency(montoCuotaImpaga);
               }
             }
           }
           var montoProx = parseFloat(proximaCuota.monto)||0;
-          // Si pago parcial sobre la cuota actual (misma cuota sigue pendiente),
-          // arrastrar solo el saldo restante
-          if (record.estado === 'Pago Parcial' && proximaCuota.nro === cuotaActual) {
-            montoProx = Math.max(0, montoProx - (parseFloat(record.montoPagado)||0));
-          }
           var montoTotalCB = montoProx + montoCuotaImpaga;
           var cuotasRest = defs.filter(function(d){ return !pagadasHasta.includes(d.nro) && d.monto; });
           var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
@@ -1372,7 +1398,6 @@
       refreshAmountDisplay();
     }
 
-    // Refresca los montos del dashboard según el estado de visibilidad actual
     function refreshAmountDisplay() {
       var cards = [
         { el: document.getElementById('totalIngresosBrutos'), value: realAmounts.bruto },
@@ -1385,11 +1410,9 @@
       cards.forEach(function(card) {
         if (card.el) {
           if (isAmountHidden) {
-            card.el.textContent = '••••••';
-            card.el.classList.add('hidden-value');
+            card.el.textContent = '••••••'; card.el.classList.add('hidden-value');
           } else {
-            card.el.textContent = formatCurrency(card.value);
-            card.el.classList.remove('hidden-value');
+            card.el.textContent = formatCurrency(card.value); card.el.classList.remove('hidden-value');
           }
         }
       });
@@ -1674,13 +1697,12 @@
             render();
           }
         } else if(field === 'monto') {
-          // Al modificar el monto del mes, actualizar montoBase Y abonoPrimitivo
-          // para que el arrastre al mes siguiente use el nuevo valor
+          // Al modificar el monto del mes, actualizar montoBase (sin tocar abonoPrimitivo)
           var abono = abonosData.find(function(a){ return a.id===id; });
           var deudaAcum = abono ? (parseFloat(abono.deudaAcumulada) || 0) : 0;
           var nuevoMontoBase = newValue - deudaAcum;
           if (nuevoMontoBase < 0) nuevoMontoBase = newValue;
-          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase, abonoPrimitivo: nuevoMontoBase });
+          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase });
         } else {
           updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
         }
@@ -1714,6 +1736,9 @@
       document.getElementById('comisionColega').value = '';
       document.getElementById('comisionPorcentaje').value = '';
       document.getElementById('comisionPreview').textContent = '';
+      document.getElementById('deudaAcumuladaDiv').style.display = 'none';
+      document.getElementById('deudaAcumuladaInput').value = '';
+      document.getElementById('deudaRecalcInfo').style.display = 'none';
       document.getElementById('alertaSinTel').style.display = 'none';
       document.getElementById('telefono').classList.remove('telefono-missing');
       document.getElementById('pagoMontoParcialDiv').style.display = 'none';
@@ -1768,6 +1793,19 @@
         }
         document.getElementById('monto').value = abono.monto || '';
         document.getElementById('abonoPrimitivo').value = abono.abonoPrimitivo || abono.montoBase || abono.monto || '';
+        // Mostrar campo de deuda acumulada en modo edición
+        var deudaVal = parseFloat(abono.deudaAcumulada) || 0;
+        var esConvenioOCuotas = abono.tipo === 'Convenio Blanco' || abono.tipo === 'Honorarios en Cuotas';
+        if (deudaVal > 0 || abono.tipo === 'Abono Mensual') {
+          document.getElementById('deudaAcumuladaDiv').style.display = esConvenioOCuotas ? 'none' : 'block';
+          document.getElementById('deudaAcumuladaInput').value = deudaVal > 0 ? deudaVal : '';
+          var infoEl = document.getElementById('deudaRecalcInfo');
+          if (deudaVal > 0) {
+            var baseVal = parseFloat(abono.abonoPrimitivo || abono.montoBase || abono.monto) || 0;
+            infoEl.textContent = '💡 Monto total = ' + formatCurrency(baseVal) + ' (base) + ' + formatCurrency(deudaVal) + ' (deuda) = ' + formatCurrency(baseVal + deudaVal);
+            infoEl.style.display = 'block';
+          } else { infoEl.style.display = 'none'; }
+        }
         document.getElementById('fechaVencimiento').value = abono.fechaVencimiento || '';
         document.getElementById('fechaPago').value = abono.fechaPago || '';
         document.getElementById('formaPago').value = abono.formaPago || FORMA_PAGO_OPTIONS[0];
@@ -1843,6 +1881,13 @@
         primitivo = montoVal;
       }
 
+      // Leer deuda acumulada (editable por el usuario)
+      var deudaAcumuladaVal = parseFloat(document.getElementById('deudaAcumuladaInput').value) || 0;
+      // Para Abono Mensual con deuda: recalcular monto = base + deuda
+      if (tipoVal === 'Abono Mensual' && deudaAcumuladaVal > 0) {
+        montoVal = primitivo + deudaAcumuladaVal;
+      }
+
       var data = {
         cliente: document.getElementById('cliente').value,
         expediente: document.getElementById('expediente').value,
@@ -1850,8 +1895,9 @@
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
         tipo: tipoVal,
         monto: montoVal,
-        montoBase: montoVal,
+        montoBase: (tipoVal === 'Abono Mensual') ? primitivo : montoVal,
         abonoPrimitivo: primitivo,
+        deudaAcumulada: deudaAcumuladaVal,
         esComisionable: document.getElementById('esComisionable').checked,
         comisionColega: document.getElementById('esComisionable').checked ? document.getElementById('comisionColega').value : '',
         comisionPorcentaje: document.getElementById('esComisionable').checked ? (parseFloat(document.getElementById('comisionPorcentaje').value) || 0) : 0,
