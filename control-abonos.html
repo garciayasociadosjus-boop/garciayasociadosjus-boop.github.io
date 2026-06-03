@@ -784,8 +784,21 @@
                     }
                     ignorarProximoCambioFirebase = false;
                 }
-                if (data && Array.isArray(data)) {
-                    abonosData = data;
+                if (data && (Array.isArray(data) || typeof data === 'object')) {
+                    // Firebase puede devolver objeto si hay keys mezcladas (string + numéricas)
+                    // Convertir a array si es necesario, ordenando por índice numérico
+                    if (Array.isArray(data)) {
+                        abonosData = data.filter(function(x){ return x; });
+                    } else {
+                        // Es objeto: convertir a array filtrando solo entradas válidas
+                        var arr = [];
+                        Object.keys(data).forEach(function(k){
+                            if (data[k] && typeof data[k] === 'object' && data[k].id) {
+                                arr.push(data[k]);
+                            }
+                        });
+                        abonosData = arr;
+                    }
                     localStorage.setItem('abonosData', JSON.stringify(abonosData));
                     render();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
