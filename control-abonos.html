@@ -1263,7 +1263,12 @@
             addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
             added++;
           }
-          // Si no hay próxima cuota y no hay deuda → todo pagado, no arrastrar
+          // Fallback: si no hay cuota con importe y no hay deuda, pero el registro
+          // sigue activo (cuotas sin importe definido aún), arrastrarlo como placeholder
+          else if (!proximaCuota && montoCuotaImpaga <= 0 && record.estado !== 'Pagado' && record.estado !== 'Terminado') {
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: 0, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: 0, cuotaActual: record.cuotaActual || 1, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '', mesServicio: mesServicioNuevo });
+            added++;
+          }
         }
 
         else if (record.tipo === 'Honorarios Siniestro' || record.tipo === 'Pago de Bonos y AP') {
