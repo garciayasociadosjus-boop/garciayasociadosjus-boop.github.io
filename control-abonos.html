@@ -999,12 +999,7 @@
         return sum + base;
       }, 0);
       realAmounts.abonosPuros = abonosPuros;
-      var el = document.getElementById('totalAbonosPuros');
-      if (isAmountHidden) {
-        el.textContent = '••••••'; el.classList.add('hidden-value');
-      } else {
-        el.textContent = formatCurrency(abonosPuros); el.classList.remove('hidden-value');
-      }
+      refreshAmountDisplay();
     }
     function renderTypeFilters() {
       const container = document.getElementById('typeFilters');
@@ -1113,28 +1108,6 @@
     }
 
     // ====== ARRASTRE CLIENTES ======
-    // Devuelve el registro más reciente de un cliente para un tipo dado,
-    // buscando hacia atrás hasta 24 meses. Así el arrastre siempre toma
-    // el ÚLTIMO monto cargado y no el original.
-    function getUltimoRegistroCliente(cliente, tipo, mesActual, anyoActual) {
-      for (var i = 0; i < 24; i++) {
-        var m = mesActual - i;
-        var y = anyoActual;
-        while (m < 0) { m += 12; y--; }
-        var registros = abonosData.filter(function(a) {
-          return a.cliente === cliente &&
-                 a.tipo === tipo &&
-                 a.mesServicio &&
-                 a.mesServicio.month === m &&
-                 a.mesServicio.year === y;
-        });
-        if (registros.length > 0) {
-          // Devuelve el primero (ya estamos en el mes más reciente disponible)
-          return registros[0];
-        }
-      }
-      return null;
-    }
 
     function carryOverClients(){
       var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
@@ -1211,7 +1184,8 @@
           var defs = record.cuotasDefinicion;
           var pagadasHasta = (record.cuotasPagadas || []).slice();
           var cuotaActual = record.cuotaActual || 1;
-          if (record.estado === 'Pagado' || record.estado === 'Pago Parcial') {
+          // Solo marcar como pagada si el estado es Pagado completo (NO Pago Parcial)
+          if (record.estado === 'Pagado') {
             if (!pagadasHasta.includes(cuotaActual)) pagadasHasta.push(cuotaActual);
           }
           var proximaCuota = null;
@@ -1223,11 +1197,22 @@
           if (record.estado !== 'Pagado' && record.estado !== 'Terminado') {
             var cuotaActualDef = defs.find(function(d){ return d.nro === cuotaActual; });
             if (cuotaActualDef && cuotaActualDef.monto && cuotaActualDef.nro !== proximaCuota.nro) {
+              // Cuota anterior impaga: arrastrar monto completo o diferencia si hubo pago parcial
               montoCuotaImpaga = parseFloat(cuotaActualDef.monto)||0;
-              labelMora = ' + C' + cuotaActual + ' impaga: ' + formatCurrency(montoCuotaImpaga);
+              if (record.estado === 'Pago Parcial') {
+                montoCuotaImpaga = Math.max(0, montoCuotaImpaga - (parseFloat(record.montoPagado)||0));
+              }
+              if (montoCuotaImpaga > 0) {
+                labelMora = ' + C' + cuotaActual + ' impaga: ' + formatCurrency(montoCuotaImpaga);
+              }
             }
           }
           var montoProx = parseFloat(proximaCuota.monto)||0;
+          // Si pago parcial sobre la cuota actual (misma cuota sigue pendiente),
+          // arrastrar solo el saldo restante
+          if (record.estado === 'Pago Parcial' && proximaCuota.nro === cuotaActual) {
+            montoProx = Math.max(0, montoProx - (parseFloat(record.montoPagado)||0));
+          }
           var montoTotalCB = montoProx + montoCuotaImpaga;
           var cuotasRest = defs.filter(function(d){ return !pagadasHasta.includes(d.nro) && d.monto; });
           var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
@@ -1334,29 +1319,8 @@
     
     function toggleAmountVisibility(){
       isAmountHidden = !isAmountHidden;
-      var toggleIcon = document.getElementById('toggleIcon');
-      var cards = [
-        { el: document.getElementById('totalIngresosBrutos'), value: realAmounts.bruto },
-        { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
-        { el: document.getElementById('totalBonosCobrados'), value: realAmounts.bonos },
-        { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
-        { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta },
-        { el: document.getElementById('totalAbonosPuros'), value: realAmounts.abonosPuros }
-      ];
-
-      toggleIcon.textContent = isAmountHidden ? '👁️‍🗨️' : '👁️';
-
-      cards.forEach(card => {
-        if(card.el) {
-            if (isAmountHidden) {
-                card.el.textContent = '••••••';
-                card.el.classList.add('hidden-value');
-            } else {
-                card.el.textContent = formatCurrency(card.value);
-                card.el.classList.remove('hidden-value');
-            }
-        }
-      });
+      document.getElementById('toggleIcon').textContent = isAmountHidden ? '👁️‍🗨️' : '👁️';
+      refreshAmountDisplay();
     }
 
     function renderDashboard(abonos){
@@ -1405,8 +1369,30 @@
 
       document.getElementById('totalRegistros').textContent = abonos.length;
 
-      toggleAmountVisibility();
-      toggleAmountVisibility(); 
+      refreshAmountDisplay();
+    }
+
+    // Refresca los montos del dashboard según el estado de visibilidad actual
+    function refreshAmountDisplay() {
+      var cards = [
+        { el: document.getElementById('totalIngresosBrutos'), value: realAmounts.bruto },
+        { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
+        { el: document.getElementById('totalBonosCobrados'), value: realAmounts.bonos },
+        { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
+        { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta },
+        { el: document.getElementById('totalAbonosPuros'), value: realAmounts.abonosPuros }
+      ];
+      cards.forEach(function(card) {
+        if (card.el) {
+          if (isAmountHidden) {
+            card.el.textContent = '••••••';
+            card.el.classList.add('hidden-value');
+          } else {
+            card.el.textContent = formatCurrency(card.value);
+            card.el.classList.remove('hidden-value');
+          }
+        }
+      });
     }
 
     function updateFilterCounts(abonos){
@@ -1688,13 +1674,13 @@
             render();
           }
         } else if(field === 'monto') {
-          // Al modificar el monto del mes, actualizar también montoBase
-          // (montoBase = abono del mes sin deuda, que es lo que usará el arrastre)
+          // Al modificar el monto del mes, actualizar montoBase Y abonoPrimitivo
+          // para que el arrastre al mes siguiente use el nuevo valor
           var abono = abonosData.find(function(a){ return a.id===id; });
           var deudaAcum = abono ? (parseFloat(abono.deudaAcumulada) || 0) : 0;
           var nuevoMontoBase = newValue - deudaAcum;
           if (nuevoMontoBase < 0) nuevoMontoBase = newValue;
-          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase });
+          updateAbono(id, { monto: newValue, montoBase: nuevoMontoBase, abonoPrimitivo: nuevoMontoBase });
         } else {
           updateAbono(id, (function(o){ o[field]=newValue; return o; })({}));
         }
