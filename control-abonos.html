@@ -1167,7 +1167,9 @@
         var record = records[0];
         var cliente = record.cliente;
         var telefono = record.telefono || '';
-        if (record.estado === 'Terminado') { skipTerminado++; return; }
+        // Si CUALQUIER registro del grupo es Terminado, no arrastrar
+        var algunoTerminado = records.some(function(r){ return r.estado === 'Terminado'; });
+        if (algunoTerminado) { skipTerminado++; return; }
 
         if (record.tipo === 'Abono Mensual') {
           var primitivoBase = parseFloat(record.abonoPrimitivo) || parseFloat(record.montoBase) || parseFloat(record.monto) || 0;
@@ -1217,10 +1219,18 @@
         }
 
         else if (record.tipo === 'Convenio Blanco' || record.tipo === 'Honorarios en Cuotas') {
-          if (!record.cuotasDefinicion || record.cuotasDefinicion.length === 0) return;
-          var defs = record.cuotasDefinicion;
+          var defs = record.cuotasDefinicion || [];
           var pagadasHasta = (record.cuotasPagadas || []).slice();
           var cuotaActual = record.cuotaActual || 1;
+
+          // Si no hay definición de cuotas o todas en $0, arrastrar como placeholder
+          var tieneAlgunaCuotaConMonto = defs.some(function(d){ return d.monto && d.monto > 0; });
+          if (!tieneAlgunaCuotaConMonto) {
+            // Placeholder: cuotas sin importes definidos, arrastrar estructura vacía
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: 0, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: 0, cuotaActual: cuotaActual, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '', mesServicio: mesServicioNuevo });
+            added++;
+            return;
+          }
 
           // Marcar cuota actual como pagada si corresponde
           if (record.estado === 'Pagado' || record.estado === 'Pago Parcial') {
@@ -1261,12 +1271,6 @@
             var cuotasRest = defs.filter(function(d){ return d.nro >= proximaCuota.nro && !pagadasHasta.includes(d.nro) && d.monto; });
             var resumen = cuotasRest.map(function(d){ return 'C'+d.nro+': '+formatCurrency(d.monto); }).join(' | ');
             addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoTotalCB, montoBase: montoProx, abonoPrimitivo: montoProx, deudaAcumulada: montoCuotaImpaga, cuotaActual: proximaCuota.nro, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\nCuota ' + proximaCuota.nro + ' de ' + defs.length + ': ' + formatCurrency(montoProx) + labelMora + '\nRestantes: ' + resumen, mesServicio: mesServicioNuevo });
-            added++;
-          }
-          // Fallback: si no hay cuota con importe y no hay deuda, pero el registro
-          // sigue activo (cuotas sin importe definido aún), arrastrarlo como placeholder
-          else if (!proximaCuota && montoCuotaImpaga <= 0 && record.estado !== 'Pagado' && record.estado !== 'Terminado') {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: 0, montoBase: 0, abonoPrimitivo: 0, deudaAcumulada: 0, cuotaActual: record.cuotaActual || 1, cuotasPagadas: pagadasHasta, cuotasDefinicion: defs, convenioTipo: record.convenioTipo||null, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '', mesServicio: mesServicioNuevo });
             added++;
           }
         }
