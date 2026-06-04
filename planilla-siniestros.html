@@ -2814,8 +2814,9 @@ function enviarSiniestroAAbonos(s) {
                 id: 'SIN_' + s.id,
                 siniestroId: s.id,
                 cliente: s.cliente || '',
-                expediente: s.numeroReclamo || '',
+                expediente: 'SINIESTROS',
                 telefono: s.celular || '',
+                dniCliente: s.dni || '',
                 autorizaWhatsapp: false,
                 ultimoContactoAgente: '',
                 respuestaCliente: '',
@@ -2882,9 +2883,10 @@ function actualizarAbonosDesdeSiniestro(s) {
                         updates[`planilla_abonos/${i}/monto`] = parseFloat(s.honorarios) || 0;
                         updates[`planilla_abonos/${i}/montoBase`] = parseFloat(s.honorarios) || 0;
                     }
-                    if (s.numeroReclamo) {
-                        updates[`planilla_abonos/${i}/expediente`] = s.numeroReclamo;
-                    }
+                    // Mantener expediente como SINIESTROS, actualizar DNI y teléfono
+                    updates[`planilla_abonos/${i}/expediente`] = 'SINIESTROS';
+                    if (s.dni) updates[`planilla_abonos/${i}/dniCliente`] = s.dni;
+                    if (s.celular) updates[`planilla_abonos/${i}/telefono`] = s.celular;
                     db.ref().update(updates).then(() => {
                         updateDataStatus('✅ Abono actualizado automáticamente.');
                     });
