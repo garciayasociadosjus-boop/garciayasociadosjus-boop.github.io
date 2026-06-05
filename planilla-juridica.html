@@ -4017,7 +4017,23 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             showClientModal(clientId); 
         }
 
-        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); renderAll(); closeModal('clientInfoModal'); } }
+        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); borrarAbonosDeJuridica(id); renderAll(); closeModal('clientInfoModal'); } }
+
+        function borrarAbonosDeJuridica(clientId) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            try {
+                const db = firebase.database();
+                const abonosRef = db.ref('planilla_abonos');
+                abonosRef.transaction(abonos => {
+                    if (!Array.isArray(abonos)) return abonos;
+                    return abonos.filter(a => a && a.juridicaId !== clientId);
+                }).then(() => {
+                    updateDataStatus('✅ Abono eliminado de Planilla de Abonos.');
+                }).catch(err => {
+                    console.error('Error al borrar abono de jurídica:', err);
+                });
+            } catch(e) { console.error('Error en borrarAbonosDeJuridica:', e); }
+        }
         
         function marcarEventoCompleto(event, clientId, eventId, eventType) {
             event?.stopPropagation();
