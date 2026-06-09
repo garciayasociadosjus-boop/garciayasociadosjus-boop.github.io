@@ -631,6 +631,80 @@ body.modo-noche .review-client { color: var(--gold); }
 #alertModal .modal-content { border-top: 3px solid var(--danger-color); }
 #alertModal h2 { color: var(--danger-color); text-align: center; margin-bottom: 20px; }
 
+/* ── OVERLAP WARNING MODAL ── */
+#overlapWarningModal .modal-content {
+  max-width: 520px;
+  border-top: 3px solid var(--warning-color);
+  text-align: center;
+}
+#overlapWarningModal .modal-content::before { display: none; }
+#overlapWarningModal .overlap-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(212,144,26,0.12);
+  display: flex; align-items: center; justify-content: center;
+}
+#overlapWarningModal h2 {
+  color: var(--warning-color);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.35em;
+  margin-bottom: 8px;
+}
+#overlapWarningModal .overlap-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.92em;
+  margin-bottom: 20px;
+}
+#overlapWarningModal .overlap-card {
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+#overlapWarningModal .overlap-card .overlap-client {
+  font-weight: 600;
+  color: var(--gold);
+  font-size: 0.88em;
+  margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#overlapWarningModal .overlap-card .overlap-detail {
+  color: var(--text-primary);
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+#overlapWarningModal .overlap-card .overlap-time {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--warning-color);
+  font-weight: 500;
+}
+#overlapWarningModal .overlap-actions {
+  display: flex; gap: 10px; justify-content: center; margin-top: 6px;
+}
+#overlapWarningModal .overlap-actions button {
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-size: 0.92em;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition);
+}
+#overlapWarningModal .btn-overlap-cancel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-secondary);
+}
+#overlapWarningModal .btn-overlap-cancel:hover { background: var(--bg-card-hover); }
+#overlapWarningModal .btn-overlap-confirm {
+  background: var(--warning-color);
+  color: #fff;
+}
+#overlapWarningModal .btn-overlap-confirm:hover { filter: brightness(1.1); }
+
 .close {
   float: right;
   font-size: 22px;
@@ -2120,6 +2194,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
     </div>
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
+    <div id="overlapWarningModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
     <div id="convenioGenerationModal" class="modal"><div class="modal-content"></div></div>
     
@@ -3815,11 +3890,69 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         
+        // ── DETECCIÓN DE SUPERPOSICIÓN DE AUDIENCIAS ──
+        function findOverlappingAudiencias(fecha) {
+            const overlaps = [];
+            clientsData.forEach(client => {
+                (client.audiencias_list || []).forEach(aud => {
+                    if (aud.completed || !aud.fecha) return;
+                    if (aud.fecha === fecha) {
+                        overlaps.push({ client, audiencia: aud });
+                    }
+                });
+            });
+            return overlaps;
+        }
+
+        function showOverlapWarning(overlaps, nuevaFecha) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('overlapWarningModal');
+                const cardsHtml = overlaps.map(o => {
+                    const clientName = o.client.nombre || 'Sin Nombre';
+                    const caratula = o.client.caratula || '';
+                    const exp = o.client.expediente || 'S/N';
+                    return `<div class="overlap-card">
+                        <div class="overlap-client">${clientName}${caratula ? ' — ' + caratula : ''} (Exp: ${exp})</div>
+                        <div class="overlap-detail">
+                            <span class="overlap-time"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatTime(o.audiencia.hora)} hs</span><br>${o.audiencia.texto}
+                        </div>
+                    </div>`;
+                }).join('');
+
+                const plural = overlaps.length > 1;
+                modal.querySelector('.modal-content').innerHTML = `
+                    <div class="overlap-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--warning-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <h2>Audiencia superpuesta</h2>
+                    <p class="overlap-subtitle">Ya tenés ${plural ? overlaps.length + ' audiencias' : 'una audiencia'} agendada${plural ? 's' : ''} para el <strong>${formatDate(nuevaFecha)}</strong>:</p>
+                    ${cardsHtml}
+                    <div class="overlap-actions">
+                        <button class="btn-overlap-cancel" id="overlapCancelBtn">Cancelar</button>
+                        <button class="btn-overlap-confirm" id="overlapConfirmBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Agendar igual</button>
+                    </div>
+                `;
+                modal.classList.add('active');
+                document.getElementById('overlapCancelBtn').onclick = () => { modal.classList.remove('active'); resolve(false); };
+                document.getElementById('overlapConfirmBtn').onclick = () => { modal.classList.remove('active'); resolve(true); };
+            });
+        }
+
         async function addAudience(event, clientId) {
             event.preventDefault();
             if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
-            const newAudience = { id: generateId({}), fecha: document.getElementById('newAudienceDate').value, hora: document.getElementById('newAudienceTime').value, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
+            const fecha = document.getElementById('newAudienceDate').value;
+            const hora = document.getElementById('newAudienceTime').value;
+            const overlaps = findOverlappingAudiencias(fecha);
+            if (overlaps.length > 0) {
+                const proceed = await showOverlapWarning(overlaps, fecha);
+                if (!proceed) return;
+            }
+            const newAudience = { id: generateId({}), fecha, hora, texto: document.getElementById('newAudienceText').value, avisoPrevio: document.getElementById('newAudienceAvisoPrevio').value, completed: false };
             const success = await crearEventoEnCalendario(client, newAudience, 'Audiencia');
             if (success) { client.audiencias_list.push(newAudience); updateAudienciasSummary(client); saveData(); renderAll(); showClientModal(clientId); }
         }
