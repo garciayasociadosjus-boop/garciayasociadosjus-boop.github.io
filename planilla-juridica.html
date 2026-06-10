@@ -3376,6 +3376,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     alert("Error: No se encontró el caso solicitado. Intente recargar la página.");
                     return;
                 }
+                const socioSesion = sesionActual ? sesionActual.socio : null;
+                if (socioSesion && client.socio !== socioSesion) { alert("No tenés acceso a este caso."); return; }
                 updateClientNextRevision(client);
                 
                 const fieldsToShow = {
@@ -3865,7 +3867,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
         function showClientSelectorModal() {
             const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...clientsData].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join('');
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const filtered = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+            selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...filtered].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join('');
             document.getElementById('clientSelectorModal').classList.add('active');
         }
         function loadClientInfo() { const clientId = document.getElementById('clientSelector').value; if (clientId) { closeModal('clientSelectorModal'); showClientModal(clientId); } }
