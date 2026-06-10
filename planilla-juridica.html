@@ -4427,12 +4427,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
         
         function revisarAlertas() {
-            const audienciasPorAlertar = clientsData.flatMap(client => 
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+            const audienciasPorAlertar = datos.flatMap(client => 
                 (client.audiencias_list || [])
                 .filter(aud => isToday(aud.fecha) && !aud.completed)
                 .map(aud => ({ client, item: aud, type: 'Audiencia' }))
             );
-            const vencimientosPorAlertar = clientsData.flatMap(client => 
+            const vencimientosPorAlertar = datos.flatMap(client => 
                 (client.vencimientos_list || [])
                 .filter(venc => isToday(venc.fecha) && !venc.completed)
                 .map(venc => ({ client, item: venc, type: 'Vencimiento' }))
@@ -4469,7 +4471,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
 
         function showTasksForDate(dateString) {
-            const allSchedulableItems = clientsData.flatMap(client => {
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+            const allSchedulableItems = datos.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({ client: client, reviewText: obs.texto, type: 'task' }));
                 const audiences = (client.audiencias_list || []).filter(aud => !aud.completed && aud.fecha === dateString).map(aud => ({ client: client, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, type: 'audience' }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => !venc.completed && venc.fecha === dateString).map(venc => ({ client: client, reviewText: `VENCIMIENTO (${formatTime(venc.hora)}): ${venc.texto}`, type: 'vencimiento' }));
@@ -4498,7 +4502,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
         
         function exportToExcel(){
-            const excelData = clientsData.map(c => {
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+            const excelData = datos.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado || ''}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
                 const allVencs = (c.vencimientos_list || []).map(venc => `[VENCIMIENTO - ${formatDate(venc.fecha)} ${formatTime(venc.hora)}]: ${venc.texto}`).join(' \n ');
@@ -4520,7 +4526,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Casos Familia');
             XLSX.writeFile(workbook, `Casos_Familia_${getTodayYMD()}.xlsx`);
         }
-        function exportData(){const dataStr=JSON.stringify(clientsData,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
+        function exportData(){const socioSesion=sesionActual?sesionActual.socio:null;const filtered=clientsData.filter(c=>!socioSesion||c.socio===socioSesion);const dataStr=JSON.stringify(filtered,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
 
         function exportDataParaAgente() {
             function separarNombre(nombreCompleto) {
@@ -4530,7 +4536,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 return { apellido: palabras[0], nombre: palabras.slice(1).join(' ') };
             }
 
-            const dataParaAgente = clientsData.map(c => {
+            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const dataParaAgente = clientsData.filter(c => !socioSesion || c.socio === socioSesion).map(c => {
                 const { apellido, nombre } = separarNombre(c.nombre);
                 return {
                     id: c.id,
