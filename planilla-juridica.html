@@ -705,6 +705,52 @@ body.modo-noche .review-client { color: var(--gold); }
 }
 #overlapWarningModal .btn-overlap-confirm:hover { filter: brightness(1.1); }
 
+/* ── ADMIN USUARIOS MODAL ── */
+#adminUsuariosModal .modal-content { max-width: 620px; }
+#adminUsuariosModal h2 { text-align: center; margin-bottom: 6px; }
+.admin-subtitle { color: var(--text-secondary); font-size: 0.88em; text-align: center; margin-bottom: 22px; }
+.admin-user-list { list-style: none; padding: 0; margin: 0 0 20px; }
+.admin-user-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; margin-bottom: 8px;
+  background: var(--gold-dim); border: 1px solid var(--gold-border);
+  border-radius: 12px; transition: var(--transition);
+}
+.admin-user-item:hover { background: var(--bg-card-hover); }
+.admin-user-item.is-admin { border-left: 3px solid var(--gold); }
+.admin-user-info { flex: 1; min-width: 0; }
+.admin-user-name { font-weight: 600; color: var(--text-primary); font-size: 0.95em; }
+.admin-user-meta { font-size: 0.82em; color: var(--text-secondary); margin-top: 2px; }
+.admin-user-meta .admin-tag {
+  display: inline-block; font-size: 0.78em; padding: 1px 8px;
+  border-radius: 8px; font-weight: 500; margin-left: 4px;
+}
+.admin-tag.total { background: rgba(201,169,110,0.2); color: var(--gold-dark); }
+.admin-tag.socio { background: rgba(142,68,173,0.15); color: #8e44ad; }
+.admin-user-actions { display: flex; gap: 6px; margin-left: 12px; flex-shrink: 0; }
+.admin-user-actions button {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-color);
+  background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); color: var(--text-secondary);
+}
+.admin-user-actions button:hover { background: var(--bg-card-hover); }
+.admin-user-actions button.admin-delete:hover { background: rgba(217,79,79,0.12); color: var(--danger-color); border-color: var(--danger-color); }
+.admin-add-section {
+  background: var(--bg-card); border: 2px dashed var(--gold-border);
+  border-radius: 14px; padding: 20px; transition: var(--transition);
+}
+.admin-add-section h4 { margin: 0 0 14px; color: var(--gold); font-size: 0.95em; cursor: pointer; user-select: none; }
+.admin-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.admin-add-form .form-group { margin-bottom: 0; }
+.admin-add-form .form-group.full-width { grid-column: 1 / -1; }
+.admin-add-form input, .admin-add-form select {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border-color);
+  border-radius: 10px; background: var(--bg-page); color: var(--text-primary);
+  font-size: 0.9em; transition: var(--transition); box-sizing: border-box;
+}
+.admin-add-form input:focus, .admin-add-form select:focus { border-color: var(--gold); outline: none; }
+.admin-add-form label { font-size: 0.82em; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+
 .close {
   float: right;
   font-size: 22px;
@@ -2076,6 +2122,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             </div>
             <div id="sessionBadge" class="session-badge" style="display:none;">
                 <span id="sessionUserLabel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                <button id="adminUsersBtn" onclick="showAdminUsuarios()" style="display:none;" title="Administrar Usuarios"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:3px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Usuarios</button>
                 <button onclick="doLogout()">Cerrar sesión</button>
             </div>
         </header>
@@ -2195,15 +2242,188 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
     <div id="alertModal" class="modal"><div class="modal-content"></div></div>
     <div id="overlapWarningModal" class="modal"><div class="modal-content"></div></div>
+    <div id="adminUsuariosModal" class="modal"><div class="modal-content"></div></div>
     <div id="rescheduleModal" class="modal"><div class="modal-content"></div></div>
     <div id="convenioGenerationModal" class="modal"><div class="modal-content"></div></div>
     
     <script>
-        const USUARIOS = {
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+            authDomain: "garcia-asociados.firebaseapp.com",
+            databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+            projectId: "garcia-asociados",
+            storageBucket: "garcia-asociados.firebasestorage.app",
+            messagingSenderId: "579231843924",
+            appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+        };
+
+        const ADMIN_KEY = 'garcia2026'; // Clave admin inmutable
+        let USUARIOS = {
             'garcia2026':     { socio: null,        nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Estudio García (Acceso Total)' },
             'rocabado2026':   { socio: 'ROCABADO',  nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Dr. Rocabado Maximiliano' },
             'saglimbeni2026': { socio: 'SAGLIMBENI', nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Sr. Saglimbeni Marcos' }
         };
+        const FIREBASE_KEY_USUARIOS = 'usuarios_config';
+        let usuariosFirebaseRef = null;
+
+        // Cargar usuarios desde Firebase antes del login
+        function initUsuariosFromFirebase() {
+            if (typeof firebase === 'undefined') { setTimeout(initUsuariosFromFirebase, 400); return; }
+            try {
+                if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+                const db = firebase.database();
+                usuariosFirebaseRef = db.ref(FIREBASE_KEY_USUARIOS);
+                usuariosFirebaseRef.once('value').then(snap => {
+                    const data = snap.val();
+                    if (data && typeof data === 'object') {
+                        // Siempre mantener admin
+                        const merged = { [ADMIN_KEY]: USUARIOS[ADMIN_KEY] };
+                        Object.keys(data).forEach(k => { if (k !== ADMIN_KEY) merged[k] = data[k]; });
+                        USUARIOS = merged;
+                    }
+                }).catch(e => console.warn('No se pudieron cargar usuarios de Firebase, usando locales:', e));
+            } catch(e) { console.warn('Firebase no disponible para usuarios:', e); }
+        }
+        initUsuariosFromFirebase();
+
+        function guardarUsuariosEnFirebase() {
+            if (!usuariosFirebaseRef) return;
+            const toSave = {};
+            Object.keys(USUARIOS).forEach(k => { if (k !== ADMIN_KEY) toSave[k] = USUARIOS[k]; });
+            usuariosFirebaseRef.set(toSave).catch(e => console.error('Error guardando usuarios:', e));
+        }
+
+        function esAdmin() { return sesionActual && sesionActual.socio === null; }
+
+        function showAdminUsuarios() {
+            if (!esAdmin()) return;
+            const modal = document.getElementById('adminUsuariosModal');
+            renderAdminUsuariosContent();
+            modal.classList.add('active');
+        }
+
+        function renderAdminUsuariosContent() {
+            const modal = document.getElementById('adminUsuariosModal');
+            const svgUser = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:3px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+            const svgKey = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:2px"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>';
+
+            const userListHtml = Object.entries(USUARIOS).map(([clave, u]) => {
+                const isAdmin = clave === ADMIN_KEY;
+                const accessTag = u.socio === null
+                    ? '<span class="admin-tag total">ACCESO TOTAL</span>'
+                    : `<span class="admin-tag socio">${u.socio}</span>`;
+                const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
+                const actions = isAdmin
+                    ? '<span style="font-size:0.78em;color:var(--text-secondary);font-style:italic;">Admin fijo</span>'
+                    : `<div class="admin-user-actions">
+                        <button onclick="editarUsuario('${clave}')" title="Editar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        <button class="admin-delete" onclick="eliminarUsuario('${clave}')" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>`;
+                return `<li class="admin-user-item${isAdmin ? ' is-admin' : ''}">
+                    <div class="admin-user-info">
+                        <div class="admin-user-name">${svgUser}${cleanName}</div>
+                        <div class="admin-user-meta">${svgKey} ${clave} ${accessTag}</div>
+                    </div>
+                    ${actions}
+                </li>`;
+            }).join('');
+
+            modal.querySelector('.modal-content').innerHTML = `
+                <span class="close" onclick="closeModal('adminUsuariosModal')">&times;</span>
+                <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Administrar Usuarios</h2>
+                <p class="admin-subtitle">Gestioná las claves de acceso y permisos del sistema</p>
+                <ul class="admin-user-list">${userListHtml}</ul>
+                <div class="admin-add-section">
+                    <h4 onclick="document.getElementById('adminAddFormContainer').style.display = document.getElementById('adminAddFormContainer').style.display === 'none' ? 'grid' : 'none'">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar nuevo usuario
+                    </h4>
+                    <div id="adminAddFormContainer" class="admin-add-form" style="display:none;">
+                        <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminNewNombre" placeholder="Ej: Dr. López Juan"></div>
+                        <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminNewClave" placeholder="Ej: lopez2026"></div>
+                        <div class="form-group"><label>Tipo de acceso</label>
+                            <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'">
+                                <option value="total">Acceso Total</option>
+                                <option value="socio">Filtrado por Socio</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="adminNewSocioGroup" style="display:none;"><label>Socio asignado</label>
+                            <select id="adminNewSocio"><option value="GARCIA">GARCIA</option><option value="ROCABADO">ROCABADO</option><option value="SAGLIMBENI">SAGLIMBENI</option></select>
+                        </div>
+                        <div class="form-group full-width" style="text-align:center; margin-top:6px;">
+                            <button class="btn btn-success" onclick="agregarUsuario()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Usuario</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function agregarUsuario() {
+            const nombre = document.getElementById('adminNewNombre').value.trim();
+            const clave = document.getElementById('adminNewClave').value.trim();
+            const acceso = document.getElementById('adminNewAcceso').value;
+            const socio = acceso === 'socio' ? document.getElementById('adminNewSocio').value : null;
+            if (!nombre || !clave) return alert('Completá nombre y clave.');
+            if (clave.includes(' ')) return alert('La clave no puede contener espacios.');
+            if (USUARIOS[clave]) return alert('Ya existe un usuario con esa clave.');
+            const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+            USUARIOS[clave] = { socio, nombre: svgIcon + ' ' + nombre };
+            guardarUsuariosEnFirebase();
+            renderAdminUsuariosContent();
+        }
+
+        function eliminarUsuario(clave) {
+            if (clave === ADMIN_KEY) return;
+            const cleanName = USUARIOS[clave].nombre.replace(/<[^>]*>/g, '').trim();
+            if (!confirm(`¿Eliminar el acceso de "${cleanName}" (clave: ${clave})?`)) return;
+            delete USUARIOS[clave];
+            guardarUsuariosEnFirebase();
+            renderAdminUsuariosContent();
+        }
+
+        function editarUsuario(clave) {
+            if (clave === ADMIN_KEY) return;
+            const u = USUARIOS[clave];
+            const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
+            const modal = document.getElementById('adminUsuariosModal');
+            modal.querySelector('.modal-content').innerHTML = `
+                <span class="close" onclick="closeModal('adminUsuariosModal')">&times;</span>
+                <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar Usuario</h2>
+                <p class="admin-subtitle">Modificando acceso de: <strong>${cleanName}</strong></p>
+                <div class="admin-add-form" style="display:grid;">
+                    <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminEditNombre" value="${cleanName}"></div>
+                    <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminEditClave" value="${clave}"></div>
+                    <div class="form-group"><label>Tipo de acceso</label>
+                        <select id="adminEditAcceso" onchange="document.getElementById('adminEditSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'">
+                            <option value="total" ${u.socio === null ? 'selected' : ''}>Acceso Total</option>
+                            <option value="socio" ${u.socio !== null ? 'selected' : ''}>Filtrado por Socio</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="adminEditSocioGroup" style="display:${u.socio !== null ? 'block' : 'none'}"><label>Socio asignado</label>
+                        <select id="adminEditSocio"><option value="GARCIA" ${u.socio==='GARCIA'?'selected':''}>GARCIA</option><option value="ROCABADO" ${u.socio==='ROCABADO'?'selected':''}>ROCABADO</option><option value="SAGLIMBENI" ${u.socio==='SAGLIMBENI'?'selected':''}>SAGLIMBENI</option></select>
+                    </div>
+                    <div class="form-group full-width" style="text-align:center; margin-top:6px; display:flex; gap:10px; justify-content:center;">
+                        <button class="btn" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);" onclick="renderAdminUsuariosContent()">Cancelar</button>
+                        <button class="btn btn-success" onclick="guardarEdicionUsuario('${clave}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Cambios</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function guardarEdicionUsuario(claveOriginal) {
+            const nombre = document.getElementById('adminEditNombre').value.trim();
+            const nuevaClave = document.getElementById('adminEditClave').value.trim();
+            const acceso = document.getElementById('adminEditAcceso').value;
+            const socio = acceso === 'socio' ? document.getElementById('adminEditSocio').value : null;
+            if (!nombre || !nuevaClave) return alert('Completá nombre y clave.');
+            if (nuevaClave.includes(' ')) return alert('La clave no puede contener espacios.');
+            if (nuevaClave === ADMIN_KEY) return alert('No podés usar la clave del administrador.');
+            if (nuevaClave !== claveOriginal && USUARIOS[nuevaClave]) return alert('Ya existe un usuario con esa clave.');
+            const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+            if (nuevaClave !== claveOriginal) delete USUARIOS[claveOriginal];
+            USUARIOS[nuevaClave] = { socio, nombre: svgIcon + ' ' + nombre };
+            guardarUsuariosEnFirebase();
+            renderAdminUsuariosContent();
+        }
 
         let sesionActual = null; // null = sin login, { socio, nombre }
 
@@ -2222,6 +2442,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             document.getElementById('appContainer').style.display = 'block';
             document.getElementById('sessionBadge').style.display = 'inline-flex';
             document.getElementById('sessionUserLabel').innerHTML = usuario.nombre;
+            document.getElementById('adminUsersBtn').style.display = usuario.socio === null ? 'inline-flex' : 'none';
             initApp();
         }
 
@@ -2239,15 +2460,6 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         let weeklyGlanceStartDate = new Date(); // Variable para controlar el inicio de la semana visible
         let unsavedChanges = false; // NUEVA VARIABLE PARA CONTROLAR CAMBIOS
 
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
-            authDomain: "garcia-asociados.firebaseapp.com",
-            databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
-            projectId: "garcia-asociados",
-            storageBucket: "garcia-asociados.firebasestorage.app",
-            messagingSenderId: "579231843924",
-            appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
-        };
         const FIREBASE_KEY_JURIDICA = 'planilla_juridica';
 
         let firebaseApp, firebaseDB, firebaseRef;
@@ -2260,7 +2472,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 return;
             }
             try {
-                firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+                firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
                 firebaseDB = firebase.database();
                 firebaseRef = firebaseDB.ref(FIREBASE_KEY_JURIDICA);
 
