@@ -2085,6 +2085,58 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             color: #fff;
             transform: translateY(-1px);
         }
+        /* ── PERMISOS: ocultar/deshabilitar elementos según nivel ── */
+        /* SOLO VER: oculta todos los botones de acción */
+        body.permisos-solo_ver .btn-new-client,
+        body.permisos-solo_ver .btn-delete-client,
+        body.permisos-solo_ver .btn-edit-inline,
+        body.permisos-solo_ver .btn-add-obs,
+        body.permisos-solo_ver .btn-add-mediacion,
+        body.permisos-solo_ver .btn-add-vencimiento,
+        body.permisos-solo_ver .btn-add-doc,
+        body.permisos-solo_ver .btn-save-inline,
+        body.permisos-solo_ver [onclick*="deleteClient"],
+        body.permisos-solo_ver [onclick*="openNewClient"],
+        body.permisos-solo_ver [onclick*="startEditing"],
+        body.permisos-solo_ver [onclick*="deleteObs"],
+        body.permisos-solo_ver [onclick*="addObservation"],
+        body.permisos-solo_ver [onclick*="saveField"],
+        body.permisos-solo_ver [onclick*="addMediacion"],
+        body.permisos-solo_ver [onclick*="addVencimiento"],
+        body.permisos-solo_ver [onclick*="deleteMediacion"],
+        body.permisos-solo_ver [onclick*="deleteVencimiento"],
+        body.permisos-solo_ver [onclick*="importData"],
+        body.permisos-solo_ver #newClientForm,
+        body.permisos-solo_ver .action-delete { display: none !important; }
+
+        body.permisos-solo_ver input:not(#loginPassword):not(#searchInput):not([id*="Filter"]),
+        body.permisos-solo_ver select:not(#socioFilter):not(#materiaFilter):not(#estadoFilter):not(#loginPassword),
+        body.permisos-solo_ver textarea { pointer-events: none; opacity: 0.7; }
+
+        /* AGREGAR: puede ver y agregar, pero no editar ni borrar */
+        body.permisos-agregar .btn-delete-client,
+        body.permisos-agregar .btn-edit-inline,
+        body.permisos-agregar .btn-save-inline,
+        body.permisos-agregar [onclick*="deleteClient"],
+        body.permisos-agregar [onclick*="startEditing"],
+        body.permisos-agregar [onclick*="deleteObs"],
+        body.permisos-agregar [onclick*="saveField"],
+        body.permisos-agregar [onclick*="deleteMediacion"],
+        body.permisos-agregar [onclick*="deleteVencimiento"],
+        body.permisos-agregar [onclick*="importData"],
+        body.permisos-agregar .action-delete { display: none !important; }
+
+        /* Badge de permisos en el header de sesión */
+        .permiso-badge {
+            font-size: 0.65em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .permiso-badge.solo-ver { background: rgba(107,114,128,.2); color: #9CA3AF; }
+        .permiso-badge.agregar { background: rgba(59,130,246,.15); color: #60A5FA; }
     </style>
 </head>
 <body>
@@ -2257,12 +2309,26 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
         };
 
-        const ADMIN_KEY = 'garcia2026'; // Clave admin inmutable
+        let ADMIN_KEY = 'garcia2026'; // Clave admin (editable)
         let USUARIOS = {
-            'garcia2026':     { socio: null,        nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Estudio García (Acceso Total)' },
-            'rocabado2026':   { socio: 'ROCABADO',  nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Dr. Rocabado Maximiliano' },
-            'saglimbeni2026': { socio: 'SAGLIMBENI', nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Sr. Saglimbeni Marcos' }
+            'garcia2026':     { socio: null,        permisos: 'completo', nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Estudio García (Acceso Total)' },
+            'rocabado2026':   { socio: 'ROCABADO',  permisos: 'completo', nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Dr. Rocabado Maximiliano' },
+            'saglimbeni2026': { socio: 'SAGLIMBENI', permisos: 'completo', nombre: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Sr. Saglimbeni Marcos' }
         };
+
+        // ── PERMISOS ──
+        // completo = ver + editar + agregar + borrar
+        // solo_ver = solo ve, no toca nada
+        // agregar  = ve + agrega cosas nuevas, no edita ni borra lo existente
+        function getPermisos() {
+            if (!sesionActual) return 'solo_ver';
+            if (sesionActual.socio === null) return 'completo'; // Admin siempre completo
+            return sesionActual.permisos || 'completo';
+        }
+        function puedeEditar()  { return getPermisos() === 'completo'; }
+        function puedeBorrar()  { return getPermisos() === 'completo'; }
+        function puedeAgregar() { return getPermisos() !== 'solo_ver'; }
+        function soloVer()      { return getPermisos() === 'solo_ver'; }
         const FIREBASE_KEY_USUARIOS = 'usuarios_config';
         let usuariosFirebaseRef = null;
 
@@ -2276,9 +2342,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 usuariosFirebaseRef.once('value').then(snap => {
                     const data = snap.val();
                     if (data && typeof data === 'object') {
+                        // Cargar admin key si fue cambiada
+                        if (data.__admin_key__ && typeof data.__admin_key__ === 'string') {
+                            ADMIN_KEY = data.__admin_key__;
+                        }
                         // Siempre mantener admin
-                        const merged = { [ADMIN_KEY]: USUARIOS[ADMIN_KEY] };
-                        Object.keys(data).forEach(k => { if (k !== ADMIN_KEY) merged[k] = data[k]; });
+                        const adminDefault = USUARIOS[Object.keys(USUARIOS).find(k => USUARIOS[k].socio === null)] || USUARIOS['garcia2026'];
+                        const merged = {};
+                        // Primero el admin con su clave actual
+                        merged[ADMIN_KEY] = adminDefault;
+                        Object.keys(data).forEach(k => {
+                            if (k !== ADMIN_KEY && k !== '__admin_key__') {
+                                // Compatibilidad: si no tiene permisos, asignar 'completo'
+                                if (!data[k].permisos) data[k].permisos = 'completo';
+                                merged[k] = data[k];
+                            }
+                        });
                         USUARIOS = merged;
                     }
                 }).catch(e => console.warn('No se pudieron cargar usuarios de Firebase, usando locales:', e));
@@ -2309,12 +2388,19 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             const userListHtml = Object.entries(USUARIOS).map(([clave, u]) => {
                 const isAdmin = clave === ADMIN_KEY;
+                const permisosLabel = {
+                    'completo': '<span class="admin-tag total" style="font-size:0.68em;">COMPLETO</span>',
+                    'solo_ver': '<span class="admin-tag" style="font-size:0.68em;background:rgba(107,114,128,.15);color:#6B7280;">SOLO VER</span>',
+                    'agregar':  '<span class="admin-tag" style="font-size:0.68em;background:rgba(59,130,246,.12);color:#3B82F6;">AGREGAR</span>'
+                };
                 const accessTag = u.socio === null
                     ? '<span class="admin-tag total">ACCESO TOTAL</span>'
-                    : `<span class="admin-tag socio">${u.socio}</span>`;
+                    : `<span class="admin-tag socio">${u.socio}</span> ${permisosLabel[u.permisos||'completo']||''}`;
                 const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
                 const actions = isAdmin
-                    ? '<span style="font-size:0.78em;color:var(--text-secondary);font-style:italic;">Admin fijo</span>'
+                    ? `<button onclick="editarAdmin()" title="Cambiar clave" style="background:none;border:1px solid var(--border-color);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.78em;color:var(--text-secondary);">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:2px;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Cambiar clave
+                    </button>`
                     : `<div class="admin-user-actions">
                         <button onclick="editarUsuario('${clave}')" title="Editar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                         <button class="admin-delete" onclick="eliminarUsuario('${clave}')" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
@@ -2341,13 +2427,20 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminNewNombre" placeholder="Ej: Dr. López Juan"></div>
                         <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminNewClave" placeholder="Ej: lopez2026"></div>
                         <div class="form-group"><label>Tipo de acceso</label>
-                            <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'">
+                            <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; document.getElementById('adminNewPermisosGroup').style.display = this.value === 'socio' ? 'block' : 'none';">
                                 <option value="total">Acceso Total</option>
                                 <option value="socio">Filtrado por Socio</option>
                             </select>
                         </div>
                         <div class="form-group" id="adminNewSocioGroup" style="display:none;"><label>Socio asignado</label>
                             <select id="adminNewSocio">${getSocioOptionsHTML()}</select>
+                        </div>
+                        <div class="form-group" id="adminNewPermisosGroup" style="display:none;"><label>Nivel de permisos</label>
+                            <select id="adminNewPermisos">
+                                <option value="completo">Completo (ver, editar, agregar, borrar)</option>
+                                <option value="agregar">Agregar (ver y agregar, sin editar ni borrar)</option>
+                                <option value="solo_ver">Solo ver (no puede modificar nada)</option>
+                            </select>
                         </div>
                         <div class="form-group full-width" style="text-align:center; margin-top:6px;">
                             <button class="btn btn-success" onclick="agregarUsuario()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Usuario</button>
@@ -2362,11 +2455,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const clave = document.getElementById('adminNewClave').value.trim();
             const acceso = document.getElementById('adminNewAcceso').value;
             const socio = acceso === 'socio' ? document.getElementById('adminNewSocio').value : null;
+            const permisos = acceso === 'socio' ? (document.getElementById('adminNewPermisos').value || 'completo') : 'completo';
             if (!nombre || !clave) return alert('Completá nombre y clave.');
             if (clave.includes(' ')) return alert('La clave no puede contener espacios.');
             if (USUARIOS[clave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-            USUARIOS[clave] = { socio, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[clave] = { socio, permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
             renderAdminUsuariosContent();
         }
@@ -2393,13 +2487,20 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminEditNombre" value="${cleanName}"></div>
                     <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminEditClave" value="${clave}"></div>
                     <div class="form-group"><label>Tipo de acceso</label>
-                        <select id="adminEditAcceso" onchange="document.getElementById('adminEditSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'">
+                        <select id="adminEditAcceso" onchange="document.getElementById('adminEditSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; document.getElementById('adminEditPermisosGroup').style.display = this.value === 'socio' ? 'block' : 'none';">
                             <option value="total" ${u.socio === null ? 'selected' : ''}>Acceso Total</option>
                             <option value="socio" ${u.socio !== null ? 'selected' : ''}>Filtrado por Socio</option>
                         </select>
                     </div>
                     <div class="form-group" id="adminEditSocioGroup" style="display:${u.socio !== null ? 'block' : 'none'}"><label>Socio asignado</label>
                         <select id="adminEditSocio">${getSocioOptionsHTML(u.socio)}</select>
+                    </div>
+                    <div class="form-group" id="adminEditPermisosGroup" style="display:${u.socio !== null ? 'block' : 'none'}"><label>Nivel de permisos</label>
+                        <select id="adminEditPermisos">
+                            <option value="completo" ${(u.permisos||'completo')==='completo'?'selected':''}>Completo (ver, editar, agregar, borrar)</option>
+                            <option value="agregar" ${u.permisos==='agregar'?'selected':''}>Agregar (ver y agregar, sin editar ni borrar)</option>
+                            <option value="solo_ver" ${u.permisos==='solo_ver'?'selected':''}>Solo ver (no puede modificar nada)</option>
+                        </select>
                     </div>
                     <div class="form-group full-width" style="text-align:center; margin-top:6px; display:flex; gap:10px; justify-content:center;">
                         <button class="btn" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);" onclick="renderAdminUsuariosContent()">Cancelar</button>
@@ -2414,14 +2515,54 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const nuevaClave = document.getElementById('adminEditClave').value.trim();
             const acceso = document.getElementById('adminEditAcceso').value;
             const socio = acceso === 'socio' ? document.getElementById('adminEditSocio').value : null;
+            const permisos = acceso === 'socio' ? (document.getElementById('adminEditPermisos').value || 'completo') : 'completo';
             if (!nombre || !nuevaClave) return alert('Completá nombre y clave.');
             if (nuevaClave.includes(' ')) return alert('La clave no puede contener espacios.');
             if (nuevaClave === ADMIN_KEY) return alert('No podés usar la clave del administrador.');
             if (nuevaClave !== claveOriginal && USUARIOS[nuevaClave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
             if (nuevaClave !== claveOriginal) delete USUARIOS[claveOriginal];
-            USUARIOS[nuevaClave] = { socio, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[nuevaClave] = { socio, permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
+            renderAdminUsuariosContent();
+        }
+
+        function editarAdmin() {
+            const modal = document.getElementById('adminUsuariosModal');
+            modal.querySelector('.modal-content').innerHTML = `
+                <span class="close" onclick="closeModal('adminUsuariosModal')">&times;</span>
+                <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Cambiar Clave de Admin</h2>
+                <p class="admin-subtitle">Modificá la clave de acceso del administrador</p>
+                <div class="admin-add-form" style="display:grid;">
+                    <div class="form-group"><label>Nueva clave de acceso</label><input type="text" id="adminNewPassword" placeholder="Ingresá la nueva clave" value=""></div>
+                    <div class="form-group"><label>Confirmar nueva clave</label><input type="text" id="adminConfirmPassword" placeholder="Repetí la nueva clave"></div>
+                    <div class="form-group full-width" style="text-align:center; margin-top:6px; display:flex; gap:10px; justify-content:center;">
+                        <button class="btn" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);" onclick="renderAdminUsuariosContent()">Cancelar</button>
+                        <button class="btn btn-success" onclick="guardarClaveAdmin()">Guardar nueva clave</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function guardarClaveAdmin() {
+            const nueva = document.getElementById('adminNewPassword').value.trim();
+            const confirmar = document.getElementById('adminConfirmPassword').value.trim();
+            if (!nueva) return alert('Ingresá una nueva clave.');
+            if (nueva.includes(' ')) return alert('La clave no puede contener espacios.');
+            if (nueva !== confirmar) return alert('Las claves no coinciden.');
+            if (USUARIOS[nueva] && nueva !== ADMIN_KEY) return alert('Ya existe un usuario con esa clave.');
+            // Mover admin a la nueva clave
+            const adminData = USUARIOS[ADMIN_KEY];
+            delete USUARIOS[ADMIN_KEY];
+            USUARIOS[nueva] = adminData;
+            // Actualizar ADMIN_KEY no se puede (es const), pero guardamos en Firebase con la nueva clave
+            // y la próxima vez que se cargue, el admin usará la nueva clave
+            guardarUsuariosEnFirebase();
+            // Guardar también la nueva clave admin en Firebase para que persista
+            if (usuariosFirebaseRef) {
+                firebase.database().ref(FIREBASE_KEY_USUARIOS + '/__admin_key__').set(nueva);
+            }
+            alert('Clave de admin cambiada. La próxima vez que ingreses, usá la nueva clave: ' + nueva);
             renderAdminUsuariosContent();
         }
 
@@ -2475,10 +2616,20 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 return;
             }
             sesionActual = usuario;
+            // Aplicar clase de permisos al body
+            document.body.classList.remove('permisos-completo', 'permisos-solo_ver', 'permisos-agregar');
+            document.body.classList.add('permisos-' + getPermisos());
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
             document.getElementById('sessionBadge').style.display = 'inline-flex';
             document.getElementById('sessionUserLabel').innerHTML = usuario.nombre;
+            // Mostrar badge de permisos si no es completo
+            const perm = getPermisos();
+            if (perm === 'solo_ver') {
+                document.getElementById('sessionUserLabel').innerHTML += ' <span class="permiso-badge solo-ver">SOLO VER</span>';
+            } else if (perm === 'agregar') {
+                document.getElementById('sessionUserLabel').innerHTML += ' <span class="permiso-badge agregar">AGREGAR</span>';
+            }
             document.getElementById('adminUsersBtn').style.display = usuario.socio === null ? 'inline-flex' : 'none';
             renderSocioFilter();
             initApp();
@@ -4113,6 +4264,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
 
         function saveField() {
+            if (!puedeEditar()) return alert('No tenés permisos para editar.');
             if (!editingClientId || !editingField) return;
             const client = clientsData.find(c => c.id === editingClientId);
             const input = document.getElementById(`field-${editingField}`)?.querySelector('input, textarea');
@@ -4402,7 +4554,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             showClientModal(clientId); 
         }
 
-        function deleteClient(id) { if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); borrarAbonosDeJuridica(id); renderAll(); closeModal('clientInfoModal'); } }
+        function deleteClient(id) { if (!puedeBorrar()) return alert('No tenés permisos para eliminar.'); if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); borrarAbonosDeJuridica(id); renderAll(); closeModal('clientInfoModal'); } }
 
         function borrarAbonosDeJuridica(clientId) {
             if (typeof firebase === 'undefined' || !firebase.apps.length) return;
