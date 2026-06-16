@@ -2424,7 +2424,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar nuevo usuario
                     </h4>
                     <div id="adminAddFormContainer" class="admin-add-form" style="display:none;">
-                        <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminNewNombre" placeholder="Ej: Dr. López Juan"></div>
+                        <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminNewNombre" placeholder="Ej: Dr. López Juan" oninput="autoSocioDesdeNombre()"></div>
                         <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminNewClave" placeholder="Ej: lopez2026"></div>
                         <div class="form-group"><label>Tipo de acceso</label>
                             <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; document.getElementById('adminNewPermisosGroup').style.display = this.value === 'socio' ? 'block' : 'none';">
@@ -2432,8 +2432,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 <option value="socio">Filtrado por Socio</option>
                             </select>
                         </div>
-                        <div class="form-group" id="adminNewSocioGroup" style="display:none;"><label>Socio asignado <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(elegí uno existente o escribí uno nuevo)</span></label>
-                            <input type="text" id="adminNewSocio" list="socioListNew" placeholder="Ej: LOPEZ" style="text-transform:uppercase;">
+                        <div class="form-group" id="adminNewSocioGroup" style="display:none;"><label>Socio asignado <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(se autocompleta con el nombre — podés cambiarlo)</span></label>
+                            <input type="text" id="adminNewSocio" list="socioListNew" placeholder="Se llena automático" style="text-transform:uppercase;">
                             <datalist id="socioListNew">${getSocioOptionsHTML()}</datalist>
                         </div>
                         <div class="form-group" id="adminNewPermisosGroup" style="display:none;"><label>Nivel de permisos</label>
@@ -2449,6 +2449,28 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                 </div>
             `;
+        }
+
+        // Auto-completar el campo Socio desde el nombre del usuario
+        function autoSocioDesdeNombre() {
+            const acceso = document.getElementById('adminNewAcceso').value;
+            if (acceso !== 'socio') return;
+            const nombre = document.getElementById('adminNewNombre').value.trim();
+            if (!nombre) return;
+            // Extraer apellido (primera palabra) y ponerlo en mayúsculas
+            const palabras = nombre.replace(/^(Dr\.|Dra\.|Sr\.|Sra\.)\s*/i, '').trim().split(/\s+/);
+            const socioKey = palabras[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const socioInput = document.getElementById('adminNewSocio');
+            socioInput.value = socioKey;
+            // Agregar como opción en el datalist si no existe
+            const datalist = document.getElementById('socioListNew');
+            const yaExiste = Array.from(datalist.options).some(o => o.value === socioKey);
+            if (!yaExiste) {
+                const opt = document.createElement('option');
+                opt.value = socioKey;
+                opt.textContent = nombre + ' (nuevo)';
+                datalist.appendChild(opt);
+            }
         }
 
         function agregarUsuario() {
