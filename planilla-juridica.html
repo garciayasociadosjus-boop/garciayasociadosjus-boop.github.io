@@ -2457,8 +2457,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (acceso !== 'socio') return;
             const nombre = document.getElementById('adminNewNombre').value.trim();
             if (!nombre) return;
-            // Extraer apellido (primera palabra) y ponerlo en mayúsculas
-            const palabras = nombre.replace(/^(Dr\.|Dra\.|Sr\.|Sra\.)\s*/i, '').trim().split(/\s+/);
+            // Sacar títulos (Dr, Dra, Sr, Sra, con o sin punto) y tomar el primer apellido
+            const limpio = nombre.replace(/^(dr\.?|dra\.?|sr\.?|sra\.?)\s+/i, '').trim();
+            const palabras = limpio.split(/\s+/);
+            // Usar la primera palabra significativa como socio key
             const socioKey = palabras[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const socioInput = document.getElementById('adminNewSocio');
             socioInput.value = socioKey;
