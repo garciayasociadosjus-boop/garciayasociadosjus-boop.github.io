@@ -2534,14 +2534,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const nombre = document.getElementById('adminNewNombre').value.trim();
             const clave = document.getElementById('adminNewClave').value.trim();
             const acceso = document.getElementById('adminNewAcceso').value;
-            const socio = acceso === 'socio' ? document.getElementById('adminNewSocio').value.trim().toUpperCase() : null;
-            const permisos = acceso === 'socio' ? (document.getElementById('adminNewPermisos').value || 'completo') : 'completo';
+            const permisos = document.getElementById('adminNewPermisos').value || 'completo';
+            let socios = null;
+            if (acceso === 'socio') {
+                socios = Array.from(document.querySelectorAll('.socioCheckNew:checked')).map(cb => cb.value);
+                if (!socios.length) return alert('Seleccioná al menos un socio.');
+            }
             if (!nombre || !clave) return alert('Completá nombre y clave.');
-            if (acceso === 'socio' && !socio) return alert('Ingresá el nombre del socio.');
             if (clave.includes(' ')) return alert('La clave no puede contener espacios.');
             if (USUARIOS[clave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-            USUARIOS[clave] = { socios, permisos, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[clave] = { socios: socios, permisos: permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
             renderAdminUsuariosContent();
         }
@@ -2614,7 +2617,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (nuevaClave !== claveOriginal && USUARIOS[nuevaClave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
             if (nuevaClave !== claveOriginal) delete USUARIOS[claveOriginal];
-            USUARIOS[nuevaClave] = { socios, permisos, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[nuevaClave] = { socios: socios, permisos: permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
             renderAdminUsuariosContent();
         }
