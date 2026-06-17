@@ -2453,7 +2453,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         <div class="form-group full-width" id="adminNewSocioGroup" style="display:none;">
                             <label>Socios asignados <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(marc\u00e1 los que puede ver)</span></label>
                             <div id="adminNewSociosCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">
-                                ${getSociosDisponibles().map(s => '<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;"><input type=\\"checkbox\\" class=\\"socioCheckNew\\" value=\\"'+s.key+'\\"> '+s.label+'</label>').join('')}
+                                
                             </div>
                             <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
                                 <input type="text" id="adminNewSocioNuevo" placeholder="Agregar socio nuevo..." style="flex:1;padding:6px 10px;font-size:.85em;text-transform:uppercase;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);">
@@ -2473,6 +2473,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                 </div>
             `;
+            // Generar checkboxes de socios después de renderizar
+            setTimeout(function(){ renderSocioCheckboxes('adminNewSociosCheckboxes', 'socioCheckNew', null); }, 0);
         }
 
         // Auto-completar el campo Socio desde el nombre del usuario
@@ -2512,6 +2514,20 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             lbl.innerHTML = '<input type="checkbox" class="socioCheckNew" value="'+val+'" checked> '+val+' (nuevo)';
             container.appendChild(lbl);
             input.value = '';
+        }
+
+        // Genera checkboxes de socios dinámicamente (evita problemas de template literals)
+        function renderSocioCheckboxes(containerId, className, checkedSocios) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            getSociosDisponibles().forEach(function(s) {
+                const checked = checkedSocios && checkedSocios.includes(s.key) ? ' checked' : '';
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;';
+                lbl.innerHTML = '<input type="checkbox" class="'+className+'" value="'+s.key+'"'+checked+'> '+s.label;
+                container.appendChild(lbl);
+            });
         }
 
         function agregarUsuario() {
@@ -2562,7 +2578,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     <div class="form-group full-width" id="adminEditSocioGroup" style="display:${esFiltrado ? 'block' : 'none'}">
                         <label>Socios asignados</label>
                         <div id="adminEditSociosCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">
-                            ${getSociosDisponibles().map(s => '<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;"><input type=\\"checkbox\\" class=\\"socioCheckEdit\\" value=\\"'+s.key+'\\"'+(uSocios&&uSocios.includes(s.key)?' checked':'')+'> '+s.label+'</label>').join('')}
+                            
                         </div>
                     </div>
                     <div class="form-group"><label>Nivel de permisos</label>
@@ -2578,6 +2594,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                 </div>
             `;
+            // Generar checkboxes de socios para edición
+            setTimeout(function(){ renderSocioCheckboxes('adminEditSociosCheckboxes', 'socioCheckEdit', uSocios); }, 0);
         }
 
         function guardarEdicionUsuario(claveOriginal) {
