@@ -2322,13 +2322,26 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         // agregar  = ve + agrega cosas nuevas, no edita ni borra lo existente
         function getPermisos() {
             if (!sesionActual) return 'solo_ver';
-            if (sesionActual.socio === null) return 'completo'; // Admin siempre completo
+            if (sesionActual === USUARIOS[ADMIN_KEY]) return 'completo'; // Admin siempre completo
             return sesionActual.permisos || 'completo';
         }
         function puedeEditar()  { return getPermisos() === 'completo'; }
         function puedeBorrar()  { return getPermisos() === 'completo'; }
         function puedeAgregar() { return getPermisos() !== 'solo_ver'; }
         function soloVer()      { return getPermisos() === 'solo_ver'; }
+
+        // Devuelve null (ve todo) o array de socios que puede ver
+        function getSesionSocios() {
+            if (!sesionActual) return null;
+            if (Array.isArray(sesionActual.socios)) return sesionActual.socios;
+            if (sesionActual.socio) return [sesionActual.socio];
+            return null;
+        }
+        function filtrarPorSesion(data) {
+            const socios = getSesionSocios();
+            if (!socios) return data;
+            return data.filter(c => socios.includes(c.socio));
+        }
         const FIREBASE_KEY_USUARIOS = 'usuarios_config';
         let usuariosFirebaseRef = null;
 
@@ -2372,7 +2385,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             usuariosFirebaseRef.set(toSave).catch(e => console.error('Error guardando usuarios:', e));
         }
 
-        function esAdmin() { return sesionActual && sesionActual.socio === null; }
+        function esAdmin() { return sesionActual && sesionActual === USUARIOS[ADMIN_KEY]; }
 
         function showAdminUsuarios() {
             if (!esAdmin()) return;
@@ -2393,9 +2406,14 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     'solo_ver': '<span class="admin-tag" style="font-size:0.68em;background:rgba(107,114,128,.15);color:#6B7280;">SOLO VER</span>',
                     'agregar':  '<span class="admin-tag" style="font-size:0.68em;background:rgba(59,130,246,.12);color:#3B82F6;">AGREGAR</span>'
                 };
-                const accessTag = u.socio === null
-                    ? '<span class="admin-tag total">ACCESO TOTAL</span>'
-                    : `<span class="admin-tag socio">${u.socio}</span> ${permisosLabel[u.permisos||'completo']||''}`;
+                const uSocios = Array.isArray(u.socios) ? u.socios : (u.socio ? [u.socio] : null);
+                let accessTag;
+                if (!uSocios) {
+                    accessTag = '<span class="admin-tag total">ACCESO TOTAL</span>';
+                } else {
+                    accessTag = uSocios.map(s => '<span class="admin-tag socio">'+s+'</span>').join(' ');
+                }
+                accessTag += ' ' + (permisosLabel[u.permisos||'completo']||'');
                 const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
                 const actions = isAdmin
                     ? `<button onclick="editarAdmin()" title="Cambiar clave" style="background:none;border:1px solid var(--border-color);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.78em;color:var(--text-secondary);">
@@ -2427,16 +2445,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         <div class="form-group"><label>Nombre para mostrar</label><input type="text" id="adminNewNombre" placeholder="Ej: Dr. López Juan" oninput="autoSocioDesdeNombre()"></div>
                         <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminNewClave" placeholder="Ej: lopez2026"></div>
                         <div class="form-group"><label>Tipo de acceso</label>
-                            <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; document.getElementById('adminNewPermisosGroup').style.display = this.value === 'socio' ? 'block' : 'none'; if(this.value==='socio') autoSocioDesdeNombre();">
+                            <select id="adminNewAcceso" onchange="document.getElementById('adminNewSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; if(this.value==='socio') autoSocioDesdeNombre();">
                                 <option value="total">Acceso Total</option>
                                 <option value="socio">Filtrado por Socio</option>
                             </select>
                         </div>
-                        <div class="form-group" id="adminNewSocioGroup" style="display:none;"><label>Socio asignado <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(se autocompleta con el nombre — podés cambiarlo)</span></label>
-                            <input type="text" id="adminNewSocio" list="socioListNew" placeholder="Se llena automático" style="text-transform:uppercase;">
-                            <datalist id="socioListNew">${getSocioOptionsHTML()}</datalist>
+                        <div class="form-group full-width" id="adminNewSocioGroup" style="display:none;">
+                            <label>Socios asignados <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(marc\u00e1 los que puede ver)</span></label>
+                            <div id="adminNewSociosCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">
+                                ${getSociosDisponibles().map(s => '<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;"><input type=\\"checkbox\\" class=\\"socioCheckNew\\" value=\\"'+s.key+'\\"> '+s.label+'</label>').join('')}
+                            </div>
+                            <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+                                <input type="text" id="adminNewSocioNuevo" placeholder="Agregar socio nuevo..." style="flex:1;padding:6px 10px;font-size:.85em;text-transform:uppercase;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);">
+                                <button type="button" class="btn" style="padding:6px 12px;font-size:.8em;" onclick="agregarSocioCheckbox()">+ Agregar</button>
+                            </div>
                         </div>
-                        <div class="form-group" id="adminNewPermisosGroup" style="display:none;"><label>Nivel de permisos</label>
+                        <div class="form-group" id="adminNewPermisosGroup"><label>Nivel de permisos</label>
                             <select id="adminNewPermisos">
                                 <option value="completo">Completo (ver, editar, agregar, borrar)</option>
                                 <option value="agregar">Agregar (ver y agregar, sin editar ni borrar)</option>
@@ -2457,22 +2481,37 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (acceso !== 'socio') return;
             const nombre = document.getElementById('adminNewNombre').value.trim();
             if (!nombre) return;
-            // Sacar títulos (Dr, Dra, Sr, Sra, con o sin punto) y tomar el primer apellido
             const limpio = nombre.replace(/^(dr\.?|dra\.?|sr\.?|sra\.?)\s+/i, '').trim();
             const palabras = limpio.split(/\s+/);
-            // Usar la primera palabra significativa como socio key
             const socioKey = palabras[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const socioInput = document.getElementById('adminNewSocio');
-            socioInput.value = socioKey;
-            // Agregar como opción en el datalist si no existe
-            const datalist = document.getElementById('socioListNew');
-            const yaExiste = Array.from(datalist.options).some(o => o.value === socioKey);
+            const container = document.getElementById('adminNewSociosCheckboxes');
+            if (!container) return;
+            const yaExiste = container.querySelector('input[value="'+socioKey+'"]');
             if (!yaExiste) {
-                const opt = document.createElement('option');
-                opt.value = socioKey;
-                opt.textContent = nombre + ' (nuevo)';
-                datalist.appendChild(opt);
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;background:rgba(59,130,246,.08);';
+                lbl.innerHTML = '<input type="checkbox" class="socioCheckNew" value="'+socioKey+'" checked> '+nombre+' (nuevo)';
+                container.appendChild(lbl);
+            } else {
+                yaExiste.checked = true;
             }
+        }
+
+        function agregarSocioCheckbox() {
+            const input = document.getElementById('adminNewSocioNuevo');
+            const val = input.value.trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (!val) return;
+            const container = document.getElementById('adminNewSociosCheckboxes');
+            if (container.querySelector('input[value="'+val+'"]')) {
+                container.querySelector('input[value="'+val+'"]').checked = true;
+                input.value = '';
+                return;
+            }
+            const lbl = document.createElement('label');
+            lbl.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;background:rgba(59,130,246,.08);';
+            lbl.innerHTML = '<input type="checkbox" class="socioCheckNew" value="'+val+'" checked> '+val+' (nuevo)';
+            container.appendChild(lbl);
+            input.value = '';
         }
 
         function agregarUsuario() {
@@ -2486,7 +2525,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (clave.includes(' ')) return alert('La clave no puede contener espacios.');
             if (USUARIOS[clave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-            USUARIOS[clave] = { socio, permisos, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[clave] = { socios, permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
             renderAdminUsuariosContent();
         }
@@ -2504,6 +2543,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (clave === ADMIN_KEY) return;
             const u = USUARIOS[clave];
             const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
+            const uSocios = Array.isArray(u.socios) ? u.socios : (u.socio ? [u.socio] : null);
+            const esFiltrado = uSocios !== null;
             const modal = document.getElementById('adminUsuariosModal');
             modal.querySelector('.modal-content').innerHTML = `
                 <span class="close" onclick="closeModal('adminUsuariosModal')">&times;</span>
@@ -2514,15 +2555,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     <div class="form-group"><label>Clave de acceso</label><input type="text" id="adminEditClave" value="${clave}"></div>
                     <div class="form-group"><label>Tipo de acceso</label>
                         <select id="adminEditAcceso" onchange="document.getElementById('adminEditSocioGroup').style.display = this.value === 'socio' ? 'block' : 'none'; document.getElementById('adminEditPermisosGroup').style.display = this.value === 'socio' ? 'block' : 'none';">
-                            <option value="total" ${u.socio === null ? 'selected' : ''}>Acceso Total</option>
-                            <option value="socio" ${u.socio !== null ? 'selected' : ''}>Filtrado por Socio</option>
+                            <option value="total" ${!esFiltrado ? 'selected' : ''}>Todo (acceso total)</option>
+                            <option value="socio" ${esFiltrado ? 'selected' : ''}>Solo socios seleccionados</option>
                         </select>
                     </div>
-                    <div class="form-group" id="adminEditSocioGroup" style="display:${u.socio !== null ? 'block' : 'none'}"><label>Socio asignado <span style="font-weight:400;font-size:.8em;color:var(--text-secondary);">(elegí uno existente o escribí uno nuevo)</span></label>
-                        <input type="text" id="adminEditSocio" list="socioListEdit" value="${u.socio||''}" placeholder="Ej: LOPEZ" style="text-transform:uppercase;">
-                        <datalist id="socioListEdit">${getSocioOptionsHTML()}</datalist>
+                    <div class="form-group full-width" id="adminEditSocioGroup" style="display:${esFiltrado ? 'block' : 'none'}">
+                        <label>Socios asignados</label>
+                        <div id="adminEditSociosCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">
+                            ${getSociosDisponibles().map(s => '<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;font-size:.85em;"><input type=\\"checkbox\\" class=\\"socioCheckEdit\\" value=\\"'+s.key+'\\"'+(uSocios&&uSocios.includes(s.key)?' checked':'')+'> '+s.label+'</label>').join('')}
+                        </div>
                     </div>
-                    <div class="form-group" id="adminEditPermisosGroup" style="display:${u.socio !== null ? 'block' : 'none'}"><label>Nivel de permisos</label>
+                    <div class="form-group"><label>Nivel de permisos</label>
                         <select id="adminEditPermisos">
                             <option value="completo" ${(u.permisos||'completo')==='completo'?'selected':''}>Completo (ver, editar, agregar, borrar)</option>
                             <option value="agregar" ${u.permisos==='agregar'?'selected':''}>Agregar (ver y agregar, sin editar ni borrar)</option>
@@ -2541,21 +2584,26 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const nombre = document.getElementById('adminEditNombre').value.trim();
             const nuevaClave = document.getElementById('adminEditClave').value.trim();
             const acceso = document.getElementById('adminEditAcceso').value;
-            const socio = acceso === 'socio' ? document.getElementById('adminEditSocio').value.trim().toUpperCase() : null;
-            const permisos = acceso === 'socio' ? (document.getElementById('adminEditPermisos').value || 'completo') : 'completo';
+            const permisos = document.getElementById('adminEditPermisos').value || 'completo';
+            let socios = null;
+            if (acceso === 'socio') {
+                socios = Array.from(document.querySelectorAll('.socioCheckEdit:checked')).map(cb => cb.value);
+                if (!socios.length) return alert('Seleccioná al menos un socio.');
+            }
             if (!nombre || !nuevaClave) return alert('Completá nombre y clave.');
-            if (acceso === 'socio' && !socio) return alert('Ingresá el nombre del socio.');
             if (nuevaClave.includes(' ')) return alert('La clave no puede contener espacios.');
             if (nuevaClave === ADMIN_KEY) return alert('No podés usar la clave del administrador.');
             if (nuevaClave !== claveOriginal && USUARIOS[nuevaClave]) return alert('Ya existe un usuario con esa clave.');
             const svgIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
             if (nuevaClave !== claveOriginal) delete USUARIOS[claveOriginal];
-            USUARIOS[nuevaClave] = { socio, permisos, nombre: svgIcon + ' ' + nombre };
+            USUARIOS[nuevaClave] = { socios, permisos, nombre: svgIcon + ' ' + nombre };
             guardarUsuariosEnFirebase();
             renderAdminUsuariosContent();
         }
 
         function editarAdmin() {
+            const uSocios = Array.isArray(u.socios) ? u.socios : (u.socio ? [u.socio] : null);
+            const esFiltrado = uSocios !== null;
             const modal = document.getElementById('adminUsuariosModal');
             modal.querySelector('.modal-content').innerHTML = `
                 <span class="close" onclick="closeModal('adminUsuariosModal')">&times;</span>
@@ -2598,10 +2646,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         function getSociosDisponibles() {
             const socios = [{ key: 'GARCIA', label: 'Estudio García' }];
             Object.values(USUARIOS).forEach(u => {
-                if (u.socio && !socios.find(s => s.key === u.socio)) {
-                    const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
-                    socios.push({ key: u.socio, label: cleanName });
-                }
+                const uSocios = Array.isArray(u.socios) ? u.socios : (u.socio ? [u.socio] : []);
+                uSocios.forEach(s => {
+                    if (s && !socios.find(x => x.key === s)) {
+                        const cleanName = u.nombre.replace(/<[^>]*>/g, '').trim();
+                        socios.push({ key: s, label: cleanName });
+                    }
+                });
             });
             return socios;
         }
@@ -2657,7 +2708,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             } else if (perm === 'agregar') {
                 document.getElementById('sessionUserLabel').innerHTML += ' <span class="permiso-badge agregar">AGREGAR</span>';
             }
-            document.getElementById('adminUsersBtn').style.display = usuario.socio === null ? 'inline-flex' : 'none';
+            document.getElementById('adminUsersBtn').style.display = (sesionActual === USUARIOS[ADMIN_KEY]) ? 'inline-flex' : 'none';
             renderSocioFilter();
             initApp();
         }
@@ -2941,8 +2992,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const endStr = rangeEnd.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
             rangeDisplay.textContent = `${startStr} - ${endStr}`;
 
-            const socioSesionWG = sesionActual ? sesionActual.socio : null;
-            const allSchedulableItems = (socioSesionWG ? clientsData.filter(c => c.socio === socioSesionWG) : clientsData).flatMap(client => {
+            const allSchedulableItems = filtrarPorSesion(clientsData).flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ reviewDate: obs.proximaRevision }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ reviewDate: aud.fecha }));
                 const vencimientos = (client.vencimientos_list || []).filter(venc => venc.fecha && !venc.completed).map(venc => ({ reviewDate: venc.fecha }));
@@ -2983,8 +3033,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         function renderAdvanceNotices() {
             const container = document.getElementById('advanceNoticeContainer');
             if (!container) return;
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             const itemsToNotice = [];
             dataFiltrada.forEach(client => {
                 const criticalItems = [
@@ -3014,8 +3063,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         function renderDashboardLists() {
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             const allSchedulableItems = dataFiltrada.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision).map(obs => ({ id: obs.id, client, reviewDate: obs.proximaRevision, reviewText: obs.texto, isCompletable: true, type: 'task', completed: obs.completed, item: obs }));
                 const audiences = (client.audiencias_list || []).filter(aud => aud.fecha && !aud.completed).map(aud => ({ id: aud.id, client, reviewDate: aud.fecha, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, isCompletable: true, type: 'audience', completed: aud.completed, item: aud }));
@@ -3120,8 +3168,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/scba_ultima_vista').set(ahora);
             }
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderScbaAlertas(dataFiltrada);
         }
 
@@ -3130,8 +3177,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             clientsData.forEach((c, idx) => { c.scba_ultima_vista = null; updates[idx + '/scba_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderScbaAlertas(dataFiltrada);
         }
 
@@ -3301,8 +3347,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/pjn_ultima_vista').set(ahora);
             }
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderPjnAlertas(dataFiltrada);
         }
         function resetearVistasPJN() {
@@ -3310,8 +3355,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             clientsData.forEach((c, idx) => { c.pjn_ultima_vista = null; updates[idx + '/pjn_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderPjnAlertas(dataFiltrada);
         }
 
@@ -3379,8 +3423,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/mev_ultima_vista').set(ahora);
             }
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
         }
 
@@ -3389,8 +3432,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             clientsData.forEach((c, idx) => { c.mev_ultima_vista = null; updates[idx + '/mev_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
             localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataFiltrada = socioSesion ? clientsData.filter(c => c.socio === socioSesion) : clientsData;
+            const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
         }
 
@@ -3415,11 +3457,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const materiaFilter = document.getElementById('materiaFilter').value;
             const socioFilter = document.getElementById('socioFilter') ? document.getElementById('socioFilter').value : '';
 
-            const socioSesion = sesionActual ? sesionActual.socio : null;
+            const _sociosSesion = getSesionSocios();
 
             const filteredData = clientsData.filter(c => {
                 const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
-                const pasaSesion = !socioSesion || c.socio === socioSesion;
+                const pasaSesion = !_sociosSesion || _sociosSesion.includes(c.socio);
                 return pasaSesion
                     && (!searchTerm || searchString.includes(searchTerm))
                     && (!estadoFilter || c.estado === estadoFilter)
@@ -3591,8 +3633,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     alert("Error: No se encontró el caso solicitado. Intente recargar la página.");
                     return;
                 }
-                const socioSesion = sesionActual ? sesionActual.socio : null;
-                if (socioSesion && client.socio !== socioSesion) { alert("No tenés acceso a este caso."); return; }
+                const _sesionSocios = getSesionSocios();
+                if (_sesionSocios && !_sesionSocios.includes(client.socio)) { alert("No tenés acceso a este caso."); return; }
                 updateClientNextRevision(client);
                 
                 const fieldsToShow = {
@@ -4081,8 +4123,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
         function showClientSelectorModal() {
             const selector = document.getElementById('clientSelector');
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const filtered = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+                        const filtered = filtrarPorSesion(clientsData);
             selector.innerHTML = '<option value="">-- Seleccionar Caso --</option>' + [...filtered].sort((a,b) => (a.nombre || '').localeCompare(b.nombre || '')).map(c => `<option value="${c.id}">${getDisplayName(c)}</option>`).join('');
             document.getElementById('clientSelectorModal').classList.add('active');
         }
@@ -4642,8 +4683,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
         
         function revisarAlertas() {
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+                        const datos = filtrarPorSesion(clientsData);
             const audienciasPorAlertar = datos.flatMap(client => 
                 (client.audiencias_list || [])
                 .filter(aud => isToday(aud.fecha) && !aud.completed)
@@ -4686,8 +4726,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
 
         function showTasksForDate(dateString) {
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+                        const datos = filtrarPorSesion(clientsData);
             const allSchedulableItems = datos.flatMap(client => {
                 const tasks = (client.observaciones || []).filter(obs => !obs.completed && obs.proximaRevision === dateString).map(obs => ({ client: client, reviewText: obs.texto, type: 'task' }));
                 const audiences = (client.audiencias_list || []).filter(aud => !aud.completed && aud.fecha === dateString).map(aud => ({ client: client, reviewText: `AUDIENCIA (${formatTime(aud.hora)}): ${aud.texto}`, type: 'audience' }));
@@ -4717,8 +4756,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         }
         
         function exportToExcel(){
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const datos = clientsData.filter(c => !socioSesion || c.socio === socioSesion);
+                        const datos = filtrarPorSesion(clientsData);
             const excelData = datos.map(c => {
                 const allObs = (c.observaciones || []).map(obs => `[TAREA - Rev: ${formatDate(obs.proximaRevision)}] Público: ${obs.texto} | Privado: ${obs.textoPrivado || ''}`).join(' \n ');
                 const allAuds = (c.audiencias_list || []).map(aud => `[AUDIENCIA - ${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join(' \n ');
@@ -4741,7 +4779,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Casos Familia');
             XLSX.writeFile(workbook, `Casos_Familia_${getTodayYMD()}.xlsx`);
         }
-        function exportData(){const socioSesion=sesionActual?sesionActual.socio:null;const filtered=clientsData.filter(c=>!socioSesion||c.socio===socioSesion);const dataStr=JSON.stringify(filtered,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
+        function exportData(){const filtered=filtrarPorSesion(clientsData);const dataStr=JSON.stringify(filtered,null,2);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([dataStr],{type:'application/json'}));link.download=`casos_familia_${getTodayYMD()}.json`;link.click()}
 
         function exportDataParaAgente() {
             function separarNombre(nombreCompleto) {
@@ -4751,8 +4789,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 return { apellido: palabras[0], nombre: palabras.slice(1).join(' ') };
             }
 
-            const socioSesion = sesionActual ? sesionActual.socio : null;
-            const dataParaAgente = clientsData.filter(c => !socioSesion || c.socio === socioSesion).map(c => {
+            const _sociosSesion = getSesionSocios();
+            const dataParaAgente = clientsData.filter(c => !_sociosSesion || _sociosSesion.includes(c.socio)).map(c => {
                 const { apellido, nombre } = separarNombre(c.nombre);
                 return {
                     id: c.id,
