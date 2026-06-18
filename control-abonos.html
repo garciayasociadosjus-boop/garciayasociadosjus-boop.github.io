@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -301,6 +300,7 @@
           <button class="btn" id="export-json-btn">💾 Exportar JSON</button>
           <button class="btn btn-warning" id="import-json-btn">📥 Importar JSON</button>
           <button class="btn btn-warning" id="config-btn">⚙️ Config</button>
+          <button class="btn" id="espejoBtn" type="button" title="Compartir vista entre PCs en tiempo real" style="background:linear-gradient(135deg,#64748b,#475569);color:#fff;">🔗 Espejar</button>
         </div>
       </div>
 
@@ -616,6 +616,12 @@
     let seleccionManual = new Set(); // IDs de registros tildados para suma manual
     let seleccionSaldoProyectable = new Set(); // IDs donde tildaste "incluir saldo en proyectado" (parciales/cuotas)
     let dashboardScope = 'mes'; // 'mes' = solo mes filtrado, 'todos' = histórico completo
+
+    // ====== MODO ESPEJO (sincronización de vista entre PCs) ======
+    let modoEspejo = false;
+    let aplicandoVistaRemota = false;   // bandera anti-loop al aplicar una vista recibida
+    let espejoListenerRef = null;
+    let espejoSaveTimer = null;
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
@@ -640,6 +646,7 @@
       document.getElementById('toggleAmountBtn').addEventListener('click', toggleAmountVisibility);
       document.getElementById('btnPrevMonth').addEventListener('click', function(){ changeMonth(-1); });
       document.getElementById('btnNextMonth').addEventListener('click', function(){ changeMonth(1); });
+      document.getElementById('espejoBtn').addEventListener('click', toggleEspejo);
       document.getElementById('add-record-btn').addEventListener('click', function(){ openModal(); });
       document.getElementById('carry-btn').addEventListener('click', carryOverClients);
       document.getElementById('print-btn').addEventListener('click', printTable);
@@ -1415,7 +1422,133 @@
       updateFilterCounts(dataAfterTypeFilter);
       updateAlertBanner(dataAfterTypeFilter);
       if (vistaActual === 'clientes') renderVistaClientes();
+      // Si el modo espejo está activo y este render no vino de aplicar una vista remota,
+      // empujá la vista actual a Firebase para que la otra PC la vea.
+      if(modoEspejo && !aplicandoVistaRemota) pushVistaSnapshot();
     }
+
+    // ====== MODO ESPEJO: serialización, aplicación y sincronización ======
+    function buildVistaSnapshot(){
+      return {
+        currentMonth: currentMonth || null,
+        currentSearchTerm: currentSearchTerm || '',
+        activeTypeFilters: Array.isArray(activeTypeFilters) ? activeTypeFilters.slice() : [],
+        currentStatusFilter: (typeof currentStatusFilter !== 'undefined') ? (currentStatusFilter || null) : null,
+        dashboardScope: dashboardScope || 'mes',
+        seleccionManual: Array.from(seleccionManual),
+        seleccionSaldoProyectable: Array.from(seleccionSaldoProyectable),
+        sortField: sortField || 'cliente',
+        sortOrder: sortOrder || null,
+        vistaActual: vistaActual || 'registros',
+        actualizadoEn: Date.now()
+      };
+    }
+
+    function applyVistaSnapshot(v){
+      if(!v || typeof v !== 'object') return;
+      aplicandoVistaRemota = true;
+      try {
+        if(v.currentMonth && typeof v.currentMonth.month === 'number' && typeof v.currentMonth.year === 'number'){
+          currentMonth = { month: v.currentMonth.month, year: v.currentMonth.year };
+          updateMonthDisplay();
+        }
+        if(typeof v.currentSearchTerm === 'string'){
+          currentSearchTerm = v.currentSearchTerm;
+          var sIn = document.getElementById('searchInput');
+          if(sIn) sIn.value = v.currentSearchTerm;
+        }
+        if(Array.isArray(v.activeTypeFilters)){
+          activeTypeFilters = v.activeTypeFilters.slice();
+          renderTypeFilters();
+        }
+        if(typeof currentStatusFilter !== 'undefined' && (typeof v.currentStatusFilter === 'string' || v.currentStatusFilter === null)){
+          currentStatusFilter = v.currentStatusFilter;
+        }
+        if(v.dashboardScope === 'mes' || v.dashboardScope === 'todos'){
+          dashboardScope = v.dashboardScope;
+          // Sincronizar UI del toggle
+          document.querySelectorAll('.scope-btn').forEach(function(b){
+            var isActive = b.dataset.scope === dashboardScope;
+            b.classList.toggle('active', isActive);
+            b.style.background = isActive ? '#1e3a8a' : 'transparent';
+            b.style.color = isActive ? '#fff' : '#475569';
+          });
+        }
+        if(Array.isArray(v.seleccionManual)){
+          seleccionManual.clear();
+          v.seleccionManual.forEach(function(id){ seleccionManual.add(id); });
+        }
+        if(Array.isArray(v.seleccionSaldoProyectable)){
+          seleccionSaldoProyectable.clear();
+          v.seleccionSaldoProyectable.forEach(function(id){ seleccionSaldoProyectable.add(id); });
+        }
+        if(typeof v.sortField === 'string') sortField = v.sortField;
+        if(typeof v.sortOrder === 'string' || v.sortOrder === null) sortOrder = v.sortOrder;
+        if(v.vistaActual === 'registros' || v.vistaActual === 'clientes') vistaActual = v.vistaActual;
+        render();
+      } catch(e){
+        console.error('Error aplicando vista remota:', e);
+      } finally {
+        // Liberamos la bandera en el próximo tick para que el render() ya haya terminado
+        setTimeout(function(){ aplicandoVistaRemota = false; }, 0);
+      }
+    }
+
+    function pushVistaSnapshot(){
+      if(!modoEspejo) return;
+      if(aplicandoVistaRemota) return;
+      if(typeof firebaseDB === 'undefined' || !firebaseDB) return;
+      clearTimeout(espejoSaveTimer);
+      espejoSaveTimer = setTimeout(function(){
+        try {
+          firebaseDB.ref('planilla_abonos_vista').set(buildVistaSnapshot()).catch(function(e){
+            console.error('Error guardando vista espejo:', e);
+          });
+        } catch(e){ console.error('Error en pushVistaSnapshot:', e); }
+      }, 400);
+    }
+
+    function toggleEspejo(){
+      modoEspejo = !modoEspejo;
+      var btn = document.getElementById('espejoBtn');
+      if(modoEspejo){
+        // ACTIVAR
+        btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+        btn.innerHTML = '🔗 Espejar <span style="font-size:.7em;background:#fff;color:#059669;padding:2px 6px;border-radius:8px;margin-left:4px;font-weight:700;">ACTIVO</span>';
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          try {
+            espejoListenerRef = firebaseDB.ref('planilla_abonos_vista');
+            espejoListenerRef.on('value', function(snap){
+              var v = snap.val();
+              if(v) applyVistaSnapshot(v);
+            }, function(err){ console.error('Listener espejo error:', err); });
+            // Empujamos la vista actual para que la otra PC se sincronice con la nuestra
+            pushVistaSnapshot();
+          } catch(e){
+            console.error('Error conectando espejo:', e);
+            alert('No se pudo conectar al espejo. Verificá la conexión a Firebase.');
+            modoEspejo = false;
+            btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
+            btn.innerHTML = '🔗 Espejar';
+          }
+        } else {
+          alert('Firebase aún no está listo. Esperá unos segundos y volvé a intentar.');
+          modoEspejo = false;
+          btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
+          btn.innerHTML = '🔗 Espejar';
+        }
+      } else {
+        // DESACTIVAR
+        btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
+        btn.innerHTML = '🔗 Espejar';
+        if(espejoListenerRef){
+          try { espejoListenerRef.off(); } catch(e){}
+          espejoListenerRef = null;
+        }
+        clearTimeout(espejoSaveTimer);
+      }
+    }
+    // ====== FIN MODO ESPEJO ======
     
     function formatCurrency(v){ 
       return new Intl.NumberFormat('es-AR',{
@@ -1504,11 +1637,15 @@
       });
 
       // ===== SELECCIÓN MANUAL =====
-      // Cobrado real: lo que YA entró por los registros tildados
-      // Proyectado: lo cobrado + saldos por cobrar de los tildados
-      //   - Para Pago Parcial y Honorarios en Cuotas, el saldo entra a Proyectado
-      //     SOLO si el segundo checkbox naranja está tildado (seleccionSaldoProyectable)
-      //   - Para los demás tipos en estado activo (Pendiente/Falta/Ejecución), el monto entra siempre
+      // Cobrado real: lo que YA entró por los registros tildados.
+      // Proyectado: se descompone en "base segura" + "parte incierta".
+      //   - El primer checkbox suma siempre cobrado real + parte base segura.
+      //   - El segundo checkbox naranja agrega la parte INCIERTA al proyectado.
+      //
+      // Parte INCIERTA por caso:
+      //   - Pago Parcial: el saldo (monto - montoPagado).
+      //   - Honorarios en Cuotas no Pagado/Terminado: el monto total (toda la cuota).
+      //   - Registro con deuda acumulada > 0 (no parcial, no cuotas): el valor de deudaAcumulada.
       var totalSeleccionCobrado = 0;
       var totalSeleccionProyectado = 0;
       seleccionManual.forEach(function(id){
@@ -1516,29 +1653,35 @@
         if(!a) return;
         var montoTotal = parseFloat(a.monto) || 0;
         var montoPagado = parseFloat(a.montoPagado) || 0;
-        var esSaldoControlable = (a.estado === 'Pago Parcial') || (a.tipo === 'Honorarios en Cuotas');
+        var deudaAcum = parseFloat(a.deudaAcumulada) || 0;
+
+        var cobradoReal = 0;
+        var proyectadoBase = 0;
+        var proyectadoIncierto = 0;
 
         if(a.estado === 'Pagado' || a.estado === 'Terminado'){
-          // Cobrado completo: cobrado real = proyectado = monto total
-          totalSeleccionCobrado += montoTotal;
-          totalSeleccionProyectado += montoTotal;
+          cobradoReal = montoTotal;
+          proyectadoBase = montoTotal;
         } else if(a.estado === 'Pago Parcial'){
-          // Parcial: cobrado = lo pagado; proyectado = lo pagado + (saldo solo si el segundo checkbox está tildado)
-          totalSeleccionCobrado += montoPagado;
-          totalSeleccionProyectado += montoPagado;
-          if(seleccionSaldoProyectable.has(id)){
-            var saldo = montoTotal - montoPagado;
-            if(saldo > 0) totalSeleccionProyectado += saldo;
-          }
+          cobradoReal = montoPagado;
+          proyectadoBase = montoPagado;
+          proyectadoIncierto = Math.max(0, montoTotal - montoPagado);
         } else {
-          // Pendiente / Falta de Pago / Ejecución de Honorarios → no hay cobrado real
-          // Si es Honorarios en Cuotas, el saldo solo entra si el segundo checkbox está tildado
-          // Si es otro tipo, el saldo entra siempre (asumimos que se cobra este mes)
-          if(esSaldoControlable){
-            if(seleccionSaldoProyectable.has(id)) totalSeleccionProyectado += montoTotal;
+          // Pendiente / Falta de Pago / Ejecución
+          if(a.tipo === 'Honorarios en Cuotas'){
+            proyectadoIncierto = montoTotal; // toda la cuota es incierta
+          } else if(deudaAcum > 0){
+            proyectadoBase = Math.max(0, montoTotal - deudaAcum); // abono del mes actual
+            proyectadoIncierto = deudaAcum;                       // deuda arrastrada
           } else {
-            totalSeleccionProyectado += montoTotal;
+            proyectadoBase = montoTotal; // sin deuda y tipo normal: todo seguro
           }
+        }
+
+        totalSeleccionCobrado += cobradoReal;
+        totalSeleccionProyectado += proyectadoBase;
+        if(seleccionSaldoProyectable.has(id)){
+          totalSeleccionProyectado += proyectadoIncierto;
         }
       });
       var totalSeleccionDiferencia = totalSeleccionProyectado - totalSeleccionCobrado;
@@ -1821,13 +1964,31 @@
           tipoLabel += '<br><span style="font-size:.72em;font-weight:700;color:'+_cc+';">'+_ci+' '+abono.convenioTipo+'</span>';
         }
         var checkboxChecked = seleccionManual.has(abono.id) ? 'checked' : '';
-        // Mostrar segundo checkbox naranja para Pago Parcial o Honorarios en Cuotas
-        var permiteSaldoControl = (abono.estado === 'Pago Parcial') || (abono.tipo === 'Honorarios en Cuotas');
+        // Segundo checkbox naranja: aparece cuando hay una parte "incierta" para proyectar
+        //  - Pago Parcial con saldo > 0
+        //  - Honorarios en Cuotas en estado activo (no Pagado/Terminado)
+        //  - Cualquier registro activo con deudaAcumulada > 0 del mes pasado
+        var _mt = parseFloat(abono.monto)||0;
+        var _mp = parseFloat(abono.montoPagado)||0;
+        var _da = parseFloat(abono.deudaAcumulada)||0;
+        var _activo = !(abono.estado === 'Pagado' || abono.estado === 'Terminado');
+        var permiteSaldoControl = false;
+        var saldoTitle = '';
+        if(abono.estado === 'Pago Parcial' && (_mt - _mp) > 0){
+          permiteSaldoControl = true;
+          saldoTitle = 'Incluir saldo en Proyectado ($' + (_mt-_mp).toLocaleString('es-AR') + ')';
+        } else if(_activo && abono.tipo === 'Honorarios en Cuotas'){
+          permiteSaldoControl = true;
+          saldoTitle = 'Incluir esta cuota en Proyectado ($' + _mt.toLocaleString('es-AR') + ')';
+        } else if(_activo && _da > 0){
+          permiteSaldoControl = true;
+          saldoTitle = 'Incluir deuda del mes pasado en Proyectado ($' + _da.toLocaleString('es-AR') + ')';
+        }
         var saldoChecked = seleccionSaldoProyectable.has(abono.id) ? 'checked' : '';
         var celdaCheckboxes = '<td class="no-print" style="text-align:center;white-space:nowrap;">'
           + '<input type="checkbox" class="sel-row-cb" data-id="'+abono.id+'" '+checkboxChecked+' title="Sumar a Cobrado / Proyectado" style="width:1.1em;height:1.1em;cursor:pointer;vertical-align:middle;">';
         if(permiteSaldoControl){
-          celdaCheckboxes += '<input type="checkbox" class="sel-saldo-cb" data-id="'+abono.id+'" '+saldoChecked+' title="Incluir saldo en Proyectado" style="width:1em;height:1em;cursor:pointer;margin-left:4px;accent-color:#f59e0b;vertical-align:middle;">';
+          celdaCheckboxes += '<input type="checkbox" class="sel-saldo-cb" data-id="'+abono.id+'" '+saldoChecked+' title="'+saldoTitle+'" style="width:1em;height:1em;cursor:pointer;margin-left:4px;accent-color:#f59e0b;vertical-align:middle;">';
         }
         celdaCheckboxes += '</td>';
 
