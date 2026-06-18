@@ -576,6 +576,99 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // ====== COMISIONES AUTOMÁTICAS A COLEGAS ======
+            // Para cada abono comisionable + cobrado, generar una línea de egreso individual
+            // (una por registro, NO agregada por mes ni por colega).
+            // Identificación por abonoOrigenId para poder actualizar/borrar.
+            // - Se calcula sobre el cobrado real (montoPagado en Parcial, monto en Pagado/Terminado)
+            // - Se imputa al mes del cobro (fechaPago, fallback mesServicio)
+            // - Si el abono deja de estar cobrado o de ser comisionable → se borra la línea
+
+            const comisionesEsperadas = {}; // abonoId → { mk, line }
+            abonos.forEach(a => {
+                if(!a.esComisionable) return;
+                if(!a.comisionColega || !String(a.comisionColega).trim()) return;
+                const pct = parseFloat(a.comisionPorcentaje) || 0;
+                if(pct <= 0) return;
+
+                const esCobrado = ['Pagado','Terminado','Pago Parcial'].includes(a.estado);
+                if(!esCobrado) return;
+
+                let mkCom = null;
+                if(a.fechaPago){
+                    const d = new Date(a.fechaPago + 'T00:00:00');
+                    if(!isNaN(d.getTime())) mkCom = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                }
+                if(!mkCom && a.mesServicio){
+                    mkCom = `${a.mesServicio.year}-${String(a.mesServicio.month+1).padStart(2,'0')}`;
+                }
+                if(!mkCom) return;
+
+                const cobradoReal = a.estado === 'Pago Parcial'
+                    ? (parseFloat(a.montoPagado) || 0)
+                    : (parseFloat(a.monto) || 0);
+                if(cobradoReal <= 0) return;
+
+                const comisionMonto = Math.round(cobradoReal * (pct/100) * 100) / 100;
+                if(comisionMonto <= 0) return;
+
+                comisionesEsperadas[a.id] = {
+                    mk: mkCom,
+                    line: {
+                        fecha: mkCom + '-01',
+                        descripcion: 'Comisión - ' + String(a.comisionColega).trim(),
+                        tipo: 'Comisión a colega',
+                        categoria: 'egreso',
+                        monto: comisionMonto,
+                        medioPago: 'Automático',
+                        quien: String(a.comisionColega).trim(),
+                        observaciones: 'Auto ('+pct+'%) - ' + (a.cliente||'') + (a.expediente ? ' · Exp ' + a.expediente : ''),
+                        abonoOrigenId: a.id
+                    }
+                };
+            });
+
+            // Aplicar diff: actualizar/eliminar líneas existentes y crear las que falten
+            const pendientes = Object.assign({}, comisionesEsperadas);
+            Object.keys(allData).forEach(mk => {
+                const txs = allData[mk].transactions || [];
+                for(let i = txs.length - 1; i >= 0; i--){
+                    const t = txs[i];
+                    if(!t.abonoOrigenId) continue; // No es comisión automática
+                    const esp = comisionesEsperadas[t.abonoOrigenId];
+                    if(!esp){
+                        // El abono ya no debe generar comisión → borrar la línea
+                        txs.splice(i, 1);
+                        cambios++;
+                        continue;
+                    }
+                    if(esp.mk !== mk){
+                        // El abono cambió de mes → borrar de este mes (se creará en el correcto)
+                        txs.splice(i, 1);
+                        cambios++;
+                        continue;
+                    }
+                    // Verificar y actualizar campos si cambiaron
+                    if(Number(t.monto) !== Number(esp.line.monto)
+                       || t.quien !== esp.line.quien
+                       || t.descripcion !== esp.line.descripcion
+                       || t.observaciones !== esp.line.observaciones){
+                        Object.assign(t, esp.line);
+                        cambios++;
+                    }
+                    delete pendientes[t.abonoOrigenId];
+                }
+            });
+
+            // Crear las comisiones que no existen aún (nuevas o que cambiaron de mes)
+            Object.keys(pendientes).forEach(abonoId => {
+                const { mk, line } = pendientes[abonoId];
+                if(!allData[mk]) allData[mk] = { transactions: [] };
+                allData[mk].transactions.push(line);
+                cambios++;
+            });
+            // ====== FIN COMISIONES AUTOMÁTICAS ======
+
             if(cambios > 0){
                 saveData();
                 renderApp();
