@@ -202,46 +202,93 @@
         <button id="btnVerPendientes" class="btn btn-danger">Ver Pendientes</button>
       </div>
 
+      <!-- TOGGLE ALCANCE DEL DASHBOARD -->
+      <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:15px;padding:10px;background:#f1f5f9;border-radius:8px;">
+        <span style="font-weight:600;color:#475569;font-size:.9em;">📊 Sumar:</span>
+        <div style="display:inline-flex;background:#fff;border-radius:20px;padding:3px;border:1px solid #cbd5e1;">
+          <button id="scopeMesBtn" class="scope-btn active" data-scope="mes" style="border:none;background:#1e3a8a;color:#fff;padding:6px 16px;border-radius:18px;font-weight:600;cursor:pointer;font-size:.85em;">Solo este mes</button>
+          <button id="scopeTodosBtn" class="scope-btn" data-scope="todos" style="border:none;background:transparent;color:#475569;padding:6px 16px;border-radius:18px;font-weight:600;cursor:pointer;font-size:.85em;">Todos los tiempos</button>
+        </div>
+      </div>
+
       <div class="dashboard">
+        <!-- 1. COBRADO (GANANCIA REAL — excluye bonos y AP) -->
         <div class="card success-card">
           <div class="title-container">
-            <h3>Total de Ingresos Brutos</h3>
+            <h3>✅ Cobrado <span style="font-size:.65em;color:#059669;font-weight:700;">(ganancia)</span> <span id="scopeLabelCobrado" style="font-size:.65em;color:#94a3b8;font-weight:normal;">(este mes)</span></h3>
             <button class="toggle-visibility" id="toggleAmountBtn" title="Ocultar/Mostrar montos">
               <span id="toggleIcon">👁️</span>
             </button>
           </div>
-          <div class="value positive" id="totalIngresosBrutos">$0.00</div>
-        </div>
-        <div class="card">
-          <h3>Honorarios Cobrados</h3>
           <div class="value positive" id="totalCobrado">$0.00</div>
+          <div style="font-size:.72em;color:#64748b;margin-top:4px;">Honorarios cobrados (NO incluye bonos y AP)</div>
         </div>
-        <div class="card">
-          <h3>Bonos y AP Cobrados</h3>
-          <div class="value" id="totalBonosCobrados" style="color: var(--info-color);">$0.00</div>
+
+        <!-- 2. BONOS Y AP (PLATA EN TRÁNSITO — no es ganancia) -->
+        <div class="card" style="border-left:4px solid #0ea5e9;background:#f0f9ff;">
+          <h3>🔄 Bonos y AP <span style="font-size:.65em;color:#0284c7;font-weight:700;">(en tránsito)</span> <span id="scopeLabelBonos" style="font-size:.65em;color:#94a3b8;font-weight:normal;">(este mes)</span></h3>
+          <div class="value" id="totalBonos" style="color:#0284c7;">$0.00</div>
+          <div style="font-size:.72em;color:#64748b;margin-top:4px;">Lo cobrado para pagar aportes — NO es ganancia</div>
         </div>
+
+        <!-- 3. POR COBRAR -->
         <div class="card warning-card">
-          <h3>$ Pendientes</h3>
-          <div class="value" id="totalPendientes" style="color:var(--warning-color);">$0.00</div>
+          <h3>⏳ Por Cobrar <span id="scopeLabelPorCobrar" style="font-size:.65em;color:#94a3b8;font-weight:normal;">(este mes)</span></h3>
+          <div class="value" id="totalPorCobrar" style="color:var(--warning-color);">$0.00</div>
+          <div style="font-size:.72em;color:#64748b;margin-top:4px;">Pendiente + Falta de Pago + Ejecución + saldos</div>
         </div>
-        <div class="card danger-card">
-          <h3>$ Falta de Pago</h3>
-          <div class="value" id="totalFaltaPago" style="color:var(--danger-color);">$0.00</div>
+
+        <!-- 4. SELECCIÓN MANUAL -->
+        <div class="card" style="border-left:4px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+          <div class="title-container">
+            <h3>🎯 Selección Manual <span id="seleccionCount" style="font-size:.75em;background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;margin-left:4px;">0</span></h3>
+            <button id="limpiarSeleccionBtn" title="Limpiar selección" style="background:none;border:none;cursor:pointer;font-size:1.1em;color:#f59e0b;">🧹</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:4px;">
+            <div style="flex:1;">
+              <div style="font-size:.68em;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Cobrado real</div>
+              <div class="value" id="totalSeleccionCobrado" style="color:#059669;font-size:1.25em;line-height:1.1;">$0.00</div>
+            </div>
+            <div style="font-size:1.4em;color:#cbd5e1;">→</div>
+            <div style="flex:1;text-align:right;">
+              <div style="font-size:.68em;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Proyectado</div>
+              <div class="value" id="totalSeleccionProyectado" style="color:#f59e0b;font-size:1.25em;line-height:1.1;">$0.00</div>
+            </div>
+          </div>
+          <div style="font-size:.72em;color:#64748b;margin-top:6px;">Cobrado real = lo que ya entró · Proyectado = lo que entraría si cobrás todo</div>
         </div>
-         <div class="card"><h3>Total Registros</h3><div class="value" id="totalRegistros">0</div></div>
-         <div class="card" style="border-left:4px solid #8b5cf6;position:relative;">
-           <div class="title-container">
-             <h3>Abonos Puros <span style="font-size:.65em;color:#94a3b8;">(sin deuda)</span></h3>
-             <button class="toggle-visibility" id="toggleAbonosPurosSelector" title="Seleccionar clientes a sumar" style="font-size:1em;">☑️</button>
-           </div>
-           <div class="value" id="totalAbonosPuros" style="color:#8b5cf6;">$0.00</div>
-           <div id="abonosPurosSelector" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #8b5cf6;border-radius:0 0 10px 10px;padding:12px;z-index:50;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;">
-             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-               <input type="checkbox" id="abonosPurosTodos" checked style="width:1.1em;height:1.1em;"> Todos
-             </label>
-             <div id="abonosPurosClientesList"></div>
-           </div>
-         </div>
+
+        <!-- 5. CASOS Y CLIENTES -->
+        <div class="card">
+          <h3>📋 Casos y Clientes</h3>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:4px;">
+            <div style="flex:1;">
+              <div style="font-size:.68em;color:#1e3a8a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Casos</div>
+              <div class="value" id="totalCasos" style="color:#1e3a8a;font-size:1.4em;line-height:1.1;">0</div>
+            </div>
+            <div style="font-size:1.4em;color:#cbd5e1;">·</div>
+            <div style="flex:1;text-align:right;">
+              <div style="font-size:.68em;color:#0284c7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Clientes</div>
+              <div class="value" id="totalClientesUnicos" style="color:#0284c7;font-size:1.4em;line-height:1.1;">0</div>
+            </div>
+          </div>
+          <div style="font-size:.72em;color:#64748b;margin-top:6px;">Casos = expedientes únicos · Clientes = nombres únicos</div>
+        </div>
+
+        <!-- 6. ABONOS PUROS (sin cambios funcionales) -->
+        <div class="card" style="border-left:4px solid #8b5cf6;position:relative;">
+          <div class="title-container">
+            <h3>🎯 Abonos Puros <span style="font-size:.65em;color:#94a3b8;">(sin deuda)</span></h3>
+            <button class="toggle-visibility" id="toggleAbonosPurosSelector" title="Seleccionar clientes a sumar" style="font-size:1em;">☑️</button>
+          </div>
+          <div class="value" id="totalAbonosPuros" style="color:#8b5cf6;">$0.00</div>
+          <div id="abonosPurosSelector" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #8b5cf6;border-radius:0 0 10px 10px;padding:12px;z-index:50;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
+              <input type="checkbox" id="abonosPurosTodos" checked style="width:1.1em;height:1.1em;"> Todos
+            </label>
+            <div id="abonosPurosClientesList"></div>
+          </div>
+        </div>
       </div>
 
       <div class="controls no-print">
@@ -312,6 +359,7 @@
             <table>
               <thead>
                 <tr>
+                  <th class="no-print" style="width:36px;"><input type="checkbox" id="checkAllRows" title="Seleccionar todos los visibles" style="width:1.1em;height:1.1em;cursor:pointer;"></th>
                   <th id="thCliente" onclick="toggleSort('cliente')" style="cursor:pointer;user-select:none;" title="Ordenar por apellido">Cliente <span id="sortIcon">⇅</span></th>
                   <th>Expediente</th>
                   <th>Teléfono</th>
@@ -566,13 +614,15 @@
     let activeTypeFilters = [];
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmounts = { cobrado: 0, pendientes: 0, falta: 0, bonos: 0, bruto: 0 };
+    let realAmounts = { cobrado: 0, bonos: 0, porCobrar: 0, seleccionCobrado: 0, seleccionProyectado: 0, abonosPuros: 0 };
     let currentObsId = null;
     let currentLogId = null;
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
     let abonosPurosExcluidos = new Set(); // clientes excluidos de la suma de abonos puros
+    let seleccionManual = new Set(); // IDs de registros tildados para suma manual
+    let dashboardScope = 'mes'; // 'mes' = solo mes filtrado, 'todos' = histórico completo
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
     const FORMA_PAGO_OPTIONS = ['N/A', 'Transferencia', 'Efectivo', 'Mercado Pago', 'Otro'];
@@ -698,6 +748,54 @@
       });
 
       document.getElementById('typeFilters').addEventListener('change', handleTypeFilterChange);
+
+      // ====== CHECKBOXES DE SELECCIÓN MANUAL ======
+      // Checkbox individual por fila (delegado en el tbody)
+      document.getElementById('abonosTableBody').addEventListener('change', function(e){
+        if(e.target.classList.contains('sel-row-cb')){
+          var id = e.target.dataset.id;
+          if(e.target.checked) seleccionManual.add(id);
+          else seleccionManual.delete(id);
+          // Solo recalculo el dashboard (no re-render completo, para no perder el scroll)
+          render();
+        }
+      });
+
+      // Checkbox "todos" del header: marca/desmarca solo los visibles en pantalla
+      document.getElementById('checkAllRows').addEventListener('change', function(e){
+        var marcar = e.target.checked;
+        document.querySelectorAll('.sel-row-cb').forEach(function(cb){
+          if(marcar) seleccionManual.add(cb.dataset.id);
+          else seleccionManual.delete(cb.dataset.id);
+          cb.checked = marcar;
+        });
+        render();
+      });
+
+      // Botón limpiar selección
+      document.getElementById('limpiarSeleccionBtn').addEventListener('click', function(){
+        seleccionManual.clear();
+        document.getElementById('checkAllRows').checked = false;
+        render();
+      });
+
+      // Toggle scope del dashboard (este mes / todos los tiempos)
+      document.querySelectorAll('.scope-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          dashboardScope = this.dataset.scope;
+          // Estilos visuales del toggle
+          document.querySelectorAll('.scope-btn').forEach(function(b){
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+            b.style.color = '#475569';
+          });
+          this.classList.add('active');
+          this.style.background = '#1e3a8a';
+          this.style.color = '#fff';
+          render();
+        });
+      });
+      // ====== FIN SELECCIÓN MANUAL ======
 
       document.getElementById('abonosTableBody').addEventListener('click', function(event){
         var target = event.target;
@@ -898,6 +996,7 @@
     function deleteAbono(id){
       if(confirm('¿Eliminar este registro?')){
         abonosData = abonosData.filter(function(a){ return a.id !== id; });
+        seleccionManual.delete(id);
         saveData(); render();
       }
     }
@@ -1410,30 +1509,99 @@
       refreshAmountDisplay();
     }
 
-    function renderDashboard(abonos){
-      var honorariosCobrados = abonos.filter(function(a){ 
-        return (a.estado==='Pagado' || a.estado === 'Terminado') && a.tipo !== 'Pago de Bonos y AP'; 
-      }).reduce(function(s,a){ return s+Number(a.monto||0); },0);
-      honorariosCobrados += abonos.filter(function(a){ 
-        return a.estado==='Pago Parcial' && a.tipo !== 'Pago de Bonos y AP'; 
-      }).reduce(function(s,a){ return s+Number(a.montoPagado||0); },0);
+    function renderDashboard(abonosFiltrados){
+      // ====== Lógica clara y simple ======
+      //
+      // Fuente de datos según el toggle de scope:
+      //   - 'mes'   → abonosFiltrados (lo que ya vino filtrado por mes/búsqueda/tipo)
+      //   - 'todos' → abonosData completo (todos los registros, sin filtro de mes)
+      //
+      // COBRADO (GANANCIA): criterio percibido (fechaPago manda).
+      //   Suma honorarios cobrados EXCLUYENDO los de tipo 'Pago de Bonos y AP'.
+      //   - Pagado y Terminado → a.monto
+      //   - Pago Parcial → a.montoPagado
+      //
+      // BONOS Y AP (TRÁNSITO): plata que entra solo para pagar aportes.
+      //   Mismo criterio que Cobrado pero filtrando solo tipo='Pago de Bonos y AP'.
+      //   IMPORTANTE: NO es ganancia, no se suma con Cobrado.
+      //
+      // POR COBRAR: criterio devengado (mesServicio manda). Suma:
+      //   - Pendiente, Falta de Pago, Ejecución de Honorarios → a.monto
+      //   - Pago Parcial → saldo restante (monto - montoPagado)
+      //   Incluye todos los tipos (también bonos pendientes, porque si el cliente
+      //   no te dio la plata para bonos, igual se la tenés que reclamar).
+      //
+      // SELECCIÓN MANUAL: suma solo de IDs en seleccionManual, sea cual sea su estado/tipo.
 
-      var bonosCobrados = abonos.filter(function(a){ 
-        return a.tipo === 'Pago de Bonos y AP' && (a.estado === 'Pagado' || a.estado === 'Terminado');
-      }).reduce(function(s, a){ return s + Number(a.monto || 0); }, 0);
-      bonosCobrados += abonos.filter(function(a){ 
-        return a.tipo === 'Pago de Bonos y AP' && a.estado === 'Pago Parcial';
-      }).reduce(function(s, a){ return s + Number(a.montoPagado || 0); }, 0);
-      
-      var totalIngresosBrutos = honorariosCobrados + bonosCobrados;
+      var fuente = (dashboardScope === 'todos') ? abonosData : abonosFiltrados;
 
-      var totalPendientes = abonos.filter(function(a){ return a.estado==='Pendiente'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
-      var totalFaltaPago = abonos.filter(function(a){ return a.estado==='Falta de Pago'; }).reduce((sum, a) => sum + Number(a.monto || 0), 0);
+      // ===== COBRADO (ganancia real) y BONOS (tránsito) — por fechaPago =====
+      var totalCobrado = 0;
+      var totalBonos = 0;
+      fuente.forEach(function(a){
+        var esCobrado = ['Pagado','Terminado','Pago Parcial'].includes(a.estado);
+        if(!esCobrado) return;
 
-      // Abonos puros = suma de montoBase de todos los Abonos Mensuales (sin deuda acumulada)
-      // Descontando comisión si es comisionable
-      // Solo suma los clientes no excluidos del selector
-      var abonosPuros = abonos.filter(function(a){ return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente); })
+        // Si scope='mes', verificar que fechaPago caiga en el mes filtrado
+        if(dashboardScope === 'mes'){
+          var mkRegistro = null;
+          if(a.fechaPago){
+            var d = new Date(a.fechaPago + 'T00:00:00');
+            if(!isNaN(d.getTime())) mkRegistro = d.getMonth() + '-' + d.getFullYear();
+          }
+          if(!mkRegistro && a.mesServicio){
+            mkRegistro = a.mesServicio.month + '-' + a.mesServicio.year;
+          }
+          var mkActual = currentMonth.month + '-' + currentMonth.year;
+          if(mkRegistro !== mkActual) return;
+        }
+
+        var monto = a.estado === 'Pago Parcial'
+          ? (parseFloat(a.montoPagado) || 0)
+          : (parseFloat(a.monto) || 0);
+
+        // SEPARACIÓN CLAVE: bonos van aparte, no son ganancia
+        if((a.tipo||'').trim() === 'Pago de Bonos y AP'){
+          totalBonos += monto;
+        } else {
+          totalCobrado += monto;
+        }
+      });
+
+      // ===== POR COBRAR (por mesServicio, incluye todos los tipos) =====
+      var totalPorCobrar = 0;
+      fuente.forEach(function(a){
+        var esDeuda = ['Pendiente','Falta de Pago','Ejecución de Honorarios'].includes(a.estado);
+        if(esDeuda){
+          totalPorCobrar += parseFloat(a.monto) || 0;
+        } else if(a.estado === 'Pago Parcial'){
+          var saldo = (parseFloat(a.monto) || 0) - (parseFloat(a.montoPagado) || 0);
+          if(saldo > 0) totalPorCobrar += saldo;
+        }
+      });
+
+      // ===== SELECCIÓN MANUAL (de toda la base, no solo del scope) =====
+      // Dos cifras:
+      //   - cobrado real: lo que YA entró (Pagado/Terminado → monto; Parcial → montoPagado; resto → 0)
+      //   - proyectado: lo que entraría si se cobra todo lo tildado (siempre a.monto)
+      var totalSeleccionCobrado = 0;
+      var totalSeleccionProyectado = 0;
+      seleccionManual.forEach(function(id){
+        var a = abonosData.find(function(x){ return x.id === id; });
+        if(!a) return;
+        var montoTotal = parseFloat(a.monto) || 0;
+        totalSeleccionProyectado += montoTotal;
+
+        if(a.estado === 'Pagado' || a.estado === 'Terminado'){
+          totalSeleccionCobrado += montoTotal;
+        } else if(a.estado === 'Pago Parcial'){
+          totalSeleccionCobrado += parseFloat(a.montoPagado) || 0;
+        }
+        // Pendiente / Falta de Pago / Ejecución → no suman a "cobrado real"
+      });
+
+      // ===== ABONOS PUROS (sin cambios funcionales) =====
+      var abonosPuros = abonosFiltrados.filter(function(a){ return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente); })
         .reduce(function(sum, a){
           var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
           if (a.esComisionable && a.comisionPorcentaje) {
@@ -1442,31 +1610,52 @@
           return sum + base;
         }, 0);
 
-      // Renderizar selector de clientes para abonos puros
-      renderAbonosPurosSelector(abonos);
+      renderAbonosPurosSelector(abonosFiltrados);
 
       realAmounts = {
-        cobrado: honorariosCobrados,
-        pendientes: totalPendientes,
-        falta: totalFaltaPago,
-        bonos: bonosCobrados,
-        bruto: totalIngresosBrutos,
+        cobrado: totalCobrado,
+        bonos: totalBonos,
+        porCobrar: totalPorCobrar,
+        seleccionCobrado: totalSeleccionCobrado,
+        seleccionProyectado: totalSeleccionProyectado,
         abonosPuros: abonosPuros
       };
 
-      document.getElementById('totalRegistros').textContent = abonos.length;
+      // Casos = expedientes únicos · Clientes = nombres únicos (sobre el mes filtrado)
+      var casosSet = new Set();
+      var clientesSet = new Set();
+      abonosFiltrados.forEach(function(a){
+        var cliente = (a.cliente || '').trim().toLowerCase();
+        var expediente = (a.expediente || '').trim().toLowerCase();
+        if(cliente){
+          clientesSet.add(cliente);
+          casosSet.add(cliente + '|' + expediente);
+        }
+      });
+      document.getElementById('totalCasos').textContent = casosSet.size;
+      document.getElementById('totalClientesUnicos').textContent = clientesSet.size;
+      document.getElementById('seleccionCount').textContent = seleccionManual.size;
+
+      // Etiquetas que cambian según el scope
+      var labelScope = dashboardScope === 'todos' ? '(todos los tiempos)' : '(este mes)';
+      var lblCob = document.getElementById('scopeLabelCobrado');
+      var lblBonos = document.getElementById('scopeLabelBonos');
+      var lblPC = document.getElementById('scopeLabelPorCobrar');
+      if(lblCob) lblCob.textContent = labelScope;
+      if(lblBonos) lblBonos.textContent = labelScope;
+      if(lblPC) lblPC.textContent = labelScope;
 
       refreshAmountDisplay();
     }
 
     function refreshAmountDisplay() {
       var cards = [
-        { el: document.getElementById('totalIngresosBrutos'), value: realAmounts.bruto },
-        { el: document.getElementById('totalCobrado'),   value: realAmounts.cobrado },
-        { el: document.getElementById('totalBonosCobrados'), value: realAmounts.bonos },
-        { el: document.getElementById('totalPendientes'), value: realAmounts.pendientes },
-        { el: document.getElementById('totalFaltaPago'),  value: realAmounts.falta },
-        { el: document.getElementById('totalAbonosPuros'), value: realAmounts.abonosPuros }
+        { el: document.getElementById('totalCobrado'),            value: realAmounts.cobrado },
+        { el: document.getElementById('totalBonos'),              value: realAmounts.bonos },
+        { el: document.getElementById('totalPorCobrar'),          value: realAmounts.porCobrar },
+        { el: document.getElementById('totalSeleccionCobrado'),   value: realAmounts.seleccionCobrado },
+        { el: document.getElementById('totalSeleccionProyectado'),value: realAmounts.seleccionProyectado },
+        { el: document.getElementById('totalAbonosPuros'),        value: realAmounts.abonosPuros }
       ];
       cards.forEach(function(card) {
         if (card.el) {
@@ -1580,7 +1769,7 @@
       if(abonos.length===0){
         var msg = currentStatusFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
         if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.';
-        body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
+        body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
       }
       abonos.forEach(function(abono){
@@ -1693,7 +1882,9 @@
           var _ci = abono.convenioTipo === 'Definitivo' ? '✅' : '📝';
           tipoLabel += '<br><span style="font-size:.72em;font-weight:700;color:'+_cc+';">'+_ci+' '+abono.convenioTipo+'</span>';
         }
+        var checkboxChecked = seleccionManual.has(abono.id) ? 'checked' : '';
         tr.innerHTML =
+          '<td class="no-print" style="text-align:center;"><input type="checkbox" class="sel-row-cb" data-id="'+abono.id+'" '+checkboxChecked+' style="width:1.1em;height:1.1em;cursor:pointer;"></td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text" style="font-size:.82em;color:#1e3a8a;">'+(abono.expediente||'—')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
