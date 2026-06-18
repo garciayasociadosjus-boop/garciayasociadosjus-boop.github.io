@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -1511,41 +1512,66 @@
     function toggleEspejo(){
       modoEspejo = !modoEspejo;
       var btn = document.getElementById('espejoBtn');
+      console.log('[ESPEJO] toggle →', modoEspejo ? 'ACTIVANDO' : 'DESACTIVANDO');
+
       if(modoEspejo){
-        // ACTIVAR
-        btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
-        btn.innerHTML = '🔗 Espejar <span style="font-size:.7em;background:#fff;color:#059669;padding:2px 6px;border-radius:8px;margin-left:4px;font-weight:700;">ACTIVO</span>';
-        if(typeof firebaseDB !== 'undefined' && firebaseDB){
-          try {
-            espejoListenerRef = firebaseDB.ref('planilla_abonos_vista');
-            espejoListenerRef.on('value', function(snap){
-              var v = snap.val();
-              if(v) applyVistaSnapshot(v);
-            }, function(err){ console.error('Listener espejo error:', err); });
-            // Empujamos la vista actual para que la otra PC se sincronice con la nuestra
-            pushVistaSnapshot();
-          } catch(e){
-            console.error('Error conectando espejo:', e);
-            alert('No se pudo conectar al espejo. Verificá la conexión a Firebase.');
-            modoEspejo = false;
-            btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
-            btn.innerHTML = '🔗 Espejar';
-          }
-        } else {
-          alert('Firebase aún no está listo. Esperá unos segundos y volvé a intentar.');
+        // ACTIVAR — visual muy notorio
+        btn.style.cssText = 'background:#10b981 !important;color:#fff !important;border:2px solid #047857;box-shadow:0 0 10px #10b981;font-weight:700;';
+        btn.innerHTML = '🟢 ESPEJANDO';
+
+        if(typeof firebaseDB === 'undefined' || !firebaseDB){
+          alert('⚠️ Firebase aún no está conectado. Esperá unos segundos y volvé a tocar el botón.');
           modoEspejo = false;
-          btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
+          btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
+          btn.innerHTML = '🔗 Espejar';
+          return;
+        }
+
+        try {
+          espejoListenerRef = firebaseDB.ref('planilla_abonos_vista');
+          // Listener para recibir cambios remotos
+          espejoListenerRef.on('value', function(snap){
+            var v = snap.val();
+            console.log('[ESPEJO] recibido snapshot:', v ? 'con datos' : 'vacío');
+            if(v) applyVistaSnapshot(v);
+          }, function(err){
+            console.error('[ESPEJO] error listener:', err);
+            alert('Error leyendo el espejo: ' + (err && err.message ? err.message : err) + '\n\nProbable causa: las reglas de Firebase no permiten leer "planilla_abonos_vista". Avisame y te paso las reglas para corregir en Firebase Console.');
+            // Forzar desactivación
+            modoEspejo = false;
+            btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
+            btn.innerHTML = '🔗 Espejar';
+          });
+
+          // Test de escritura inmediato: si falla la regla, lo detectamos al toque
+          firebaseDB.ref('planilla_abonos_vista').set(buildVistaSnapshot())
+            .then(function(){ console.log('[ESPEJO] escritura inicial OK'); })
+            .catch(function(e){
+              console.error('[ESPEJO] error escribiendo:', e);
+              alert('No se puede escribir el espejo en Firebase.\n\nMensaje: ' + (e && e.message ? e.message : e) + '\n\nProbable causa: las reglas de Firebase no permiten escribir en "planilla_abonos_vista". Te paso las reglas correctas si me avisás.');
+              // Forzar desactivación
+              modoEspejo = false;
+              if(espejoListenerRef){ try { espejoListenerRef.off(); } catch(_){} espejoListenerRef = null; }
+              btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
+              btn.innerHTML = '🔗 Espejar';
+            });
+        } catch(e){
+          console.error('[ESPEJO] error conectando:', e);
+          alert('Error al activar el modo espejo: ' + e.message);
+          modoEspejo = false;
+          btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
           btn.innerHTML = '🔗 Espejar';
         }
       } else {
         // DESACTIVAR
-        btn.style.background = 'linear-gradient(135deg,#64748b,#475569)';
+        btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
         btn.innerHTML = '🔗 Espejar';
         if(espejoListenerRef){
           try { espejoListenerRef.off(); } catch(e){}
           espejoListenerRef = null;
         }
         clearTimeout(espejoSaveTimer);
+        console.log('[ESPEJO] desactivado');
       }
     }
     // ====== FIN MODO ESPEJO ======
