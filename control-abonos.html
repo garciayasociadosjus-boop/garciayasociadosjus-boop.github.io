@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -245,19 +246,23 @@
             <button id="limpiarSeleccionBtn" title="Limpiar selección" style="background:none;border:none;cursor:pointer;font-size:1.1em;color:#f59e0b;">🧹</button>
           </div>
 
-          <!-- Apilado vertical: Cobrado real arriba, Proyectado abajo -->
+          <!-- Apilado vertical: Cobrado real / Proyectado / Diferencia -->
           <div style="margin-top:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed #fde68a;">
               <div style="font-size:.72em;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Cobrado real</div>
               <div class="value" id="totalSeleccionCobrado" style="color:#059669;font-size:1.1em;font-weight:700;line-height:1;">$0.00</div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed #fde68a;">
               <div style="font-size:.72em;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Proyectado</div>
               <div class="value" id="totalSeleccionProyectado" style="color:#f59e0b;font-size:1.1em;font-weight:700;line-height:1;">$0.00</div>
             </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+              <div style="font-size:.72em;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Diferencia</div>
+              <div class="value" id="totalSeleccionDiferencia" style="color:#dc2626;font-size:1.1em;font-weight:700;line-height:1;">$0.00</div>
+            </div>
           </div>
 
-          <div style="font-size:.68em;color:#64748b;margin-top:6px;">Cobrado real = ya entró · Proyectado = si cobrás todo</div>
+          <div style="font-size:.68em;color:#64748b;margin-top:6px;">Diferencia = lo que falta cobrar de los seleccionados</div>
         </div>
 
         <!-- 5. CASOS Y CLIENTES -->
@@ -274,7 +279,7 @@
               <div class="value" id="totalClientesUnicos" style="color:#0284c7;font-size:1.4em;line-height:1.1;">0</div>
             </div>
           </div>
-          <div style="font-size:.72em;color:#64748b;margin-top:6px;">Casos = expedientes únicos · Clientes = nombres únicos</div>
+          <div style="font-size:.72em;color:#64748b;margin-top:6px;">Casos activos · Sin abonos/siniestros terminados</div>
         </div>
 
       </div>
@@ -602,13 +607,14 @@
     let activeTypeFilters = [];
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmounts = { cobrado: 0, bonos: 0, porCobrar: 0, seleccionCobrado: 0, seleccionProyectado: 0 };
+    let realAmounts = { cobrado: 0, bonos: 0, porCobrar: 0, seleccionCobrado: 0, seleccionProyectado: 0, seleccionDiferencia: 0 };
     let currentObsId = null;
     let currentLogId = null;
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
     let seleccionManual = new Set(); // IDs de registros tildados para suma manual
+    let seleccionSaldoProyectable = new Set(); // IDs donde tildaste "incluir saldo en proyectado" (parciales/cuotas)
     let dashboardScope = 'mes'; // 'mes' = solo mes filtrado, 'todos' = histórico completo
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
     const ESTADO_OPTIONS = ['Pendiente','Pagado','Falta de Pago','Pago Parcial','Ejecución de Honorarios','Terminado'];
@@ -721,8 +727,19 @@
         if(e.target.classList.contains('sel-row-cb')){
           var id = e.target.dataset.id;
           if(e.target.checked) seleccionManual.add(id);
-          else seleccionManual.delete(id);
-          // Solo recalculo el dashboard (no re-render completo, para no perder el scroll)
+          else {
+            seleccionManual.delete(id);
+            seleccionSaldoProyectable.delete(id); // si destildás el principal, destildá también el saldo
+          }
+          render();
+        } else if(e.target.classList.contains('sel-saldo-cb')){
+          var id = e.target.dataset.id;
+          if(e.target.checked){
+            seleccionSaldoProyectable.add(id);
+            seleccionManual.add(id); // si tildás el saldo, asegurate de tildar también el principal
+          } else {
+            seleccionSaldoProyectable.delete(id);
+          }
           render();
         }
       });
@@ -732,7 +749,7 @@
         var marcar = e.target.checked;
         document.querySelectorAll('.sel-row-cb').forEach(function(cb){
           if(marcar) seleccionManual.add(cb.dataset.id);
-          else seleccionManual.delete(cb.dataset.id);
+          else { seleccionManual.delete(cb.dataset.id); seleccionSaldoProyectable.delete(cb.dataset.id); }
           cb.checked = marcar;
         });
         render();
@@ -741,6 +758,7 @@
       // Botón limpiar selección
       document.getElementById('limpiarSeleccionBtn').addEventListener('click', function(){
         seleccionManual.clear();
+        seleccionSaldoProyectable.clear();
         document.getElementById('checkAllRows').checked = false;
         render();
       });
@@ -963,6 +981,7 @@
       if(confirm('¿Eliminar este registro?')){
         abonosData = abonosData.filter(function(a){ return a.id !== id; });
         seleccionManual.delete(id);
+        seleccionSaldoProyectable.delete(id);
         saveData(); render();
       }
     }
@@ -1484,25 +1503,45 @@
         }
       });
 
-      // ===== SELECCIÓN MANUAL (de toda la base, no solo del scope) =====
-      // Dos cifras:
-      //   - cobrado real: lo que YA entró (Pagado/Terminado → monto; Parcial → montoPagado; resto → 0)
-      //   - proyectado: lo que entraría si se cobra todo lo tildado (siempre a.monto)
+      // ===== SELECCIÓN MANUAL =====
+      // Cobrado real: lo que YA entró por los registros tildados
+      // Proyectado: lo cobrado + saldos por cobrar de los tildados
+      //   - Para Pago Parcial y Honorarios en Cuotas, el saldo entra a Proyectado
+      //     SOLO si el segundo checkbox naranja está tildado (seleccionSaldoProyectable)
+      //   - Para los demás tipos en estado activo (Pendiente/Falta/Ejecución), el monto entra siempre
       var totalSeleccionCobrado = 0;
       var totalSeleccionProyectado = 0;
       seleccionManual.forEach(function(id){
         var a = abonosData.find(function(x){ return x.id === id; });
         if(!a) return;
         var montoTotal = parseFloat(a.monto) || 0;
-        totalSeleccionProyectado += montoTotal;
+        var montoPagado = parseFloat(a.montoPagado) || 0;
+        var esSaldoControlable = (a.estado === 'Pago Parcial') || (a.tipo === 'Honorarios en Cuotas');
 
         if(a.estado === 'Pagado' || a.estado === 'Terminado'){
+          // Cobrado completo: cobrado real = proyectado = monto total
           totalSeleccionCobrado += montoTotal;
+          totalSeleccionProyectado += montoTotal;
         } else if(a.estado === 'Pago Parcial'){
-          totalSeleccionCobrado += parseFloat(a.montoPagado) || 0;
+          // Parcial: cobrado = lo pagado; proyectado = lo pagado + (saldo solo si el segundo checkbox está tildado)
+          totalSeleccionCobrado += montoPagado;
+          totalSeleccionProyectado += montoPagado;
+          if(seleccionSaldoProyectable.has(id)){
+            var saldo = montoTotal - montoPagado;
+            if(saldo > 0) totalSeleccionProyectado += saldo;
+          }
+        } else {
+          // Pendiente / Falta de Pago / Ejecución de Honorarios → no hay cobrado real
+          // Si es Honorarios en Cuotas, el saldo solo entra si el segundo checkbox está tildado
+          // Si es otro tipo, el saldo entra siempre (asumimos que se cobra este mes)
+          if(esSaldoControlable){
+            if(seleccionSaldoProyectable.has(id)) totalSeleccionProyectado += montoTotal;
+          } else {
+            totalSeleccionProyectado += montoTotal;
+          }
         }
-        // Pendiente / Falta de Pago / Ejecución → no suman a "cobrado real"
       });
+      var totalSeleccionDiferencia = totalSeleccionProyectado - totalSeleccionCobrado;
 
       // ===== ABONOS PUROS (eliminado) =====
 
@@ -1511,13 +1550,19 @@
         bonos: totalBonos,
         porCobrar: totalPorCobrar,
         seleccionCobrado: totalSeleccionCobrado,
-        seleccionProyectado: totalSeleccionProyectado
+        seleccionProyectado: totalSeleccionProyectado,
+        seleccionDiferencia: totalSeleccionDiferencia
       };
 
-      // Casos = expedientes únicos · Clientes = nombres únicos (sobre el mes filtrado)
+      // Casos = expedientes únicos · Clientes = nombres únicos
+      // Se EXCLUYEN los registros tipo "Abono Mensual" o "Honorarios Siniestro" en estado Terminado
+      // (esos casos están cerrados: el cliente ya no paga abono o ya cobró su siniestro)
+      // Otros tipos terminados (Regulación, Convenio, etc.) NO cierran el caso.
       var casosSet = new Set();
       var clientesSet = new Set();
       abonosFiltrados.forEach(function(a){
+        var esCierre = (a.tipo === 'Abono Mensual' || a.tipo === 'Honorarios Siniestro') && a.estado === 'Terminado';
+        if(esCierre) return;
         var cliente = (a.cliente || '').trim().toLowerCase();
         var expediente = (a.expediente || '').trim().toLowerCase();
         if(cliente){
@@ -1543,11 +1588,12 @@
 
     function refreshAmountDisplay() {
       var cards = [
-        { el: document.getElementById('totalCobrado'),            value: realAmounts.cobrado },
-        { el: document.getElementById('totalBonos'),              value: realAmounts.bonos },
-        { el: document.getElementById('totalPorCobrar'),          value: realAmounts.porCobrar },
-        { el: document.getElementById('totalSeleccionCobrado'),   value: realAmounts.seleccionCobrado },
-        { el: document.getElementById('totalSeleccionProyectado'),value: realAmounts.seleccionProyectado }
+        { el: document.getElementById('totalCobrado'),               value: realAmounts.cobrado },
+        { el: document.getElementById('totalBonos'),                 value: realAmounts.bonos },
+        { el: document.getElementById('totalPorCobrar'),             value: realAmounts.porCobrar },
+        { el: document.getElementById('totalSeleccionCobrado'),      value: realAmounts.seleccionCobrado },
+        { el: document.getElementById('totalSeleccionProyectado'),   value: realAmounts.seleccionProyectado },
+        { el: document.getElementById('totalSeleccionDiferencia'),   value: realAmounts.seleccionDiferencia }
       ];
       cards.forEach(function(card) {
         if (card.el) {
@@ -1775,8 +1821,18 @@
           tipoLabel += '<br><span style="font-size:.72em;font-weight:700;color:'+_cc+';">'+_ci+' '+abono.convenioTipo+'</span>';
         }
         var checkboxChecked = seleccionManual.has(abono.id) ? 'checked' : '';
+        // Mostrar segundo checkbox naranja para Pago Parcial o Honorarios en Cuotas
+        var permiteSaldoControl = (abono.estado === 'Pago Parcial') || (abono.tipo === 'Honorarios en Cuotas');
+        var saldoChecked = seleccionSaldoProyectable.has(abono.id) ? 'checked' : '';
+        var celdaCheckboxes = '<td class="no-print" style="text-align:center;white-space:nowrap;">'
+          + '<input type="checkbox" class="sel-row-cb" data-id="'+abono.id+'" '+checkboxChecked+' title="Sumar a Cobrado / Proyectado" style="width:1.1em;height:1.1em;cursor:pointer;vertical-align:middle;">';
+        if(permiteSaldoControl){
+          celdaCheckboxes += '<input type="checkbox" class="sel-saldo-cb" data-id="'+abono.id+'" '+saldoChecked+' title="Incluir saldo en Proyectado" style="width:1em;height:1em;cursor:pointer;margin-left:4px;accent-color:#f59e0b;vertical-align:middle;">';
+        }
+        celdaCheckboxes += '</td>';
+
         tr.innerHTML =
-          '<td class="no-print" style="text-align:center;"><input type="checkbox" class="sel-row-cb" data-id="'+abono.id+'" '+checkboxChecked+' style="width:1.1em;height:1.1em;cursor:pointer;"></td>'+
+          celdaCheckboxes +
           '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text" style="font-size:.82em;color:#1e3a8a;">'+(abono.expediente||'—')+'</td>'+
           '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
