@@ -135,7 +135,7 @@
         <button class="btn" id="addRowBtn" type="button">➕ Nueva Fila</button>
         <button class="btn btn-danger" id="addMonthBtn" type="button">📅 Agregar Mes</button>
         <button class="btn btn-info" id="sortBtn" type="button">🔤 Ordenar</button>
-        <button class="btn" id="syncAbonosBtn" type="button" style="background:linear-gradient(135deg,#6a1b9a,#4a148c);">🔄 Sincronizar Abonos</button>
+        <button class="btn" id="syncAbonosBtn" type="button" title="Sincronización manual (también se sincroniza automáticamente en tiempo real)" style="background:linear-gradient(135deg,#6a1b9a,#4a148c);">🔄 Sincronizar Abonos <span style="font-size:.7em;background:#27ae60;padding:2px 6px;border-radius:8px;margin-left:4px;">AUTO</span></button>
         <button class="btn btn-success" id="exportExcelBtn" type="button">📊 Exportar Excel</button>
         <button class="btn btn-info" id="exportJSONBtn" type="button">💾 Backup JSON</button>
         <button class="btn btn-warning" id="importJSONBtn" type="button">📂 Importar JSON</button>
@@ -193,6 +193,10 @@
 <script>
 let allData = {};
 let chartInstance = null;
+let abonosLiveData = null;         // Snapshot en vivo de planilla_abonos desde Firebase
+let abonosListenerRef = null;      // Referencia al listener
+let syncDebounceTimer = null;      // Debounce para evitar escrituras excesivas en auto-sync
+let primeraCargaAbonos = true;     // Para no disparar el alert en la primera carga
 
 // ====== FIREBASE ======
 const FB_CONFIG = {
@@ -226,6 +230,38 @@ function initFirebase() {
             }
         }, () => setFBStatus('❌ Error de conexión','error'));
         db.ref('.info/connected').on('value', s => setFBStatus(s.val() ? '✅ Conectado en tiempo real' : '⚠️ Sin conexión (local)', s.val() ? 'ok' : 'warn'));
+
+        // ====== AUTO-SYNC DESDE PLANILLA_ABONOS ======
+        // Escucha cambios en tiempo real sobre la planilla de abonos y dispara syncAbonos
+        // con debounce de 2.5s para no escribir Firebase en cada tecla.
+        try {
+            abonosListenerRef = db.ref('planilla_abonos');
+            abonosListenerRef.on('value', snap => {
+                const d = snap.val();
+                let arr = [];
+                if(Array.isArray(d)){
+                    arr = d.filter(x => x);
+                } else if(d && typeof d === 'object'){
+                    Object.keys(d).forEach(k => {
+                        if(d[k] && typeof d[k] === 'object' && d[k].id) arr.push(d[k]);
+                    });
+                }
+                abonosLiveData = arr;
+
+                // Auto-sync con debounce. Silencioso (sin alertas).
+                clearTimeout(syncDebounceTimer);
+                syncDebounceTimer = setTimeout(() => {
+                    syncAbonos(true);
+                    if(primeraCargaAbonos){
+                        primeraCargaAbonos = false;
+                        console.log('[Auto-sync] Primera carga de Abonos completada');
+                    } else {
+                        console.log('[Auto-sync] Abonos cambió, egresos actualizado');
+                    }
+                }, 2500);
+            }, err => console.error('Listener planilla_abonos error:', err));
+        } catch(e){ console.error('Error montando listener planilla_abonos:', e); }
+        // ====== FIN AUTO-SYNC ======
     } catch(e) { setFBStatus('❌ Error al iniciar','error'); }
 }
 
@@ -391,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('exportJSONBtn').addEventListener('click',()=>{ const b=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup-ingresos-egresos.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); });
         document.getElementById('importJSONBtn').addEventListener('click',()=>document.getElementById('jsonFileInput').click());
         document.getElementById('jsonFileInput').addEventListener('change',importJSON);
-        document.getElementById('syncAbonosBtn').addEventListener('click',syncAbonos);
+        document.getElementById('syncAbonosBtn').addEventListener('click',() => syncAbonos(false));
         document.body.addEventListener('change',onTableChange);
         document.body.addEventListener('focusout',onFocusOut);
         document.body.addEventListener('click',onBodyClick);
@@ -438,41 +474,119 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function sortTx(t) { t.sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||'','es',{sensitivity:'base'})); }
 
-    function syncAbonos() {
+    // === SYNC ABONOS ===
+    // Lógica:
+    // - Lee desde abonosLiveData (Firebase en vivo) o, si no está aún listo, desde localStorage.
+    // - Imputa cada ingreso al mes de fechaPago (criterio percibido). Si no hay fechaPago, cae a mesServicio.
+    // - Cuenta como cobrado: Pagado, Terminado, Pago Parcial.
+    // - Sobreescribe siempre las filas "Honorarios Profesionales" y "Pago Bonos y Aportes" sincronizadas.
+    // - Limpia las filas sincronizadas en meses donde ya no hay datos (caso típico: un Terminado se movió de un mes a otro).
+    // - silent=true: sin alertas (modo auto). silent=false: con alertas (botón manual).
+    function syncAbonos(silent) {
+        if(silent === undefined) silent = false;
         try {
-            const raw=localStorage.getItem('abonosData'); if(!raw){alert('No se encontraron datos de Abonos.');return;}
-            const abonos=JSON.parse(raw); if(!Array.isArray(abonos))throw new Error("Formato incorrecto.");
-            const monthly={};
-            abonos.forEach(a=>{
-                let mk=null;
-                if(a.mesServicio) mk=`${a.mesServicio.year}-${String(a.mesServicio.month+1).padStart(2,'0')}`;
-                else if(a.fechaPago){const d=new Date(a.fechaPago+'T00:00:00');mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-                if(!mk)return;
-                const esCobrado=['Pagado','Terminado','Pago Parcial'].includes(a.estado); if(!esCobrado)return;
-                const monto=a.estado==='Pago Parcial'?(parseFloat(a.montoPagado)||0):(parseFloat(a.monto)||0);
-                if(!monthly[mk])monthly[mk]={hon:0,bonos:0};
-                if((a.tipo||'').trim()==='Pago de Bonos y AP') monthly[mk].bonos+=monto;
-                else monthly[mk].hon+=monto;
-            });
-            let cnt=0;
-            Object.keys(monthly).forEach(mk=>{
-                if(!allData[mk])allData[mk]={transactions:[]};
-                const t=allData[mk].transactions;
-                if(monthly[mk].hon>0){
-                    const idx=t.findIndex(r=>(r.descripcion||'').toLowerCase()==='honorarios profesionales');
-                    if(idx>-1)t[idx].monto=monthly[mk].hon;
-                    else t.unshift({fecha:mk+'-01',descripcion:'Honorarios Profesionales',tipo:'Honorarios Abono Mensual',categoria:'ingreso',monto:monthly[mk].hon,medioPago:'Automático',quien:'ESTUDIO',observaciones:'Sincronizado desde Abonos.'});
+            let abonos = (typeof abonosLiveData !== 'undefined' && abonosLiveData) ? abonosLiveData : null;
+            if(!abonos){
+                const raw = localStorage.getItem('abonosData');
+                if(!raw){ if(!silent) alert('No se encontraron datos de Abonos.'); return; }
+                abonos = JSON.parse(raw);
+            }
+            if(!Array.isArray(abonos)) throw new Error("Formato de Abonos incorrecto.");
+
+            // 1) Calcular monthly desde cero según criterio PERCIBIDO (fechaPago manda)
+            const monthly = {};
+            abonos.forEach(a => {
+                const esCobrado = ['Pagado','Terminado','Pago Parcial'].includes(a.estado);
+                if(!esCobrado) return;
+
+                let mk = null;
+                // Prioridad 1: fechaPago real
+                if(a.fechaPago){
+                    const d = new Date(a.fechaPago + 'T00:00:00');
+                    if(!isNaN(d.getTime())) mk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
                 }
-                if(monthly[mk].bonos>0){
-                    const idx=t.findIndex(r=>(r.descripcion||'').toLowerCase()==='pago bonos y aportes');
-                    if(idx>-1)t[idx].monto=monthly[mk].bonos;
-                    else t.push({fecha:mk+'-01',descripcion:'Pago Bonos y Aportes',tipo:'Pago Bonos y AP',categoria:'egreso',monto:monthly[mk].bonos,medioPago:'Automático',quien:'CLIENTE',observaciones:'Sincronizado desde Abonos.'});
+                // Fallback: mesServicio (solo si no hay fechaPago válida)
+                if(!mk && a.mesServicio){
+                    mk = `${a.mesServicio.year}-${String(a.mesServicio.month+1).padStart(2,'0')}`;
                 }
-                cnt++;
+                if(!mk) return;
+
+                const monto = a.estado==='Pago Parcial'
+                    ? (parseFloat(a.montoPagado)||0)
+                    : (parseFloat(a.monto)||0);
+                if(monto <= 0) return;
+
+                if(!monthly[mk]) monthly[mk] = {hon:0, bonos:0};
+                if((a.tipo||'').trim() === 'Pago de Bonos y AP') monthly[mk].bonos += monto;
+                else monthly[mk].hon += monto;
             });
-            if(cnt>0){saveData();renderApp();alert(`✅ Sincronizado para ${cnt} mes(es).`);}
-            else alert("No se encontraron datos para sincronizar.");
-        } catch(err){alert(`Error: ${err.message}`);}
+
+            // 2) Identificar meses que YA tienen filas sincronizadas (para poder limpiarlas si quedaron huérfanas)
+            const mesesConSync = new Set();
+            Object.keys(allData).forEach(mk => {
+                const txs = allData[mk].transactions || [];
+                if(txs.some(r => (r.observaciones||'') === 'Sincronizado desde Abonos.')) mesesConSync.add(mk);
+            });
+
+            // 3) Recorrer todos los meses involucrados (nuevos + previamente sincronizados)
+            const todosLosMeses = new Set([...Object.keys(monthly), ...mesesConSync]);
+            let cambios = 0;
+
+            todosLosMeses.forEach(mk => {
+                if(!allData[mk]) allData[mk] = {transactions:[]};
+                const t = allData[mk].transactions;
+                const honMonto = (monthly[mk] && monthly[mk].hon) || 0;
+                const bonosMonto = (monthly[mk] && monthly[mk].bonos) || 0;
+
+                // HONORARIOS PROFESIONALES (ingreso)
+                const honIdx = t.findIndex(r => (r.descripcion||'').toLowerCase() === 'honorarios profesionales');
+                if(honMonto > 0){
+                    if(honIdx > -1){
+                        if(Number(t[honIdx].monto) !== Number(honMonto)){
+                            t[honIdx].monto = honMonto;
+                            t[honIdx].observaciones = 'Sincronizado desde Abonos.';
+                            cambios++;
+                        }
+                    } else {
+                        t.unshift({fecha:mk+'-01', descripcion:'Honorarios Profesionales', tipo:'Honorarios Abono Mensual', categoria:'ingreso', monto:honMonto, medioPago:'Automático', quien:'ESTUDIO', observaciones:'Sincronizado desde Abonos.'});
+                        cambios++;
+                    }
+                } else if(honIdx > -1 && (t[honIdx].observaciones||'') === 'Sincronizado desde Abonos.'){
+                    // Sin datos y la fila era sincronizada → la sacamos (probablemente el cobro se movió a otro mes)
+                    t.splice(honIdx, 1);
+                    cambios++;
+                }
+
+                // BONOS Y APORTES (egreso)
+                const bonosIdx = t.findIndex(r => (r.descripcion||'').toLowerCase() === 'pago bonos y aportes');
+                if(bonosMonto > 0){
+                    if(bonosIdx > -1){
+                        if(Number(t[bonosIdx].monto) !== Number(bonosMonto)){
+                            t[bonosIdx].monto = bonosMonto;
+                            t[bonosIdx].observaciones = 'Sincronizado desde Abonos.';
+                            cambios++;
+                        }
+                    } else {
+                        t.push({fecha:mk+'-01', descripcion:'Pago Bonos y Aportes', tipo:'Pago Bonos y AP', categoria:'egreso', monto:bonosMonto, medioPago:'Automático', quien:'CLIENTE', observaciones:'Sincronizado desde Abonos.'});
+                        cambios++;
+                    }
+                } else if(bonosIdx > -1 && (t[bonosIdx].observaciones||'') === 'Sincronizado desde Abonos.'){
+                    t.splice(bonosIdx, 1);
+                    cambios++;
+                }
+            });
+
+            if(cambios > 0){
+                saveData();
+                renderApp();
+                if(!silent) alert(`✅ Sincronización completada: ${cambios} cambio(s) aplicado(s) en ${todosLosMeses.size} mes(es).`);
+            } else if(!silent){
+                alert("✅ Todo está al día. No hubo cambios para aplicar.");
+            }
+        } catch(err){
+            console.error('Sync error:', err);
+            if(!silent) alert(`Error: ${err.message}`);
+        }
     }
 
     function exportExcel() {
