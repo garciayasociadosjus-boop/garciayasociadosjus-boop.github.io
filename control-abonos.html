@@ -244,18 +244,20 @@
             <h3>🎯 Selección Manual <span id="seleccionCount" style="font-size:.75em;background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;margin-left:4px;">0</span></h3>
             <button id="limpiarSeleccionBtn" title="Limpiar selección" style="background:none;border:none;cursor:pointer;font-size:1.1em;color:#f59e0b;">🧹</button>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:4px;">
-            <div style="flex:1;">
-              <div style="font-size:.68em;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Cobrado real</div>
-              <div class="value" id="totalSeleccionCobrado" style="color:#059669;font-size:1.25em;line-height:1.1;">$0.00</div>
+
+          <!-- Apilado vertical: Cobrado real arriba, Proyectado abajo -->
+          <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed #fde68a;">
+              <div style="font-size:.72em;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Cobrado real</div>
+              <div class="value" id="totalSeleccionCobrado" style="color:#059669;font-size:1.1em;font-weight:700;line-height:1;">$0.00</div>
             </div>
-            <div style="font-size:1.4em;color:#cbd5e1;">→</div>
-            <div style="flex:1;text-align:right;">
-              <div style="font-size:.68em;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Proyectado</div>
-              <div class="value" id="totalSeleccionProyectado" style="color:#f59e0b;font-size:1.25em;line-height:1.1;">$0.00</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+              <div style="font-size:.72em;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Proyectado</div>
+              <div class="value" id="totalSeleccionProyectado" style="color:#f59e0b;font-size:1.1em;font-weight:700;line-height:1;">$0.00</div>
             </div>
           </div>
-          <div style="font-size:.72em;color:#64748b;margin-top:6px;">Cobrado real = lo que ya entró · Proyectado = lo que entraría si cobrás todo</div>
+
+          <div style="font-size:.68em;color:#64748b;margin-top:6px;">Cobrado real = ya entró · Proyectado = si cobrás todo</div>
         </div>
 
         <!-- 5. CASOS Y CLIENTES -->
@@ -275,20 +277,6 @@
           <div style="font-size:.72em;color:#64748b;margin-top:6px;">Casos = expedientes únicos · Clientes = nombres únicos</div>
         </div>
 
-        <!-- 6. ABONOS PUROS (sin cambios funcionales) -->
-        <div class="card" style="border-left:4px solid #8b5cf6;position:relative;">
-          <div class="title-container">
-            <h3>🎯 Abonos Puros <span style="font-size:.65em;color:#94a3b8;">(sin deuda)</span></h3>
-            <button class="toggle-visibility" id="toggleAbonosPurosSelector" title="Seleccionar clientes a sumar" style="font-size:1em;">☑️</button>
-          </div>
-          <div class="value" id="totalAbonosPuros" style="color:#8b5cf6;">$0.00</div>
-          <div id="abonosPurosSelector" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #8b5cf6;border-radius:0 0 10px 10px;padding:12px;z-index:50;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-              <input type="checkbox" id="abonosPurosTodos" checked style="width:1.1em;height:1.1em;"> Todos
-            </label>
-            <div id="abonosPurosClientesList"></div>
-          </div>
-        </div>
       </div>
 
       <div class="controls no-print">
@@ -614,13 +602,12 @@
     let activeTypeFilters = [];
     let currentSearchTerm = '';
     let isAmountHidden = false;
-    let realAmounts = { cobrado: 0, bonos: 0, porCobrar: 0, seleccionCobrado: 0, seleccionProyectado: 0, abonosPuros: 0 };
+    let realAmounts = { cobrado: 0, bonos: 0, porCobrar: 0, seleccionCobrado: 0, seleccionProyectado: 0 };
     let currentObsId = null;
     let currentLogId = null;
     let vistaActual = 'registros';
     let sortOrder = null; // null = sin orden, 'asc' = A→Z, 'desc' = Z→A
     let sortField = 'cliente'; // 'cliente' o 'tipo'
-    let abonosPurosExcluidos = new Set(); // clientes excluidos de la suma de abonos puros
     let seleccionManual = new Set(); // IDs de registros tildados para suma manual
     let dashboardScope = 'mes'; // 'mes' = solo mes filtrado, 'todos' = histórico completo
     const TIPO_OPTIONS = ['Abono Mensual','Honorarios Siniestro','Regulación Honorarios','Pago de Bonos y AP','Convenio Blanco','Honorarios en Cuotas'];
@@ -713,27 +700,6 @@
       document.getElementById('deudaAcumuladaInput').addEventListener('input', recalcularMontoDesdeDeuda);
       document.getElementById('abonoPrimitivo').addEventListener('input', recalcularMontoDesdeDeuda);
 
-      // Selector de Abonos Puros
-      document.getElementById('toggleAbonosPurosSelector').addEventListener('click', function(e) {
-        e.stopPropagation();
-        var sel = document.getElementById('abonosPurosSelector');
-        sel.style.display = sel.style.display === 'none' ? 'block' : 'none';
-      });
-      document.addEventListener('click', function(e) {
-        var sel = document.getElementById('abonosPurosSelector');
-        var card = sel.closest('.card');
-        if (!card.contains(e.target)) sel.style.display = 'none';
-      });
-      document.getElementById('abonosPurosTodos').addEventListener('change', function() {
-        var checked = this.checked;
-        document.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) { cb.checked = checked; });
-        if (checked) abonosPurosExcluidos.clear();
-        else {
-          document.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) { abonosPurosExcluidos.add(cb.dataset.cliente); });
-        }
-        recalcularAbonosPuros();
-      });
-      
       document.getElementById('searchInput').addEventListener('input', function(e) {
           currentSearchTerm = e.target.value;
           render();
@@ -1087,68 +1053,6 @@
       }
     }
 
-    function renderAbonosPurosSelector(abonos) {
-      var container = document.getElementById('abonosPurosClientesList');
-      var clientesAbono = [];
-      var seen = {};
-      abonos.forEach(function(a) {
-        if (a.tipo === 'Abono Mensual' && !seen[a.cliente]) {
-          seen[a.cliente] = true;
-          clientesAbono.push(a.cliente);
-        }
-      });
-      clientesAbono.sort(function(a,b) { return a.localeCompare(b, 'es'); });
-      var html = '';
-      clientesAbono.forEach(function(nombre) {
-        var checked = !abonosPurosExcluidos.has(nombre);
-        var montoBase = 0;
-        abonos.forEach(function(a) {
-          if (a.tipo === 'Abono Mensual' && a.cliente === nombre) {
-            var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
-            // Descontar comisión si es comisionable
-            if (a.esComisionable && a.comisionPorcentaje) {
-              base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
-            }
-            montoBase += base;
-          }
-        });
-        html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0;font-size:.85em;">';
-        html += '<input type="checkbox" class="abonos-puros-cliente-cb" data-cliente="' + nombre + '" ' + (checked ? 'checked' : '') + ' style="width:1em;height:1em;">';
-        html += '<span style="flex:1;">' + nombre + '</span>';
-        html += '<span style="color:#8b5cf6;font-weight:600;font-size:.9em;">' + formatCurrency(montoBase) + '</span>';
-        html += '</label>';
-      });
-      container.innerHTML = html;
-      // Event listeners para cada checkbox
-      container.querySelectorAll('.abonos-puros-cliente-cb').forEach(function(cb) {
-        cb.addEventListener('change', function() {
-          if (this.checked) abonosPurosExcluidos.delete(this.dataset.cliente);
-          else abonosPurosExcluidos.add(this.dataset.cliente);
-          document.getElementById('abonosPurosTodos').checked = abonosPurosExcluidos.size === 0;
-          recalcularAbonosPuros();
-        });
-      });
-    }
-
-    function recalcularAbonosPuros() {
-      var sourceData;
-      if (currentStatusFilter === 'todos-terminados') {
-        sourceData = abonosData.filter(function(a) { return a.estado === 'Terminado'; });
-      } else {
-        sourceData = getAbonosForMonth(currentMonth.month, currentMonth.year);
-      }
-      var abonosPuros = sourceData.filter(function(a) {
-        return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente);
-      }).reduce(function(sum, a) {
-        var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
-        if (a.esComisionable && a.comisionPorcentaje) {
-          base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
-        }
-        return sum + base;
-      }, 0);
-      realAmounts.abonosPuros = abonosPuros;
-      refreshAmountDisplay();
-    }
     function renderTypeFilters() {
       const container = document.getElementById('typeFilters');
       let html = `<label><input type="checkbox" class="type-filter-checkbox" data-type="todos" checked> <strong>Todos los Tipos</strong></label>`;
@@ -1600,25 +1504,14 @@
         // Pendiente / Falta de Pago / Ejecución → no suman a "cobrado real"
       });
 
-      // ===== ABONOS PUROS (sin cambios funcionales) =====
-      var abonosPuros = abonosFiltrados.filter(function(a){ return a.tipo === 'Abono Mensual' && !abonosPurosExcluidos.has(a.cliente); })
-        .reduce(function(sum, a){
-          var base = parseFloat(a.montoBase) || parseFloat(a.abonoPrimitivo) || 0;
-          if (a.esComisionable && a.comisionPorcentaje) {
-            base = base * (1 - (parseFloat(a.comisionPorcentaje) / 100));
-          }
-          return sum + base;
-        }, 0);
-
-      renderAbonosPurosSelector(abonosFiltrados);
+      // ===== ABONOS PUROS (eliminado) =====
 
       realAmounts = {
         cobrado: totalCobrado,
         bonos: totalBonos,
         porCobrar: totalPorCobrar,
         seleccionCobrado: totalSeleccionCobrado,
-        seleccionProyectado: totalSeleccionProyectado,
-        abonosPuros: abonosPuros
+        seleccionProyectado: totalSeleccionProyectado
       };
 
       // Casos = expedientes únicos · Clientes = nombres únicos (sobre el mes filtrado)
@@ -1654,8 +1547,7 @@
         { el: document.getElementById('totalBonos'),              value: realAmounts.bonos },
         { el: document.getElementById('totalPorCobrar'),          value: realAmounts.porCobrar },
         { el: document.getElementById('totalSeleccionCobrado'),   value: realAmounts.seleccionCobrado },
-        { el: document.getElementById('totalSeleccionProyectado'),value: realAmounts.seleccionProyectado },
-        { el: document.getElementById('totalAbonosPuros'),        value: realAmounts.abonosPuros }
+        { el: document.getElementById('totalSeleccionProyectado'),value: realAmounts.seleccionProyectado }
       ];
       cards.forEach(function(card) {
         if (card.el) {
