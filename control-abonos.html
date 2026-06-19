@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     :root{
       --primary-color:#1e3a8a;--secondary-color:#1e293b;--success-color:#059669;--danger-color:#dc2626;--warning-color:#f59e0b;--info-color:#6366f1;--light-bg:#f8fafc;--text-dark:#1e293b;--text-light:#f1f5f9;--disabled-color:#94a3b8;--finished-color:#64748b;
@@ -87,6 +88,58 @@
     .status-span.terminado{background:var(--finished-color)}
     .status-span.pago-parcial{background:var(--info-color)}
     .status-span.ejecución-de-honorarios{background:#8e44ad;color:#fff!important}
+
+    /* ===== NUEVO DISEÑO DE TABLA (Etapa 2) ===== */
+    /* Pills de estado con color suave + texto oscuro */
+    .estado-pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.78em;font-weight:600;white-space:nowrap;letter-spacing:.2px}
+    .estado-pill.pagado{background:#C0DD97;color:#173404}
+    .estado-pill.terminado{background:#B4B2A9;color:#2C2C2A}
+    .estado-pill.pago-parcial{background:#85B7EB;color:#042C53}
+    .estado-pill.pendiente{background:#FAC775;color:#412402}
+    .estado-pill.falta-de-pago{background:#F09595;color:#501313}
+    .estado-pill.ejecución-de-honorarios{background:#CECBF6;color:#26215C}
+    /* Fila pintada según estado (fondo sutil) */
+    tr.row-pagado{background:#F0F8E5!important}
+    tr.row-terminado{background:#F5F4EE!important}
+    tr.row-pago-parcial{background:#EFF6FD!important}
+    tr.row-pendiente{background:#FDF6E8!important}
+    tr.row-falta-de-pago{background:#FDF0F0!important}
+    tr.row-ejecución-de-honorarios{background:#F4F2FC!important}
+    tr[data-clickable="1"]{cursor:default}
+    /* Cliente con expediente abajo */
+    .cliente-cell strong{font-weight:600;color:#0f172a;font-size:.95em}
+    .cliente-cell .exp{font-size:.75em;color:#64748b;margin-top:2px}
+    .cliente-cell .exp.con-deuda{color:#993C1D}
+    /* Monto con saldo */
+    .monto-cell{text-align:right;font-weight:600;color:#0f172a}
+    .monto-cell .saldo{display:block;font-size:.75em;color:#94a3b8;font-weight:400}
+    /* Acciones inline (botones más chiquitos) */
+    .row-actions{display:flex;justify-content:center;gap:4px;align-items:center}
+    .row-actions .btn-icon{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:5px;cursor:pointer;font-size:1em;padding:0;background:transparent;color:#64748b;transition:background .15s}
+    .row-actions .btn-icon:hover{background:#e2e8f0}
+    .row-actions .btn-icon.btn-recibo{background:#0F6E56;color:#fff}
+    .row-actions .btn-icon.btn-recibo:hover{background:#0d5a47}
+    .row-actions .btn-icon.btn-recibo:disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed;opacity:.5}
+    .row-actions .btn-icon.btn-historial{background:#0891b2;color:#fff}
+    .row-actions .btn-icon.btn-historial:hover{background:#0e7490}
+    /* Panel lateral derecho */
+    .detail-panel{position:fixed;top:0;right:-440px;width:420px;height:100vh;background:#fff;box-shadow:-4px 0 16px rgba(0,0,0,.12);transition:right .25s ease-out;z-index:999;overflow-y:auto;padding:20px;border-left:3px solid #1e3a8a}
+    .detail-panel.active{right:0}
+    .detail-panel .panel-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.5em;cursor:pointer;color:#64748b;line-height:1}
+    .detail-panel h3{margin-bottom:4px;color:#0f172a;padding-right:30px}
+    .detail-panel .subtit{font-size:.85em;color:#64748b;margin-bottom:18px}
+    .detail-panel .panel-actions{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
+    .detail-panel .panel-actions .btn{font-size:.85em;padding:8px 12px;flex:1;min-width:90px}
+    .detail-panel .panel-data{width:100%;font-size:.88em;border-collapse:collapse}
+    .detail-panel .panel-data td{padding:6px 4px;border-bottom:1px solid #f1f5f9}
+    .detail-panel .panel-data td:first-child{color:#64748b;font-weight:500;width:140px}
+    .detail-panel .panel-data td:last-child{text-align:right;color:#0f172a}
+    .detail-panel .recibo-destacado{width:100%;background:#0F6E56;color:#fff;border:none;padding:11px;border-radius:8px;font-size:.95em;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
+    .detail-panel .recibo-destacado:hover{background:#0d5a47}
+    .detail-panel .recibo-destacado:disabled{background:#cbd5e1;cursor:not-allowed}
+    .detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:998}
+    .detail-overlay.active{display:block}
+    /* ===== FIN ETAPA 2 ===== */
     .editable{cursor:pointer;position:relative}
     /* === MODIFICACIÓN 1: Mover el lápiz fuera de la celda === */
     .editable:hover::after{content:'✏️';position:absolute;right:-22px;top:50%;transform:translateY(-50%);font-size:1.1em;opacity:.8; z-index: 10;}
@@ -352,18 +405,14 @@
             <table>
               <thead>
                 <tr>
-                  <th class="no-print" style="width:36px;"><input type="checkbox" id="checkAllRows" title="Seleccionar todos los visibles" style="width:1.1em;height:1.1em;cursor:pointer;"></th>
+                  <th class="no-print" style="width:60px;"><input type="checkbox" id="checkAllRows" title="Seleccionar todos los visibles" style="width:1.1em;height:1.1em;cursor:pointer;"></th>
                   <th id="thCliente" onclick="toggleSort('cliente')" style="cursor:pointer;user-select:none;" title="Ordenar por apellido">Cliente <span id="sortIcon">⇅</span></th>
-                  <th>Expediente</th>
-                  <th>Teléfono</th>
-                  <th id="thTipo" onclick="toggleSort('tipo')" title="Ordenar por tipo">Tipo <span id="sortIconTipo">⇅</span></th>
-                  <th>Monto Abono</th>
-                  <th>Fecha Límite</th>
-                  <th>Fecha Real Pago</th>
-                  <th>Forma de Pago</th>
+                  <th id="thTipo" onclick="toggleSort('tipo')" style="cursor:pointer;user-select:none;" title="Ordenar por tipo">Tipo <span id="sortIconTipo">⇅</span></th>
+                  <th style="text-align:right;">Monto</th>
+                  <th>Vencimiento</th>
                   <th>Estado</th>
-                  <th>🤖 Agente</th>
-                  <th class="no-print">Acciones</th>
+                  <th>🤖</th>
+                  <th class="no-print" style="text-align:center;">Acciones</th>
                 </tr>
               </thead>
               <tbody id="abonosTableBody"></tbody>
@@ -576,6 +625,13 @@
     </div>
   </div>
 
+  <!-- PANEL LATERAL DE DETALLES (Etapa 2) -->
+  <div class="detail-overlay" id="detailOverlay"></div>
+  <div class="detail-panel" id="detailPanel" role="dialog" aria-modal="true">
+    <button class="panel-close" id="detailPanelClose" title="Cerrar">&times;</button>
+    <div id="detailPanelBody"></div>
+  </div>
+
   <div id="receiptModal" class="modal">
     <div class="modal-content" style="max-width:700px;">
       <button class="close-btn" id="receiptClose">✖</button>
@@ -583,7 +639,7 @@
       <div class="form-actions" style="flex-wrap:wrap;gap:8px;">
         <button type="button" class="btn" id="printReceiptBtn" style="background:#1e3a8a;">🖨️ Imprimir / Guardar PDF</button>
         <button type="button" class="btn" id="waTextoBtn" style="background:#25d366;">📱 Enviar por WhatsApp (texto)</button>
-        <button type="button" class="btn" id="waPdfBtn" style="background:#128c7e;">📎 PDF + WhatsApp</button>
+        <button type="button" class="btn" id="waPdfBtn" style="background:#128c7e;">📷 Imagen + WhatsApp</button>
         <button type="button" class="btn" id="receiptCancel" style="background-color:#94a3b8;">Cerrar</button>
       </div>
     </div>
@@ -818,6 +874,8 @@
           generateReceipt(target.getAttribute('data-id'));
         } else if(target.classList.contains('historial-recibos-btn')) {
           mostrarHistorialRecibos(target.getAttribute('data-id'));
+        } else if(target.classList.contains('row-detail-btn')) {
+          abrirPanelDetalle(target.getAttribute('data-id'));
         } else if(target.classList.contains('obs-btn')) {
           showObservations(target.getAttribute('data-id'));
         } else if(target.classList.contains('log-btn')) {
@@ -849,6 +907,24 @@
       document.getElementById('waTextoBtn').addEventListener('click', enviarReciboPorWhatsAppTexto);
       document.getElementById('waPdfBtn').addEventListener('click', enviarReciboPdfYWhatsApp);
       document.getElementById('historialRecibosClose').addEventListener('click', function(){ document.getElementById('historialRecibosModal').classList.remove('active'); });
+
+      // ====== PANEL LATERAL DE DETALLES ======
+      document.getElementById('detailPanelClose').addEventListener('click', cerrarPanelDetalle);
+      document.getElementById('detailOverlay').addEventListener('click', cerrarPanelDetalle);
+      document.getElementById('detailPanelBody').addEventListener('click', function(e){
+        var btn = e.target.closest('button[data-action]');
+        if(btn){
+          panelActionHandler(btn.getAttribute('data-action'), btn.getAttribute('data-id'));
+        }
+      });
+      // Tecla Escape cierra el panel
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape'){
+          var p = document.getElementById('detailPanel');
+          if(p && p.classList.contains('active')) cerrarPanelDetalle();
+        }
+      });
+      // ====== FIN PANEL LATERAL ======
 
       // ====== CARÁTULAS DROPDOWN ======
       var inputExp = document.getElementById('expediente');
@@ -1932,7 +2008,7 @@
       if(abonos.length===0){
         var msg = currentStatusFilter==='todos' ? 'No hay registros para este mes.' : 'No hay registros que coincidan con los filtros seleccionados.';
         if (currentSearchTerm) msg = 'No se encontraron clientes con ese nombre.';
-        body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">'+msg+'</td></tr>';
         return;
       }
       abonos.forEach(function(abono){
@@ -2074,27 +2150,54 @@
         }
         celdaCheckboxes += '</td>';
 
+        // Clase para pintar la fila según estado
+        var rowClass = 'row-' + (abono.estado||'').toLowerCase().replace(/\s+/g,'-');
+        tr.className = rowClass;
+        tr.setAttribute('data-clickable', '1');
+
+        // Cliente con expediente debajo (clickeable para editar)
+        var expedienteTxt = abono.expediente ? abono.expediente : '—';
+        var deudaTag = (parseFloat(abono.deudaAcumulada)||0) > 0 ? ' · <span class="con-deuda">+ deuda mes ant.</span>' : '';
+        var clienteCell = '<td class="cliente-cell">'+
+          '<div class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text"><strong>'+(abono.cliente||'—')+'</strong></div>'+
+          '<div class="exp"><span class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text">'+expedienteTxt+'</span>'+deudaTag+'</div>'+
+          '</td>';
+
+        // Monto con info de saldo si es parcial
+        var montoCellInner = '<span class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">' + formatCurrency(parseFloat(abono.monto)||0) + '</span>';
+        if(abono.estado === 'Pago Parcial' && abono.montoPagado){
+          var _mPagado = parseFloat(abono.montoPagado) || 0;
+          var _mTotal = parseFloat(abono.monto) || 0;
+          montoCellInner = '<span style="font-weight:600;color:#059669;">' + formatCurrency(_mPagado) + '</span>' +
+                          '<span class="saldo">de ' + formatCurrency(_mTotal) + ' · resta ' + formatCurrency(_mTotal - _mPagado) + '</span>';
+        } else if((parseFloat(abono.deudaAcumulada)||0) > 0){
+          montoCellInner += '<span class="saldo">base ' + formatCurrency(parseFloat(abono.montoBase)||0) + ' + deuda ' + formatCurrency(parseFloat(abono.deudaAcumulada)||0) + '</span>';
+        } else if(abono.tipo === 'Honorarios en Cuotas' && abono.cuotasDefinicion && abono.cuotaActual){
+          montoCellInner += '<span class="saldo">Cuota '+(abono.cuotaActual||1)+'/'+abono.cuotasDefinicion.length+'</span>';
+        }
+        if(abono.esComisionable && abono.comisionPorcentaje){
+          montoCellInner += '<span class="saldo" style="color:#8b5cf6;">Com. '+abono.comisionPorcentaje+'% → '+formatCurrency((parseFloat(abono.monto)||0) * (1 - parseFloat(abono.comisionPorcentaje)/100))+'</span>';
+        }
+
+        // Acciones inline
+        var hasLogCount = abono.historialContactos ? abono.historialContactos.length : 0;
+        var rowActions = '<div class="row-actions">'+
+          '<button class="btn-icon btn-recibo receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
+          '<button class="btn-icon btn-historial historial-recibos-btn" data-id="'+abono.id+'" title="Historial de recibos">📜</button>'+
+          '<button class="btn-icon row-detail-btn" data-id="'+abono.id+'" title="Ver detalle completo">›</button>'+
+          '</div>';
+
         tr.innerHTML =
           celdaCheckboxes +
-          '<td class="editable" data-id="'+abono.id+'" data-field="cliente" data-type="text">'+(abono.cliente||'')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="expediente" data-type="text" style="font-size:.82em;color:#1e3a8a;">'+(abono.expediente||'—')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="telefono" data-type="text">'+(abono.telefono||'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\'>'+tipoLabel+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="monto" data-type="number">'+montoDisplay+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="fechaVencimiento" data-type="date">'+renderVencimiento(abono)+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="fechaPago" data-type="date">'+(abono.fechaPago?new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR'):'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="formaPago" data-type="select" data-options=\''+JSON.stringify(FORMA_PAGO_OPTIONS)+'\'>'+(abono.formaPago||'N/A')+'</td>'+
-          '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="status-span '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
-          '<td style="text-align:center;min-width:90px;">'+agenteCell+'</td>'+
-          '<td class="no-print"><div class="action-buttons">'+
-            '<button class="btn btn-small edit-ficha-btn" data-id="'+abono.id+'" title="Editar ficha completa" style="background:#8e44ad;">✏️</button>'+
-            '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="'+obsTitle+'">'+obsIcon+'</button>'+
-            '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
-            '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
-            '<button class="btn btn-small historial-recibos-btn" data-id="'+abono.id+'" title="Historial de recibos del cliente" style="background:#0891b2;">📜</button>'+
-            '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+toggleAuthColor+';">'+toggleAuthLabel+'</button>'+
-            '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar">🗑️</button>'+
-          '</div></td>';
+          clienteCell +
+          '<td class="editable" data-id="'+abono.id+'" data-field="tipo" data-type="select" data-options=\''+JSON.stringify(TIPO_OPTIONS)+'\' style="font-size:.85em;color:#475569;">'+tipoLabel+'</td>'+
+          '<td class="monto-cell">'+montoCellInner+'</td>'+
+          '<td class="editable" data-id="'+abono.id+'" data-field="fechaVencimiento" data-type="date" style="font-size:.85em;">'+renderVencimiento(abono)+'</td>'+
+          '<td class="editable" data-id="'+abono.id+'" data-field="estado" data-type="select" data-options=\''+JSON.stringify(ESTADO_OPTIONS)+'\'><span class="estado-pill '+estadoClass+'">'+(abono.estado||'')+'</span></td>'+
+          '<td style="text-align:center;font-size:1.1em;" title="Agente: '+(abono.escalarACamila?'Escalar':(abono.ultimoContactoAgente?'Contactado':(abono.autorizaWhatsapp?'Listo':'No autoriza')))+'">'+
+            (sinTel?'📵':(!abono.autorizaWhatsapp?'🚫':(abono.escalarACamila?'🚨':(abono.respuestaCliente?'💬':(abono.ultimoContactoAgente?'✅':'📬')))))+
+          '</td>'+
+          '<td class="no-print">'+rowActions+'</td>';
         body.appendChild(tr);
       });
     }
@@ -2641,22 +2744,79 @@
     function enviarReciboPdfYWhatsApp(){
       if(!currentReceiptContext){ alert('No hay recibo activo.'); return; }
       var a = currentReceiptContext.abono;
-      // Abrir el diálogo de impresión para que la usuaria elija "Guardar como PDF"
-      printReceipt();
-      // Después de imprimir/guardar, ofrecer abrir WhatsApp con un mensaje
+      var telN = normalizarTelefonoAR(a.telefono);
+      if(!telN){
+        var t = prompt('El cliente no tiene teléfono cargado. Ingresá el número (con código de área):');
+        if(!t) return;
+        telN = normalizarTelefonoAR(t);
+        if(!telN){ alert('Número inválido.'); return; }
+      }
+      if(typeof html2canvas !== 'function'){
+        alert('El generador de imagen no está cargado. Intentá de nuevo en unos segundos o verificá tu conexión.');
+        return;
+      }
+
+      var elemento = document.getElementById('receiptContent');
+      var btn = document.getElementById('waPdfBtn');
+      var textoOriginal = btn.innerHTML;
+      btn.innerHTML = '⏳ Generando imagen...';
+      btn.disabled = true;
+
+      html2canvas(elemento, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true
+      }).then(function(canvas){
+        canvas.toBlob(function(blob){
+          if(!blob){ alert('No se pudo generar la imagen.'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+          var fileName = 'Recibo_' + currentReceiptContext.numeroRecibo + '_' + (a.cliente||'cliente').replace(/[^a-zA-Z0-9]/g,'_') + '.png';
+          var file = new File([blob], fileName, { type: 'image/png' });
+          var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nDra. Camila García';
+
+          // Mobile / soportado: compartir archivo directo a WhatsApp
+          if(navigator.canShare && navigator.canShare({files:[file]})){
+            navigator.share({
+              files: [file],
+              title: 'Recibo de Pago N° ' + currentReceiptContext.numeroRecibo,
+              text: msg
+            }).catch(function(e){
+              console.warn('Share cancelado o falló:', e);
+              // Fallback: descargar + abrir WhatsApp
+              descargarYAbrirWhatsApp(blob, fileName, telN, msg);
+            }).finally(function(){
+              btn.innerHTML = textoOriginal;
+              btn.disabled = false;
+            });
+          } else {
+            // Desktop: descargar PNG + abrir WhatsApp Web con mensaje listo
+            descargarYAbrirWhatsApp(blob, fileName, telN, msg);
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+          }
+        }, 'image/png');
+      }).catch(function(e){
+        console.error('Error generando imagen:', e);
+        alert('Error generando la imagen: ' + (e.message||e));
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+      });
+    }
+
+    function descargarYAbrirWhatsApp(blob, fileName, telN, msg){
+      // Descargar la imagen
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+      // Abrir WhatsApp con el mensaje listo (la usuaria adjunta la imagen recién descargada)
       setTimeout(function(){
-        if(!confirm('¿Ya guardaste el PDF? Pulsá OK para abrir WhatsApp y mandar un mensaje al cliente para que adjuntes el archivo.')) return;
-        var telN = normalizarTelefonoAR(a.telefono);
-        if(!telN){
-          var t = prompt('El cliente no tiene teléfono cargado. Ingresá el número:');
-          if(!t) return;
-          telN = normalizarTelefonoAR(t);
-          if(!telN){ alert('Número inválido.'); return; }
-        }
-        var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + '). En un momento te paso el PDF adjunto.\n\nSaludos,\nDra. Camila García';
         var url = 'https://wa.me/' + telN + '?text=' + encodeURIComponent(msg);
         window.open(url, '_blank');
-      }, 1000);
+      }, 300);
     }
 
     function mostrarHistorialRecibos(idAbono){
@@ -2692,6 +2852,114 @@
       document.getElementById('historialRecibosBody').innerHTML = html;
       document.getElementById('historialRecibosModal').classList.add('active');
     }
+
+    // ====== PANEL LATERAL DE DETALLES (Etapa 2) ======
+    function abrirPanelDetalle(id){
+      var abono = abonosData.find(function(a){ return a.id === id; });
+      if(!abono) return;
+      var body = document.getElementById('detailPanelBody');
+      var estadoClass = (abono.estado||'').toLowerCase().replace(/\s+/g,'-');
+      var isPayable = ['Pagado','Pago Parcial','Terminado'].includes(abono.estado);
+      var sinTel = !abono.telefono || abono.telefono.trim() === '' || abono.telefono === 'N/A';
+      var montoTotal = parseFloat(abono.monto)||0;
+      var montoPagado = parseFloat(abono.montoPagado)||0;
+      var deudaAcum = parseFloat(abono.deudaAcumulada)||0;
+
+      var html = '';
+      html += '<h3>'+(abono.cliente||'—')+'</h3>';
+      html += '<div class="subtit">'+(abono.expediente||'Sin carátula')+' · '+(abono.tipo||'')+' <span class="estado-pill '+estadoClass+'" style="margin-left:6px;">'+(abono.estado||'')+'</span></div>';
+
+      // Acción primaria: generar recibo (si aplica)
+      if(isPayable){
+        var montoRecibo = abono.estado === 'Pago Parcial' ? montoPagado : montoTotal;
+        html += '<button class="recibo-destacado" data-action="recibo" data-id="'+abono.id+'">🧾 Generar Recibo por '+formatCurrency(montoRecibo)+'</button>';
+      } else {
+        html += '<div style="background:#fef3c7;color:#92400e;padding:10px;border-radius:8px;font-size:.85em;text-align:center;margin-bottom:14px;">El recibo está disponible cuando el estado sea Pagado, Pago Parcial o Terminado.</div>';
+      }
+
+      // Detalles secundarios en tabla
+      html += '<table class="panel-data">';
+      html += '<tr><td>📞 Teléfono</td><td>'+(sinTel?'<em style="color:#dc2626;">Sin teléfono</em>':abono.telefono)+'</td></tr>';
+      if(abono.dniCliente) html += '<tr><td>DNI</td><td>'+abono.dniCliente+'</td></tr>';
+      html += '<tr><td>Monto total</td><td><strong>'+formatCurrency(montoTotal)+'</strong></td></tr>';
+      if(abono.estado === 'Pago Parcial'){
+        html += '<tr><td>Pagado</td><td style="color:#059669;">'+formatCurrency(montoPagado)+'</td></tr>';
+        html += '<tr><td>Saldo</td><td style="color:#BA7517;">'+formatCurrency(montoTotal-montoPagado)+'</td></tr>';
+      }
+      if(deudaAcum > 0){
+        html += '<tr><td>Base del mes</td><td>'+formatCurrency(parseFloat(abono.montoBase)||0)+'</td></tr>';
+        html += '<tr><td>Deuda arrastrada</td><td style="color:#dc2626;">'+formatCurrency(deudaAcum)+'</td></tr>';
+      }
+      html += '<tr><td>Vencimiento</td><td>'+(abono.fechaVencimiento ? new Date(abono.fechaVencimiento+'T00:00:00').toLocaleDateString('es-AR') : '—')+'</td></tr>';
+      html += '<tr><td>Fecha real pago</td><td>'+(abono.fechaPago ? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : '—')+'</td></tr>';
+      html += '<tr><td>Forma de pago</td><td>'+(abono.formaPago||'—')+'</td></tr>';
+      if(abono.esComisionable && abono.comisionPorcentaje && abono.comisionColega){
+        html += '<tr><td>Colega comisionado</td><td>'+abono.comisionColega+' ('+abono.comisionPorcentaje+'%)</td></tr>';
+      }
+      // Cuotas
+      if((abono.tipo === 'Honorarios en Cuotas' || abono.tipo === 'Convenio Blanco') && abono.cuotasDefinicion && abono.cuotasDefinicion.length > 0){
+        var pagadas = (abono.cuotasPagadas||[]).length;
+        html += '<tr><td>📋 Cuotas</td><td>Cuota '+(abono.cuotaActual||1)+'/'+abono.cuotasDefinicion.length+' · '+pagadas+' pagas</td></tr>';
+      }
+      // Agente
+      var agenteEstado = sinTel?'Sin tel':(!abono.autorizaWhatsapp?'No autoriza WSP':(abono.escalarACamila?'⚠️ Escalar':(abono.respuestaCliente?'Respondió':(abono.ultimoContactoAgente?'Contactado':'Listo'))));
+      html += '<tr><td>🤖 Agente</td><td>'+agenteEstado+'</td></tr>';
+      if(abono.ultimoContactoAgente) html += '<tr><td>Último contacto</td><td>'+new Date(abono.ultimoContactoAgente).toLocaleDateString('es-AR')+'</td></tr>';
+      if(abono.respuestaCliente) html += '<tr><td>Respuesta cliente</td><td style="font-size:.82em;font-style:italic;">"'+abono.respuestaCliente+'"</td></tr>';
+      html += '</table>';
+
+      // Observaciones
+      if(abono.observaciones && abono.observaciones.trim()){
+        html += '<div style="margin-top:14px;padding:10px;background:#fef3c7;border-radius:8px;font-size:.85em;"><strong style="color:#92400e;">📝 Notas:</strong><br>'+abono.observaciones.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div>';
+      }
+      if(abono.observacionesAuto && abono.observacionesAuto.trim()){
+        html += '<div style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:8px;font-size:.82em;"><strong style="color:#1e40af;">🤖 Sistema:</strong><br>'+abono.observacionesAuto.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div>';
+      }
+
+      // Acciones secundarias
+      var auth = abono.autorizaWhatsapp;
+      html += '<div class="panel-actions">';
+      html += '<button class="btn" data-action="editar" data-id="'+abono.id+'" style="background:#8e44ad;">✏️ Editar ficha</button>';
+      html += '<button class="btn" data-action="obs" data-id="'+abono.id+'" style="background:#f59e0b;">📝 Notas</button>';
+      html += '<button class="btn" data-action="log" data-id="'+abono.id+'" style="background:#3b82f6;">📞 Log</button>';
+      html += '<button class="btn" data-action="historial" data-id="'+abono.id+'" style="background:#0891b2;">📜 Recibos</button>';
+      html += '<button class="btn" data-action="toggleAuth" data-id="'+abono.id+'" style="background:'+(auth?'#64748b':'#059669')+';">'+(auth?'🔕 Quitar WSP':'✅ Autorizar WSP')+'</button>';
+      html += '<button class="btn" data-action="eliminar" data-id="'+abono.id+'" style="background:#dc2626;">🗑️ Eliminar</button>';
+      html += '</div>';
+
+      body.innerHTML = html;
+      document.getElementById('detailPanel').classList.add('active');
+      document.getElementById('detailOverlay').classList.add('active');
+    }
+
+    function cerrarPanelDetalle(){
+      document.getElementById('detailPanel').classList.remove('active');
+      document.getElementById('detailOverlay').classList.remove('active');
+    }
+
+    function panelActionHandler(action, id){
+      switch(action){
+        case 'recibo': generateReceipt(id); break;
+        case 'editar': cerrarPanelDetalle(); openModal(id); break;
+        case 'obs': showObservations(id); break;
+        case 'log': showLog(id); break;
+        case 'historial': mostrarHistorialRecibos(id); break;
+        case 'eliminar':
+          cerrarPanelDetalle();
+          deleteAbono(id);
+          break;
+        case 'toggleAuth':
+          var abono = abonosData.find(function(a){ return a.id === id; });
+          if(abono){
+            abono.autorizaWhatsapp = !abono.autorizaWhatsapp;
+            saveData();
+            render();
+            abrirPanelDetalle(id); // refrescar panel
+          }
+          break;
+      }
+    }
+    // ====== FIN PANEL LATERAL ======
 
     // ====== AUTOCOMPLETE DE CARÁTULAS (lista maestra editable) ======
 
