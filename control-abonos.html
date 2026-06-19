@@ -389,9 +389,12 @@
       <form id="abonoForm" class="modal-form">
         <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
         <div class="form-group">
-          <label>Carátula / Expediente <span style="font-weight:400;color:#64748b;font-size:.85em;">(usá las opciones del autocompletado para no duplicar)</span></label>
-          <input type="text" id="expediente" list="caratulasList" placeholder="Empezá a escribir: Alimentos, Siniestro...">
-          <datalist id="caratulasList"></datalist>
+          <label>Carátula / Expediente <span style="font-weight:400;color:#64748b;font-size:.85em;">(elegí del listado o escribí una nueva)</span></label>
+          <div style="position:relative;">
+            <input type="text" id="expediente" autocomplete="off" placeholder="Empezá a escribir o clickeá ▼ para ver opciones" style="padding-right:36px;">
+            <button type="button" id="toggleCaratulasBtn" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1em;color:#64748b;padding:4px 8px;">▼</button>
+            <div id="caratulasDropdown" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:2px solid #1e3a8a;border-radius:6px;max-height:280px;overflow-y:auto;z-index:1000;box-shadow:0 4px 16px rgba(0,0,0,.12);"></div>
+          </div>
         </div>
         <div class="form-group">
           <label>Teléfono</label>
@@ -846,6 +849,35 @@
       document.getElementById('waTextoBtn').addEventListener('click', enviarReciboPorWhatsAppTexto);
       document.getElementById('waPdfBtn').addEventListener('click', enviarReciboPdfYWhatsApp);
       document.getElementById('historialRecibosClose').addEventListener('click', function(){ document.getElementById('historialRecibosModal').classList.remove('active'); });
+
+      // ====== CARÁTULAS DROPDOWN ======
+      var inputExp = document.getElementById('expediente');
+      var toggleBtn = document.getElementById('toggleCaratulasBtn');
+      if(inputExp){
+        inputExp.addEventListener('focus', abrirCaratulasDropdown);
+        inputExp.addEventListener('input', function(){
+          abrirCaratulasDropdown();
+        });
+      }
+      if(toggleBtn){
+        toggleBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          var dd = document.getElementById('caratulasDropdown');
+          if(dd.style.display === 'block') cerrarCaratulasDropdown();
+          else { inputExp.focus(); abrirCaratulasDropdown(); }
+        });
+      }
+      // Cerrar dropdown al clickear fuera
+      document.addEventListener('click', function(e){
+        var dd = document.getElementById('caratulasDropdown');
+        if(!dd || dd.style.display !== 'block') return;
+        if(e.target === inputExp || e.target === toggleBtn) return;
+        if(dd.contains(e.target)) return;
+        cerrarCaratulasDropdown();
+      });
+      // Inicializar la lista maestra
+      cargarCaratulasMaestras();
+      // ====== FIN CARÁTULAS DROPDOWN ======
 
       document.getElementById('configClose').addEventListener('click', closeConfigModal);
       document.getElementById('removeSignatureBtn').addEventListener('click', removeSignature);
@@ -2304,7 +2336,11 @@
 
       var data = {
         cliente: document.getElementById('cliente').value,
-        expediente: normalizarCaratula(document.getElementById('expediente').value),
+        expediente: (function(){
+          var val = normalizarCaratula(document.getElementById('expediente').value);
+          if(val) agregarCaratula(val);
+          return val;
+        })(),
         telefono: document.getElementById('telefono').value,
         dniCliente: document.getElementById('dniCliente').value.trim(),
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
@@ -2655,31 +2691,164 @@
       document.getElementById('historialRecibosModal').classList.add('active');
     }
 
-    // ====== AUTOCOMPLETE DE CARÁTULAS ======
+    // ====== AUTOCOMPLETE DE CARÁTULAS (lista maestra editable) ======
+
+    let caratulasMaestras = [];
+    let caratulasFirebaseRef = null;
 
     function normalizarCaratula(s){
       if(!s) return '';
       var t = String(s).trim();
       if(t.length === 0) return '';
+      // Capitalizar la primera letra y dejar el resto en minúscula para evitar variantes
       return t.charAt(0).toUpperCase() + t.substring(1).toLowerCase();
     }
 
-    function actualizarCaratulasDataList(){
-      var dl = document.getElementById('caratulasList');
-      if(!dl) return;
-      var caratulas = new Set();
-      abonosData.forEach(function(a){
-        if(a.expediente && a.expediente.trim()){
-          caratulas.add(a.expediente.trim());
+    function cargarCaratulasMaestras(){
+      // Cargar desde localStorage
+      try {
+        var raw = localStorage.getItem('caratulasMaestras');
+        if(raw){ caratulasMaestras = JSON.parse(raw) || []; }
+      } catch(e){ caratulasMaestras = []; }
+
+      // Si está vacía, derivar inicialmente de abonosData (normalizando para deduplicar)
+      if(caratulasMaestras.length === 0){
+        var set = new Set();
+        abonosData.forEach(function(a){
+          if(a.expediente){
+            var n = normalizarCaratula(a.expediente);
+            if(n) set.add(n);
+          }
+        });
+        caratulasMaestras = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'es'); });
+        guardarCaratulasMaestras();
+      }
+
+      // Escuchar Firebase para multi-PC
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          if(caratulasFirebaseRef){ try { caratulasFirebaseRef.off(); } catch(_){} }
+          caratulasFirebaseRef = firebaseDB.ref('planilla_abonos_caratulas');
+          caratulasFirebaseRef.on('value', function(snap){
+            var val = snap.val();
+            if(Array.isArray(val)){
+              caratulasMaestras = val.filter(function(x){ return x && typeof x === 'string'; });
+              localStorage.setItem('caratulasMaestras', JSON.stringify(caratulasMaestras));
+              // Si el dropdown está abierto, refrescar
+              var dd = document.getElementById('caratulasDropdown');
+              if(dd && dd.style.display === 'block'){
+                var inp = document.getElementById('expediente');
+                renderCaratulasDropdown(inp ? inp.value : '');
+              }
+            }
+          });
         }
-      });
-      var sorted = Array.from(caratulas).sort(function(a,b){ return a.localeCompare(b, 'es'); });
-      var html = '';
-      sorted.forEach(function(c){ html += '<option value="' + c.replace(/"/g, '&quot;') + '"></option>'; });
-      dl.innerHTML = html;
+      } catch(e){ console.error('Error escuchando carátulas:', e); }
     }
 
-    // ====== FIN RECIBOS / AUTOCOMPLETE ======
+    function guardarCaratulasMaestras(){
+      // Deduplicar y ordenar
+      var set = new Set();
+      caratulasMaestras.forEach(function(c){
+        var n = normalizarCaratula(c);
+        if(n) set.add(n);
+      });
+      caratulasMaestras = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'es'); });
+      try { localStorage.setItem('caratulasMaestras', JSON.stringify(caratulasMaestras)); } catch(e){}
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          firebaseDB.ref('planilla_abonos_caratulas').set(caratulasMaestras)
+            .catch(function(e){ console.error('Error guardando carátulas:', e); });
+        }
+      } catch(e){}
+    }
+
+    function agregarCaratula(c){
+      var n = normalizarCaratula(c);
+      if(!n) return;
+      if(caratulasMaestras.indexOf(n) === -1){
+        caratulasMaestras.push(n);
+        guardarCaratulasMaestras();
+      }
+    }
+
+    function eliminarCaratula(c){
+      if(!confirm('¿Eliminar "' + c + '" de las opciones del listado?\n\nLos registros que ya la usan no se modifican, solo no se va a sugerir más.')) return;
+      caratulasMaestras = caratulasMaestras.filter(function(x){ return x !== c; });
+      guardarCaratulasMaestras();
+      renderCaratulasDropdown(document.getElementById('expediente').value);
+    }
+
+    function renderCaratulasDropdown(filter){
+      var dd = document.getElementById('caratulasDropdown');
+      if(!dd) return;
+      var f = (filter || '').trim().toLowerCase();
+      var opts = caratulasMaestras.filter(function(c){ return !f || c.toLowerCase().indexOf(f) !== -1; });
+
+      if(opts.length === 0){
+        if(f){
+          dd.innerHTML = '<div style="padding:12px;color:#475569;text-align:center;font-size:.85em;">'+
+            'No hay coincidencias. Si confirmás el registro con esta carátula, se va a agregar al listado.'+
+            '</div>';
+        } else {
+          dd.innerHTML = '<div style="padding:12px;color:#94a3b8;text-align:center;font-size:.85em;">'+
+            'El listado está vacío. Escribí una carátula y se va a guardar al crear el registro.'+
+            '</div>';
+        }
+        return;
+      }
+
+      var html = '';
+      opts.forEach(function(c){
+        var safe = c.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        html += '<div class="caratula-item" data-c="'+safe+'" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #f1f5f9;">';
+        html += '<span class="caratula-pick" style="flex:1;cursor:pointer;font-size:.92em;">'+c+'</span>';
+        html += '<button type="button" class="caratula-del" title="Eliminar opción" style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:1em;padding:2px 8px;line-height:1;border-radius:4px;" onmouseover="this.style.color=\'#dc2626\';this.style.background=\'#fee2e2\';" onmouseout="this.style.color=\'#cbd5e1\';this.style.background=\'none\';">✕</button>';
+        html += '</div>';
+      });
+      dd.innerHTML = html;
+
+      // Listeners de cada opción
+      dd.querySelectorAll('.caratula-pick').forEach(function(el){
+        el.addEventListener('click', function(){
+          var item = el.closest('.caratula-item');
+          var c = item.getAttribute('data-c');
+          document.getElementById('expediente').value = c;
+          cerrarCaratulasDropdown();
+        });
+      });
+      dd.querySelectorAll('.caratula-del').forEach(function(el){
+        el.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          var item = el.closest('.caratula-item');
+          var c = item.getAttribute('data-c');
+          eliminarCaratula(c);
+        });
+      });
+    }
+
+    function abrirCaratulasDropdown(){
+      var dd = document.getElementById('caratulasDropdown');
+      if(!dd) return;
+      renderCaratulasDropdown(document.getElementById('expediente').value);
+      dd.style.display = 'block';
+    }
+
+    function cerrarCaratulasDropdown(){
+      var dd = document.getElementById('caratulasDropdown');
+      if(dd) dd.style.display = 'none';
+    }
+
+    // Hook en lugar del antiguo actualizarCaratulasDataList
+    function actualizarCaratulasDataList(){
+      // Compat con render(): si el dropdown está visible, refrescar
+      var dd = document.getElementById('caratulasDropdown');
+      if(dd && dd.style.display === 'block'){
+        renderCaratulasDropdown(document.getElementById('expediente').value);
+      }
+    }
+
+    // ====== FIN AUTOCOMPLETE DE CARÁTULAS ======
 
     function printReceipt(){
       var content = document.getElementById('receiptContent').innerHTML.replace(/<\/script/gi,'<\\/script');
