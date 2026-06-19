@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -953,6 +954,8 @@
       });
       // Inicializar la lista maestra
       cargarCaratulasMaestras();
+      // Limpiar duplicados de recibos existentes (migración automática)
+      deduplicarRecibos();
       // ====== FIN CARÁTULAS DROPDOWN ======
 
       document.getElementById('configClose').addEventListener('click', closeConfigModal);
@@ -2647,35 +2650,95 @@
     function guardarReciboEmitido(ctx){
       if(!ctx || !ctx.abono) return;
       var a = ctx.abono;
-      // Verificar si ya está guardado este número de recibo (para no duplicar al reabrir el modal)
-      var yaExiste = recibosEmitidos.some(function(r){ return r.numeroRecibo === ctx.numeroRecibo; });
-      if(yaExiste) return;
-      var rec = {
-        id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        abonoId: a.id,
-        cliente: a.cliente || '',
-        expediente: a.expediente || '',
-        telefono: a.telefono || '',
-        tipo: a.tipo || '',
-        monto: ctx.monto,
-        conceptoRecibo: ctx.conceptoRecibo,
-        numeroRecibo: ctx.numeroRecibo,
-        fechaEmision: ctx.fechaEmision,
-        fechaPagoCliente: a.fechaPago || '',
-        formaPago: a.formaPago || '',
-        estado: a.estado || '',
-        cuotaInfo: ctx.cuotaLabelCorto || '',
-        timestampMs: Date.now()
-      };
-      recibosEmitidos.push(rec);
+
+      // Calcular el mes al que pertenece este cobro (mes de servicio prioritario, sino mes de fechaPago)
+      var mesKey = '';
+      if(a.mesServicio && typeof a.mesServicio.month === 'number' && typeof a.mesServicio.year === 'number'){
+        mesKey = a.mesServicio.year + '-' + String(a.mesServicio.month + 1).padStart(2, '0');
+      } else if(a.fechaPago){
+        var d = new Date(a.fechaPago + 'T00:00:00');
+        if(!isNaN(d.getTime())) mesKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      }
+      if(!mesKey) mesKey = 'sin-mes';
+
+      // ID estable: 1 recibo único por (abono + mes)
+      var idEstable = 'rec_' + a.id + '_' + mesKey;
+      var existente = recibosEmitidos.find(function(r){ return r.id === idEstable; });
+
+      if(existente){
+        // Actualizar el existente sin crear duplicado
+        existente.monto = ctx.monto;
+        existente.conceptoRecibo = ctx.conceptoRecibo;
+        existente.fechaEmision = ctx.fechaEmision;
+        existente.numeroRecibo = ctx.numeroRecibo;
+        existente.fechaPagoCliente = a.fechaPago || '';
+        existente.formaPago = a.formaPago || '';
+        existente.estado = a.estado || '';
+        existente.cuotaInfo = ctx.cuotaLabelCorto || '';
+        existente.timestampMs = Date.now();
+      } else {
+        recibosEmitidos.push({
+          id: idEstable,
+          abonoId: a.id,
+          mesServicioKey: mesKey,
+          cliente: a.cliente || '',
+          expediente: a.expediente || '',
+          telefono: a.telefono || '',
+          tipo: a.tipo || '',
+          monto: ctx.monto,
+          conceptoRecibo: ctx.conceptoRecibo,
+          numeroRecibo: ctx.numeroRecibo,
+          fechaEmision: ctx.fechaEmision,
+          fechaPagoCliente: a.fechaPago || '',
+          formaPago: a.formaPago || '',
+          estado: a.estado || '',
+          cuotaInfo: ctx.cuotaLabelCorto || '',
+          timestampMs: Date.now()
+        });
+      }
+
       localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
-      // Guardar también en Firebase
       try {
         if(typeof firebaseDB !== 'undefined' && firebaseDB){
-          firebaseDB.ref('planilla_abonos_recibos/' + rec.id).set(rec)
-            .catch(function(e){ console.error('Error guardando recibo en FB:', e); });
+          var obj = {};
+          recibosEmitidos.forEach(function(r){ if(r.id) obj[r.id] = r; });
+          firebaseDB.ref('planilla_abonos_recibos').set(obj)
+            .catch(function(e){ console.error('Error guardando recibos en FB:', e); });
         }
       } catch(e){ console.error('Error guardando recibo:', e); }
+    }
+
+    // Limpia duplicados existentes en el historial (se ejecuta una vez al cargar)
+    function deduplicarRecibos(){
+      if(!Array.isArray(recibosEmitidos) || recibosEmitidos.length === 0) return;
+      var porKey = {};
+      recibosEmitidos.forEach(function(r){
+        if(!r) return;
+        var key = r.id;
+        // Si el id no tiene el formato nuevo (rec_<abonoId>_<mesKey>), recalcularlo
+        if(!key || !key.startsWith('rec_') || !r.abonoId){
+          var mesK = r.mesServicioKey || 'sin-mes';
+          key = 'rec_' + (r.abonoId || 'no-abono') + '_' + mesK;
+          r.id = key;
+        }
+        if(!porKey[key] || (r.timestampMs||0) > (porKey[key].timestampMs||0)){
+          porKey[key] = r;
+        }
+      });
+      var antes = recibosEmitidos.length;
+      recibosEmitidos = Object.values(porKey);
+      var despues = recibosEmitidos.length;
+      if(antes !== despues){
+        console.log('[Recibos] Deduplicados: ' + antes + ' → ' + despues);
+        localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
+        try {
+          if(typeof firebaseDB !== 'undefined' && firebaseDB){
+            var obj = {};
+            recibosEmitidos.forEach(function(r){ if(r.id) obj[r.id] = r; });
+            firebaseDB.ref('planilla_abonos_recibos').set(obj).catch(function(e){ console.error(e); });
+          }
+        } catch(e){}
+      }
     }
 
     function construirReciboTexto(ctx){
@@ -2842,14 +2905,23 @@
         html += '<p style="color:#94a3b8;text-align:center;padding:2rem;">No hay recibos emitidos para este cliente todavía.</p>';
       } else {
         html += '<table style="width:100%;font-size:.85em;border-collapse:collapse;">';
-        html += '<thead><tr style="background:#f1f5f9;text-align:left;"><th style="padding:8px;">N°</th><th style="padding:8px;">Fecha</th><th style="padding:8px;">Concepto</th><th style="padding:8px;text-align:right;">Monto</th></tr></thead><tbody>';
+        html += '<thead><tr style="background:#f1f5f9;text-align:left;"><th style="padding:8px;">N°</th><th style="padding:8px;">Mes</th><th style="padding:8px;">Última emisión</th><th style="padding:8px;">Concepto</th><th style="padding:8px;text-align:right;">Monto</th></tr></thead><tbody>';
         recibos.forEach(function(r){
           var fechaTxt = r.fechaEmision || (r.timestampMs ? new Date(r.timestampMs).toLocaleDateString('es-AR') : '—');
           var concepto = r.conceptoRecibo || '';
           if(r.expediente) concepto += ' · Exp ' + r.expediente;
+          // Formatear el mes (YYYY-MM → "Junio 2026")
+          var mesTxt = '—';
+          if(r.mesServicioKey && /^\d{4}-\d{2}$/.test(r.mesServicioKey)){
+            var partes = r.mesServicioKey.split('-');
+            var idxMes = parseInt(partes[1], 10) - 1;
+            if(typeof MONTHS !== 'undefined' && MONTHS[idxMes]) mesTxt = MONTHS[idxMes] + ' ' + partes[0];
+            else mesTxt = r.mesServicioKey;
+          }
           html += '<tr style="border-bottom:1px solid #e2e8f0;">';
           html += '<td style="padding:8px;font-family:monospace;">' + (r.numeroRecibo||'—') + '</td>';
-          html += '<td style="padding:8px;white-space:nowrap;">' + fechaTxt + '</td>';
+          html += '<td style="padding:8px;white-space:nowrap;font-weight:600;color:#1e3a8a;">' + mesTxt + '</td>';
+          html += '<td style="padding:8px;white-space:nowrap;color:#64748b;font-size:.85em;">' + fechaTxt + '</td>';
           html += '<td style="padding:8px;">' + concepto + '</td>';
           html += '<td style="padding:8px;text-align:right;font-weight:600;color:#059669;">' + formatCurrency(r.monto||0) + '</td>';
           html += '</tr>';
