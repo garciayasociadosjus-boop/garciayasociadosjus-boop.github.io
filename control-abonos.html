@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -389,7 +388,11 @@
       <h2 id="modalTitle">Agregar Nuevo Registro</h2>
       <form id="abonoForm" class="modal-form">
         <div class="form-group"><label>Cliente</label><input type="text" id="cliente" required></div>
-        <div class="form-group"><label>Expediente / Carátula</label><input type="text" id="expediente" placeholder="Ej: Alimentos, Violencia, Cambio de nombre..."></div>
+        <div class="form-group">
+          <label>Carátula / Expediente <span style="font-weight:400;color:#64748b;font-size:.85em;">(usá las opciones del autocompletado para no duplicar)</span></label>
+          <input type="text" id="expediente" list="caratulasList" placeholder="Empezá a escribir: Alimentos, Siniestro...">
+          <datalist id="caratulasList"></datalist>
+        </div>
         <div class="form-group">
           <label>Teléfono</label>
           <input type="tel" id="telefono" placeholder="Ej: 1123456789">
@@ -574,10 +577,21 @@
     <div class="modal-content" style="max-width:700px;">
       <button class="close-btn" id="receiptClose">✖</button>
       <div id="receiptContent" class="receipt-preview"></div>
-      <div class="form-actions">
-        <button type="button" class="btn" id="printReceiptBtn">🖨️ Imprimir Recibo</button>
+      <div class="form-actions" style="flex-wrap:wrap;gap:8px;">
+        <button type="button" class="btn" id="printReceiptBtn" style="background:#1e3a8a;">🖨️ Imprimir / Guardar PDF</button>
+        <button type="button" class="btn" id="waTextoBtn" style="background:#25d366;">📱 Enviar por WhatsApp (texto)</button>
+        <button type="button" class="btn" id="waPdfBtn" style="background:#128c7e;">📎 PDF + WhatsApp</button>
         <button type="button" class="btn" id="receiptCancel" style="background-color:#94a3b8;">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL HISTORIAL DE RECIBOS -->
+  <div id="historialRecibosModal" class="modal">
+    <div class="modal-content" style="max-width:800px;">
+      <button class="close-btn" id="historialRecibosClose">✖</button>
+      <h2 style="margin-bottom:15px;">📜 Historial de Recibos</h2>
+      <div id="historialRecibosBody" style="max-height:60vh;overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -617,6 +631,8 @@
     let seleccionManual = new Set(); // IDs de registros tildados para suma manual
     let seleccionSaldoProyectable = new Set(); // IDs donde tildaste "incluir saldo en proyectado" (parciales/cuotas)
     let dashboardScope = 'mes'; // 'mes' = solo mes filtrado, 'todos' = histórico completo
+    let recibosEmitidos = JSON.parse(localStorage.getItem('recibosEmitidos') || '[]'); // historial de recibos
+    let currentReceiptContext = null; // para los botones WhatsApp del modal del recibo
 
     // ====== MODO ESPEJO (sincronización de vista entre PCs) ======
     let modoEspejo = false;
@@ -797,6 +813,8 @@
           openModal(target.getAttribute('data-id'));
         } else if(target.classList.contains('receipt-btn')) {
           generateReceipt(target.getAttribute('data-id'));
+        } else if(target.classList.contains('historial-recibos-btn')) {
+          mostrarHistorialRecibos(target.getAttribute('data-id'));
         } else if(target.classList.contains('obs-btn')) {
           showObservations(target.getAttribute('data-id'));
         } else if(target.classList.contains('log-btn')) {
@@ -825,6 +843,9 @@
       document.getElementById('receiptClose').addEventListener('click', function(){ document.getElementById('receiptModal').classList.remove('active'); });
       document.getElementById('receiptCancel').addEventListener('click', function(){ document.getElementById('receiptModal').classList.remove('active'); });
       document.getElementById('printReceiptBtn').addEventListener('click', printReceipt);
+      document.getElementById('waTextoBtn').addEventListener('click', enviarReciboPorWhatsAppTexto);
+      document.getElementById('waPdfBtn').addEventListener('click', enviarReciboPdfYWhatsApp);
+      document.getElementById('historialRecibosClose').addEventListener('click', function(){ document.getElementById('historialRecibosModal').classList.remove('active'); });
 
       document.getElementById('configClose').addEventListener('click', closeConfigModal);
       document.getElementById('removeSignatureBtn').addEventListener('click', removeSignature);
@@ -1422,6 +1443,7 @@
       renderDashboard(dataAfterTypeFilter);
       updateFilterCounts(dataAfterTypeFilter);
       updateAlertBanner(dataAfterTypeFilter);
+      actualizarCaratulasDataList();
       if (vistaActual === 'clientes') renderVistaClientes();
       // Si el modo espejo está activo y este render no vino de aplicar una vista remota,
       // empujá la vista actual a Firebase para que la otra PC la vea.
@@ -2035,6 +2057,7 @@
             '<button class="btn btn-small obs-btn '+hasObsClass+'" data-id="'+abono.id+'" title="'+obsTitle+'">'+obsIcon+'</button>'+
             '<button class="btn btn-small log-btn '+hasLogClass+'" data-id="'+abono.id+'" title="Historial de contactos ('+(abono.historialContactos?abono.historialContactos.length:0)+')">📞</button>'+
             '<button class="btn btn-small btn-success receipt-btn" data-id="'+abono.id+'" title="Generar Recibo" '+(isPayable?'':'disabled')+'>🧾</button>'+
+            '<button class="btn btn-small historial-recibos-btn" data-id="'+abono.id+'" title="Historial de recibos del cliente" style="background:#0891b2;">📜</button>'+
             '<button class="btn btn-small toggle-auth-btn" data-id="'+abono.id+'" title="'+toggleAuthTitle+'" style="background:'+toggleAuthColor+';">'+toggleAuthLabel+'</button>'+
             '<button class="btn btn-small delete-btn" style="background-color:var(--danger-color);" data-id="'+abono.id+'" title="Eliminar">🗑️</button>'+
           '</div></td>';
@@ -2281,7 +2304,7 @@
 
       var data = {
         cliente: document.getElementById('cliente').value,
-        expediente: document.getElementById('expediente').value,
+        expediente: normalizarCaratula(document.getElementById('expediente').value),
         telefono: document.getElementById('telefono').value,
         dniCliente: document.getElementById('dniCliente').value.trim(),
         autorizaWhatsapp: document.getElementById('autorizaWhatsapp').checked,
@@ -2396,6 +2419,30 @@
 
       var conceptoRecibo = conceptoBase + (mesServicioTexto ? ' - ' + mesServicioTexto : '');
 
+      // ===== INFO DE CUOTAS (Honorarios en Cuotas / Convenio Blanco) =====
+      var infoCuotaLinea = '';
+      var cuotaLabelCorto = '';
+      if((abono.tipo === 'Honorarios en Cuotas' || abono.tipo === 'Convenio Blanco') && abono.cuotasDefinicion && abono.cuotasDefinicion.length > 0){
+        var cuotaActual = abono.cuotaActual || 1;
+        var totalCuotas = abono.cuotasDefinicion.length;
+        var pagadas = (abono.cuotasPagadas || []).slice();
+        var pagadasCount = pagadas.length;
+        // Si esta cuota está como Pagado/Terminado, contarla
+        if((abono.estado === 'Pagado' || abono.estado === 'Terminado') && pagadas.indexOf(cuotaActual) === -1){
+          pagadasCount++;
+        }
+        cuotaLabelCorto = 'Cuota ' + cuotaActual + '/' + totalCuotas;
+        infoCuotaLinea = cuotaLabelCorto;
+        if(pagadasCount < totalCuotas){
+          var restantes = totalCuotas - pagadasCount;
+          infoCuotaLinea += ' · Quedan ' + restantes + (restantes === 1 ? ' cuota' : ' cuotas') + ' por cobrar';
+        } else {
+          infoCuotaLinea += ' · ÚLTIMA CUOTA';
+        }
+        // Incrustar la cuota en el concepto principal
+        conceptoRecibo = conceptoBase + ' — ' + cuotaLabelCorto + (mesServicioTexto ? ' - ' + mesServicioTexto : '');
+      }
+
       var parts = [];
       parts.push(
         '<div class="receipt-header">',
@@ -2411,6 +2458,7 @@
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Cliente:</span><span>', (abono.cliente||'Sin nombre'), '</span></div>',
             (abono.expediente ? '<div class="receipt-detail-row"><span class="receipt-detail-label">Expediente:</span><span>'+ abono.expediente +'</span></div>' : ''),
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Concepto:</span><span>', conceptoRecibo, '</span></div>',
+            (infoCuotaLinea ? '<div class="receipt-detail-row" style="background:#fef3c7;padding:6px 10px;border-radius:4px;margin:4px 0;"><span class="receipt-detail-label" style="color:#92400e;">📋 Plan de Cuotas:</span><span style="color:#78350f;font-weight:600;">' + infoCuotaLinea + '</span></div>' : ''),
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Fecha de Pago:</span><span>', (abono.fechaPago? new Date(abono.fechaPago+'T00:00:00').toLocaleDateString('es-AR') : 'Sin fecha'), '</span></div>',
             '<div class="receipt-detail-row"><span class="receipt-detail-label">Forma de Pago:</span><span>', (abono.formaPago||'Efectivo'), '</span></div>'
       );
@@ -2435,8 +2483,203 @@
       );
 
       document.getElementById('receiptContent').innerHTML = parts.join('');
+
+      // Guardar el contexto del recibo para los botones de WhatsApp
+      currentReceiptContext = {
+        abono: abono,
+        monto: montoRecibo,
+        conceptoRecibo: conceptoRecibo,
+        numeroRecibo: receiptNumber,
+        fechaEmision: receiptDate,
+        infoCuotaLinea: infoCuotaLinea,
+        cuotaLabelCorto: cuotaLabelCorto
+      };
+
+      // Guardar el recibo en el historial al generarlo (apertura del modal = recibo "emitido")
+      guardarReciboEmitido(currentReceiptContext);
+
       document.getElementById('receiptModal').classList.add('active');
     }
+
+    // ====== RECIBOS: GUARDADO, WHATSAPP, HISTORIAL ======
+
+    function guardarReciboEmitido(ctx){
+      if(!ctx || !ctx.abono) return;
+      var a = ctx.abono;
+      // Verificar si ya está guardado este número de recibo (para no duplicar al reabrir el modal)
+      var yaExiste = recibosEmitidos.some(function(r){ return r.numeroRecibo === ctx.numeroRecibo; });
+      if(yaExiste) return;
+      var rec = {
+        id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        abonoId: a.id,
+        cliente: a.cliente || '',
+        expediente: a.expediente || '',
+        telefono: a.telefono || '',
+        tipo: a.tipo || '',
+        monto: ctx.monto,
+        conceptoRecibo: ctx.conceptoRecibo,
+        numeroRecibo: ctx.numeroRecibo,
+        fechaEmision: ctx.fechaEmision,
+        fechaPagoCliente: a.fechaPago || '',
+        formaPago: a.formaPago || '',
+        estado: a.estado || '',
+        cuotaInfo: ctx.cuotaLabelCorto || '',
+        timestampMs: Date.now()
+      };
+      recibosEmitidos.push(rec);
+      localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
+      // Guardar también en Firebase
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          firebaseDB.ref('planilla_abonos_recibos/' + rec.id).set(rec)
+            .catch(function(e){ console.error('Error guardando recibo en FB:', e); });
+        }
+      } catch(e){ console.error('Error guardando recibo:', e); }
+    }
+
+    function construirReciboTexto(ctx){
+      var a = ctx.abono;
+      var lines = [];
+      lines.push('🧾 *ESTUDIO GARCÍA Y ASOCIADOS*');
+      lines.push('Recibo N° ' + ctx.numeroRecibo);
+      lines.push('Fecha: ' + ctx.fechaEmision);
+      lines.push('');
+      lines.push('Cliente: *' + (a.cliente || '') + '*');
+      if(a.expediente) lines.push('Expediente: ' + a.expediente);
+      lines.push('Concepto: ' + ctx.conceptoRecibo);
+      if(ctx.infoCuotaLinea) lines.push('📋 ' + ctx.infoCuotaLinea);
+      if(a.fechaPago) lines.push('Fecha pago: ' + new Date(a.fechaPago+'T00:00:00').toLocaleDateString('es-AR'));
+      if(a.formaPago) lines.push('Forma de pago: ' + a.formaPago);
+      if(a.estado === 'Pago Parcial'){
+        var total = parseFloat(a.monto) || 0;
+        var restante = total - ctx.monto;
+        lines.push('Monto total adeudado: ' + formatCurrency(total));
+        lines.push('Pago parcial recibido: ' + formatCurrency(ctx.monto));
+        lines.push('*Saldo pendiente: ' + formatCurrency(restante) + '*');
+      } else {
+        lines.push('');
+        lines.push('*✅ TOTAL ABONADO: ' + formatCurrency(ctx.monto) + '*');
+      }
+      lines.push('');
+      lines.push('_Dra. Camila Florencia García_');
+      lines.push('_Letrada Patrocinante_');
+      lines.push('_C.P.A.C.F.: T°140 F°85 — C.A.Q.: T°XII F°383_');
+      lines.push('_garciayasociadosjus@gmail.com_');
+      return lines.join('\n');
+    }
+
+    function normalizarTelefonoAR(tel){
+      if(!tel) return '';
+      var t = String(tel).replace(/[^0-9]/g, '');
+      if(!t) return '';
+      // Si empieza con 54, ya tiene país
+      if(t.startsWith('54')){
+        // Asegurar que después del 54 haya un 9 (móvil)
+        if(t.charAt(2) !== '9') t = '549' + t.substring(2);
+        return t;
+      }
+      // Si empieza con 9, asumir que es móvil sin código país
+      if(t.startsWith('9')) return '54' + t;
+      // Sacar 15 al inicio del número local (formato argentino viejo)
+      if(t.startsWith('15')) t = t.substring(2);
+      return '549' + t;
+    }
+
+    function enviarReciboPorWhatsAppTexto(){
+      if(!currentReceiptContext){ alert('No hay recibo activo.'); return; }
+      var a = currentReceiptContext.abono;
+      if(!a.telefono){
+        var t = prompt('El cliente no tiene teléfono cargado. Ingresá el número (con código de área):');
+        if(!t) return;
+        a.telefono = t;
+      }
+      var telN = normalizarTelefonoAR(a.telefono);
+      if(!telN){ alert('Número de teléfono inválido.'); return; }
+      var texto = construirReciboTexto(currentReceiptContext);
+      var url = 'https://wa.me/' + telN + '?text=' + encodeURIComponent(texto);
+      window.open(url, '_blank');
+    }
+
+    function enviarReciboPdfYWhatsApp(){
+      if(!currentReceiptContext){ alert('No hay recibo activo.'); return; }
+      var a = currentReceiptContext.abono;
+      // Abrir el diálogo de impresión para que la usuaria elija "Guardar como PDF"
+      printReceipt();
+      // Después de imprimir/guardar, ofrecer abrir WhatsApp con un mensaje
+      setTimeout(function(){
+        if(!confirm('¿Ya guardaste el PDF? Pulsá OK para abrir WhatsApp y mandar un mensaje al cliente para que adjuntes el archivo.')) return;
+        var telN = normalizarTelefonoAR(a.telefono);
+        if(!telN){
+          var t = prompt('El cliente no tiene teléfono cargado. Ingresá el número:');
+          if(!t) return;
+          telN = normalizarTelefonoAR(t);
+          if(!telN){ alert('Número inválido.'); return; }
+        }
+        var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + '). En un momento te paso el PDF adjunto.\n\nSaludos,\nDra. Camila García';
+        var url = 'https://wa.me/' + telN + '?text=' + encodeURIComponent(msg);
+        window.open(url, '_blank');
+      }, 1000);
+    }
+
+    function mostrarHistorialRecibos(idAbono){
+      var abono = abonosData.find(function(a){ return a.id === idAbono; });
+      if(!abono){ alert('No se encontró el registro.'); return; }
+      var clienteLower = (abono.cliente||'').toLowerCase().trim();
+      // Filtrar recibos por nombre del cliente (no por abonoId, así trae todos los recibos del cliente aunque sean de distintos cobros)
+      var recibos = recibosEmitidos.filter(function(r){
+        return (r.cliente||'').toLowerCase().trim() === clienteLower;
+      });
+      recibos.sort(function(a,b){ return (b.timestampMs||0) - (a.timestampMs||0); });
+
+      var html = '<h3 style="margin-bottom:8px;">' + (abono.cliente||'') + '</h3>';
+      html += '<p style="color:#64748b;font-size:.9em;margin-bottom:15px;">Total de recibos emitidos: <strong>' + recibos.length + '</strong></p>';
+      if(recibos.length === 0){
+        html += '<p style="color:#94a3b8;text-align:center;padding:2rem;">No hay recibos emitidos para este cliente todavía.</p>';
+      } else {
+        html += '<table style="width:100%;font-size:.85em;border-collapse:collapse;">';
+        html += '<thead><tr style="background:#f1f5f9;text-align:left;"><th style="padding:8px;">N°</th><th style="padding:8px;">Fecha</th><th style="padding:8px;">Concepto</th><th style="padding:8px;text-align:right;">Monto</th></tr></thead><tbody>';
+        recibos.forEach(function(r){
+          var fechaTxt = r.fechaEmision || (r.timestampMs ? new Date(r.timestampMs).toLocaleDateString('es-AR') : '—');
+          var concepto = r.conceptoRecibo || '';
+          if(r.expediente) concepto += ' · Exp ' + r.expediente;
+          html += '<tr style="border-bottom:1px solid #e2e8f0;">';
+          html += '<td style="padding:8px;font-family:monospace;">' + (r.numeroRecibo||'—') + '</td>';
+          html += '<td style="padding:8px;white-space:nowrap;">' + fechaTxt + '</td>';
+          html += '<td style="padding:8px;">' + concepto + '</td>';
+          html += '<td style="padding:8px;text-align:right;font-weight:600;color:#059669;">' + formatCurrency(r.monto||0) + '</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+      document.getElementById('historialRecibosBody').innerHTML = html;
+      document.getElementById('historialRecibosModal').classList.add('active');
+    }
+
+    // ====== AUTOCOMPLETE DE CARÁTULAS ======
+
+    function normalizarCaratula(s){
+      if(!s) return '';
+      var t = String(s).trim();
+      if(t.length === 0) return '';
+      return t.charAt(0).toUpperCase() + t.substring(1).toLowerCase();
+    }
+
+    function actualizarCaratulasDataList(){
+      var dl = document.getElementById('caratulasList');
+      if(!dl) return;
+      var caratulas = new Set();
+      abonosData.forEach(function(a){
+        if(a.expediente && a.expediente.trim()){
+          caratulas.add(a.expediente.trim());
+        }
+      });
+      var sorted = Array.from(caratulas).sort(function(a,b){ return a.localeCompare(b, 'es'); });
+      var html = '';
+      sorted.forEach(function(c){ html += '<option value="' + c.replace(/"/g, '&quot;') + '"></option>'; });
+      dl.innerHTML = html;
+    }
+
+    // ====== FIN RECIBOS / AUTOCOMPLETE ======
 
     function printReceipt(){
       var content = document.getElementById('receiptContent').innerHTML.replace(/<\/script/gi,'<\\/script');
