@@ -943,6 +943,8 @@
                         abonosData = arr;
                     }
                     localStorage.setItem('abonosData', JSON.stringify(abonosData));
+                    // Reconciliar lista de carátulas con los abonos que llegaron (respeta eliminadas)
+                    if(typeof reconciliarCaratulasConAbonos === 'function') reconciliarCaratulasConAbonos();
                     render();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
                 } else if (data === null) {
@@ -2694,37 +2696,52 @@
     // ====== AUTOCOMPLETE DE CARÁTULAS (lista maestra editable) ======
 
     let caratulasMaestras = [];
+    let caratulasEliminadas = []; // Lista negra: las que la usuaria eliminó explícitamente con la ✕
     let caratulasFirebaseRef = null;
+    let caratulasElimFirebaseRef = null;
 
     function normalizarCaratula(s){
       if(!s) return '';
       var t = String(s).trim();
       if(t.length === 0) return '';
-      // Capitalizar la primera letra y dejar el resto en minúscula para evitar variantes
       return t.charAt(0).toUpperCase() + t.substring(1).toLowerCase();
     }
 
+    // Sincroniza la lista maestra con las carátulas que aparecen en abonosData,
+    // RESPETANDO las eliminaciones manuales (no las reagrega).
+    // Esta función se llama cada vez que entran datos nuevos (load, Firebase sync, import).
+    function reconciliarCaratulasConAbonos(){
+      var setMaestras = new Set(caratulasMaestras);
+      var setEliminadas = new Set(caratulasEliminadas);
+      var huboCambios = false;
+      abonosData.forEach(function(a){
+        if(a.expediente){
+          var n = normalizarCaratula(a.expediente);
+          if(n && !setMaestras.has(n) && !setEliminadas.has(n)){
+            caratulasMaestras.push(n);
+            setMaestras.add(n);
+            huboCambios = true;
+          }
+        }
+      });
+      if(huboCambios) guardarCaratulasMaestras();
+    }
+
     function cargarCaratulasMaestras(){
-      // Cargar desde localStorage
+      // Cargar desde localStorage (maestras + eliminadas)
       try {
         var raw = localStorage.getItem('caratulasMaestras');
-        if(raw){ caratulasMaestras = JSON.parse(raw) || []; }
+        if(raw) caratulasMaestras = JSON.parse(raw) || [];
       } catch(e){ caratulasMaestras = []; }
+      try {
+        var rawE = localStorage.getItem('caratulasEliminadas');
+        if(rawE) caratulasEliminadas = JSON.parse(rawE) || [];
+      } catch(e){ caratulasEliminadas = []; }
 
-      // Si está vacía, derivar inicialmente de abonosData (normalizando para deduplicar)
-      if(caratulasMaestras.length === 0){
-        var set = new Set();
-        abonosData.forEach(function(a){
-          if(a.expediente){
-            var n = normalizarCaratula(a.expediente);
-            if(n) set.add(n);
-          }
-        });
-        caratulasMaestras = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'es'); });
-        guardarCaratulasMaestras();
-      }
+      // Si está vacía, sembrar desde abonosData
+      reconciliarCaratulasConAbonos();
 
-      // Escuchar Firebase para multi-PC
+      // Escuchar Firebase (maestra)
       try {
         if(typeof firebaseDB !== 'undefined' && firebaseDB){
           if(caratulasFirebaseRef){ try { caratulasFirebaseRef.off(); } catch(_){} }
@@ -2734,7 +2751,6 @@
             if(Array.isArray(val)){
               caratulasMaestras = val.filter(function(x){ return x && typeof x === 'string'; });
               localStorage.setItem('caratulasMaestras', JSON.stringify(caratulasMaestras));
-              // Si el dropdown está abierto, refrescar
               var dd = document.getElementById('caratulasDropdown');
               if(dd && dd.style.display === 'block'){
                 var inp = document.getElementById('expediente');
@@ -2742,12 +2758,22 @@
               }
             }
           });
+
+          // Escuchar Firebase (eliminadas)
+          if(caratulasElimFirebaseRef){ try { caratulasElimFirebaseRef.off(); } catch(_){} }
+          caratulasElimFirebaseRef = firebaseDB.ref('planilla_abonos_caratulas_eliminadas');
+          caratulasElimFirebaseRef.on('value', function(snap){
+            var val = snap.val();
+            if(Array.isArray(val)){
+              caratulasEliminadas = val.filter(function(x){ return x && typeof x === 'string'; });
+              localStorage.setItem('caratulasEliminadas', JSON.stringify(caratulasEliminadas));
+            }
+          });
         }
       } catch(e){ console.error('Error escuchando carátulas:', e); }
     }
 
     function guardarCaratulasMaestras(){
-      // Deduplicar y ordenar
       var set = new Set();
       caratulasMaestras.forEach(function(c){
         var n = normalizarCaratula(c);
@@ -2763,9 +2789,26 @@
       } catch(e){}
     }
 
+    function guardarCaratulasEliminadas(){
+      var set = new Set(caratulasEliminadas.filter(function(x){ return x && typeof x === 'string'; }));
+      caratulasEliminadas = Array.from(set).sort();
+      try { localStorage.setItem('caratulasEliminadas', JSON.stringify(caratulasEliminadas)); } catch(e){}
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          firebaseDB.ref('planilla_abonos_caratulas_eliminadas').set(caratulasEliminadas)
+            .catch(function(e){ console.error('Error guardando eliminadas:', e); });
+        }
+      } catch(e){}
+    }
+
     function agregarCaratula(c){
       var n = normalizarCaratula(c);
       if(!n) return;
+      // Si la usuaria la había eliminado y ahora la usa, la rehabilitamos
+      if(caratulasEliminadas.indexOf(n) !== -1){
+        caratulasEliminadas = caratulasEliminadas.filter(function(x){ return x !== n; });
+        guardarCaratulasEliminadas();
+      }
       if(caratulasMaestras.indexOf(n) === -1){
         caratulasMaestras.push(n);
         guardarCaratulasMaestras();
@@ -2773,9 +2816,11 @@
     }
 
     function eliminarCaratula(c){
-      if(!confirm('¿Eliminar "' + c + '" de las opciones del listado?\n\nLos registros que ya la usan no se modifican, solo no se va a sugerir más.')) return;
+      if(!confirm('¿Eliminar "' + c + '" de las opciones del listado?\n\nLos registros que ya la usan no se modifican, solo no se va a sugerir más (ni siquiera si la importás de otra planilla).')) return;
       caratulasMaestras = caratulasMaestras.filter(function(x){ return x !== c; });
+      if(caratulasEliminadas.indexOf(c) === -1) caratulasEliminadas.push(c);
       guardarCaratulasMaestras();
+      guardarCaratulasEliminadas();
       renderCaratulasDropdown(document.getElementById('expediente').value);
     }
 
@@ -3112,6 +3157,7 @@
             abonosData = imported;
             saveData();
             loadData();
+            if(typeof reconciliarCaratulasConAbonos === 'function') reconciliarCaratulasConAbonos();
             render();
             alert('✅ Datos importados exitosamente.\n' + imported.length + ' registros cargados.');
           } else if (!imported) {
@@ -3271,6 +3317,7 @@
         abonosData = importedData;
         saveData();
         loadData();
+        if(typeof reconciliarCaratulasConAbonos === 'function') reconciliarCaratulasConAbonos();
         render();
         updateDriveStatus('✅ Datos cargados desde Drive con éxito.' + info, true);
       } catch (err) { console.error(err); updateDriveStatus('❌ Error al cargar desde Drive.', false); alert('Error al cargar desde Drive: ' + err.message); }
