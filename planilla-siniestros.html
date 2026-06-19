@@ -896,30 +896,40 @@ body.modo-noche .day-circle.is-today .day-count { color: var(--gold); }
 
 .toggle-icon { display: inline-block; margin-left: 8px; }
 
-/* ── FICHAS PREMIUM ── */
+/* ── FICHAS PREMIUM v2 — Diseño elevado ── */
 .ficha-section {
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 0;
-  margin-bottom: 14px;
-  border: 1px solid;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-item);
   background: var(--bg-ficha);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: var(--transition);
   overflow: hidden;
+  position: relative;
+}
+
+.ficha-section:hover {
+  box-shadow: 0 6px 24px rgba(100,75,30,0.10);
+  border-color: var(--gold-border);
+}
+
+body.modo-noche .ficha-section:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
 }
 
 .ficha-section h4 {
   font-family: 'DM Sans', sans-serif;
-  font-size: .82em;
+  font-size: .84em;
   font-weight: 600;
   margin-bottom: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 20px;
+  gap: 10px;
+  padding: 16px 22px;
   border-bottom: none;
-  letter-spacing: .06em;
+  letter-spacing: .08em;
   text-transform: uppercase;
   cursor: pointer;
   user-select: none;
@@ -927,119 +937,353 @@ body.modo-noche .day-circle.is-today .day-count { color: var(--gold); }
   position: relative;
 }
 
-.ficha-section h4:hover {
-  background: rgba(201,169,110,0.06);
+/* Icono en círculo a color por sección */
+.ficha-section h4 .ficha-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  transition: var(--transition);
 }
 
+.ficha-section h4 .ficha-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* SVG inline directo dentro del h4 (compat con código existente): le damos un look más limpio */
+.ficha-section h4 > svg {
+  width: 18px;
+  height: 18px;
+  padding: 6px;
+  border-radius: 9px;
+  box-sizing: content-box;
+  margin-right: 2px;
+  transition: var(--transition);
+}
+
+.ficha-section h4:hover {
+  background: linear-gradient(90deg, rgba(201,169,110,0.04), transparent);
+}
+
+.ficha-section h4:hover > svg,
+.ficha-section h4:hover .ficha-icon {
+  transform: scale(1.08);
+}
+
+/* Flecha indicadora más sutil */
 .ficha-section h4::after {
   content: '';
   position: absolute;
-  right: 18px;
+  right: 22px;
   top: 50%;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-right: 2px solid var(--text-muted);
   border-bottom: 2px solid var(--text-muted);
-  transform: translateY(-50%) rotate(45deg);
-  transition: transform .28s cubic-bezier(.4,0,.2,1);
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  opacity: .6;
 }
 
 .ficha-section.ficha-open h4::after {
   transform: translateY(-30%) rotate(-135deg);
+  opacity: .9;
+}
+
+.ficha-section.ficha-open {
+  box-shadow: 0 4px 20px rgba(100,75,30,0.08);
+}
+
+body.modo-noche .ficha-section.ficha-open {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
 .ficha-section.ficha-open h4 {
   border-bottom: 1px solid var(--border-item);
-  margin-bottom: 0;
 }
 
 .ficha-section .ficha-body {
   max-height: 0;
   overflow: hidden;
-  transition: max-height .35s cubic-bezier(.4,0,.2,1), padding .35s ease;
-  padding: 0 20px;
+  transition: max-height .4s cubic-bezier(.4,0,.2,1), padding .35s ease;
+  padding: 0 22px;
 }
 
 .ficha-section.ficha-open .ficha-body {
-  max-height: 2000px;
-  padding: 14px 20px 18px;
+  max-height: 4000px;
+  padding: 16px 22px 20px;
 }
 
-/* Resumen fijo del cliente (siempre visible) */
+/* Colores por sección — fondos sutiles en el header */
+.ficha-cliente   { border-left: 3px solid var(--gold); }
+.ficha-cliente h4 { color: var(--gold-dark); background: linear-gradient(90deg, rgba(201,169,110,0.06), transparent); }
+.ficha-cliente h4 > svg { background: rgba(201,169,110,0.14); color: var(--gold-dark); }
+body.modo-noche .ficha-cliente h4 { color: var(--gold); }
+body.modo-noche .ficha-cliente h4 > svg { background: rgba(201,169,110,0.18); color: var(--gold); }
+
+.ficha-tercero   { border-left: 3px solid var(--danger-color); }
+.ficha-tercero h4 { color: #962020; background: linear-gradient(90deg, rgba(217,79,79,0.06), transparent); }
+.ficha-tercero h4 > svg { background: rgba(217,79,79,0.14); color: #962020; }
+body.modo-noche .ficha-tercero h4 { color: #e07070; }
+body.modo-noche .ficha-tercero h4 > svg { background: rgba(217,79,79,0.18); color: #e07070; }
+
+.ficha-siniestro { border-left: 3px solid var(--warning-color); }
+.ficha-siniestro h4 { color: #7a4e00; background: linear-gradient(90deg, rgba(212,144,26,0.06), transparent); }
+.ficha-siniestro h4 > svg { background: rgba(212,144,26,0.14); color: #7a4e00; }
+body.modo-noche .ficha-siniestro h4 { color: #e8b060; }
+body.modo-noche .ficha-siniestro h4 > svg { background: rgba(212,144,26,0.18); color: #e8b060; }
+
+.ficha-gestion   { border-left: 3px solid #8b6ec7; }
+.ficha-gestion h4 { color: #50338a; background: linear-gradient(90deg, rgba(139,110,199,0.06), transparent); }
+.ficha-gestion h4 > svg { background: rgba(139,110,199,0.14); color: #50338a; }
+body.modo-noche .ficha-gestion h4 { color: #b89fd4; }
+body.modo-noche .ficha-gestion h4 > svg { background: rgba(139,110,199,0.18); color: #b89fd4; }
+
+.ficha-cobro     { border-left: 3px solid var(--success-color); }
+.ficha-cobro h4 { color: #0f6040; background: linear-gradient(90deg, rgba(31,158,114,0.06), transparent); }
+.ficha-cobro h4 > svg { background: rgba(31,158,114,0.14); color: #0f6040; }
+body.modo-noche .ficha-cobro h4 { color: #3ecfa0; }
+body.modo-noche .ficha-cobro h4 > svg { background: rgba(31,158,114,0.18); color: #3ecfa0; }
+
+/* Sección Historial — gris neutro */
+.ficha-historial { border-left: 3px solid #6c757d; }
+.ficha-historial h4 { color: var(--text-secondary); background: linear-gradient(90deg, rgba(120,120,120,0.06), transparent); }
+.ficha-historial h4 > svg { background: rgba(120,120,120,0.14); color: var(--text-secondary); }
+
+/* Sección Formularios — dorado sutil */
+.ficha-formularios { border-left: 3px solid var(--gold); }
+.ficha-formularios h4 { color: var(--gold-dark); background: linear-gradient(90deg, rgba(201,169,110,0.08), transparent); }
+.ficha-formularios h4 > svg { background: rgba(201,169,110,0.16); color: var(--gold-dark); }
+body.modo-noche .ficha-formularios h4 { color: var(--gold); }
+body.modo-noche .ficha-formularios h4 > svg { background: rgba(201,169,110,0.2); color: var(--gold); }
+
+/* ── RESUMEN FIJO DEL CLIENTE ── */
 .ficha-resumen {
-  border-radius: 12px;
-  padding: 16px 20px;
+  border-radius: 14px;
+  padding: 18px 22px;
   margin-bottom: 14px;
   border: 1px solid var(--gold-border);
-  background: var(--bg-ficha);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: linear-gradient(135deg, rgba(201,169,110,0.08), rgba(201,169,110,0.02));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-left: 3px solid var(--gold);
+  box-shadow: 0 2px 12px rgba(100,75,30,0.06);
+  position: relative;
+}
+
+body.modo-noche .ficha-resumen {
+  background: linear-gradient(135deg, rgba(201,169,110,0.06), rgba(255,255,255,0.02));
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+
+.ficha-resumen::before {
+  content: 'FICHA RESUMEN';
+  position: absolute;
+  top: -8px;
+  left: 18px;
+  background: var(--bg-modal);
+  padding: 0 8px;
+  font-size: .62em;
+  font-weight: 600;
+  letter-spacing: .15em;
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
 }
 
 .ficha-resumen .resumen-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
+  gap: 14px;
 }
 
 .ficha-resumen .resumen-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: 6px 0;
 }
 
 .ficha-resumen .resumen-label {
-  font-size: .72em;
+  font-size: .68em;
   font-weight: 600;
-  letter-spacing: .08em;
+  letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--text-label);
 }
 
 .ficha-resumen .resumen-value {
-  font-size: .92em;
+  font-size: .95em;
   font-weight: 500;
   color: var(--text-primary);
+  line-height: 1.3;
 }
 
 .ficha-resumen .resumen-value.editable-field {
   cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin-left: -4px;
+  transition: var(--transition);
 }
 
-/* Botón expandir/colapsar todo */
+.ficha-resumen .resumen-value.editable-field:hover {
+  background: rgba(201,169,110,0.1);
+}
+
+/* ── BOTÓN EXPANDIR / COLAPSAR TODO ── */
 .ficha-toggle-all {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   gap: 8px;
 }
 .ficha-toggle-all button {
-  font-size: .74em;
-  padding: 4px 12px;
+  font-size: .72em;
+  padding: 6px 14px;
   background: transparent;
   border: 1px solid var(--border-item);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
+  font-weight: 500;
   transition: var(--transition);
+  text-transform: uppercase;
 }
 .ficha-toggle-all button:hover {
   border-color: var(--gold-border);
   color: var(--gold);
   background: var(--gold-dim);
+  transform: translateY(-1px);
 }
 
-/* Contador en h4 de secciones colapsadas */
+/* ── CONTADOR / RESUMEN EN H4 ── */
 .ficha-section h4 .ficha-count {
-  font-size: .82em;
-  font-weight: 400;
+  font-size: .78em;
+  font-weight: 500;
   color: var(--text-muted);
   margin-left: auto;
-  margin-right: 24px;
+  margin-right: 28px;
+  letter-spacing: .04em;
+  text-transform: none;
+  padding: 3px 10px;
+  background: rgba(120,120,120,0.08);
+  border-radius: 12px;
+  border: 1px solid var(--border-item);
 }
+
+body.modo-noche .ficha-section h4 .ficha-count {
+  background: rgba(255,255,255,0.04);
+}
+
+/* Contador con tinte semántico cuando aplica */
+.ficha-section h4 .ficha-count.count-warn {
+  background: rgba(212,144,26,0.12);
+  color: var(--warning-color);
+  border-color: rgba(212,144,26,0.3);
+}
+.ficha-section h4 .ficha-count.count-ok {
+  background: rgba(31,158,114,0.12);
+  color: var(--success-color);
+  border-color: rgba(31,158,114,0.3);
+}
+.ficha-section h4 .ficha-count.count-danger {
+  background: rgba(217,79,79,0.12);
+  color: var(--danger-color);
+  border-color: rgba(217,79,79,0.3);
+}
+
+/* ── BOTÓN ACTUALIZAR SOLO EN MÓVIL ── */
+.btn-mobile-only {
+  display: none !important;
+}
+@media (max-width: 768px) {
+  .btn-mobile-only {
+    display: inline-flex !important;
+    align-items: center;
+  }
+}
+
+/* ── COMPLETED HISTORY ACCORDION ── */
+.completed-history-wrap {
+  margin-top: 14px;
+  border-top: 1px dashed var(--border-item);
+  padding-top: 12px;
+}
+
+.completed-history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(120,120,120,0.05);
+  border: 1px solid var(--border-item);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: .82em;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: .04em;
+}
+
+.completed-history-toggle:hover {
+  background: rgba(31,158,114,0.06);
+  border-color: rgba(31,158,114,0.2);
+  color: var(--success-color);
+}
+
+.completed-history-toggle .toggle-arrow {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform .3s ease;
+  margin-left: 8px;
+  opacity: .7;
+}
+
+.completed-history-toggle.open .toggle-arrow {
+  transform: rotate(-135deg);
+}
+
+.completed-history-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .35s ease, padding .3s ease;
+  padding: 0;
+}
+
+.completed-history-list.open {
+  max-height: 3000px;
+  padding-top: 10px;
+}
+
+.completed-history-list .history-item {
+  opacity: .65;
+}
+
+.empty-state-msg {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--text-muted);
+  font-size: .88em;
+  font-style: italic;
+  background: rgba(120,120,120,0.04);
+  border: 1px dashed var(--border-item);
+  border-radius: 10px;
+}
+
 
 .ficha-section { border-color: var(--border-item); }
 .ficha-section h4 { color: var(--text-secondary); border-bottom-color: var(--border-item); }
@@ -1702,7 +1946,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
       <div id="firebaseStatus" style="margin-top:10px;padding:8px 16px;border-radius:8px;font-size:.88em;display:inline-block;background:rgba(212,144,26,0.1);color:var(--warning-color);border:1px solid rgba(212,144,26,0.3);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Firebase: Conectando...
       </div>
-      <button class="btn btn-sm" onclick="forceRefreshFromFirebase()" style="margin-left:8px;vertical-align:middle;" title="Forzar recarga desde Firebase">🔄 Actualizar</button>
+      <button class="btn btn-sm btn-mobile-only" onclick="forceRefreshFromFirebase()" style="margin-left:8px;vertical-align:middle;" title="Forzar recarga desde Firebase">🔄 Actualizar</button>
     </div>
 
     <div class="filter-bar">
@@ -1983,7 +2227,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
                 const data = snapshot.val();
                 if (data && Array.isArray(data)) {
                     siniestrosData = sanitizeData(data);
-                    localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
+                    safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
                     renderAll();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
                 }
@@ -2087,6 +2331,24 @@ let firebaseApp, firebaseDB, firebaseRef;
 let firebaseConectado = false;
 let ignorarProximoCambioFirebase = false; // Evita bucles al guardar
 
+// === SAFE LOCAL STORAGE — maneja el QuotaExceededError (típico de iOS Safari) ===
+function safeLocalSet(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch(e) {
+        console.warn('localStorage lleno, limpiando cache local:', e.message);
+        try {
+            localStorage.removeItem('planilla_siniestros_data');
+            localStorage.setItem(key, value);
+            return true;
+        } catch(e2) {
+            console.warn('localStorage no disponible. Continuando sólo con Firebase.');
+            return false;
+        }
+    }
+}
+
 function cargarNombreEstudio() {
     try {
         firebase.database().ref('config/nombreEstudio').once('value').then(function(snapshot) {
@@ -2119,7 +2381,7 @@ function initFirebase() {
             const data = snapshot.val();
             if (data && Array.isArray(data)) {
                 siniestrosData = sanitizeData(data);
-                localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
+                safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
                 renderAll();
                 updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
             } else if (data === null) {
@@ -2206,7 +2468,7 @@ function saveToFirebase() {
 
 function saveData(){ 
     try{ 
-        localStorage.setItem('planilla_siniestros_data',JSON.stringify(siniestrosData)); 
+        safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData)); 
         saveToFirebase(); // Guardar en Firebase automáticamente
     }catch(e){ 
         console.error('Error al guardar:',e); 
@@ -2239,11 +2501,13 @@ function forceRefreshFromFirebase() {
     }
     updateFirebaseStatus('🔄 Recargando desde Firebase...', 'warn');
     ignorarProximoCambioFirebase = false; // Reset flag
+    // Forzar reconexión del WebSocket (clave en iOS al volver de background)
+    try { firebase.database().goOffline(); firebase.database().goOnline(); } catch(e) {}
     firebaseRef.once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data && Array.isArray(data)) {
             siniestrosData = sanitizeData(data);
-            localStorage.setItem('planilla_siniestros_data', JSON.stringify(siniestrosData));
+            safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
             renderAll();
             updateFirebaseStatus('✅ Datos actualizados desde Firebase', 'ok');
             updateDataStatus('✅ Recarga completa — ' + siniestrosData.length + ' casos cargados');
@@ -3370,31 +3634,31 @@ function showSiniestroModal(id){
         <button onclick="toggleAllFichas(false)">▲ Colapsar todo</button>
     </div>
 
-    <div class="ficha-section ficha-cliente" id="sec-cliente">
-        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${Object.values(clienteFields).length} campos</span></h4>
+    <div class="ficha-section ficha-cliente${getFichaOpenClass('sec-cliente', false)}" id="sec-cliente">
+        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${s.dni ? formatDNI(s.dni) : 'sin DNI'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(clienteFields)}</div></div>
     </div>
 
-    <div class="ficha-section ficha-tercero" id="sec-tercero">
-        <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${s.nombreTercero ? s.nombreTercero : 'sin datos'}</span></h4>
+    <div class="ficha-section ficha-tercero${getFichaOpenClass('sec-tercero', false)}" id="sec-tercero">
+        <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${s.nombreTercero || 'sin datos'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(terceroFields)}</div></div>
     </div>
 
-    <div class="ficha-section ficha-siniestro" id="sec-siniestro">
-        <h4 onclick="toggleFichaSection('sec-siniestro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="m10.29 3.86-8.66 15A1 1 0 0 0 2.5 20.5h19a1 1 0 0 0 .87-1.5l-8.66-15a1 1 0 0 0-1.73 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Datos del Siniestro <span class="ficha-count">${s.fechaSiniestro ? formatDate(s.fechaSiniestro) : 'sin fecha'}</span></h4>
+    <div class="ficha-section ficha-siniestro${getFichaOpenClass('sec-siniestro', false)}" id="sec-siniestro">
+        <h4 onclick="toggleFichaSection('sec-siniestro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-8.66 15A1 1 0 0 0 2.5 20.5h19a1 1 0 0 0 .87-1.5l-8.66-15a1 1 0 0 0-1.73 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Datos del Siniestro <span class="ficha-count">${s.fechaSiniestro ? formatDate(s.fechaSiniestro) : 'sin fecha'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(siniestroFields)}</div></div>
     </div>
 
-    <div class="ficha-section ficha-gestion" id="sec-gestion">
-        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.estado || '—'}</span></h4>
+    <div class="ficha-section ficha-gestion${getFichaOpenClass('sec-gestion', false)}" id="sec-gestion">
+        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.estado || '—'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(gestionFields)}
 
             <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value fecha-alerta">${formatDate(s.fechaRevision)}</div></div>
         </div></div>
     </div>
 
-    <div class="ficha-section ficha-cobro" id="sec-cobro">
-        <h4 onclick="toggleFichaSection('sec-cobro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg> Información de Cobro <span class="ficha-count">${s.cobradoEstudio === 'Sí' ? '✓ Cobrado' : 'pendiente'}</span></h4>
+    <div class="ficha-section ficha-cobro${getFichaOpenClass('sec-cobro', false)}" id="sec-cobro">
+        <h4 onclick="toggleFichaSection('sec-cobro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg> Información de Cobro <span class="ficha-count ${s.cobradoEstudio === 'Sí' ? 'count-ok' : 'count-warn'}">${s.cobradoEstudio === 'Sí' ? '✓ Cobrado' : 'Pendiente'}</span></h4>
         <div class="ficha-body"><div class="info-grid">
             <div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div>
             <div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div>
@@ -3406,15 +3670,23 @@ function showSiniestroModal(id){
         </div></div>
     </div>
 
-    <div class="ficha-section ficha-gestion" id="sec-historial" style="border-left:3px solid #6c757d;">
-        <h4 onclick="toggleFichaSection('sec-historial')" style="color:var(--text-secondary)!important;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Historial de Eventos <span class="ficha-count">${(s.observaciones||[]).length + (s.mediaciones_list||[]).length + (s.vencimientos_list||[]).length} eventos</span></h4>
+    ${(() => {
+        // Calcular eventos pendientes vs completados para el contador
+        const totalEv = (s.observaciones||[]).length + (s.mediaciones_list||[]).length + (s.vencimientos_list||[]).length;
+        const pendEv = (s.observaciones||[]).filter(o=>!o.completed).length + (s.mediaciones_list||[]).filter(m=>!m.completed).length + (s.vencimientos_list||[]).filter(v=>!v.completed).length;
+        const countClass = pendEv > 0 ? 'count-warn' : (totalEv > 0 ? 'count-ok' : '');
+        const countText = pendEv > 0 ? `${pendEv} pendiente${pendEv!==1?'s':''}` : (totalEv > 0 ? '✓ todo al día' : 'sin eventos');
+        return `
+    <div class="ficha-section ficha-historial${getFichaOpenClass('sec-historial', true)}" id="sec-historial">
+        <h4 onclick="toggleFichaSection('sec-historial')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Historial de Eventos <span class="ficha-count ${countClass}">${countText}</span></h4>
         <div class="ficha-body">
-            <div id="history-list-${s.id}" style="max-height:300px;overflow:auto;padding-right:5px;">${renderHistoryList(s)}</div>
+            <div id="history-list-${s.id}">${renderHistoryList(s)}</div>
         </div>
-    </div>
+    </div>`;
+    })()}
 
-    <div class="ficha-section" id="sec-formularios" style="border-left:3px solid var(--gold);">
-        <h4 onclick="toggleFichaSection('sec-formularios')" style="color:var(--gold-dark)!important;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Agregar Tarea / Mediación / Vencimiento</h4>
+    <div class="ficha-section ficha-formularios${getFichaOpenClass('sec-formularios', true)}" id="sec-formularios">
+        <h4 onclick="toggleFichaSection('sec-formularios')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Agregar Tarea / Mediación / Vencimiento</h4>
         <div class="ficha-body">
             <div style="display:grid;grid-template-columns:1fr;gap:15px;">
                 <div class="form-section"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Agregar Tarea</h4><form onsubmit="addObservation(event,'${s.id}')"><div class="form-group"><label>Texto (Público)</label><textarea id="newObsText" rows="2"></textarea></div><div class="form-group"><label>Notas (Privadas)</label><textarea id="newObsTextPrivate" rows="2"></textarea></div><div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div><button class="btn btn-success" type="submit">Guardar Tarea</button></form></div>
@@ -3429,11 +3701,24 @@ function showSiniestroModal(id){
     <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M12 3v18M3 9l9-6 9 6M5 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3L8 9M19 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3l-2-6"/></svg> Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Eliminar</button></div>${datalistsHTML}`; 
     document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
     document.getElementById('siniestroInfoModal').classList.add('active');
-    // Restore accordion states (or default: all collapsed)
-    setTimeout(restoreFichaStates, 50); 
 }
 
 // === FICHA ACCORDION ===
+// Devuelve ' ficha-open' si la sección está marcada como abierta en sessionStorage.
+// Esto inyecta la clase directamente al renderizar el modal -> sin parpadeo.
+function getFichaOpenClass(sectionId, defaultOpen) {
+    try {
+        const raw = sessionStorage.getItem('fichaOpenSections');
+        if (raw) {
+            const stored = JSON.parse(raw);
+            if (stored.hasOwnProperty(sectionId)) {
+                return stored[sectionId] ? ' ficha-open' : '';
+            }
+        }
+    } catch(e) {}
+    return defaultOpen ? ' ficha-open' : '';
+}
+
 function toggleFichaSection(id) {
     const section = document.getElementById(id);
     if (!section) return;
@@ -3446,16 +3731,16 @@ function toggleFichaSection(id) {
 
 function toggleAllFichas(open) {
     const sections = document.querySelectorAll('.ficha-section');
-    const openSections = {};
+    const openSections = JSON.parse(sessionStorage.getItem('fichaOpenSections') || '{}');
     sections.forEach(s => {
         if (open) s.classList.add('ficha-open');
         else s.classList.remove('ficha-open');
-        openSections[s.id] = open;
+        if (s.id) openSections[s.id] = open;
     });
     sessionStorage.setItem('fichaOpenSections', JSON.stringify(openSections));
 }
 
-// Restore open/closed state after modal renders
+// Restore open/closed state after modal renders (sólo fallback)
 function restoreFichaStates() {
     const openSections = JSON.parse(sessionStorage.getItem('fichaOpenSections') || '{}');
     Object.entries(openSections).forEach(([id, isOpen]) => {
@@ -3467,7 +3752,82 @@ function restoreFichaStates() {
     });
 }
 
-function renderHistoryList(s){ const tasks=(s.observaciones||[]).map(o=>({...o,type:'task',date:o.proximaRevision})); const mediaciones=(s.mediaciones_list||[]).map(m=>({...m,type:'mediacion',date:m.fecha})); const vencimientos=(s.vencimientos_list||[]).map(v=>({...v,type:'vencimiento',date:v.fecha})); const allEvents=[...tasks,...mediaciones,...vencimientos].sort((a,b)=>(b.date||'').localeCompare(a.date||'')); return allEvents.length?allEvents.map(item=>{ let tagClass,tagText,itemClass,dateLabel,dateValue,deleteFunc,timeValue=''; switch(item.type){ case'task':tagClass='tag-task';tagText='TAREA';dateLabel='Creación';dateValue=item.fecha;deleteFunc=`deleteObs('${s.id}','${item.id}')`;break; case'mediacion':tagClass='tag-mediacion';tagText='MEDIACIÓN';itemClass='history-item-mediacion';dateLabel='Fecha';dateValue=item.fecha;timeValue=formatTime(item.hora);deleteFunc=`deleteMediacion('${s.id}','${item.id}')`;break; case'vencimiento':tagClass='tag-vencimiento';tagText='VENCIMIENTO';itemClass='history-item-vencimiento';dateLabel='Fecha';dateValue=item.fecha;deleteFunc=`deleteVencimiento('${s.id}','${item.id}')`;break; } const toggleFunc = `toggleCompleted(event, '${s.id}', '${item.id}', '${item.type}')`; const toggleButtonHtml = item.completed ? `<button class="btn btn-warning btn-sm" onclick="${toggleFunc}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> Deshacer</button>` : `<button class="btn btn-success btn-sm" onclick="${toggleFunc}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg> Completar</button>`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<details class="private-note-details"><summary class="private-note-summary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>`:''; return`<div class="history-item ${itemClass||''} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}"><div style="display:flex;align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>${item.type==='task'&&item.fechaTrabajado?`<div class="history-date" style="color:#27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>`:''}<div>${item.texto}</div>${privateNoteHtml}${item.type==='task'?`<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>`:''}<div style="margin-top:6px;display:flex;gap:6px;">${toggleButtonHtml}${item.type==='task'?`<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>`:''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div></div>`; }).join(''):'<p style="font-size:.8em;color:var(--text-muted);">Sin eventos.</p>'; }
+// === TOGGLE COMPLETED HISTORY ACCORDION ===
+function toggleCompletedHistory(btn) {
+    btn.classList.toggle('open');
+    const list = btn.nextElementSibling;
+    if (list) list.classList.toggle('open');
+}
+
+function renderHistoryList(s){
+    const tasks = (s.observaciones||[]).map(o=>({...o,type:'task',date:o.proximaRevision}));
+    const mediaciones = (s.mediaciones_list||[]).map(m=>({...m,type:'mediacion',date:m.fecha}));
+    const vencimientos = (s.vencimientos_list||[]).map(v=>({...v,type:'vencimiento',date:v.fecha}));
+    const allEvents = [...tasks,...mediaciones,...vencimientos].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+    // Separar pendientes y completados
+    const pendientes = allEvents.filter(e=>!e.completed);
+    const completados = allEvents.filter(e=>e.completed);
+
+    const renderItem = (item) => {
+        let tagClass, tagText, itemClass='', dateLabel, dateValue, deleteFunc, timeValue='';
+        switch(item.type){
+            case 'task':
+                tagClass='tag-task'; tagText='TAREA'; dateLabel='Creación'; dateValue=item.fecha;
+                deleteFunc=`deleteObs('${s.id}','${item.id}')`; break;
+            case 'mediacion':
+                tagClass='tag-mediacion'; tagText='MEDIACIÓN'; itemClass='history-item-mediacion';
+                dateLabel='Fecha'; dateValue=item.fecha; timeValue=formatTime(item.hora);
+                deleteFunc=`deleteMediacion('${s.id}','${item.id}')`; break;
+            case 'vencimiento':
+                tagClass='tag-vencimiento'; tagText='VENCIMIENTO'; itemClass='history-item-vencimiento';
+                dateLabel='Fecha'; dateValue=item.fecha;
+                deleteFunc=`deleteVencimiento('${s.id}','${item.id}')`; break;
+        }
+        const toggleFunc = `toggleCompleted(event, '${s.id}', '${item.id}', '${item.type}')`;
+        const toggleButtonHtml = item.completed
+            ? `<button class="btn btn-warning btn-sm" onclick="${toggleFunc}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> Deshacer</button>`
+            : `<button class="btn btn-success btn-sm" onclick="${toggleFunc}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg> Completar</button>`;
+        const privateNoteHtml = item.type==='task' && item.textoPrivado
+            ? `<details class="private-note-details"><summary class="private-note-summary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Ver Nota Privada</summary><div class="private-note-content">${item.textoPrivado}</div></details>`
+            : '';
+        return `<div class="history-item ${itemClass} ${item.completed?'completed':''}" id="${item.type}-item-${item.id}">
+            <div style="display:flex;align-items:center;"><div class="history-date">${dateLabel}: ${formatDate(dateValue)} ${timeValue}</div><span class="history-tag ${tagClass}">${tagText}</span></div>
+            ${item.type==='task'&&item.fechaTrabajado?`<div class="history-date" style="color:#27ae60;">Trabajado: ${formatDate(item.fechaTrabajado)}</div>`:''}
+            <div>${item.texto}</div>
+            ${privateNoteHtml}
+            ${item.type==='task'?`<div class="history-revision-date">Revisión: ${formatDate(item.proximaRevision)}</div>`:''}
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${toggleButtonHtml}${item.type==='task'?`<button class="btn btn-sm" onclick="editObs('${s.id}','${item.id}')">Editar</button>`:''}<button class="btn btn-danger btn-sm" onclick="${deleteFunc}">Eliminar</button></div>
+        </div>`;
+    };
+
+    let html = '';
+
+    // Sección pendientes (siempre visible)
+    if (pendientes.length > 0) {
+        html += pendientes.map(renderItem).join('');
+    } else if (completados.length === 0) {
+        html += '<div class="empty-state-msg">Sin eventos registrados.</div>';
+    } else {
+        html += '<div class="empty-state-msg">✓ No hay eventos pendientes — todo al día.</div>';
+    }
+
+    // Sección completados (acordeón anidado)
+    if (completados.length > 0) {
+        html += `
+        <div class="completed-history-wrap">
+            <button class="completed-history-toggle" onclick="toggleCompletedHistory(this)" type="button">
+                <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><polyline points="20 6 9 17 4 12"/></svg>Ver ${completados.length} evento${completados.length!==1?'s':''} completado${completados.length!==1?'s':''}</span>
+                <span class="toggle-arrow"></span>
+            </button>
+            <div class="completed-history-list">
+                ${completados.map(renderItem).join('')}
+            </div>
+        </div>`;
+    }
+
+    return html;
+}
 function editObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); const el=document.getElementById(`task-item-${o.id}`); if(el)el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.textoPrivado||''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`; }
 function saveObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;o.textoPrivado=document.getElementById(`edit-obs-private-${o.id}`).value;o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value; updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
 function deleteObs(sid,oid){ if(!confirm('¿Eliminar tarea?'))return; const s=siniestrosData.find(x=>x.id===sid); s.observaciones=s.observaciones.filter(o=>o.id!==oid); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
