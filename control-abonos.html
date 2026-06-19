@@ -2771,29 +2771,13 @@
         canvas.toBlob(function(blob){
           if(!blob){ alert('No se pudo generar la imagen.'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
           var fileName = 'Recibo_' + currentReceiptContext.numeroRecibo + '_' + (a.cliente||'cliente').replace(/[^a-zA-Z0-9]/g,'_') + '.png';
-          var file = new File([blob], fileName, { type: 'image/png' });
-          var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nDra. Camila García';
+          var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nDra. Camila García';
 
-          // Mobile / soportado: compartir archivo directo a WhatsApp
-          if(navigator.canShare && navigator.canShare({files:[file]})){
-            navigator.share({
-              files: [file],
-              title: 'Recibo de Pago N° ' + currentReceiptContext.numeroRecibo,
-              text: msg
-            }).catch(function(e){
-              console.warn('Share cancelado o falló:', e);
-              // Fallback: descargar + abrir WhatsApp
-              descargarYAbrirWhatsApp(blob, fileName, telN, msg);
-            }).finally(function(){
-              btn.innerHTML = textoOriginal;
-              btn.disabled = false;
-            });
-          } else {
-            // Desktop: descargar PNG + abrir WhatsApp Web con mensaje listo
-            descargarYAbrirWhatsApp(blob, fileName, telN, msg);
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-          }
+          // Descargar la imagen y abrir WhatsApp directo al contacto (igual que el botón texto)
+          descargarYAbrirWhatsApp(blob, fileName, telN, msg);
+
+          btn.innerHTML = textoOriginal;
+          btn.disabled = false;
         }, 'image/png');
       }).catch(function(e){
         console.error('Error generando imagen:', e);
@@ -2804,7 +2788,7 @@
     }
 
     function descargarYAbrirWhatsApp(blob, fileName, telN, msg){
-      // Descargar la imagen
+      // 1) Descargar la imagen
       var link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
@@ -2812,11 +2796,12 @@
       link.click();
       document.body.removeChild(link);
       setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
-      // Abrir WhatsApp con el mensaje listo (la usuaria adjunta la imagen recién descargada)
+      // 2) Abrir WhatsApp con el contacto pre-cargado y mensaje listo
+      //    La usuaria adjunta la imagen recién descargada con el clip 📎
       setTimeout(function(){
         var url = 'https://wa.me/' + telN + '?text=' + encodeURIComponent(msg);
         window.open(url, '_blank');
-      }, 300);
+      }, 400);
     }
 
     function mostrarHistorialRecibos(idAbono){
