@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -2681,12 +2680,15 @@
 
     function construirReciboTexto(ctx){
       var a = ctx.abono;
+      var nombreCompleto = (a.cliente || '').trim();
       var lines = [];
+      lines.push('Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago.');
+      lines.push('');
       lines.push('🧾 *ESTUDIO GARCÍA Y ASOCIADOS*');
       lines.push('Recibo N° ' + ctx.numeroRecibo);
       lines.push('Fecha: ' + ctx.fechaEmision);
       lines.push('');
-      lines.push('Cliente: *' + (a.cliente || '') + '*');
+      lines.push('Cliente: *' + nombreCompleto + '*');
       if(a.expediente) lines.push('Expediente: ' + a.expediente);
       lines.push('Concepto: ' + ctx.conceptoRecibo);
       if(ctx.infoCuotaLinea) lines.push('📋 ' + ctx.infoCuotaLinea);
@@ -2753,7 +2755,7 @@
         if(!telN){ alert('Número inválido.'); return; }
       }
       if(typeof html2canvas !== 'function'){
-        alert('El generador de imagen no está cargado. Intentá de nuevo en unos segundos o verificá tu conexión.');
+        alert('El generador de imagen no está cargado. Intentá de nuevo en unos segundos.');
         return;
       }
 
@@ -2763,46 +2765,65 @@
       btn.innerHTML = '⏳ Generando imagen...';
       btn.disabled = true;
 
-      html2canvas(elemento, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-        useCORS: true
-      }).then(function(canvas){
-        canvas.toBlob(function(blob){
-          if(!blob){ alert('No se pudo generar la imagen.'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
-          var fileName = 'Recibo_' + currentReceiptContext.numeroRecibo + '_' + (a.cliente||'cliente').replace(/[^a-zA-Z0-9]/g,'_') + '.png';
-          var msg = 'Hola ' + (a.cliente||'').split(' ')[0] + ', te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nDra. Camila García';
+      var nombreCompleto = (a.cliente || '').trim();
 
-          // Descargar la imagen y abrir WhatsApp directo al contacto (igual que el botón texto)
-          descargarYAbrirWhatsApp(blob, fileName, telN, msg);
+      html2canvas(elemento, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true })
+        .then(function(canvas){
+          canvas.toBlob(function(blob){
+            if(!blob){ alert('No se pudo generar la imagen.'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+            var fileName = 'Recibo_' + currentReceiptContext.numeroRecibo + '_' + nombreCompleto.replace(/[^a-zA-Z0-9]/g,'_') + '.png';
 
+            // Intentar copiar la imagen al portapapeles (desktop con clipboard API)
+            var clipboardPromise = Promise.resolve(false);
+            try {
+              if(navigator.clipboard && navigator.clipboard.write && window.ClipboardItem){
+                clipboardPromise = navigator.clipboard.write([
+                  new window.ClipboardItem({ 'image/png': blob })
+                ]).then(function(){ return true; }).catch(function(e){
+                  console.warn('Clipboard write falló:', e);
+                  return false;
+                });
+              }
+            } catch(e){ console.warn('Clipboard no soportado:', e); }
+
+            clipboardPromise.then(function(copiada){
+              // Siempre descargar como backup
+              var link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+
+              // Mensaje + apertura de WhatsApp
+              var msg;
+              if(copiada){
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nDra. Camila García';
+              } else {
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nDra. Camila García';
+              }
+              setTimeout(function(){
+                window.open('https://wa.me/' + telN + '?text=' + encodeURIComponent(msg), '_blank');
+                if(copiada){
+                  // Aviso visual breve para que sepa que solo tiene que pegar
+                  setTimeout(function(){
+                    alert('✅ Imagen copiada al portapapeles.\n\nEn WhatsApp Web: hacé Ctrl+V (o Cmd+V en Mac) dentro del chat y se pega la imagen.\n\nAdemás se descargó como backup por si lo necesitás.');
+                  }, 600);
+                }
+              }, 300);
+
+              btn.innerHTML = textoOriginal;
+              btn.disabled = false;
+            });
+          }, 'image/png');
+        })
+        .catch(function(e){
+          console.error('Error generando imagen:', e);
+          alert('Error generando la imagen: ' + (e.message||e));
           btn.innerHTML = textoOriginal;
           btn.disabled = false;
-        }, 'image/png');
-      }).catch(function(e){
-        console.error('Error generando imagen:', e);
-        alert('Error generando la imagen: ' + (e.message||e));
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
-      });
-    }
-
-    function descargarYAbrirWhatsApp(blob, fileName, telN, msg){
-      // 1) Descargar la imagen
-      var link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
-      // 2) Abrir WhatsApp con el contacto pre-cargado y mensaje listo
-      //    La usuaria adjunta la imagen recién descargada con el clip 📎
-      setTimeout(function(){
-        var url = 'https://wa.me/' + telN + '?text=' + encodeURIComponent(msg);
-        window.open(url, '_blank');
-      }, 400);
+        });
     }
 
     function mostrarHistorialRecibos(idAbono){
