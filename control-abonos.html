@@ -908,6 +908,11 @@
       document.getElementById('waTextoBtn').addEventListener('click', enviarReciboPorWhatsAppTexto);
       document.getElementById('waPdfBtn').addEventListener('click', enviarReciboPdfYWhatsApp);
       document.getElementById('historialRecibosClose').addEventListener('click', function(){ document.getElementById('historialRecibosModal').classList.remove('active'); });
+      // X para borrar recibo individual del historial
+      document.getElementById('historialRecibosBody').addEventListener('click', function(e){
+        var btn = e.target.closest('.recibo-del-btn');
+        if(btn) eliminarRecibo(btn.getAttribute('data-rec-id'));
+      });
 
       // ====== PANEL LATERAL DE DETALLES ======
       document.getElementById('detailPanelClose').addEventListener('click', cerrarPanelDetalle);
@@ -1650,7 +1655,7 @@
       console.log('[ESPEJO] toggle →', modoEspejo ? 'ACTIVANDO' : 'DESACTIVANDO');
 
       if(modoEspejo){
-        // ACTIVAR — visual muy notorio
+        // Visual de activación
         btn.style.cssText = 'background:#10b981 !important;color:#fff !important;border:2px solid #047857;box-shadow:0 0 10px #10b981;font-weight:700;';
         btn.innerHTML = '🟢 ESPEJANDO';
 
@@ -1663,28 +1668,44 @@
         }
 
         try {
+          // 1) Conectar listener (recibe cambios remotos)
           espejoListenerRef = firebaseDB.ref('planilla_abonos_vista');
-          // Listener para recibir cambios remotos
+          var huboPrimerSnap = false;
           espejoListenerRef.on('value', function(snap){
             var v = snap.val();
-            console.log('[ESPEJO] recibido snapshot:', v ? 'con datos' : 'vacío');
-            if(v) applyVistaSnapshot(v);
+            console.log('[ESPEJO] snapshot recibido:', v ? 'con datos' : 'vacío');
+            if(!huboPrimerSnap){
+              huboPrimerSnap = true;
+              btn.innerHTML = '🟢 ESPEJANDO ✓';
+              btn.title = 'Conectado. Cuando entra una vista, vas a ver un destello.';
+              return; // el primer snapshot es el eco de mi propio write
+            }
+            if(v){
+              // Destello visual breve para indicar que entró algo
+              btn.style.boxShadow = '0 0 18px #facc15';
+              setTimeout(function(){
+                if(modoEspejo) btn.style.boxShadow = '0 0 10px #10b981';
+              }, 600);
+              applyVistaSnapshot(v);
+            }
           }, function(err){
             console.error('[ESPEJO] error listener:', err);
-            alert('Error leyendo el espejo: ' + (err && err.message ? err.message : err) + '\n\nProbable causa: las reglas de Firebase no permiten leer "planilla_abonos_vista". Avisame y te paso las reglas para corregir en Firebase Console.');
-            // Forzar desactivación
+            var mensaje = (err && err.code) ? err.code : (err && err.message ? err.message : String(err));
+            alert('❌ Error LEYENDO el espejo:\n\n' + mensaje + '\n\nLa causa más probable son las reglas de Firebase: el path "planilla_abonos_vista" no tiene permiso de lectura.\n\nDecime y te paso las reglas para corregir en Firebase Console.');
             modoEspejo = false;
             btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
             btn.innerHTML = '🔗 Espejar';
           });
 
-          // Test de escritura inmediato: si falla la regla, lo detectamos al toque
+          // 2) Test de escritura inmediato
           firebaseDB.ref('planilla_abonos_vista').set(buildVistaSnapshot())
-            .then(function(){ console.log('[ESPEJO] escritura inicial OK'); })
+            .then(function(){
+              console.log('[ESPEJO] escritura inicial OK');
+            })
             .catch(function(e){
               console.error('[ESPEJO] error escribiendo:', e);
-              alert('No se puede escribir el espejo en Firebase.\n\nMensaje: ' + (e && e.message ? e.message : e) + '\n\nProbable causa: las reglas de Firebase no permiten escribir en "planilla_abonos_vista". Te paso las reglas correctas si me avisás.');
-              // Forzar desactivación
+              var mensaje = (e && e.code) ? e.code : (e && e.message ? e.message : String(e));
+              alert('❌ Error ESCRIBIENDO el espejo:\n\n' + mensaje + '\n\nProbable causa: las reglas de Firebase no permiten escribir en "planilla_abonos_vista".\n\nPasos para arreglarlo:\n1. Abrí Firebase Console\n2. Realtime Database → Reglas\n3. Agregá:\n\n"planilla_abonos_vista": {\n  ".read": true,\n  ".write": true\n},\n"planilla_abonos_caratulas": {\n  ".read": true,\n  ".write": true\n},\n"planilla_abonos_caratulas_eliminadas": {\n  ".read": true,\n  ".write": true\n},\n"planilla_abonos_recibos": {\n  ".read": true,\n  ".write": true\n}');
               modoEspejo = false;
               if(espejoListenerRef){ try { espejoListenerRef.off(); } catch(_){} espejoListenerRef = null; }
               btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
@@ -1698,7 +1719,6 @@
           btn.innerHTML = '🔗 Espejar';
         }
       } else {
-        // DESACTIVAR
         btn.style.cssText = 'background:linear-gradient(135deg,#64748b,#475569);color:#fff;';
         btn.innerHTML = '🔗 Espejar';
         if(espejoListenerRef){
@@ -2708,36 +2728,75 @@
       } catch(e){ console.error('Error guardando recibo:', e); }
     }
 
-    // Limpia duplicados existentes en el historial (se ejecuta una vez al cargar)
     function deduplicarRecibos(){
       if(!Array.isArray(recibosEmitidos) || recibosEmitidos.length === 0) return;
       var porKey = {};
       recibosEmitidos.forEach(function(r){
         if(!r) return;
-        var key = r.id;
-        // Si el id no tiene el formato nuevo (rec_<abonoId>_<mesKey>), recalcularlo
-        if(!key || !key.startsWith('rec_') || !r.abonoId){
-          var mesK = r.mesServicioKey || 'sin-mes';
-          key = 'rec_' + (r.abonoId || 'no-abono') + '_' + mesK;
-          r.id = key;
+
+        // Derivar mesServicioKey si falta
+        var mesKey = r.mesServicioKey;
+        if(!mesKey || !/^\d{4}-\d{2}$/.test(mesKey)){
+          var abono = abonosData.find(function(a){ return a.id === r.abonoId; });
+          if(abono && abono.mesServicio && typeof abono.mesServicio.month === 'number'){
+            mesKey = abono.mesServicio.year + '-' + String(abono.mesServicio.month + 1).padStart(2, '0');
+          } else if(r.fechaPagoCliente){
+            var d = new Date(r.fechaPagoCliente + 'T00:00:00');
+            if(!isNaN(d.getTime())) mesKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+          } else if(r.timestampMs){
+            var d2 = new Date(r.timestampMs);
+            mesKey = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
+          } else {
+            mesKey = 'sin-mes';
+          }
+          r.mesServicioKey = mesKey;
         }
-        if(!porKey[key] || (r.timestampMs||0) > (porKey[key].timestampMs||0)){
-          porKey[key] = r;
+
+        // SIEMPRE forzar id estable
+        var newKey = 'rec_' + (r.abonoId || 'no-abono') + '_' + mesKey;
+        r.id = newKey;
+
+        // Quedarse con el más reciente de cada (abono+mes)
+        if(!porKey[newKey] || (r.timestampMs||0) > (porKey[newKey].timestampMs||0)){
+          porKey[newKey] = r;
         }
       });
       var antes = recibosEmitidos.length;
       recibosEmitidos = Object.values(porKey);
       var despues = recibosEmitidos.length;
-      if(antes !== despues){
-        console.log('[Recibos] Deduplicados: ' + antes + ' → ' + despues);
-        localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
-        try {
-          if(typeof firebaseDB !== 'undefined' && firebaseDB){
-            var obj = {};
-            recibosEmitidos.forEach(function(r){ if(r.id) obj[r.id] = r; });
-            firebaseDB.ref('planilla_abonos_recibos').set(obj).catch(function(e){ console.error(e); });
-          }
-        } catch(e){}
+      console.log('[Recibos] Deduplicados: ' + antes + ' → ' + despues);
+
+      // Persistir siempre (incluso si no hay reducción, los IDs cambiaron)
+      localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          var obj = {};
+          recibosEmitidos.forEach(function(r){ if(r.id) obj[r.id] = r; });
+          firebaseDB.ref('planilla_abonos_recibos').set(obj).catch(function(e){ console.error(e); });
+        }
+      } catch(e){}
+    }
+
+    // Eliminar un recibo del historial (manual desde la X)
+    function eliminarRecibo(reciboId){
+      if(!reciboId) return;
+      var rec = recibosEmitidos.find(function(r){ return r.id === reciboId; });
+      if(!rec) return;
+      var msg = '¿Eliminar este recibo del historial?\n\nN° ' + (rec.numeroRecibo||'—') + '\nCliente: ' + (rec.cliente||'—') + '\nMonto: ' + formatCurrency(rec.monto||0);
+      if(!confirm(msg)) return;
+      recibosEmitidos = recibosEmitidos.filter(function(r){ return r.id !== reciboId; });
+      localStorage.setItem('recibosEmitidos', JSON.stringify(recibosEmitidos));
+      try {
+        if(typeof firebaseDB !== 'undefined' && firebaseDB){
+          firebaseDB.ref('planilla_abonos_recibos/' + reciboId).remove()
+            .catch(function(e){ console.error('Error borrando recibo en FB:', e); });
+        }
+      } catch(e){}
+      // Refrescar el modal si está abierto sobre un cliente
+      // (volver a renderizar con el último cliente abierto)
+      var modal = document.getElementById('historialRecibosModal');
+      if(modal && modal.classList.contains('active') && rec.abonoId){
+        mostrarHistorialRecibos(rec.abonoId);
       }
     }
 
@@ -2905,12 +2964,11 @@
         html += '<p style="color:#94a3b8;text-align:center;padding:2rem;">No hay recibos emitidos para este cliente todavía.</p>';
       } else {
         html += '<table style="width:100%;font-size:.85em;border-collapse:collapse;">';
-        html += '<thead><tr style="background:#f1f5f9;text-align:left;"><th style="padding:8px;">N°</th><th style="padding:8px;">Mes</th><th style="padding:8px;">Última emisión</th><th style="padding:8px;">Concepto</th><th style="padding:8px;text-align:right;">Monto</th></tr></thead><tbody>';
+        html += '<thead><tr style="background:#f1f5f9;text-align:left;"><th style="padding:8px;">N°</th><th style="padding:8px;">Mes</th><th style="padding:8px;">Última emisión</th><th style="padding:8px;">Concepto</th><th style="padding:8px;text-align:right;">Monto</th><th style="padding:8px;width:30px;"></th></tr></thead><tbody>';
         recibos.forEach(function(r){
           var fechaTxt = r.fechaEmision || (r.timestampMs ? new Date(r.timestampMs).toLocaleDateString('es-AR') : '—');
           var concepto = r.conceptoRecibo || '';
           if(r.expediente) concepto += ' · Exp ' + r.expediente;
-          // Formatear el mes (YYYY-MM → "Junio 2026")
           var mesTxt = '—';
           if(r.mesServicioKey && /^\d{4}-\d{2}$/.test(r.mesServicioKey)){
             var partes = r.mesServicioKey.split('-');
@@ -2924,6 +2982,7 @@
           html += '<td style="padding:8px;white-space:nowrap;color:#64748b;font-size:.85em;">' + fechaTxt + '</td>';
           html += '<td style="padding:8px;">' + concepto + '</td>';
           html += '<td style="padding:8px;text-align:right;font-weight:600;color:#059669;">' + formatCurrency(r.monto||0) + '</td>';
+          html += '<td style="padding:4px;text-align:center;"><button class="recibo-del-btn" data-rec-id="'+r.id+'" title="Eliminar este recibo del historial" style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:1.1em;padding:4px 8px;border-radius:4px;" onmouseover="this.style.color=\'#dc2626\';this.style.background=\'#fee2e2\';" onmouseout="this.style.color=\'#cbd5e1\';this.style.background=\'none\';">✕</button></td>';
           html += '</tr>';
         });
         html += '</tbody></table>';
