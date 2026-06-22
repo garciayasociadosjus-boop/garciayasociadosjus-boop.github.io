@@ -36,7 +36,9 @@
   --success-color: #1f9e72;
   --info-color:    #8b6ec7;
   --border-radius: 14px;
-  --transition:    all .28s cubic-bezier(.4,0,.2,1);
+  /* Antes: all .28s — animaba TODAS las propiedades en cada cambio, principal causa del lag.
+     Ahora: solo las propiedades visuales que efectivamente cambian, en 120ms (snappy). */
+  --transition:    background-color .12s ease, border-color .12s ease, color .12s ease, transform .12s ease, box-shadow .12s ease, opacity .12s ease;
 }
 
 /* ══ MODO DÍA ══ */
@@ -150,8 +152,6 @@ body.modo-noche {
   color: var(--gold);
   border: 1px solid var(--gold-border);
   cursor: pointer; user-select: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   transition: var(--transition);
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
 }
@@ -177,14 +177,12 @@ body.modo-noche {
 
 body.modo-dia .container {
   background: linear-gradient(180deg, rgba(242,234,220,0.90) 0%, rgba(236,228,212,0.97) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* backdrop-filter eliminado: aplicado al contenedor principal causaba lag general en toda la app */
 }
 
 body.modo-noche .container {
   background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(10,10,18,0.98) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* backdrop-filter eliminado: aplicado al contenedor principal causaba lag general en toda la app */
 }
 
 /* ── HEADER PREMIUM ── */
@@ -319,8 +317,6 @@ body.modo-noche .container {
   transition: var(--transition);
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Shimmer sutil en cards */
@@ -468,7 +464,6 @@ body.modo-noche .btn-neutral:hover {
   margin-bottom: 14px;
   text-align: center;
   font-size: .84em;
-  backdrop-filter: blur(8px);
 }
 body.modo-noche .data-status { color: #3ecfa0; }
 
@@ -482,8 +477,6 @@ body.modo-noche .data-status { color: #3ecfa0; }
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
   border: 1px solid var(--border-item);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   transition: var(--transition);
 }
 
@@ -593,7 +586,7 @@ body.modo-noche .review-client { color: var(--gold); }
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeInModal .22s ease;
+  animation: fadeInModal .1s ease;
 }
 
 @keyframes fadeInModal {
@@ -612,12 +605,12 @@ body.modo-noche .review-client { color: var(--gold); }
   border: 1px solid var(--border-modal);
   color: var(--text-primary);
   box-shadow: 0 32px 80px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
-  animation: slideUpModal .28s cubic-bezier(.4,0,.2,1);
+  animation: slideUpModal .12s ease-out;
   position: relative;
 }
 
 @keyframes slideUpModal {
-  from { transform: translateY(20px); opacity: 0; }
+  from { transform: translateY(6px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
@@ -1329,7 +1322,6 @@ body.modo-noche .ficha-cobro h4 { color: #3ecfa0; }
   flex-wrap: wrap;
   gap: 14px;
   align-items: center;
-  backdrop-filter: blur(6px);
 }
 
 .tg-empresa {
@@ -1723,9 +1715,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
   padding: 16px 18px;
   min-width: 230px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: fadeInPanel .18s ease;
+  animation: fadeInPanel .1s ease;
 }
 #tema-panel.visible { display: block; }
 
