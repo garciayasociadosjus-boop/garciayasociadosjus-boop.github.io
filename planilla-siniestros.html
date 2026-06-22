@@ -931,7 +931,7 @@ body.modo-noche .ficha-section:hover {
   text-transform: uppercase;
   cursor: pointer;
   user-select: none;
-  transition: var(--transition);
+  transition: background .12s ease;
   position: relative;
 }
 
@@ -945,7 +945,7 @@ body.modo-noche .ficha-section:hover {
   border-radius: 9px;
   flex-shrink: 0;
   margin-right: 4px;
-  transition: var(--transition);
+  transition: transform .12s ease;
 }
 
 .ficha-section h4 .ficha-icon svg {
@@ -961,7 +961,7 @@ body.modo-noche .ficha-section:hover {
   border-radius: 9px;
   box-sizing: content-box;
   margin-right: 2px;
-  transition: var(--transition);
+  transition: transform .12s ease;
 }
 
 .ficha-section h4:hover {
@@ -984,7 +984,7 @@ body.modo-noche .ficha-section:hover {
   border-right: 2px solid var(--text-muted);
   border-bottom: 2px solid var(--text-muted);
   transform: translateY(-65%) rotate(45deg);
-  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  transition: transform .12s ease;
   opacity: .6;
 }
 
@@ -1006,17 +1006,18 @@ body.modo-noche .ficha-section.ficha-open {
 }
 
 /* Acordeón sin tope de altura (antes: max-height: 4000px cortaba historiales largos).
-   Técnica grid-template-rows 0fr → 1fr: anima de forma fluida y soporta contenido infinito. */
+   Técnica grid-template-rows 0fr → 1fr: anima fluido y soporta contenido infinito.
+   Duración corta (120ms) para sensación snappy / instantánea. */
 .ficha-section .ficha-body {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
+  transition: grid-template-rows .12s ease-out;
 }
 .ficha-section .ficha-body > * {
   overflow: hidden;
   min-height: 0;
   padding: 0 22px;
-  transition: padding .3s ease;
+  /* sin transition de padding: causaba sensación de "pensar antes de abrir" */
 }
 .ficha-section.ficha-open .ficha-body {
   grid-template-rows: 1fr;
@@ -1266,7 +1267,7 @@ body.modo-noche .ficha-section h4 .ficha-count {
 .completed-history-list {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows .3s ease;
+  transition: grid-template-rows .12s ease-out;
 }
 .completed-history-list > * {
   overflow: hidden;
@@ -3730,11 +3731,17 @@ function getFichaOpenClass(sectionId, defaultOpen) {
 function toggleFichaSection(id) {
     const section = document.getElementById(id);
     if (!section) return;
+    // Toggle visual INMEDIATO (sin bloqueo por I/O de sessionStorage)
     section.classList.toggle('ficha-open');
-    // Save state in sessionStorage
-    const openSections = JSON.parse(sessionStorage.getItem('fichaOpenSections') || '{}');
-    openSections[id] = section.classList.contains('ficha-open');
-    sessionStorage.setItem('fichaOpenSections', JSON.stringify(openSections));
+    const isOpen = section.classList.contains('ficha-open');
+    // Persistir estado diferido para que el browser pinte el cambio primero
+    requestAnimationFrame(() => {
+        try {
+            const openSections = JSON.parse(sessionStorage.getItem('fichaOpenSections') || '{}');
+            openSections[id] = isOpen;
+            sessionStorage.setItem('fichaOpenSections', JSON.stringify(openSections));
+        } catch(e) {}
+    });
 }
 
 function toggleAllFichas(open) {
