@@ -585,8 +585,8 @@ body.modo-noche .review-client { color: var(--gold); }
   top: 0; left: 0;
   width: 100vw; height: 100vh;
   background: rgba(0,0,0,.65);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 1000;
 }
 .modal.active {
@@ -782,8 +782,7 @@ body.modo-noche .tag-vencimiento { color: #b89fd4; }
   border: 1px solid var(--border-item);
   border-radius: 12px;
   margin-top: 14px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* backdrop-filter eliminado para mejorar rendimiento del modal */
 }
 .form-section h4 {
   color: var(--text-primary)!important;
@@ -903,9 +902,8 @@ body.modo-noche .day-circle.is-today .day-count { color: var(--gold); }
   margin-bottom: 12px;
   border: 1px solid var(--border-item);
   background: var(--bg-ficha);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: var(--transition);
+  /* backdrop-filter eliminado: causaba lag severo al haber 8+ fichas con blur simultáneo */
+  transition: border-color .2s ease, box-shadow .2s ease;
   overflow: hidden;
   position: relative;
 }
@@ -1007,15 +1005,23 @@ body.modo-noche .ficha-section.ficha-open {
   border-bottom: 1px solid var(--border-item);
 }
 
+/* Acordeón sin tope de altura (antes: max-height: 4000px cortaba historiales largos).
+   Técnica grid-template-rows 0fr → 1fr: anima de forma fluida y soporta contenido infinito. */
 .ficha-section .ficha-body {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .4s cubic-bezier(.4,0,.2,1), padding .35s ease;
-  padding: 0 22px;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
 }
-
+.ficha-section .ficha-body > * {
+  overflow: hidden;
+  min-height: 0;
+  padding: 0 22px;
+  transition: padding .3s ease;
+}
 .ficha-section.ficha-open .ficha-body {
-  max-height: 4000px;
+  grid-template-rows: 1fr;
+}
+.ficha-section.ficha-open .ficha-body > * {
   padding: 16px 22px 20px;
 }
 
@@ -1069,8 +1075,7 @@ body.modo-noche .ficha-formularios h4 > svg { background: rgba(201,169,110,0.2);
   margin-bottom: 14px;
   border: 1px solid var(--gold-border);
   background: linear-gradient(135deg, rgba(201,169,110,0.08), rgba(201,169,110,0.02));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* backdrop-filter eliminado para mejorar rendimiento del modal */
   border-left: 3px solid var(--gold);
   box-shadow: 0 2px 12px rgba(100,75,30,0.06);
   position: relative;
@@ -1257,15 +1262,18 @@ body.modo-noche .ficha-section h4 .ficha-count {
   transform: rotate(-135deg);
 }
 
+/* Sub-acordeón completados: misma técnica grid-template-rows sin cap de altura */
 .completed-history-list {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .35s ease, padding .3s ease;
-  padding: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .3s ease;
 }
-
+.completed-history-list > * {
+  overflow: hidden;
+  min-height: 0;
+}
 .completed-history-list.open {
-  max-height: 3000px;
+  grid-template-rows: 1fr;
   padding-top: 10px;
 }
 
@@ -3821,7 +3829,7 @@ function renderHistoryList(s){
                 <span class="toggle-arrow"></span>
             </button>
             <div class="completed-history-list">
-                ${completados.map(renderItem).join('')}
+                <div>${completados.map(renderItem).join('')}</div>
             </div>
         </div>`;
     }
