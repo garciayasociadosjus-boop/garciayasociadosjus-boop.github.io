@@ -3663,7 +3663,7 @@ function showSiniestroModal(id){
     </div>
 
     <div class="ficha-section ficha-gestion${getFichaOpenClass('sec-gestion', false)}" id="sec-gestion">
-        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'}${(() => { const raw = String(s.franquicia || '').trim(); if (!raw || /^no$/i.test(raw)) return ' · sin franquicia'; const fNum = parseFloat(raw.replace(/[^0-9.,-]/g,'').replace(',','.')); if (!isNaN(fNum) && fNum > 0) return ` · Franquicia: ${formatCurrency(fNum)}`; return ' · con franquicia'; })()}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count" id="gestion-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'} · ${/^s[íi]$/i.test(String(s.franquicia || '').trim()) ? 'con franquicia' : 'sin franquicia'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(gestionFields)}
 
             <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value fecha-alerta">${formatDate(s.fechaRevision)}</div></div>
@@ -3932,6 +3932,15 @@ function toggleSiNo(sid, field, btn) {
     var btns = container.querySelectorAll('button');
     btns[0].className = 'btn btn-sm ' + (nuevoVal === 'Sí' ? 'btn-success' : 'btn-neutral');
     btns[1].className = 'btn btn-sm ' + (nuevoVal === 'No' ? 'btn-danger' : 'btn-neutral');
+    // Si cambió la franquicia, actualizar el header del acordeón "Gestión y Económico"
+    if (field === 'franquicia') {
+        var countEl = document.getElementById('gestion-count');
+        if (countEl) {
+            var monto = s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto';
+            var franq = /^s[íi]$/i.test(String(s.franquicia || '').trim()) ? 'con franquicia' : 'sin franquicia';
+            countEl.textContent = monto + ' · ' + franq;
+        }
+    }
 }
 
 function saveSimpleField(sid, field, val) {
