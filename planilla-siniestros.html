@@ -3648,7 +3648,7 @@ function showSiniestroModal(id){
     </div>
 
     <div class="ficha-section ficha-cliente${getFichaOpenClass('sec-cliente', false)}" id="sec-cliente">
-        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${s.contra ? `Cía. 3ro: ${s.contra}` : 'sin Cía. 3ro'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${s.aseguradoEn ? `Cía. Cliente: ${s.aseguradoEn}` : 'sin Cía. Cliente'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(clienteFields)}</div></div>
     </div>
 
@@ -3663,7 +3663,7 @@ function showSiniestroModal(id){
     </div>
 
     <div class="ficha-section ficha-gestion${getFichaOpenClass('sec-gestion', false)}" id="sec-gestion">
-        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'}${s.franquicia ? ` · Franquicia: ${formatCurrency(s.franquicia)}` : ' · sin franquicia'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'}${(() => { const fNum = parseFloat(s.franquicia); if (!isNaN(fNum) && fNum > 0) return ` · Franquicia: ${formatCurrency(fNum)}`; if (s.franquicia && /^s[ií]/i.test(String(s.franquicia).trim())) return ' · con franquicia'; return ' · sin franquicia'; })()}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(gestionFields)}
 
             <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value fecha-alerta">${formatDate(s.fechaRevision)}</div></div>
