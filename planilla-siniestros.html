@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Planilla de Siniestros - García & Asociados</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -118,13 +118,20 @@ body.modo-noche {
 /* ── RESET BASE ── */
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
+/* Elimina el delay de 300ms de tap-to-click en móvil para todos los elementos interactivos */
+button, .btn, .ficha-section h4, .info-item, .editable-field, .complete-btn,
+.review-item, .review-item-content, .close, .modo-badge,
+input, select, textarea, a, [onclick] {
+  touch-action: manipulation;
+}
+
 /* ── BODY ── */
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg-page);
   min-height: 100vh;
   padding: 24px 20px;
-  transition: background .5s ease, color .5s ease;
+  transition: background .15s ease, color .15s ease;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -329,11 +336,13 @@ body.modo-noche .container {
   pointer-events: none;
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--gold-border);
-  background: var(--bg-card-hover);
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--gold-border);
+    background: var(--bg-card-hover);
+  }
 }
 
 .card h3 {
@@ -536,10 +545,12 @@ body.modo-noche .form-group select option { background: var(--bg-option); color:
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 
-.review-item:hover {
-  background: var(--bg-item-hover);
-  transform: translateX(4px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+@media (hover: hover) {
+  .review-item:hover {
+    background: var(--bg-item-hover);
+    transform: translateX(4px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
 }
 
 .review-item.completed { border-left-color: var(--success-color); opacity: .75; }
@@ -658,14 +669,16 @@ body.modo-noche .review-client { color: var(--gold); }
   border-left: 2px solid var(--gold-border);
   border-radius: 0 8px 8px 0;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  transition: var(--transition);
+  transition: border-color .12s ease;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-.info-item:hover {
-  border-left-color: var(--gold);
-  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
-  transform: translateX(2px);
+@media (hover: hover) {
+  .info-item:hover {
+    border-left-color: var(--gold);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+    transform: translateX(2px);
+  }
 }
 
 body.modo-noche .info-item { box-shadow: 0 1px 6px rgba(0,0,0,0.3); }
@@ -901,13 +914,14 @@ body.modo-noche .day-circle.is-today .day-count { color: var(--gold); }
   position: relative;
 }
 
-.ficha-section:hover {
-  box-shadow: 0 6px 24px rgba(100,75,30,0.10);
-  border-color: var(--gold-border);
-}
-
-body.modo-noche .ficha-section:hover {
-  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+@media (hover: hover) {
+  .ficha-section:hover {
+    box-shadow: 0 6px 24px rgba(100,75,30,0.10);
+    border-color: var(--gold-border);
+  }
+  body.modo-noche .ficha-section:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  }
 }
 
 .ficha-section h4 {
@@ -3634,22 +3648,22 @@ function showSiniestroModal(id){
     </div>
 
     <div class="ficha-section ficha-cliente${getFichaOpenClass('sec-cliente', false)}" id="sec-cliente">
-        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${s.dni ? formatDNI(s.dni) : 'sin DNI'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-cliente')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del Cliente <span class="ficha-count">${s.contra ? `Cía. 3ro: ${s.contra}` : 'sin Cía. 3ro'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(clienteFields)}</div></div>
     </div>
 
     <div class="ficha-section ficha-tercero${getFichaOpenClass('sec-tercero', false)}" id="sec-tercero">
-        <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${s.nombreTercero || 'sin datos'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${(s.nombreTercero || s.dominioTercero) ? `${s.nombreTercero || 'sin nombre'}${s.dominioTercero ? ` · ${s.dominioTercero}` : ''}` : 'sin datos'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(terceroFields)}</div></div>
     </div>
 
     <div class="ficha-section ficha-siniestro${getFichaOpenClass('sec-siniestro', false)}" id="sec-siniestro">
-        <h4 onclick="toggleFichaSection('sec-siniestro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-8.66 15A1 1 0 0 0 2.5 20.5h19a1 1 0 0 0 .87-1.5l-8.66-15a1 1 0 0 0-1.73 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Datos del Siniestro <span class="ficha-count">${s.fechaSiniestro ? formatDate(s.fechaSiniestro) : 'sin fecha'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-siniestro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-8.66 15A1 1 0 0 0 2.5 20.5h19a1 1 0 0 0 .87-1.5l-8.66-15a1 1 0 0 0-1.73 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Datos del Siniestro <span class="ficha-count">${s.fechaSiniestro ? `${formatDate(s.fechaSiniestro)}${s.horaSiniestro ? ` · ${formatTime(s.horaSiniestro)}` : ''}` : 'sin fecha'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(siniestroFields)}</div></div>
     </div>
 
     <div class="ficha-section ficha-gestion${getFichaOpenClass('sec-gestion', false)}" id="sec-gestion">
-        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.estado || '—'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'}${s.franquicia ? ` · Franquicia: ${formatCurrency(s.franquicia)}` : ' · sin franquicia'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(gestionFields)}
 
             <div class="info-item"><div class="info-label">Próxima Tarea</div><div class="info-value fecha-alerta">${formatDate(s.fechaRevision)}</div></div>
@@ -3657,7 +3671,7 @@ function showSiniestroModal(id){
     </div>
 
     <div class="ficha-section ficha-cobro${getFichaOpenClass('sec-cobro', false)}" id="sec-cobro">
-        <h4 onclick="toggleFichaSection('sec-cobro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg> Información de Cobro <span class="ficha-count ${s.cobradoEstudio === 'Sí' ? 'count-ok' : 'count-warn'}">${s.cobradoEstudio === 'Sí' ? '✓ Cobrado' : 'Pendiente'}</span></h4>
+        <h4 onclick="toggleFichaSection('sec-cobro')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg> Información de Cobro <span class="ficha-count">${s.productor ? `${s.productor}${s.productorPorcentaje ? ` (${s.productorPorcentaje}%)` : ''}` : 'sin productor'}</span></h4>
         <div class="ficha-body"><div class="info-grid">
             <div class="info-item"><div class="info-label">Cobrado por Cliente</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoCliente',this)">${s.cobradoCliente||'No'}</div></div>
             <div class="info-item"><div class="info-label">Cobrado por Estudio</div><div class="info-value editable-field" onclick="editField('${s.id}','cobradoEstudio',this)">${s.cobradoEstudio||'No'}</div></div>
