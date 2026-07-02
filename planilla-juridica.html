@@ -3582,6 +3582,40 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         // Proyecto de Familia en Claude.ai
         const CLAUDE_PROYECTO_FAMILIA = 'https://claude.ai/project/019edc25-7d64-7444-ac96-69680d83b096';
 
+        // URL del Apps Script que guarda dossiers en Drive
+        const APPS_SCRIPT_DOSSIERS_URL = 'https://script.google.com/macros/s/AKfycbwPEhCaYp4_bdNLbTMS3WbUlPi98YfHu4qxlhflonYxmoQK5aKzJj6WmD25Ij6leASdog/exec';
+
+        // Guarda (sobrescribe) el dossier de esta causa en tu Drive
+        async function guardarDossierEnDrive(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!APPS_SCRIPT_DOSSIERS_URL || APPS_SCRIPT_DOSSIERS_URL.indexOf('PEGAR') === 0) {
+                alert('Falta configurar la URL del Apps Script de dossiers en la planilla.');
+                return;
+            }
+            // Enviar los datos del caso: el Apps Script busca la subcarpeta del cliente y arma el dossier
+            const payload = {
+                nombre: client.nombre || '',
+                caratula: client.caratula || '',
+                materia: client.materia || '',
+                expediente: client.expediente || '',
+                mev_movimientos: client.mev_movimientos || []
+            };
+            const textoOrig = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
+            try {
+                await fetch(APPS_SCRIPT_DOSSIERS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                if (btn) { btn.innerHTML = '✓ Guardado en Drive'; setTimeout(() => { btn.innerHTML = textoOrig; btn.disabled = false; }, 2500); }
+            } catch (e) {
+                if (btn) { btn.innerHTML = textoOrig; btn.disabled = false; }
+                alert('No se pudo guardar en Drive: ' + e.message);
+            }
+        }
+
         // Modal genérico con contenido HTML
         function abrirModalTexto(titulo, contenidoHtml, acciones) {
             const overlay = document.createElement('div');
@@ -6147,6 +6181,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         Ir a Claude.ai con esta causa
+                    </button>
+                    <button onclick="guardarDossierEnDrive('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier en tu Google Drive">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Guardar en Drive
                     </button>
                     <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
