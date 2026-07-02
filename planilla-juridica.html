@@ -6086,10 +6086,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>`;
             };
 
-            // Agrupar movimientos por expediente (nidCausa). Si hay más de uno, separarlos.
+            // Agrupar movimientos por causa (nidCausa + pidJuzgado). Si hay más de una, separarlas.
             const gruposExp = {};
             mev.forEach(m => {
-                const key = m.nidCausa || 'sin-exp';
+                const key = (m.nidCausa || 'sin') + '_' + (m.pidJuzgado || '');
                 if (!gruposExp[key]) gruposExp[key] = { expediente: m.expediente_causa || '', movs: [] };
                 gruposExp[key].movs.push(m);
             });
