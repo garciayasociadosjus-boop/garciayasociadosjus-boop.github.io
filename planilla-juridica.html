@@ -3563,6 +3563,84 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 'width=1100,height=700,scrollbars=yes,resizable=yes');
         }
 
+        // Proyecto de Familia en Claude.ai
+        const CLAUDE_PROYECTO_FAMILIA = 'https://claude.ai/project/019edc25-7d64-7444-ac96-69680d83b096';
+
+        // Modal genérico con contenido HTML
+        function abrirModalTexto(titulo, contenidoHtml, acciones) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `
+                <div style="background:var(--bg-modal,#fff);max-width:900px;width:100%;max-height:90vh;border-radius:12px;box-shadow:0 12px 48px rgba(0,0,0,0.55);display:flex;flex-direction:column;overflow:hidden;">
+                    <div style="padding:16px 20px;border-bottom:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:space-between;align-items:center;gap:16px;">
+                        <div style="font-weight:700;color:var(--text-primary);font-size:1.05em;">${titulo}</div>
+                        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:1.6em;line-height:1;cursor:pointer;color:var(--text-muted);">×</button>
+                    </div>
+                    <div id="modalTextoBody" style="padding:20px;overflow-y:auto;color:var(--text-primary);">${contenidoHtml}</div>
+                    <div style="padding:12px 20px;border-top:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:flex-end;gap:8px;">
+                        ${acciones || ''}
+                        <button onclick="this.closest('div[style*=fixed]').remove()" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--border-item,#ccc);border-radius:6px;background:var(--bg-form-sec,#f5f5f5);cursor:pointer;color:var(--text-primary);">Cerrar</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        // Arma el dossier completo de la causa (string listo para pegar en Claude.ai)
+        function construirDossierCliente(client) {
+            const movs = client.mev_movimientos || [];
+            let dossier = `═══ EXPEDIENTE ═══\n`;
+            dossier += `Cliente que representa el estudio: ${client.nombre || '(no especificado)'}\n`;
+            dossier += `Carátula: ${client.caratula || ''}\n`;
+            dossier += `Materia: ${client.materia || ''}\n`;
+            dossier += `Expediente: ${client.expediente || ''}\n`;
+            dossier += `DNI cliente: ${client.dni || 'S/D'}\n`;
+            dossier += `\n═══ HISTORIAL PROCESAL (línea de tiempo) ═══\n`;
+            movs.forEach(m => { dossier += `- ${m.fecha}: ${m.descripcion}\n`; });
+            const conTexto = movs.filter(m => m.documento_texto);
+            dossier += `\n═══ TEXTOS DE LOS DOCUMENTOS (${conTexto.length} de ${movs.length}) ═══\n`;
+            conTexto.forEach(m => {
+                dossier += `\n\n───── ${m.fecha} — ${(m.tipo_documento||'doc').toUpperCase()} — ${m.descripcion} ─────\n${m.documento_texto}`;
+            });
+            return { dossier, conTexto: conTexto.length, total: movs.length };
+        }
+
+        // Copia el dossier al portapapeles y abre el Proyecto de Familia en pestaña nueva
+        async function abrirEnProyectoClaude(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const { dossier, conTexto, total } = construirDossierCliente(client);
+            try {
+                await navigator.clipboard.writeText(dossier);
+            } catch (e) {
+                // Fallback: si falla el clipboard, muestro modal para copiar manualmente
+                exportarDossier(clientId);
+                return;
+            }
+            // Aviso rápido y abrir el proyecto
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;background:#1f9e72;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:"DM Sans",sans-serif;font-size:0.9em;font-weight:600;';
+            toast.innerHTML = `✓ Dossier copiado (${conTexto}/${total} docs). Abriendo tu Proyecto de Familia…<br><span style="font-weight:400;font-size:0.85em;opacity:0.9;">Pegá con Ctrl+V y presioná Enter.</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+            window.open(CLAUDE_PROYECTO_FAMILIA, '_blank');
+        }
+
+        // Ver/copiar el dossier sin abrir Claude.ai (fallback y "Solo dossier")
+        function exportarDossier(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const { dossier, conTexto, total } = construirDossierCliente(client);
+            const html = `
+                <div style="font-size:0.85em;color:var(--text-muted);margin-bottom:10px;">Dossier completo de la causa. Incluye historial + textos de los ${conTexto} documentos cargados (de ${total} movimientos).</div>
+                <textarea id="dossierTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">${dossier.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
+            const acciones = `
+                <button onclick="(function(){const t=document.getElementById('dossierTxt');t.select();navigator.clipboard.writeText(t.value);this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar todo',1800);}).call(this)" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--gold-border,#c9a96e);border-radius:6px;background:rgba(201,169,110,0.15);color:var(--text-primary);cursor:pointer;font-weight:600;">Copiar todo</button>
+                <button onclick="window.open('${CLAUDE_PROYECTO_FAMILIA}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid #c9a96e;border-radius:6px;background:#c9a96e;color:#fff;cursor:pointer;font-weight:600;">Abrir mi Proyecto ↗</button>`;
+            abrirModalTexto('Dossier — ' + (client.caratula || ''), html, acciones);
+        }
+
         // Muestra el texto del documento MEV (guardado en Firebase) en un modal
         function verDocumentoMev(clientId, movIndex) {
             const client = clientsData.find(c => c.id === clientId);
@@ -6013,10 +6091,20 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <h5 style="margin:0; color:#3498db; font-family:'Cormorant Garamond',serif; font-weight:500; letter-spacing:.04em;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Movimientos MEV</h5>
                     ${mevUltimaSync ? `<span style="font-size:0.78em; color:var(--text-muted);">Última sync: ${mevUltimaSync}</span>` : ''}
                 </div>
-                ${mev.length === 0 
+                ${mev.length === 0
                     ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún.</p>'
                     : `<div style="max-height:350px; overflow-y:auto; border:1px solid var(--border-item); border-radius:8px; background:var(--bg-item);">${mevHtml}</div>`
                 }
+                ${mev.length > 0 ? `
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+                    <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        Ir a Claude.ai con esta causa
+                    </button>
+                    <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
+                    </button>
+                </div>` : ''}
             </div>
 
             <!-- SECCIÓN SCBA -->
