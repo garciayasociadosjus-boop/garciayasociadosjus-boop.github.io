@@ -3290,9 +3290,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 dictRow.appendChild(dictCard);
             }
 
-            // Aplanar: una entrada por CADA dictamen no atendido (no por caso)
+            // Aplanar: una entrada por CADA dictamen no atendido (no por caso).
+            // Se ignoran las causas marcadas fuera del estudio.
             const items = [];
             dataFiltrada.forEach(client => {
+                if (client.fuera_estudio) return;
                 (client.mev_movimientos || []).forEach(m => {
                     if (m.dictamen && !m.dictamen.atendido) items.push({ client, d: m });
                 });
@@ -3405,6 +3407,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             const alertas = [];
             dataFiltrada.forEach(client => {
+                if (client.fuera_estudio) return;
                 const movs = client.mev_movimientos || [];
                 const ultimaVista = client.mev_ultima_vista || null;
                 if (movs.length === 0) return;
@@ -3584,6 +3587,57 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
         // URL del Apps Script que guarda dossiers en Drive
         const APPS_SCRIPT_DOSSIERS_URL = 'https://script.google.com/macros/s/AKfycbwPEhCaYp4_bdNLbTMS3WbUlPi98YfHu4qxlhflonYxmoQK5aKzJj6WmD25Ij6leASdog/exec';
+
+        const MEV_WORKER = 'https://mev-scraper.garciayasociadosjus.workers.dev';
+
+        // Marca/desmarca una causa como "fuera del estudio" (deja de analizarse)
+        async function toggleFueraEstudio(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const indice = clientsData.indexOf(client);
+            const nuevoValor = !client.fuera_estudio;
+            if (nuevoValor && !confirm('¿Marcar esta causa como FUERA DEL ESTUDIO? El comité va a dejar de analizarla y no te va a traer más dictámenes.')) return;
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳...'; }
+            try {
+                await fetch(`${MEV_WORKER}/fuera-estudio?indice=${indice}&valor=${nuevoValor ? '1' : '0'}`);
+                client.fuera_estudio = nuevoValor; // reflejar localmente
+                alert(nuevoValor ? 'Causa marcada como fuera del estudio. Ya no se va a analizar.' : 'Causa reactivada. Vuelve a analizarse.');
+                showClientModal(clientId);
+            } catch (e) {
+                if (btn) { btn.disabled = false; }
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // Re-analiza la causa: backfillea documentos y regenera el dictamen con contexto completo
+        async function reanalizarCausa(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const indice = clientsData.indexOf(client);
+            const movs = client.mev_movimientos || [];
+            const conUrl = movs.find(m => m.nidCausa && m.pidJuzgado) || movs.find(m => m.urlCausa);
+            let nidCausa = conUrl && conUrl.nidCausa, pidJuzgado = conUrl && conUrl.pidJuzgado;
+            if ((!nidCausa || !pidJuzgado) && conUrl && conUrl.urlCausa) {
+                const mm = conUrl.urlCausa.match(/nidCausa=(\d+).*pidJuzgado=([^&"]+)/i);
+                if (mm) { nidCausa = mm[1]; pidJuzgado = mm[2]; }
+            }
+            const depto = client.mev_depto, fuero = client.mev_fuero || 'FF';
+            if (!nidCausa || !pidJuzgado || !depto) {
+                alert('Falta info de la causa (se completa cuando el cron la sincroniza). Probá de nuevo más tarde.');
+                return;
+            }
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Re-analizando…'; }
+            try {
+                const resp = await fetch(`${MEV_WORKER}/reanalizar?indice=${indice}&nidCausa=${nidCausa}&pidJuzgado=${encodeURIComponent(pidJuzgado)}&depto=${depto}&fuero=${fuero}`);
+                const data = await resp.json();
+                if (!data.ok) throw new Error(data.error || 'Error');
+                alert(data.reanalizado ? 'Dictamen regenerado con contexto completo. Refrescá para verlo.' : 'No se pudo re-analizar (sin documento de texto). Probá backfillear primero.');
+                showClientModal(clientId);
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = 'Re-analizar'; }
+                alert('Error: ' + e.message);
+            }
+        }
 
         // Guarda (sobrescribe) el dossier de esta causa en tu Drive
         async function guardarDossierEnDrive(clientId, btn) {
@@ -6190,6 +6244,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     </button>
                     <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
+                    </button>
+                    <button onclick="reanalizarCausa('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #8b6fc9;border-radius:8px;color:#8b6fc9;background:rgba(139,111,201,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Regenerar el dictamen con contexto completo (backfillea documentos)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Re-analizar
+                    </button>
+                    <button onclick="toggleFueraEstudio('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:${client.fuera_estudio ? 'rgba(31,158,114,0.08)' : 'rgba(217,79,79,0.08)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${client.fuera_estudio ? 'Reactivar el análisis de esta causa' : 'Dejar de analizar esta causa (renunciaste / no la llevás más)'}">
+                        ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
                     </button>
                 </div>` : ''}
             </div>
