@@ -2811,7 +2811,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const data = snapshot.val();
                     if (data && Array.isArray(data)) {
                         clientsData = sanitizeData(data);
-                        localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+                        guardarCacheLocal();
                         renderAll();
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sincronizado en tiempo real', 'ok');
                     } else if (data === null) {
@@ -2872,8 +2872,33 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
+        // Guarda un caché liviano en localStorage: sin los textos de documentos MEV
+        // (que son pesados y ya viven en Firebase). Evita QuotaExceededError.
+        function guardarCacheLocal() {
+            try {
+                const liviano = clientsData.map(c => {
+                    if (!c || !Array.isArray(c.mev_movimientos)) return c;
+                    return {
+                        ...c,
+                        mev_movimientos: c.mev_movimientos.map(m => {
+                            if (m && m.documento_texto) {
+                                const { documento_texto, ...resto } = m;
+                                return resto;
+                            }
+                            return m;
+                        })
+                    };
+                });
+                localStorage.setItem('planilla_juridica_data', JSON.stringify(liviano));
+            } catch (e) {
+                // Firebase es la fuente de verdad; el caché local es opcional.
+                console.warn('No se pudo cachear en localStorage (se ignora):', e.message);
+                try { localStorage.removeItem('planilla_juridica_data'); } catch (_) {}
+            }
+        }
+
         function saveData() {
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             saveToFirebase();
             unsavedChanges = true;
             updateDataStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Datos guardados');
@@ -3228,7 +3253,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (idx > -1 && firebaseDB) {
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/scba_ultima_vista').set(ahora);
             }
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderScbaAlertas(dataFiltrada);
         }
@@ -3237,7 +3262,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const updates = {};
             clientsData.forEach((c, idx) => { c.scba_ultima_vista = null; updates[idx + '/scba_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderScbaAlertas(dataFiltrada);
         }
@@ -3522,7 +3547,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (idx > -1 && firebaseDB) {
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/pjn_ultima_vista').set(ahora);
             }
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderPjnAlertas(dataFiltrada);
         }
@@ -3530,7 +3555,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const updates = {};
             clientsData.forEach((c, idx) => { c.pjn_ultima_vista = null; updates[idx + '/pjn_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderPjnAlertas(dataFiltrada);
         }
@@ -3726,7 +3751,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (idx > -1 && firebaseDB) {
                 firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/mev_ultima_vista').set(ahora);
             }
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
         }
@@ -3735,7 +3760,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const updates = {};
             clientsData.forEach((c, idx) => { c.mev_ultima_vista = null; updates[idx + '/mev_ultima_vista'] = null; });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
-            localStorage.setItem('planilla_juridica_data', JSON.stringify(clientsData));
+            guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
         }
