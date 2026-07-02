@@ -3265,27 +3265,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 dictRow.appendChild(dictCard);
             }
 
-            const alertas = [];
+            // Aplanar: una entrada por CADA dictamen no atendido (no por caso)
+            const items = [];
             dataFiltrada.forEach(client => {
-                const movs = client.mev_movimientos || [];
-                const conDictamen = movs.filter(m => m.dictamen && !m.dictamen.atendido);
-                if (conDictamen.length > 0) {
-                    alertas.push({ client, dictamenes: conDictamen });
-                }
+                (client.mev_movimientos || []).forEach(m => {
+                    if (m.dictamen && !m.dictamen.atendido) items.push({ client, d: m });
+                });
             });
 
             // Ordenar por urgencia: ALTA primero
             const ordenUrgencia = { 'ALTA': 0, 'MEDIA': 1, 'BAJA': 2 };
-            alertas.sort((a, b) => {
-                const uA = Math.min(...a.dictamenes.map(d => ordenUrgencia[d.dictamen.urgencia] || 2));
-                const uB = Math.min(...b.dictamenes.map(d => ordenUrgencia[d.dictamen.urgencia] || 2));
-                return uA - uB;
-            });
+            items.sort((a, b) => (ordenUrgencia[a.d.dictamen.urgencia] ?? 2) - (ordenUrgencia[b.d.dictamen.urgencia] ?? 2));
 
-            const total = alertas.length;
-            const MOSTRAR = 5;
+            const total = items.length;
+            const MOSTRAR = 3;
             const expandido = dictCard.dataset.expandido === 'true';
-            const visibles = expandido ? alertas : alertas.slice(0, MOSTRAR);
+            const visibles = expandido ? items : items.slice(0, MOSTRAR);
 
             const countEl = document.getElementById('dictAlertaCount');
             if (countEl) countEl.textContent = total;
@@ -3306,39 +3301,35 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 return;
             }
 
-            tablaHolder.innerHTML = visibles.map(({ client, dictamenes }) => {
-                return dictamenes.map(d => {
-                    const urg = d.dictamen.urgencia || 'MEDIA';
-                    const plazoTxt = d.dictamen.dias_plazo > 0
-                        ? `${d.dictamen.dias_plazo} días hábiles`
-                        : '';
-                    const plazoClass = d.dictamen.dias_plazo <= 3 ? 'dictamen-plazo-urgente'
-                        : d.dictamen.dias_plazo <= 10 ? 'dictamen-plazo-normal' : 'dictamen-plazo-ok';
-                    const vencTxt = d.dictamen.fecha_vencimiento_estimada || '';
+            tablaHolder.innerHTML = visibles.map(({ client, d }) => {
+                const urg = d.dictamen.urgencia || 'MEDIA';
+                const res = d.dictamen.resultado;
+                const plazoTxt = d.dictamen.dias_plazo > 0 ? `${d.dictamen.dias_plazo} días hábiles` : '';
+                const plazoClass = d.dictamen.dias_plazo <= 3 ? 'dictamen-plazo-urgente'
+                    : d.dictamen.dias_plazo <= 10 ? 'dictamen-plazo-normal' : 'dictamen-plazo-ok';
+                const vencTxt = d.dictamen.fecha_vencimiento_estimada || '';
 
-                    return `<div class="dictamen-urgencia-${urg}" style="padding:10px 12px; margin-bottom:8px; border-radius:8px; background:var(--bg-item); border:1px solid var(--border-item);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                            <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
-                                <span class="dictamen-badge dictamen-badge-${urg}">${urg}</span>
-                                <strong style="font-size:0.88em; cursor:pointer; color:var(--text-primary);" onclick="showClientModal('${client.id}')">${getDisplayName(client)}</strong>
-                            </div>
-                            <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-                                ${d.documento_url_drive ? `<a href="${d.documento_url_drive}" target="_blank" class="btn-doc-drive">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Doc</a>` : ''}
-                                <button class="btn-atendido" onclick="marcarDictamenAtendido('${client.id}', '${d.fecha}')">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Atendido
-                                </button>
-                            </div>
+                return `<div class="dictamen-urgencia-${urg}" style="padding:10px 12px; margin-bottom:8px; border-radius:8px; background:var(--bg-item); border:1px solid var(--border-item);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                            <span class="dictamen-badge dictamen-badge-${urg}">${urg}</span>
+                            ${res ? `<span style="font-size:0.68em;font-weight:700;padding:2px 7px;border-radius:10px;color:#fff;background:${res==='FAVORABLE'?'#1f9e72':res==='ADVERSO'?'#d94f4f':res==='MIXTO'?'#d4901a':'#7a7a7a'};">${res==='FAVORABLE'?'✓ A FAVOR':res==='ADVERSO'?'⚠ EN CONTRA':res}</span>` : ''}
+                            <strong style="font-size:0.88em; cursor:pointer; color:var(--text-primary);" onclick="showClientModal('${client.id}')">${getDisplayName(client)}</strong>
                         </div>
-                        <div class="dictamen-accion">${d.dictamen.accion_requerida || ''}</div>
-                        <div class="dictamen-detalle">${d.dictamen.resumen || ''}</div>
-                        <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
-                            ${plazoTxt ? `<span class="dictamen-plazo ${plazoClass}">⏱ ${plazoTxt}</span>` : ''}
-                            ${vencTxt ? `<span class="dictamen-plazo ${plazoClass}">Vence: ${vencTxt}</span>` : ''}
-                            <span style="font-size:0.72em; color:var(--text-muted);">${d.fecha} · ${d.tipo_documento || ''} · ${d.descripcion || ''}</span>
+                        <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                            <button class="btn-atendido" onclick="marcarDictamenAtendido('${client.id}', '${d.fecha}')">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Atendido
+                            </button>
                         </div>
-                    </div>`;
-                }).join('');
+                    </div>
+                    <div class="dictamen-accion">${d.dictamen.accion_requerida || ''}</div>
+                    <div class="dictamen-detalle">${d.dictamen.resumen || ''}</div>
+                    <div style="display:flex; gap:12px; align-items:center; margin-top:4px; flex-wrap:wrap;">
+                        ${plazoTxt ? `<span class="dictamen-plazo ${plazoClass}">⏱ ${plazoTxt}</span>` : ''}
+                        ${vencTxt ? `<span class="dictamen-plazo ${plazoClass}">Vence: ${vencTxt}</span>` : ''}
+                        <span style="font-size:0.72em; color:var(--text-muted);">${d.fecha} · ${d.tipo_documento || ''} · ${d.descripcion || ''}</span>
+                    </div>
+                </div>`;
             }).join('');
         }
 
