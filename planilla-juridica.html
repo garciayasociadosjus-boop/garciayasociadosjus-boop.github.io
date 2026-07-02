@@ -3604,8 +3604,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const textoOrig = btn ? btn.innerHTML : '';
             if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
             try {
+                // no-cors: el POST se envía y guarda; la respuesta (redirect de Apps Script)
+                // no se puede leer por CORS, pero no la necesitamos.
                 await fetch(APPS_SCRIPT_DOSSIERS_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
@@ -6149,7 +6152,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 : expKeys.map(k => {
                     const g = gruposExp[k];
                     const label = g.expediente ? `Expediente ${g.expediente}` : (k === 'sin-exp' ? 'Sin expediente identificado' : 'Expediente ' + k);
-                    return `<div style="padding:7px 10px; background:rgba(52,152,219,0.10); border-bottom:1px solid var(--border-item); font-weight:700; font-size:0.82em; color:#3498db; letter-spacing:.02em; position:sticky; top:0;">
+                    return `<div style="padding:8px 10px; background:var(--bg-card-hover); border-top:2px solid #3498db; border-bottom:1px solid var(--border-item); font-weight:700; font-size:0.82em; color:#3498db; letter-spacing:.02em;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         ${label} <span style="font-weight:400;opacity:0.7;">(${g.movs.length} mov.)</span>
                     </div>${g.movs.map(renderMovItem).join('')}`;
