@@ -3663,6 +3663,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     ${dict.dias_plazo>0?`<div style="font-size:0.9em;color:#d94f4f;"><b>Plazo:</b> ${dict.dias_plazo} días${dict.fecha_vencimiento_estimada?' (vence '+dict.fecha_vencimiento_estimada+')':''}</div>`:''}
                     <div style="font-size:0.88em;color:var(--text-muted);margin-top:4px;">${dict.resumen || ''}</div>
                     ${dict.riesgos?`<div style="font-size:0.85em;color:var(--text-muted);margin-top:4px;"><b>Riesgos:</b> ${dict.riesgos}</div>`:''}
+                    ${dict.requiere_comite === 'SI' ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-item);">
+                        <div style="font-size:0.82em;color:#8b6fc9;font-weight:700;margin-bottom:4px;">⚖ Conviene análisis del Comité completo${dict.motivo_comite ? ' — <span style="font-weight:400;font-style:italic;">'+dict.motivo_comite+'</span>' : ''}</div>
+                        <button onclick="abrirEnProyectoClaude('${clientId}')" style="font-size:0.8em;padding:6px 14px;border:1px solid #8b6fc9;border-radius:6px;color:#fff;background:#8b6fc9;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">→ Llevar al Comité completo</button>
+                    </div>` : ''}
                 </div>` : '';
 
             overlay.innerHTML = `
@@ -6055,6 +6059,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             ${dict.atendido ? '<span style="font-size:0.72em; color:var(--success-color); font-weight:600;">✓ Atendido</span>' : ''}
                         </div>
                         <div style="font-size:0.78em; color:var(--text-muted); margin-top:2px;">${dict.resumen || ''}</div>
+                        ${dict.requiere_comite === 'SI' ? `
+                        <div style="margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:0.72em; color:#8b6fc9; font-weight:700;">⚖ Conviene análisis del Comité completo</span>
+                            <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.72em;padding:3px 10px;border:1px solid #8b6fc9;border-radius:6px;color:#fff;background:#8b6fc9;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">→ Llevar al Comité</button>
+                        </div>
+                        ${dict.motivo_comite ? `<div style="font-size:0.72em; color:var(--text-muted); margin-top:2px; font-style:italic;">${dict.motivo_comite}</div>` : ''}` : ''}
                     </div>` : '';
                 return `
                 <div style="padding:8px 10px; border-bottom:1px solid var(--border-item);">
