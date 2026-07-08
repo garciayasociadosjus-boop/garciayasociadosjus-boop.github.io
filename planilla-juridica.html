@@ -3639,6 +3639,51 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
+        // Mapa Departamento Judicial (nombre) → id del worker
+        const DEPTO_MAP = {
+            'avellaneda-lanus': '80', 'azul': '10', 'bahia blanca': '11', 'dolores': '12',
+            'junin': '13', 'la matanza': '14', 'la plata': '6', 'lomas de zamora': '16',
+            'mar del plata': '17', 'mercedes': '18', 'moreno-gral. rodriguez': '52', 'moron': '19',
+            'necochea': '20', 'olavarria': '21', 'pergamino': '22', 'quilmes': '23',
+            'san isidro': '24', 'san martin': '25', 'san nicolas': '26', 'tandil': '27',
+            'trenque lauquen': '28', 'tres arroyos': '49', 'zarate/campana': '29'
+        };
+        function deptoNameToId(name) {
+            const n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+            return DEPTO_MAP[n] || null;
+        }
+
+        // Cargar novedades AHORA: busca la causa en el MEV del departamento y la sincroniza
+        async function cargarNovedadesAhora(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const indice = clientsData.indexOf(client);
+            // Departamento: primero el ya guardado por el worker; si no, el que cargaste a mano
+            let depto = client.mev_depto || deptoNameToId(client.deptoJudicial);
+            if (!depto) {
+                alert('Esta causa no tiene "Departamento Judicial" cargado. Completá ese campo en la ficha (arriba) y volvé a intentar.');
+                return;
+            }
+            const fuero = client.mev_fuero || ((client.materia || '').toUpperCase() === 'PENAL' ? 'PP' : 'FF');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Buscando en el MEV…'; }
+            try {
+                const resp = await fetch(`${MEV_WORKER}/sync-causa?indice=${indice}&depto=${depto}&fuero=${fuero}`);
+                const data = await resp.json();
+                if (data.ok && data.encontrada) {
+                    alert(`✓ Cargada. ${data.movimientosGrabados} movimientos (${data.nuevos} nuevos). Refrescando…`);
+                    showClientModal(clientId);
+                } else if (data.encontrada === false) {
+                    alert(data.msg || 'No se encontró la causa en ese departamento. Verificá el Departamento Judicial.');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                } else {
+                    throw new Error(data.error || data.msg || 'Error desconocido');
+                }
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                alert('Error: ' + e.message);
+            }
+        }
+
         // Guarda (sobrescribe) el dossier de esta causa en tu Drive
         async function guardarDossierEnDrive(clientId, btn) {
             const client = clientsData.find(c => c.id === clientId);
@@ -6227,10 +6272,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             <div style="margin-top:24px; border-top:1px solid var(--border-item); padding-top:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h5 style="margin:0; color:#3498db; font-family:'Cormorant Garamond',serif; font-weight:500; letter-spacing:.04em;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Movimientos MEV</h5>
-                    ${mevUltimaSync ? `<span style="font-size:0.78em; color:var(--text-muted);">Última sync: ${mevUltimaSync}</span>` : ''}
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${mevUltimaSync ? `<span style="font-size:0.78em; color:var(--text-muted);">Última sync: ${mevUltimaSync}</span>` : ''}
+                        <button onclick="cargarNovedadesAhora('${client.id}', this)" style="font-size:0.78em;padding:6px 12px;border:1px solid #3498db;border-radius:8px;color:#3498db;background:rgba(52,152,219,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;" title="Buscar la causa en el MEV y cargar sus movimientos ahora (sin esperar al cron)">
+                            🔄 Cargar novedades ahora
+                        </button>
+                    </div>
                 </div>
                 ${mev.length === 0
-                    ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún.</p>'
+                    ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún. Usá el botón "🔄 Cargar novedades ahora" para traerlos al instante (necesita el Departamento Judicial cargado en la ficha).</p>'
                     : `<div style="max-height:350px; overflow-y:auto; border:1px solid var(--border-item); border-radius:8px; background:var(--bg-item);">${mevHtml}</div>`
                 }
                 ${mev.length > 0 ? `
