@@ -3604,6 +3604,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         const APPS_SCRIPT_DOSSIERS_URL = 'https://script.google.com/macros/s/AKfycbxH9L2gxGzVdxbA5PNV5967mvnGDyrQhxx7cLMQyPu1PADXvmXBgiq-akTO-upPqgA2eA/exec';
 
         const MEV_WORKER = 'https://mev-scraper.garciayasociadosjus.workers.dev';
+        const PJN_WORKER = 'https://pjn-scraper.garciayasociadosjus.workers.dev';
 
         // Marca/desmarca una causa como "fuera del estudio" (deja de analizarse)
         async function toggleFueraEstudio(clientId, btn) {
@@ -3693,6 +3694,35 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 } else {
                     throw new Error(data.error || data.msg || 'Error desconocido');
                 }
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // PJN: busca el expediente en el PJN y carga sus actuaciones al instante (sin esperar al cron)
+        async function cargarNovedadesPjnAhora(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const exp = (client.expediente || '').trim();
+            if (!exp || !/\d+\s*\/\s*\d{2,4}/.test(exp)) {
+                alert('Esta causa no tiene el Expediente en formato NÚMERO/AÑO (ej: 23693/2025). Completá el campo "Expediente" en la ficha y volvé a intentar.');
+                return;
+            }
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Buscando en el PJN…'; }
+            try {
+                const resp = await fetch(`${PJN_WORKER}/sync-exp?expediente=${encodeURIComponent(exp)}`);
+                const data = await resp.json();
+                if (data.ok === false) throw new Error(data.error || data.msg || 'Error');
+                if (data.matched === false || data.encontrada === false) {
+                    alert(data.msg || 'No se encontró el expediente en el PJN. Verificá el número (NÚMERO/AÑO).');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                    return;
+                }
+                const acts = data.actuaciones ?? data.total ?? data.grabadas ?? '';
+                const docs = data.conTexto ?? data.docs ?? 0;
+                alert(`✓ Cargado desde el PJN. Actuaciones: ${acts}${docs !== '' ? ` — documentos con texto: ${docs}` : ''}. Refrescando…`);
+                showClientModal(clientId);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
                 alert('Error: ' + e.message);
@@ -6444,6 +6474,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             <button onclick="abrirExpedientePJN('${client.expediente||''}', this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;background:linear-gradient(145deg, rgba(139,110,199,0.22), rgba(139,110,199,0.1));color:var(--info-color);border-radius:20px;font-size:0.76em;font-weight:500;border:1px solid rgba(139,110,199,0.35);cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.04em;transition:all .25s ease;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Ver en SCW</button>
                         </div>
                         <div style="display:flex; gap:12px; align-items:center;">
+                            <button onclick="cargarNovedadesPjnAhora('${client.id}', this)" style="font-size:0.78em;padding:6px 12px;border:1px solid var(--info-color);border-radius:8px;color:var(--info-color);background:rgba(139,110,199,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;" title="Buscar el expediente en el PJN y cargar sus actuaciones ahora (sin esperar al cron)">🔄 Cargar novedades ahora</button>
                             ${pjnSituacion ? `<span style="font-size:0.78em; background:rgba(139,110,199,0.12); color:var(--info-color); padding:3px 10px; border-radius:10px; font-weight:500; border:1px solid rgba(139,110,199,0.28);">${pjnSituacion}</span>` : ''}
                             ${(() => {
                         const revision = client.pjn_ultima_revision
@@ -6457,6 +6488,22 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay actuaciones del PJN sincronizadas aún.</p>'
                         : `<div style="max-height:350px; overflow-y:auto; border:1px solid var(--border-item); border-radius:8px; background:var(--bg-item);">${pjnHtml}</div>`
                     }
+                    ${pjn.length > 0 && mev.length === 0 ? `
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+                        <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Copia el dossier (historial + textos) y abre tu Proyecto del Comité">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Ir a Claude.ai con esta causa
+                        </button>
+                        <button onclick="guardarDossierEnDrive('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier en tu Google Drive">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Guardar en Drive
+                        </button>
+                        <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
+                        </button>
+                        <button onclick="toggleFueraEstudio('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:${client.fuera_estudio ? 'rgba(31,158,114,0.08)' : 'rgba(217,79,79,0.08)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${client.fuera_estudio ? 'Reactivar el análisis de esta causa' : 'Dejar de analizar esta causa'}">
+                            ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
+                        </button>
+                    </div>` : ''}
                 </div>`;
             })() : ''}`
         }
