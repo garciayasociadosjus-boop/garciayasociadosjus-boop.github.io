@@ -2292,7 +2292,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             <section class="filter-bar">
                 <div class="form-group"><label>Búsqueda General</label><input type="text" id="searchInput" placeholder="Buscar por nombre, carátula, exp, etc." onkeyup="renderAllClientsList()"></div>
-                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select></div>
+                <div class="form-group"><label>Filtrar por Materia</label><select id="materiaFilter" onchange="renderAllClientsList()"><option value="">Todas las Materias</option><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="DAÑOS">DAÑOS</option><option value="OTROS">OTROS</option></select></div>
                 <div class="form-group"><label>Filtrar por Estado</label><select id="estadoFilter" onchange="renderAllClientsList()"><option value="">Todos los estados</option><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div>
                 <div class="form-group"><label>Filtrar por Socio</label><select id="socioFilter" onchange="renderAllClientsList()"><option value="">Todos los Socios</option></select></div>
             </section>
@@ -3598,7 +3598,32 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         // Proyecto de Familia en Claude.ai
-        const CLAUDE_PROYECTO_FAMILIA = 'https://claude.ai/project/019edc25-7d64-7444-ac96-69680d83b096';
+        // Proyectos de Claude.ai por materia. El botón "Ir a Claude" abre el que corresponda.
+        const CLAUDE_PROYECTOS = {
+            FAMILIA:    'https://claude.ai/project/019edc25-7d64-7444-ac96-69680d83b096',
+            PENAL:      'https://claude.ai/project/019f4845-7fcc-7304-a661-091a3e7591a1',
+            SUCESIONES: 'https://claude.ai/project/019edca1-04a7-73bb-9a2f-c468a73aa4f1',
+            DANOS:      'https://claude.ai/project/019edc73-a0db-71cd-aa9c-be4ccd5fde15'
+        };
+        // Elige el proyecto según la materia de la causa (default: Familia)
+        function proyectoParaCliente(client) {
+            const m = ((client && client.materia) || '').toUpperCase().trim();
+            const otros = ((client && client.materiaOtros) || '').toUpperCase();
+            const hay = (s) => m.indexOf(s) !== -1 || otros.indexOf(s) !== -1;
+            if (hay('PENAL')) return CLAUDE_PROYECTOS.PENAL;
+            if (hay('SUCESI')) return CLAUDE_PROYECTOS.SUCESIONES;
+            if (hay('DAÑO') || hay('DANO')) return CLAUDE_PROYECTOS.DANOS;
+            return CLAUDE_PROYECTOS.FAMILIA;
+        }
+        // Nombre lindo del proyecto (para el aviso)
+        function nombreProyectoMateria(client) {
+            const p = proyectoParaCliente(client);
+            if (p === CLAUDE_PROYECTOS.PENAL) return 'Penal';
+            if (p === CLAUDE_PROYECTOS.DANOS) return 'Daños';
+            if (p === CLAUDE_PROYECTOS.SUCESIONES && CLAUDE_PROYECTOS.SUCESIONES !== CLAUDE_PROYECTOS.FAMILIA) return 'Sucesiones';
+            return 'Familia';
+        }
+        const CLAUDE_PROYECTO_FAMILIA = CLAUDE_PROYECTOS.FAMILIA; // compat
 
         // URL del Apps Script que guarda dossiers en Drive
         const APPS_SCRIPT_DOSSIERS_URL = 'https://script.google.com/macros/s/AKfycbxH9L2gxGzVdxbA5PNV5967mvnGDyrQhxx7cLMQyPu1PADXvmXBgiq-akTO-upPqgA2eA/exec';
@@ -3830,10 +3855,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             // Aviso rápido y abrir el proyecto
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;background:#1f9e72;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:"DM Sans",sans-serif;font-size:0.9em;font-weight:600;';
-            toast.innerHTML = `✓ Dossier copiado (${conTexto}/${total} docs). Abriendo tu Proyecto de Familia…<br><span style="font-weight:400;font-size:0.85em;opacity:0.9;">Pegá con Ctrl+V y presioná Enter.</span>`;
+            toast.innerHTML = `✓ Dossier copiado (${conTexto}/${total} docs). Abriendo tu Proyecto ${nombreProyectoMateria(client)}…<br><span style="font-weight:400;font-size:0.85em;opacity:0.9;">Pegá con Ctrl+V y presioná Enter.</span>`;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 5000);
-            window.open(CLAUDE_PROYECTO_FAMILIA, '_blank');
+            window.open(proyectoParaCliente(client), '_blank');
         }
 
         // Ver/copiar el dossier sin abrir Claude.ai (fallback y "Solo dossier")
@@ -3846,7 +3871,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 <textarea id="dossierTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">${dossier.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
             const acciones = `
                 <button onclick="(function(){const t=document.getElementById('dossierTxt');t.select();navigator.clipboard.writeText(t.value);this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar todo',1800);}).call(this)" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--gold-border,#c9a96e);border-radius:6px;background:rgba(201,169,110,0.15);color:var(--text-primary);cursor:pointer;font-weight:600;">Copiar todo</button>
-                <button onclick="window.open('${CLAUDE_PROYECTO_FAMILIA}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid #c9a96e;border-radius:6px;background:#c9a96e;color:#fff;cursor:pointer;font-weight:600;">Abrir mi Proyecto ↗</button>`;
+                <button onclick="window.open('${proyectoParaCliente(client)}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid #c9a96e;border-radius:6px;background:#c9a96e;color:#fff;cursor:pointer;font-weight:600;">Abrir mi Proyecto ${nombreProyectoMateria(client)} ↗</button>`;
             abrirModalTexto('Dossier — ' + (client.caratula || ''), html, acciones);
         }
 
@@ -4445,6 +4470,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 <option value="DIVORCIOS">DIVORCIOS</option>
                                 <option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option>
                                 <option value="PENAL">PENAL</option>
+                                <option value="DAÑOS">DAÑOS</option>
                                 <option value="OTROS">OTROS</option>
                             </select>
                             <input type="text" id="convObjetoOtros" placeholder="Especificar materia..." style="display:none; margin-top:8px;" oninput="calculateConvenioTotal()">
@@ -4739,7 +4765,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (!client) return;
             editingClientId = clientId; editingField = 'materia';
             const fieldElement = document.getElementById('field-materia');
-            const materiasOpts = ['ALIMENTOS','CUIDADO PERSONAL','FILIACION','VIOLENCIA FAMILIAR','SUCESIONES','DIVORCIOS','COMUNICACION CON HIJOS','PENAL','OTROS'];
+            const materiasOpts = ['ALIMENTOS','CUIDADO PERSONAL','FILIACION','VIOLENCIA FAMILIAR','SUCESIONES','DIVORCIOS','COMUNICACION CON HIJOS','PENAL','DAÑOS','OTROS'];
             const currentVal = client.materia || 'ALIMENTOS';
             const currentOtros = client.materiaOtros || '';
 
