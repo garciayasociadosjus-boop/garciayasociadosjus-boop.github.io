@@ -3754,6 +3754,24 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
+        // PJN: re-analiza con el comité el texto ya guardado (regenera el dictamen con la lógica nueva)
+        async function reanalizarCausaPjn(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const indice = clientsData.indexOf(client);
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Re-analizando…'; }
+            try {
+                const resp = await fetch(`${PJN_WORKER}/reanalizar?indice=${indice}`);
+                const data = await resp.json();
+                if (!data.ok) throw new Error(data.error || 'Error');
+                alert(data.reanalizado ? 'Dictamen PJN regenerado con la lógica nueva. Refrescando…' : (data.msg || 'No se pudo re-analizar (sin documento de texto). Cargá novedades primero.'));
+                showClientModal(clientId);
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '↻ Re-analizar'; }
+                alert('Error: ' + e.message);
+            }
+        }
+
         // Guarda (sobrescribe) el dossier de esta causa en tu Drive
         async function guardarDossierEnDrive(clientId, btn) {
             const client = clientsData.find(c => c.id === clientId);
@@ -6524,6 +6542,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         </button>
                         <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
+                        </button>
+                        <button onclick="reanalizarCausaPjn('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #8b6fc9;border-radius:8px;color:#8b6fc9;background:rgba(139,111,201,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Regenerar el dictamen del comité con la lógica nueva (usa el texto ya guardado)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Re-analizar
                         </button>
                         <button onclick="toggleFueraEstudio('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:${client.fuera_estudio ? 'rgba(31,158,114,0.08)' : 'rgba(217,79,79,0.08)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${client.fuera_estudio ? 'Reactivar el análisis de esta causa' : 'Dejar de analizar esta causa'}">
                             ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
