@@ -3889,8 +3889,25 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 <textarea id="dossierTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">${dossier.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
             const acciones = `
                 <button onclick="(function(){const t=document.getElementById('dossierTxt');t.select();navigator.clipboard.writeText(t.value);this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar todo',1800);}).call(this)" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--gold-border,#c9a96e);border-radius:6px;background:rgba(201,169,110,0.15);color:var(--text-primary);cursor:pointer;font-weight:600;">Copiar todo</button>
+                <button onclick="descargarDossierCliente('${client.id}')" style="font-size:0.85em;padding:7px 14px;border:1px solid #2b579a;border-radius:6px;background:rgba(43,87,154,0.12);color:var(--text-primary);cursor:pointer;font-weight:600;">⬇ Descargar Word</button>
                 <button onclick="window.open('${proyectoParaCliente(client)}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid #c9a96e;border-radius:6px;background:#c9a96e;color:#fff;cursor:pointer;font-weight:600;">Abrir mi Proyecto ${nombreProyectoMateria(client)} ↗</button>`;
             abrirModalTexto('Dossier — ' + (client.caratula || ''), html, acciones);
+        }
+
+        // Descarga el dossier de la causa como documento de Word (.doc, se abre en Word y Google Docs)
+        function descargarDossierCliente(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const { dossier } = construirDossierCliente(client);
+            const esc = dossier.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Dossier</title></head>'
+                + '<body><div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap;">' + esc + '</div></body></html>';
+            const nombre = 'Dossier_' + (client.caratula || client.nombre || 'causa').replace(/[\\/:*?"<>|]/g, '-').substring(0, 80) + '_' + getTodayYMD() + '.doc';
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob(['﻿' + htmlDoc], { type: 'application/msword' }));
+            link.download = nombre;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 2000);
         }
 
         // Muestra el texto del documento MEV (guardado en Firebase) en un modal
