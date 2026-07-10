@@ -3894,14 +3894,59 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             abrirModalTexto('Dossier — ' + (client.caratula || ''), html, acciones);
         }
 
-        // Descarga el dossier de la causa como documento de Word (.doc, se abre en Word y Google Docs)
+        // Descarga el dossier como documento de Word (.doc) ESTRUCTURADO:
+        // portada + historial + cada documento en su propia hoja (salto de página).
         function descargarDossierCliente(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const { dossier } = construirDossierCliente(client);
-            const esc = dossier.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const esc = s => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const salto = '<div style="page-break-before:always;"></div>';
+            const movs = client.mev_movimientos || [];
+            const acts = client.pjn_actuaciones || [];
+            const conTextoM = movs.filter(m => m.documento_texto);
+            const conTextoP = acts.filter(a => a.documento_texto);
+
+            let body = '';
+            // Portada
+            body += '<h1 style="font-size:16pt;margin:0 0 10px 0;">' + esc(client.caratula || client.nombre || 'Dossier') + '</h1>';
+            body += '<p style="font-size:11pt;"><b>Cliente:</b> ' + esc(client.nombre || '(no especificado)') + '<br>'
+                + '<b>Carátula:</b> ' + esc(client.caratula || '') + '<br>'
+                + '<b>Materia:</b> ' + esc(client.materia || '') + '<br>'
+                + '<b>Expediente:</b> ' + esc(client.expediente || '') + '<br>'
+                + '<b>DNI cliente:</b> ' + esc(client.dni || 'S/D') + '<br>'
+                + '<b>Generado:</b> ' + new Date().toLocaleString('es-AR') + '</p>';
+
+            // MEV — historial
+            if (movs.length) {
+                body += '<h2 style="font-size:13pt;border-bottom:1px solid #999;">MEV — Historial procesal</h2><p style="font-size:10pt;">';
+                movs.forEach(m => { body += '• ' + esc(m.fecha) + ': ' + esc(m.descripcion) + '<br>'; });
+                body += '</p>';
+            }
+            // MEV — cada documento en su hoja
+            conTextoM.forEach(m => {
+                body += salto;
+                body += '<h2 style="font-size:13pt;color:#2b579a;margin:0;">' + esc(m.fecha) + ' — ' + esc((m.tipo_documento || 'doc').toUpperCase()) + '</h2>';
+                body += '<p style="font-weight:bold;font-size:11pt;margin:2px 0 8px 0;">' + esc(m.descripcion || '') + '</p>';
+                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(m.documento_texto) + '</div>';
+            });
+
+            // PJN — historial
+            if (acts.length) {
+                body += salto;
+                body += '<h2 style="font-size:13pt;border-bottom:1px solid #999;">PJN — Historial procesal</h2><p style="font-size:10pt;">';
+                acts.forEach(a => { body += '• ' + esc(a.fecha) + ': ' + esc(a.tipo || '') + ' — ' + esc(a.desc || '') + '<br>'; });
+                body += '</p>';
+            }
+            // PJN — cada documento en su hoja
+            conTextoP.forEach(a => {
+                body += salto;
+                body += '<h2 style="font-size:13pt;color:#8b6fc9;margin:0;">' + esc(a.fecha) + ' — ' + esc(a.tipo || 'doc') + '</h2>';
+                body += '<p style="font-weight:bold;font-size:11pt;margin:2px 0 8px 0;">' + esc(a.desc || '') + '</p>';
+                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(a.documento_texto) + '</div>';
+            });
+
             const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Dossier</title></head>'
-                + '<body><div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap;">' + esc + '</div></body></html>';
+                + '<body style="font-family:Calibri,Arial,sans-serif;">' + body + '</body></html>';
             const nombre = 'Dossier_' + (client.caratula || client.nombre || 'causa').replace(/[\\/:*?"<>|]/g, '-').substring(0, 80) + '_' + getTodayYMD() + '.doc';
             const link = document.createElement('a');
             link.href = URL.createObjectURL(new Blob(['﻿' + htmlDoc], { type: 'application/msword' }));
