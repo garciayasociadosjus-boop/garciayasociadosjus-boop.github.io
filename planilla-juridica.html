@@ -2872,22 +2872,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
-        // Guarda un caché liviano en localStorage: sin los textos de documentos MEV
-        // (que son pesados y ya viven en Firebase). Evita QuotaExceededError.
+        // Guarda un caché liviano en localStorage: sin los textos de documentos (MEV + PJN),
+        // que son pesados y ya viven en Firebase. Evita QuotaExceededError y aligera todo.
         function guardarCacheLocal() {
             try {
+                const sinTextos = (arr) => Array.isArray(arr)
+                    ? arr.map(x => {
+                        if (x && x.documento_texto) { const { documento_texto, ...resto } = x; return resto; }
+                        return x;
+                    })
+                    : arr;
                 const liviano = clientsData.map(c => {
-                    if (!c || !Array.isArray(c.mev_movimientos)) return c;
-                    return {
-                        ...c,
-                        mev_movimientos: c.mev_movimientos.map(m => {
-                            if (m && m.documento_texto) {
-                                const { documento_texto, ...resto } = m;
-                                return resto;
-                            }
-                            return m;
-                        })
-                    };
+                    if (!c) return c;
+                    const copia = { ...c };
+                    if (Array.isArray(c.mev_movimientos)) copia.mev_movimientos = sinTextos(c.mev_movimientos);
+                    if (Array.isArray(c.pjn_actuaciones)) copia.pjn_actuaciones = sinTextos(c.pjn_actuaciones);
+                    return copia;
                 });
                 localStorage.setItem('planilla_juridica_data', JSON.stringify(liviano));
             } catch (e) {
