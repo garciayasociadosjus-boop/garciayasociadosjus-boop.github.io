@@ -2378,25 +2378,31 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     var partes=partesDe(p); var cli=matchCliente(partes);
                     var tram=(p.tramites||[]).slice().sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
                     var matchHtml = cli ? '<span style="background:var(--gold-dim,rgba(201,169,110,.12));color:var(--gold-dark,#a07840);border-radius:10px;padding:2px 8px;font-size:.75em;">✔ '+esc((cli.nombre||'')+(cli.materia?(' · '+cli.materia):''))+'</span>' : '<span style="background:rgba(217,79,79,.12);color:#c0392b;border-radius:10px;padding:2px 8px;font-size:.75em;">penal — sin caso en planilla</span>';
-                    var novedades = tram.slice(0,6).map(function(t){ return '<div class="review-item"><div class="review-item-content"><div class="review-date">'+esc(t.fecha||'')+'</div><div class="review-obs">'+esc(deco(t.tipo)||'')+(t.descripcion?(' — '+esc(deco(t.descripcion))):'')+'</div></div></div>'; }).join('');
+                    var novedades = tram.map(function(t){ return '<div class="review-item" style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="review-item-content"><div class="review-date">'+esc(t.fecha||'')+'</div><div class="review-obs">'+esc(deco(t.tipo)||'')+(t.descripcion?(' — '+esc(deco(t.descripcion))):'')+'</div></div><button type="button" class="btn btn-sm" onclick="verDocumentoMpba(\''+k+'\',\''+esc(t.codigo)+'\')" style="font-size:.72em;white-space:nowrap;">📄 Ver</button></div>'; }).join('');
                     return '<div class="card mpba-card" style="border-left:4px solid #6a5acd;margin-bottom:16px;">'
-                      +'<h3 style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;"><span>⚖️ '+esc(partes||num||k)+'</span>'
-                      +'<button class="btn btn-sm" type="button" onclick="mpbaWord(\''+k+'\')" style="font-size:.78em;">📄 Descargar Word</button></h3>'
+                      +'<h3><span>⚖️ '+esc(partes||num||k)+'</span></h3>'
                       +'<div style="font-size:.82em;opacity:.8;margin-bottom:6px;">N° '+esc(num)+' · '+esc(org)+' · '+esc(estado)+' · '+tram.length+' trámites &nbsp; '+matchHtml+'</div>'
                       +'<div class="reviews-list" style="max-height:260px;">'+(novedades||'<div style="opacity:.6;padding:8px;">Sin novedades.</div>')+'</div></div>';
                   }).join('');
                   if(window.cmRefresh)cmRefresh();
                 }
-                window.mpbaWord=function(k){
-                  var p=(window.__mpba||{})[k]; if(!p)return; var col=p.proceso_columnas||[]; var num=col[2]||k;
-                  var partes=partesDe(p);
-                  var tram=(p.tramites||[]).slice().sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');});
-                  var h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif;">';
-                  h+='<h2>Dossier — '+esc(deco(partes)||'')+'</h2><p><b>N° de causa:</b> '+esc(num)+'<br><b>Organismo:</b> '+esc(deco(col[3]||''))+'</p><hr>';
-                  tram.forEach(function(t){ h+='<h4>'+esc(t.fecha||'')+' — '+esc(deco(t.tipo)||'')+(t.descripcion?(' — '+esc(deco(t.descripcion))):'')+'</h4><p style="white-space:pre-wrap;">'+esc(deco(t.texto||'')||'(sin texto)')+'</p><hr>'; });
-                  h+='</body></html>';
-                  var blob=new Blob(['﻿'+h],{type:'application/msword'});
-                  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Dossier_'+String(num).replace(/[^0-9A-Za-z]/g,'_')+'.doc'; document.body.appendChild(a); a.click(); setTimeout(function(){a.remove();},500);
+                window.verDocumentoMpba=function(k, codigo){
+                  var p=(window.__mpba||{})[k]; if(!p)return;
+                  var t=(p.tramites||[]).find(function(x){return x.codigo===codigo;}); if(!t){ alert('No se encontró el trámite.'); return; }
+                  var col=p.proceso_columnas||[];
+                  var texto=deco(t.texto||'');
+                  if(!texto || /^500 - Internal server error/.test(texto)) texto='(El texto de este trámite no se pudo bajar todavía — se reintenta en la próxima corrida del scraper.)';
+                  var overlay=document.createElement('div');
+                  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+                  overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+                  overlay.innerHTML='<div style="background:var(--bg-modal,#fff);max-width:820px;width:100%;max-height:88vh;border-radius:12px;box-shadow:0 12px 48px rgba(0,0,0,0.55);display:flex;flex-direction:column;overflow:hidden;">'
+                    +'<div style="padding:16px 20px;border-bottom:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">'
+                    +'<div><div style="font-weight:700;color:var(--text-primary);font-size:1.05em;">'+esc(deco(t.tipo)||'DOCUMENTO')+' — '+esc(t.fecha||'')+'</div>'
+                    +'<div style="font-size:0.85em;color:var(--text-muted);margin-top:2px;">'+esc(deco(t.descripcion)||'')+' · N° '+esc(col[2]||'')+'</div></div>'
+                    +'<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;font-size:1.6em;line-height:1;cursor:pointer;color:var(--text-muted);">×</button></div>'
+                    +'<div style="padding:18px 20px;overflow-y:auto;"><div style="white-space:pre-wrap;font-family:\'DM Sans\',monospace;font-size:0.9em;line-height:1.5;color:var(--text-primary);">'+esc(texto)+'</div></div>'
+                    +'<div style="padding:12px 20px;border-top:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:flex-end;"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--border-item,#ccc);border-radius:6px;background:var(--bg-form-sec,#f5f5f5);cursor:pointer;">Cerrar</button></div></div>';
+                  document.body.appendChild(overlay);
                 };
                 function cargar(){ fetch(FB,{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(render).catch(function(){var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>';}); }
                 cargar(); setInterval(cargar, 15*60*1000);
