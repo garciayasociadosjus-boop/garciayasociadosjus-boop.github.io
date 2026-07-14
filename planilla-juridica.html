@@ -176,14 +176,10 @@ body.modo-noche {
 
 body.modo-dia .container {
   background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(248,245,240,0.95) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 body.modo-noche .container {
   background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(10,10,18,0.98) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 /* ── HEADER PREMIUM ── */
@@ -318,8 +314,6 @@ body.modo-noche .container {
   transition: var(--transition);
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Shimmer sutil en cards */
@@ -1606,7 +1600,42 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 })();
 </script>
     <style>
-        
+        /* ═══ CENTRO DE MANDO (pestañas) ═══ */
+        .cm-wrap { margin-bottom: 30px; }
+        .cm-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:2px 2px 10px; flex-wrap:wrap; }
+        .cm-head-title { display:flex; align-items:center; gap:8px; font-family:'Cormorant Garamond',serif; font-size:1.5em; font-weight:500; letter-spacing:.04em; color:var(--gold-dark,#a07840); }
+        .cm-head-time { font-size:.72em; color:var(--text-muted,#9b9384); opacity:.8; }
+        .cm-tabs { display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid var(--border-card,rgba(160,120,64,.28)); margin-bottom:20px; }
+        .cm-tab { position:relative; background:none; border:none; border-bottom:2px solid transparent; padding:9px 15px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:.88em; color:var(--text-muted,#8a8073); font-weight:500; letter-spacing:.02em; display:flex; align-items:center; gap:7px; transition:color .15s,border-color .15s; }
+        .cm-tab:hover { color:var(--gold-dark,#a07840); }
+        .cm-tab.active { color:var(--text-primary,#2a2620); border-bottom-color:var(--gold-dark,#a07840); }
+        .cm-badge { font-size:.72em; min-width:17px; text-align:center; border-radius:20px; padding:1px 7px; background:var(--gold-dim,rgba(201,169,110,.12)); color:var(--gold-dark,#a07840); font-weight:600; }
+        .cm-tab.st-none .cm-badge { background:var(--bg-item,#f0ece2); color:var(--text-muted,#aaa); }
+        .cm-tab.st-alert .cm-badge { background:rgba(212,144,26,.16); color:var(--warning-color,#d4901a); }
+        .cm-tab.st-urgent .cm-badge { background:rgba(217,79,79,.16); color:#c0392b; }
+        .cm-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; display:none; }
+        .cm-tab.st-alert .cm-dot { display:block; background:var(--warning-color,#d4901a); }
+        .cm-tab.st-urgent .cm-dot { display:block; background:#d94f4f; animation:cmPulse 1.4s ease-in-out infinite; }
+        @keyframes cmPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(217,79,79,.55);} 50%{ box-shadow:0 0 0 5px rgba(217,79,79,0);} }
+        .cm-panel { display:block; }
+        .cm-js .cm-panel { display:none; }
+        .cm-js .cm-panel.active { display:block; animation:cmFade .18s ease; }
+        @keyframes cmFade { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+        .aviso-row { position:relative; }
+        .aviso-x { position:absolute; top:7px; right:7px; background:none; border:none; cursor:pointer; color:var(--text-muted,#b5ab99); opacity:.45; padding:2px 5px; border-radius:6px; line-height:1; font-size:1.05em; transition:opacity .15s,background .15s,color .15s; }
+        .aviso-row:hover .aviso-x { opacity:1; }
+        .aviso-x:hover { background:rgba(217,79,79,.12); color:#c0392b; }
+        /* Acordeón "Todos los casos" */
+        .acc-group { margin-bottom: 8px; }
+        .acc-head { width:100%; display:flex; align-items:center; gap:10px; background:var(--bg-item,#f4efe4); border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:.92em; font-weight:600; color:var(--text-primary,#2a2620); text-align:left; }
+        .acc-head:hover { background:var(--bg-item-hover,rgba(201,169,110,0.14)); }
+        .acc-caret { font-size:.8em; color:var(--gold-dark,#a07840); width:12px; display:inline-block; }
+        .acc-title { flex:1; letter-spacing:.02em; }
+        .acc-count { font-size:.8em; background:var(--gold-dim,rgba(201,169,110,.12)); color:var(--gold-dark,#a07840); border-radius:20px; padding:1px 9px; font-weight:600; }
+        .acc-body { padding:6px 0 2px; }
+        /* Performance: no dibujar ítems fuera de pantalla */
+        .review-item { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+
         /* Dashboard de revisiones (3 columnas) - ocupa ancho completo dentro del .dashboard */
         .dashboard-revisiones {
             display: grid;
@@ -2220,6 +2249,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             <div id="dataStatus" class="data-status" style="display:none;"></div>
             <div id="driveStatus" class="data-status" style="display:none;"></div>
 
+            <!-- ═══ RESUMEN SEMANAL (siempre visible arriba) ═══ -->
             <section class="card" style="margin-bottom: 30px;">
                 <h3 onclick="toggleVisibility('weeklyGlanceSection')" style="cursor: pointer; user-select: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="8" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="16" cy="15" r="1" fill="currentColor"/></svg> Resumen Semanal de Tareas
@@ -2233,7 +2263,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 </div>
             </section>
             
-            <section class="card card-avisos" style="margin-bottom: 30px;">
+            <!-- ═══ CENTRO DE MANDO ═══ -->
+            <div class="cm-wrap">
+              <div class="cm-head">
+                <div class="cm-head-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Centro de Mando</div>
+                <div class="cm-head-time" id="cmHeadTime"></div>
+              </div>
+              <div class="cm-tabs" id="cmTabs" role="tablist"></div>
+              <script>document.documentElement.classList.add('cm-js');</script>
+              <div class="cm-panels">
+              <div class="cm-panel" data-tab="avisos">
+            <section class="card card-avisos" style="margin-bottom: 20px;">
                 <h3 onclick="toggleVisibility('advanceNoticeContainer')" style="cursor: pointer; user-select: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M21 4c-1 1-2 1.5-3 1.5"/></svg> Avisos Previos (Vencimientos y Audiencias) (<span id="advanceNoticeCount">0</span>)
                     <span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
@@ -2241,16 +2281,198 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 <div id="advanceNoticeContainer" class="reviews-list" style="max-height: 300px; display: block;"></div>
             </section>
 
-            <section class="dashboard">
-                <!-- Fila 1: MEV (se agrega dinámicamente por renderMevAlertas) -->
-                <div id="mevDashboardRow"></div>
-                <!-- Fila Dictámenes Comité IA -->
-                <div id="dictamenesDashboardRow"></div>
-                <!-- Fila PJN -->
-                <div id="pjnDashboardRow"></div>
-                <!-- Fila SCBA -->
-                <div id="scbaDashboardRow"></div>
-                <!-- Fila 2: Revisiones -->
+              </div>
+              <div class="cm-panel" data-tab="avisos">
+            <!-- ═══ PANEL AVISOS DEL DÍA (auto-generado por rutina Calendar+Gmail) ═══ -->
+            <div class="card" id="avisosDelDiaCard" style="border-left:4px solid var(--warning-color,#d4901a);margin-bottom:0;">
+              <h3 style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <span>📌 Avisos del día <span id="avisosDelDiaCount" style="font-size:.8em;opacity:.7;"></span></span>
+                <span id="avisosDelDiaFecha" style="font-size:.7em;font-weight:normal;opacity:.6;"></span>
+              </h3>
+              <div id="avisosDelDiaLista" class="reviews-list" style="max-height:340px;">
+                <div style="opacity:.6;padding:10px;">Cargando avisos…</div>
+              </div>
+            </div>
+            <script>
+            (function(){
+              var NODO = 'avisos_juridica';
+              var URL = 'https://garcia-asociados-default-rtdb.firebaseio.com/' + NODO + '.json';
+              var DKEY = 'avisosJuridicaDismiss';
+              var COLORES = { alta:'#d94f4f', media:'#d4901a', baja:'#3a8bd4' };
+              var ICONO = { calendar:'📅', mail:'✉️', otro:'📌' };
+              var ORDEN = { alta:0, media:1, baja:2 };
+              function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+              function pri(u){ return (ORDEN[u]==null)?3:ORDEN[u]; }
+              function hash(s){ var h=0,i; for(i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return 'a'+(h>>>0).toString(36); }
+              function idOf(it){ return hash((it.titulo||'')+'|'+(it.fecha||'')); }
+              function getDis(){ try{ return JSON.parse(localStorage.getItem(DKEY)||'[]'); }catch(e){ return []; } }
+              function setDis(a){ try{ localStorage.setItem(DKEY, JSON.stringify(a)); }catch(e){} }
+              window.avisosJurDismiss = function(id){ var d=getDis(); if(d.indexOf(id)<0){ d.push(id); setDis(d); } render(window.__avisosJurData); };
+              window.avisosJurReset = function(){ setDis([]); render(window.__avisosJurData); };
+              function render(data){
+                window.__avisosJurData = data;
+                var cont = document.getElementById('avisosDelDiaLista');
+                var cnt = document.getElementById('avisosDelDiaCount');
+                var fch = document.getElementById('avisosDelDiaFecha');
+                if(!cont) return;
+                var dis = getDis();
+                var items = (data && data.items) ? data.items.slice() : [];
+                items = items.filter(function(it){ return dis.indexOf(idOf(it))<0; });
+                if(data && data.actualizado && fch){ try { fch.textContent = 'Actualizado: ' + new Date(data.actualizado).toLocaleString('es-AR'); } catch(e){ fch.textContent=''; } }
+                if(cnt) cnt.textContent = items.length ? '('+items.length+')' : '';
+                if(!items.length){ cont.innerHTML = '<div style="opacity:.6;padding:10px;">Sin avisos pendientes. La rutina actualiza 2 veces al día.</div>'; if(window.cmRefresh) window.cmRefresh(); return; }
+                items.sort(function(a,b){ return pri(a.urgencia)-pri(b.urgencia); });
+                cont.innerHTML = items.map(function(it){
+                  var col = COLORES[it.urgencia] || '#888';
+                  var ic = ICONO[it.fuente] || ICONO.otro;
+                  var id = idOf(it);
+                  return '<div class="aviso-row" data-urgencia="'+esc(it.urgencia||'')+'" style="padding:10px 34px 10px 12px;border-left:3px solid '+col+';background:rgba(0,0,0,0.02);border-radius:6px;margin-bottom:8px;">'
+                    + '<button class="aviso-x" type="button" title="No mostrar más" aria-label="Descartar aviso" onclick="avisosJurDismiss(\''+id+'\')">✕</button>'
+                    + '<div style="font-weight:600;">'+ic+' '+esc(it.titulo)+'</div>'
+                    + (it.detalle?'<div style="font-size:.86em;opacity:.8;margin-top:3px;">'+esc(it.detalle)+'</div>':'')
+                    + '<div style="font-size:.78em;opacity:.6;margin-top:4px;">'
+                      + (it.fecha?('🗓 '+esc(it.fecha)+'  '):'')
+                      + '<span style="color:'+col+';font-weight:600;text-transform:uppercase;">'+esc(it.urgencia||'')+'</span>'
+                    + '</div></div>';
+                }).join('');
+                if(window.cmRefresh) window.cmRefresh();
+              }
+              function cargar(){
+                fetch(URL, {cache:'no-store'})
+                  .then(function(r){ return r.ok ? r.json() : null; })
+                  .then(render)
+                  .catch(function(){ var c=document.getElementById('avisosDelDiaLista'); if(c) c.innerHTML='<div style="opacity:.6;padding:10px;">No se pudieron cargar los avisos.</div>'; });
+              }
+              cargar();
+              setInterval(cargar, 30*60*1000);
+            })();
+            </script>
+            <!-- ═══ FIN PANEL AVISOS DEL DÍA ═══ -->
+              </div>
+
+              <div class="cm-panel" data-tab="mev"><div id="mevDashboardRow"></div></div>
+              <div class="cm-panel" data-tab="comite"><div id="dictamenesDashboardRow"></div></div>
+              <div class="cm-panel" data-tab="pjn"><div id="pjnDashboardRow"></div></div>
+              <div class="cm-panel" data-tab="scba"><div id="scbaDashboardRow"></div></div>
+              <div class="cm-panel" data-tab="mpba"><div id="mpbaDashboardRow"><div style="opacity:.6;padding:12px;">Cargando MPBA…</div></div></div>
+              <script>
+              (function(){
+                var FB='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba.json';
+                function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+                function deco(s){ if(s==null)return ''; return String(s).replace(/&#(\d+);/g,function(_,n){return String.fromCharCode(+n);}).replace(/&nbsp;/g,' ').replace(/&aacute;/g,'á').replace(/&eacute;/g,'é').replace(/&iacute;/g,'í').replace(/&oacute;/g,'ó').replace(/&uacute;/g,'ú').replace(/&ntilde;/g,'ñ').replace(/&Ntilde;/g,'Ñ').replace(/&ordm;/g,'º').replace(/&ordf;/g,'ª').replace(/&amp;/g,'&'); }
+                function norm(s){return (s||'').toString().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+                function esPenal(c){ var m=norm(c.materia), car=norm(c.caratula); if(m==='PENAL')return true; return /S\/\s*(ABUSO|LESION|AMENAZA|ROBO|HURTO|HOMICIDIO|DESOBEDIEN|ESTAFA|DA[NÑ]O|TENENCIA|ENCUBRIM|ESTUPEFAC|LEY ?23\.?737)/.test(car); }
+                function partesDe(p){ var t=(p.tramites||[]); for(var i=0;i<t.length;i++){ var c=t[i].celdas||[]; for(var j=0;j<c.length;j++){ var v=deco(c[j]||''); if(/[A-Za-zÀ-ÿ]{3,}\s*,\s*[A-Za-zÀ-ÿ]{2,}/.test(v)) return v; } } return ''; }
+                function matchCliente(partes){
+                  var lista=(typeof clientsData!=='undefined'&&clientsData)?clientsData:[]; var pu=norm(partes);
+                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c||!esPenal(c))continue; var ap=norm(c.nombre).split(/[ ,]/)[0]; if(ap.length>3 && pu.indexOf(ap)>=0) return c; }
+                  return null;
+                }
+                window.__mpba={};
+                function render(data){
+                  window.__mpba=data||{}; var cont=document.getElementById('mpbaDashboardRow'); if(!cont)return;
+                  var novs=[];
+                  Object.keys(window.__mpba).forEach(function(k){
+                    var p=window.__mpba[k]||{};
+                    var tram=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(b.fecha).localeCompare(window.mpbaFK(a.fecha));});
+                    if(!tram.length)return;
+                    var ult=tram[0];
+                    if(p.visto===ult.codigo)return;   // ya marcada como trabajada
+                    novs.push({k:k,p:p,t:ult});
+                  });
+                  if(!novs.length){ cont.innerHTML='<div style="opacity:.6;padding:12px;">Sin novedades nuevas de MPBA.</div>'; if(window.cmRefresh)cmRefresh(); return; }
+                  cont.innerHTML=novs.map(function(n){
+                    var col=n.p.proceso_columnas||[]; var partes=partesDe(n.p); var cli=matchClienteDe(n.p);
+                    var matchHtml = cli ? '<span style="background:var(--gold-dim,rgba(201,169,110,.12));color:var(--gold-dark,#a07840);border-radius:10px;padding:2px 8px;font-size:.75em;">✔ '+esc(cli.nombre||'')+'</span>' : '<span style="background:rgba(217,79,79,.12);color:#c0392b;border-radius:10px;padding:2px 8px;font-size:.75em;">penal — sin caso en planilla</span>';
+                    return '<div class="card mpba-card" style="border-left:4px solid #6a5acd;margin-bottom:16px;">'
+                      +'<h3><span '+(cli?('style="cursor:pointer;text-decoration:underline dotted;" title="Abrir ficha → Expediente Digital" onclick="mpbaAbrirFicha(\''+cli.id+'\')"'):'')+'>⚖️ '+esc(partes||col[2]||n.k)+'</span></h3>'
+                      +'<div style="font-size:.82em;opacity:.8;margin-bottom:8px;">N° '+esc(col[2]||'')+' · '+esc(deco(col[3]||''))+' &nbsp; '+matchHtml+'</div>'
+                      +'<div class="review-item" style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="review-item-content"><div class="review-date">'+esc(n.t.fecha||'')+'</div><div class="review-obs">'+esc(deco(n.t.tipo)||'')+(n.t.descripcion?(' — '+esc(deco(n.t.descripcion))):'')+'</div></div>'
+                      +'<div style="display:flex;gap:6px;flex-shrink:0;"><button type="button" class="btn btn-sm" onclick="verDocumentoMpba(\''+n.k+'\',\''+esc(n.t.codigo)+'\')" style="font-size:.72em;">📄 Ver</button>'
+                      +'<button type="button" class="btn btn-sm" onclick="mpbaTrabajada(\''+n.k+'\',\''+esc(n.t.codigo)+'\')" style="font-size:.72em;">✓ Trabajada</button></div></div></div>';
+                  }).join('');
+                  if(window.cmRefresh)cmRefresh();
+                }
+                window.mpbaTrabajada=function(k,codigo){
+                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba/'+encodeURIComponent(k)+'/visto.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(codigo)})
+                    .then(function(){ if(window.__mpba[k])window.__mpba[k].visto=codigo; render(window.__mpba); })
+                    .catch(function(){ alert('No se pudo marcar como trabajada.'); });
+                };
+                window.mpbaFK=function(f){ var m=(f||'').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2}):(\d{2}))?/); return m?(m[3]+m[2]+m[1]+(m[4]||'00')+(m[5]||'00')+(m[6]||'00')):''; };
+                function matchClienteDe(data){
+                  var lista=(typeof clientsData!=='undefined'&&clientsData)?clientsData:[];
+                  var col=data.proceso_columnas||[]; var numM=(col[2]||'').replace(/\D/g,''); var partes=norm(partesDe(data));
+                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c)continue;
+                    var exp=(c.expediente||'').toString().replace(/\D/g,'');
+                    if(numM.length>4 && exp.length>4 && (numM.indexOf(exp)>=0||exp.indexOf(numM)>=0)) return c;   // por número de expediente
+                    if(esPenal(c)){ var ap=norm(c.nombre).split(/[ ,]/)[0]; if(ap.length>3 && partes.indexOf(ap)>=0) return c; }  // penal + apellido
+                  }
+                  return null;
+                }
+                window.mpbaDeCliente=function(cli){
+                  if(!cli)return [];
+                  var exp=(cli.expediente||'').toString().replace(/\D/g,''); var pen=esPenal(cli); var ap=norm(cli.nombre||'').split(/[ ,]/)[0];
+                  var res=[], md=window.__mpba||{};
+                  Object.keys(md).forEach(function(k){
+                    var col=md[k].proceso_columnas||[]; var numM=(col[2]||'').replace(/\D/g,'');
+                    var byNum = numM.length>4 && exp.length>4 && (numM.indexOf(exp)>=0||exp.indexOf(numM)>=0);
+                    var byPenal = pen && ap.length>3 && norm(partesDe(md[k])).indexOf(ap)>=0;
+                    if(byNum||byPenal) res.push({clave:k,data:md[k]});
+                  });
+                  return res;
+                };
+                window.mpbaAbrirFicha=function(id){
+                  try{ showClientModal(id); }catch(e){ return; }
+                  setTimeout(function(){
+                    var t=Array.from(document.querySelectorAll('#clientInfoModal *')).find(function(b){return b.children.length===0 && /expediente digital/i.test(b.textContent||'');});
+                    var clickable = t && (t.closest('button,a,.tab,[onclick]')||t); if(clickable) clickable.click();
+                    setTimeout(function(){ var s=document.querySelector('#mpbaFichaAncla'); if(s)s.scrollIntoView({behavior:'smooth',block:'start'}); }, 150);
+                  }, 250);
+                };
+                window.verDocumentoMpba=function(k, codigo){
+                  var p=(window.__mpba||{})[k]; if(!p)return;
+                  var meta=(p.tramites||[]).find(function(x){return x.codigo===codigo;})||{};
+                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(k)+'/'+encodeURIComponent(codigo)+'.json',{cache:'no-store'})
+                    .then(function(r){return r.ok?r.json():null;})
+                    .then(function(d){
+                      if(!d||!d.b64){ alert('El documento no está descargado todavía. Corré el scraper.'); return; }
+                      var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+                      var src=URL.createObjectURL(new Blob([arr],{type:d.ct||'application/pdf'}));
+                      var ov=document.createElement('div');
+                      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+                      ov.onclick=function(e){ if(e.target===ov){ URL.revokeObjectURL(src); ov.remove(); } };
+                      ov.innerHTML='<div style="background:#fff;width:100%;max-width:900px;height:90vh;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;"><div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;background:#0b375f;color:#fff;font-size:.9em;"><span>'+esc(deco(meta.tipo)||"Documento")+" — "+esc(meta.fecha||"")+'</span><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:#fff;font-size:1.4em;cursor:pointer;line-height:1;">×</button></div><iframe src="'+src+'" style="flex:1;border:0;width:100%;"></iframe></div>';
+                      document.body.appendChild(ov);
+                    }).catch(function(){ alert('No se pudo cargar el documento.'); });
+                };
+                function cargar(){ fetch(FB,{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(render).catch(function(){var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>';}); }
+                cargar(); setInterval(cargar, 15*60*1000);
+              })();
+              </script>
+              <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+              <script>
+              window.mpbaBajarExpediente=async function(clave){
+                if(typeof PDFLib==='undefined'){ alert('La librería PDF todavía se está cargando, probá de nuevo en unos segundos.'); return; }
+                var p=(window.__mpba||{})[clave]; if(!p)return;
+                var codigos=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha));}).map(function(t){return t.codigo;});
+                var base='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(clave)+'/';
+                var merged=await PDFLib.PDFDocument.create(); var n=0;
+                for(var i=0;i<codigos.length;i++){
+                  try{
+                    var r=await fetch(base+encodeURIComponent(codigos[i])+'.json',{cache:'no-store'}); var d=await r.json();
+                    if(!d||!d.b64||!/pdf/i.test(d.ct||''))continue;
+                    var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j);
+                    var src=await PDFLib.PDFDocument.load(arr,{ignoreEncryption:true});
+                    var pgs=await merged.copyPages(src, src.getPageIndices()); pgs.forEach(function(pg){merged.addPage(pg);}); n++;
+                  }catch(e){}
+                }
+                if(!n){ alert('No hay PDFs para unir en este expediente.'); return; }
+                var bytes=await merged.save();
+                var num=((p.proceso_columnas||[])[2]||clave);
+                var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})); a.download='Expediente_'+String(num).replace(/[^0-9A-Za-z]/g,'_')+'.pdf'; document.body.appendChild(a); a.click(); setTimeout(function(){a.remove();},1000);
+              };
+              </script>
+              <div class="cm-panel" data-tab="revis">
                 <div class="dashboard-revisiones">
                     <div class="card today-reviews">
                         <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Revisiones de Hoy</h3>
@@ -2265,7 +2487,54 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         <div class="reviews-list" id="upcomingReviews"></div>
                     </div>
                 </div>
-            </section>
+              </div>
+              </div>
+            </div>
+            <!-- ═══ CONTROLADOR CENTRO DE MANDO ═══ -->
+            <script>
+            (function(){
+              var TABS=[
+                {id:'revis',label:'Revisiones'},
+                {id:'avisos',label:'Avisos y Vencimientos'},
+                {id:'mev',label:'MEV'},
+                {id:'comite',label:'Comité IA'},
+                {id:'pjn',label:'PJN'},
+                {id:'scba',label:'SCBA'},
+                {id:'mpba',label:'MPBA'}
+              ];
+              var AKEY='cmActiveTab', tabsEl=document.getElementById('cmTabs');
+              if(!tabsEl){ document.documentElement.classList.remove('cm-js'); return; }
+              var active='revis';
+              function num(id){ var e=document.getElementById(id); if(!e)return 0; var n=parseInt((e.textContent||'').replace(/[^0-9-]/g,''),10); return isNaN(n)?0:n; }
+              function qc(sel){ try{ return document.querySelectorAll(sel).length; }catch(e){ return 0; } }
+              function stateOf(id){
+                var count=0,urg=false,alt=false;
+                if(id==='avisos'){ var rows=document.querySelectorAll('#avisosDelDiaLista .aviso-row'), adv=num('advanceNoticeCount'), c=document.getElementById('advanceNoticeContainer'); count=rows.length+adv; for(var i=0;i<rows.length;i++){ if(rows[i].getAttribute('data-urgencia')==='alta')urg=true; } if(c&&/Vence HOY/i.test(c.textContent))urg=true; alt=count>0; }
+                else if(id==='revis'){ var t=qc('#todayReviews .review-item'),o=qc('#overdueReviews .review-item'); count=t+o; if(o>0)urg=true; else if(t>0)alt=true; }
+                else if(id==='mev'){ count=num('mevAlertaCount'); alt=count>0; }
+                else if(id==='comite'){ count=num('dictAlertaCount'); alt=count>0; if(document.querySelector('#dictamenesDashboardRow .dictamen-urgencia-ALTA'))urg=true; }
+                else if(id==='pjn'){ count=num('pjnAlertaCount'); alt=count>0; }
+                else if(id==='scba'){ count=num('scbaAlertaCount'); alt=count>0; }
+                else if(id==='mpba'){ count=qc('#mpbaDashboardRow .mpba-card'); alt=count>0; }
+                return {count:count, st:urg?'st-urgent':(alt?'st-alert':'st-none')};
+              }
+              function setActive(id){
+                active=id; try{ localStorage.setItem(AKEY,id); }catch(e){}
+                var tabs=tabsEl.querySelectorAll('.cm-tab'); for(var i=0;i<tabs.length;i++){ tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab')===id); }
+                var pans=document.querySelectorAll('.cm-panel'); for(var j=0;j<pans.length;j++){ pans[j].classList.toggle('active', pans[j].getAttribute('data-tab')===id); }
+              }
+              function refresh(){
+                var tabs=tabsEl.querySelectorAll('.cm-tab');
+                for(var i=0;i<tabs.length;i++){ var id=tabs[i].getAttribute('data-tab'); var s=stateOf(id); tabs[i].classList.remove('st-none','st-alert','st-urgent'); tabs[i].classList.add(s.st); var b=tabs[i].querySelector('.cm-badge'); if(b)b.textContent=s.count; }
+              }
+              window.cmRefresh=refresh;
+              try{
+                TABS.forEach(function(tb){ var b=document.createElement('button'); b.className='cm-tab'; b.setAttribute('data-tab',tb.id); b.setAttribute('type','button'); b.innerHTML='<span class="cm-dot"></span>'+tb.label+' <span class="cm-badge">0</span>'; b.onclick=function(){ setActive(tb.id); }; tabsEl.appendChild(b); });
+                setActive(active); refresh();
+                setInterval(refresh,10000);
+              }catch(e){ document.documentElement.classList.remove('cm-js'); }
+            })();
+            </script>
 
             <section style="text-align: center; margin-bottom: 30px;">
                 <button class="btn btn-success" onclick="showNewClientModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar Caso</button>
@@ -2812,7 +3081,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     if (data && Array.isArray(data)) {
                         clientsData = sanitizeData(data);
                         guardarCacheLocal();
-                        renderAll();
+                        scheduleRenderAll();
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sincronizado en tiempo real', 'ok');
                     } else if (data === null) {
                         const local = localStorage.getItem('planilla_juridica_data');
@@ -3032,6 +3301,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             client.audiencias = client.audiencias_list.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(aud => `[${formatDate(aud.fecha)} ${formatTime(aud.hora)}]: ${aud.texto}`).join('; ');
         }
         
+        var _renderAllTimer = null, _pendingRender = false;
+        function scheduleRenderAll() {
+            if (document.hidden) { _pendingRender = true; return; }
+            if (_renderAllTimer) clearTimeout(_renderAllTimer);
+            _renderAllTimer = setTimeout(function(){ _renderAllTimer = null; renderAll(); }, 400);
+        }
+        document.addEventListener('visibilitychange', function(){ if (!document.hidden && _pendingRender) { _pendingRender = false; renderAll(); } });
         function renderAll() {
             clientsData.forEach(c => {
                 updateClientNextRevision(c);
@@ -3045,6 +3321,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             renderAdvanceNotices();
             renderDashboardLists();
             renderAllClientsList();
+            if (window.cmRefresh) window.cmRefresh();
         }
 
         function nextWeek() {
@@ -4123,6 +4400,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }).join('');
         }
         
+        function buildCaseRowHTML(c) {
+                const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
+                const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
+                const socioBadge = c.socio ? `<span style="display:inline-block; background:#8e44ad; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${getSocioLabel(c.socio)}</span>` : '';
+                const hijosBadge = (c.hijos && c.hijos.length > 0) ? `<span style="display:inline-block; background:#2980b9; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${c.hijos.length} hijo${c.hijos.length > 1 ? 's' : ''}</span>` : '';
+                const convBadge = c.convenio?.tipo ? `<span style="display:inline-block; background:${c.convenio.tipo==='NEGRO'?'#2c3e50':'#2980b9'}; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${c.convenio.tipo==='NEGRO'?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'} ${c.convenio.tipo}</span>` : '';
+                const fechaRevStyle = isPastDue(c.proximaRevision) ? 'color:var(--danger-color); font-weight:bold;' : isToday(c.proximaRevision) ? 'color:#e67e22; font-weight:bold;' : '';
+                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content">
+                    <div class="review-date" style="${fechaRevStyle}">${isPastDue(c.proximaRevision)?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ':isToday(c.proximaRevision)?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> ':''}Próx. Revisión: ${formatDate(c.proximaRevision)}</div>
+                    ${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}
+                    <div class="review-client">${getDisplayName(c)}${socioBadge}${hijosBadge}${convBadge}</div>
+                    <div class="review-obs">Últ. Tarea: ${c.observacion}</div>
+                </div></div>`;
+        }
+
+        var _openCaseGroups = {};
         function renderAllClientsList() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const estadoFilter = document.getElementById('estadoFilter').value;
@@ -4140,21 +4433,68 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     && (!materiaFilter || c.materia === materiaFilter)
                     && (!socioFilter || c.socio === socioFilter);
             }).sort((a, b) => (a.proximaRevision || '9999').localeCompare(b.proximaRevision || '9999'));
-            
-            document.getElementById('allClients').innerHTML = filteredData.length === 0 ? '<p>No se encontraron casos.</p>' : filteredData.map(c => {
-                const hasPendingTask = (c.observaciones || []).some(obs => !obs.completed && obs.proximaRevision);
-                const classes = `review-item ${!hasPendingTask ? 'completed' : ''} ${isToday(c.proximaRevision) ? 'today' : ''} ${isPastDue(c.proximaRevision) ? 'overdue' : ''}`;
-                const socioBadge = c.socio ? `<span style="display:inline-block; background:#8e44ad; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${getSocioLabel(c.socio)}</span>` : '';
-                const hijosBadge = (c.hijos && c.hijos.length > 0) ? `<span style="display:inline-block; background:#2980b9; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${c.hijos.length} hijo${c.hijos.length > 1 ? 's' : ''}</span>` : '';
-                const convBadge = c.convenio?.tipo ? `<span style="display:inline-block; background:${c.convenio.tipo==='NEGRO'?'#2c3e50':'#2980b9'}; color:white; font-size:0.75em; padding:2px 8px; border-radius:10px; margin-left:6px;">${c.convenio.tipo==='NEGRO'?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'} ${c.convenio.tipo}</span>` : '';
-                const fechaRevStyle = isPastDue(c.proximaRevision) ? 'color:var(--danger-color); font-weight:bold;' : isToday(c.proximaRevision) ? 'color:#e67e22; font-weight:bold;' : '';
-                return `<div class="${classes}" onclick="showClientModal('${c.id}')"><div class="review-item-content">
-                    <div class="review-date" style="${fechaRevStyle}">${isPastDue(c.proximaRevision)?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ':isToday(c.proximaRevision)?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> ':''}Próx. Revisión: ${formatDate(c.proximaRevision)}</div>
-                    ${c.fechaTrabajado ? `<div style="font-size:0.85em; color:#444; margin-top: 3px;">Trabajado el: ${formatDate(c.fechaTrabajado)}</div>` : ''}
-                    <div class="review-client">${getDisplayName(c)}${socioBadge}${hijosBadge}${convBadge}</div>
-                    <div class="review-obs">Últ. Tarea: ${c.observacion}</div>
-                </div></div>`;
+
+            const cont = document.getElementById('allClients');
+            if (!cont) return;
+            if (filteredData.length === 0) { cont.innerHTML = '<p>No se encontraron casos.</p>'; return; }
+
+            const groups = { vencidas:[], hoy:[], semana:[], adelante:[], sinfecha:[] };
+            filteredData.forEach(c => {
+                const pr = c.proximaRevision;
+                if (!pr) groups.sinfecha.push(c);
+                else if (isPastDue(pr)) groups.vencidas.push(c);
+                else if (isToday(pr)) groups.hoy.push(c);
+                else if (getDaysDifference(pr) <= 7) groups.semana.push(c);
+                else groups.adelante.push(c);
+            });
+            window.__caseGroups = groups;
+
+            const forceOpen = !!(searchTerm || estadoFilter || materiaFilter || socioFilter);
+            const defs = [
+                { k:'vencidas', label:'Vencidas', color:'var(--danger-color)', open:true },
+                { k:'hoy', label:'Hoy', color:'#e67e22', open:true },
+                { k:'semana', label:'Esta semana', color:'var(--gold-dark)', open:false },
+                { k:'adelante', label:'Más adelante', color:'var(--gold)', open:false },
+                { k:'sinfecha', label:'Sin fecha', color:'#8a8073', open:false }
+            ];
+
+            cont.innerHTML = defs.filter(d => groups[d.k].length > 0).map(d => {
+                const isOpen = forceOpen || (_openCaseGroups[d.k] !== undefined ? _openCaseGroups[d.k] : d.open);
+                return `<div class="acc-group" data-group="${d.k}">`
+                    + `<button type="button" class="acc-head" onclick="toggleCaseGroup('${d.k}')" style="border-left:4px solid ${d.color};">`
+                    + `<span class="acc-caret">${isOpen ? '▾' : '▸'}</span>`
+                    + `<span class="acc-title">${d.label}</span>`
+                    + `<span class="acc-count">${groups[d.k].length}</span>`
+                    + `</button>`
+                    + `<div class="acc-body" data-group-body="${d.k}" style="display:${isOpen ? 'block' : 'none'};"></div>`
+                    + `</div>`;
             }).join('');
+
+            defs.forEach(d => {
+                if (!groups[d.k].length) return;
+                const isOpen = forceOpen || (_openCaseGroups[d.k] !== undefined ? _openCaseGroups[d.k] : d.open);
+                if (isOpen) renderCaseGroupBody(d.k);
+            });
+        }
+
+        function renderCaseGroupBody(k) {
+            const body = document.querySelector('[data-group-body="' + k + '"]');
+            const groups = window.__caseGroups;
+            if (!body || !groups || !groups[k]) return;
+            if (body.dataset.rendered === '1') return;
+            body.innerHTML = groups[k].map(buildCaseRowHTML).join('');
+            body.dataset.rendered = '1';
+        }
+
+        function toggleCaseGroup(k) {
+            const body = document.querySelector('[data-group-body="' + k + '"]');
+            const group = document.querySelector('.acc-group[data-group="' + k + '"]');
+            if (!body) return;
+            const nowOpen = (body.style.display === 'none');
+            _openCaseGroups[k] = nowOpen;
+            if (nowOpen) { renderCaseGroupBody(k); body.style.display = 'block'; }
+            else { body.style.display = 'none'; }
+            if (group) { const caret = group.querySelector('.acc-caret'); if (caret) caret.textContent = nowOpen ? '▾' : '▸'; }
         }
 
         function renderLastPaymentSummary(client) {
@@ -6527,6 +6867,30 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>`;
             })() : ''}
 
+            <!-- SECCIÓN MPBA (penal) -->
+            ${(window.mpbaDeCliente && window.mpbaDeCliente(client).length > 0) ? (() => {
+                const exps = window.mpbaDeCliente(client);
+                return exps.map(e => {
+                    const col = e.data.proceso_columnas || [];
+                    const tram = (e.data.tramites || []).slice().sort((a,b)=> window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha)));
+                    const filas = tram.map(t => `<div style="padding:6px 10px;border-bottom:1px solid var(--border-item);display:flex;gap:10px;align-items:center;">
+                        <div style="min-width:120px;font-size:0.82em;color:var(--text-muted);">${t.fecha||''}</div>
+                        <div style="flex:1;font-size:0.88em;">${t.tipo||''}${t.descripcion?(' — '+t.descripcion):''}</div>
+                        <button onclick="verDocumentoMpba('${e.clave}','${t.codigo}')" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">📄 Ver</button>
+                    </div>`).join('');
+                    return `<div style="margin-top:24px;border-top:1px solid var(--border-item);padding-top:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <h5 id="mpbaFichaAncla" style="margin:0;color:#6a5acd;font-family:'Cormorant Garamond',serif;font-weight:500;letter-spacing:.04em;">⚖️ Expediente MPBA</h5>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:0.78em;color:var(--text-muted);">N° ${col[2]||''} · ${e.data.total_tramites||tram.length} trámites</span>
+                                <button onclick="mpbaBajarExpediente('${e.clave}')" style="font-size:0.78em;padding:6px 12px;border:1px solid #6a5acd;border-radius:8px;color:#6a5acd;background:rgba(106,90,205,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;">⬇ Bajar expediente</button>
+                            </div>
+                        </div>
+                        <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-item);border-radius:8px;background:var(--bg-item);">${filas}</div>
+                    </div>`;
+                }).join('');
+            })() : ''}
+
             <!-- SECCIÓN PJN -->
             ${(client.pjn_actuaciones?.length > 0 || client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? (() => {
                 const pjn = client.pjn_actuaciones || [];
@@ -6819,12 +7183,18 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const minHand = document.querySelector('.min-hand');
             const secondHand = document.querySelector('.second-hand');
             function updateClock() {
+                const TZ = 'America/Argentina/Buenos_Aires';
                 const now = new Date();
-                const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                digitalClockElement.innerHTML = `${now.toLocaleDateString('es-AR', dateOptions)}<br>${now.toLocaleTimeString('es-AR', { hour12: false })}`;
-                const seconds = now.getSeconds(); secondHand.style.transform = `rotate(${((seconds / 60) * 360) + 90}deg)`;
-                const mins = now.getMinutes(); minHand.style.transform = `rotate(${((mins / 60) * 360) + ((seconds/60)*6) + 90}deg)`;
-                const hour = now.getHours(); hourHand.style.transform = `rotate(${((hour / 12) * 360) + ((mins/60)*30) + 90}deg)`;
+                const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: TZ };
+                digitalClockElement.innerHTML = `${now.toLocaleDateString('es-AR', dateOptions)}<br>${now.toLocaleTimeString('es-AR', { hour12: false, timeZone: TZ })}`;
+                let hh = now.getHours(), mm = now.getMinutes(), ss = now.getSeconds();
+                try {
+                    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(now);
+                    parts.forEach(p => { if (p.type === 'hour') hh = parseInt(p.value, 10) % 24; else if (p.type === 'minute') mm = parseInt(p.value, 10); else if (p.type === 'second') ss = parseInt(p.value, 10); });
+                } catch (e) {}
+                secondHand.style.transform = `rotate(${(ss / 60) * 360}deg)`;
+                minHand.style.transform = `rotate(${((mm / 60) * 360) + ((ss / 60) * 6)}deg)`;
+                hourHand.style.transform = `rotate(${(((hh % 12) / 12) * 360) + ((mm / 60) * 30)}deg)`;
             }
             updateClock(); setInterval(updateClock, 1000);
 
