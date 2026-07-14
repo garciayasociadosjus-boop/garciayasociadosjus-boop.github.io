@@ -2374,7 +2374,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                   var novs=[];
                   Object.keys(window.__mpba).forEach(function(k){
                     var p=window.__mpba[k]||{};
-                    var tram=(p.tramites||[]).slice().sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
+                    var tram=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(b.fecha).localeCompare(window.mpbaFK(a.fecha));});
                     if(!tram.length)return;
                     var ult=tram[0];
                     if(p.visto===ult.codigo)return;   // ya marcada como trabajada
@@ -2398,8 +2398,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     .then(function(){ if(window.__mpba[k])window.__mpba[k].visto=codigo; render(window.__mpba); })
                     .catch(function(){ alert('No se pudo marcar como trabajada.'); });
                 };
+                window.mpbaFK=function(f){ var m=(f||'').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2}):(\d{2}))?/); return m?(m[3]+m[2]+m[1]+(m[4]||'00')+(m[5]||'00')+(m[6]||'00')):''; };
                 window.mpbaDeCliente=function(cli){
-                  if(!cli||!esPenal(cli))return [];
+                  if(!cli||!cli.nombre)return [];
                   var ap=norm(cli.nombre).split(/[ ,]/)[0]; if(ap.length<=3)return [];
                   var res=[], md=window.__mpba||{};
                   Object.keys(md).forEach(function(k){ if(norm(partesDe(md[k])).indexOf(ap)>=0) res.push({clave:k,data:md[k]}); });
@@ -2430,7 +2431,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
               window.mpbaBajarExpediente=async function(clave){
                 if(typeof PDFLib==='undefined'){ alert('La librería PDF todavía se está cargando, probá de nuevo en unos segundos.'); return; }
                 var p=(window.__mpba||{})[clave]; if(!p)return;
-                var codigos=(p.tramites||[]).slice().sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');}).map(function(t){return t.codigo;});
+                var codigos=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha));}).map(function(t){return t.codigo;});
                 var base='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(clave)+'/';
                 var merged=await PDFLib.PDFDocument.create(); var n=0;
                 for(var i=0;i<codigos.length;i++){
@@ -6848,7 +6849,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 const exps = window.mpbaDeCliente(client);
                 return exps.map(e => {
                     const col = e.data.proceso_columnas || [];
-                    const tram = (e.data.tramites || []).slice().sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+                    const tram = (e.data.tramites || []).slice().sort((a,b)=> window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha)));
                     const filas = tram.map(t => `<div style="padding:6px 10px;border-bottom:1px solid var(--border-item);display:flex;gap:10px;align-items:center;">
                         <div style="min-width:120px;font-size:0.82em;color:var(--text-muted);">${t.fecha||''}</div>
                         <div style="flex:1;font-size:0.88em;">${t.tipo||''}${t.descripcion?(' — '+t.descripcion):''}</div>
