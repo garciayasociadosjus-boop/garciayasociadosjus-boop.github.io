@@ -3080,6 +3080,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const data = snapshot.val();
                     if (data && Array.isArray(data)) {
                         clientsData = sanitizeData(data);
+                        try { localStorage.setItem('planilla_juridica_count', String(clientsData.filter(Boolean).length)); } catch(e){}
                         guardarCacheLocal();
                         scheduleRenderAll();
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sincronizado en tiempo real', 'ok');
@@ -3131,9 +3132,21 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
         function saveToFirebase() {
             if (!firebaseRef) return;
+            // 🔒 CANDADO ANTI-BORRADO: nunca sobrescribir Firebase con datos vacíos o sospechosamente chicos.
+            const nActual = Array.isArray(clientsData) ? clientsData.filter(Boolean).length : 0;
+            const nUltimo = parseInt(localStorage.getItem('planilla_juridica_count') || '0', 10) || 0;
+            if (nActual === 0) {
+                console.warn('🔒 Guardado abortado: la planilla está vacía. NO se sobrescribe Firebase.');
+                return;
+            }
+            if (nUltimo > 20 && nActual < nUltimo * 0.6) {
+                alert('⚠️ GUARDADO FRENADO POR SEGURIDAD\n\nEsta pestaña tiene ' + nActual + ' causas, pero la última vez había ' + nUltimo + '.\nParece una versión vieja/desincronizada.\n\nApretá F5 (refrescar) para bajar la versión buena ANTES de guardar. Así no pisás tus datos.');
+                return;
+            }
             try {
                 ignorarProximoCambioFirebase = true;
                 firebaseRef.set(clientsData)
+                    .then(() => { try { localStorage.setItem('planilla_juridica_count', String(nActual)); } catch(e){} })
                     .catch(e => { console.error('Error guardando en Firebase:', e); ignorarProximoCambioFirebase = false; });
             } catch(e) {
                 console.error('Error en saveToFirebase:', e);
