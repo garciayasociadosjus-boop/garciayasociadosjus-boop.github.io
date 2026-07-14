@@ -2394,9 +2394,19 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 };
                 window.verDocumentoMpba=function(k, codigo){
                   var p=(window.__mpba||{})[k]; if(!p)return;
-                  var t=(p.tramites||[]).find(function(x){return x.codigo===codigo;});
-                  if(!t||!t.encTexto){ alert('No se pudo abrir el documento (falta el enlace).'); return; }
-                  window.open('https://mv.mpba.gov.ar/Web/Proceso/VerTexto?enc='+encodeURIComponent(t.encTexto),'_blank');
+                  var meta=(p.tramites||[]).find(function(x){return x.codigo===codigo;})||{};
+                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(k)+'/'+encodeURIComponent(codigo)+'.json',{cache:'no-store'})
+                    .then(function(r){return r.ok?r.json():null;})
+                    .then(function(d){
+                      if(!d||!d.b64){ alert('El documento no está descargado todavía. Corré el scraper.'); return; }
+                      var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+                      var src=URL.createObjectURL(new Blob([arr],{type:d.ct||'application/pdf'}));
+                      var ov=document.createElement('div');
+                      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+                      ov.onclick=function(e){ if(e.target===ov){ URL.revokeObjectURL(src); ov.remove(); } };
+                      ov.innerHTML='<div style="background:#fff;width:100%;max-width:900px;height:90vh;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;"><div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;background:#0b375f;color:#fff;font-size:.9em;"><span>'+esc(deco(meta.tipo)||"Documento")+" — "+esc(meta.fecha||"")+'</span><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:#fff;font-size:1.4em;cursor:pointer;line-height:1;">×</button></div><iframe src="'+src+'" style="flex:1;border:0;width:100%;"></iframe></div>';
+                      document.body.appendChild(ov);
+                    }).catch(function(){ alert('No se pudo cargar el documento.'); });
                 };
                 function cargar(){ fetch(FB,{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(render).catch(function(){var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>';}); }
                 cargar(); setInterval(cargar, 15*60*1000);
