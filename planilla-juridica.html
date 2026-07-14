@@ -2371,21 +2371,33 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 window.__mpba={};
                 function render(data){
                   window.__mpba=data||{}; var cont=document.getElementById('mpbaDashboardRow'); if(!cont)return;
-                  var claves=Object.keys(window.__mpba); if(!claves.length){ cont.innerHTML='<div style="opacity:.6;padding:12px;">Sin expedientes MPBA todavía. El scraper local los va cargando.</div>'; if(window.cmRefresh)cmRefresh(); return; }
-                  cont.innerHTML=claves.map(function(k){
-                    var p=window.__mpba[k]||{}; var col=p.proceso_columnas||[];
-                    var num=col[2]||'', org=deco(col[3]||''), estado=col[4]||'';
-                    var partes=partesDe(p); var cli=matchCliente(partes);
+                  var novs=[];
+                  Object.keys(window.__mpba).forEach(function(k){
+                    var p=window.__mpba[k]||{};
                     var tram=(p.tramites||[]).slice().sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
-                    var matchHtml = cli ? '<span style="background:var(--gold-dim,rgba(201,169,110,.12));color:var(--gold-dark,#a07840);border-radius:10px;padding:2px 8px;font-size:.75em;">✔ '+esc((cli.nombre||'')+(cli.materia?(' · '+cli.materia):''))+'</span>' : '<span style="background:rgba(217,79,79,.12);color:#c0392b;border-radius:10px;padding:2px 8px;font-size:.75em;">penal — sin caso en planilla</span>';
-                    var novedades = tram.map(function(t){ return '<div class="review-item" style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="review-item-content"><div class="review-date">'+esc(t.fecha||'')+'</div><div class="review-obs">'+esc(deco(t.tipo)||'')+(t.descripcion?(' — '+esc(deco(t.descripcion))):'')+'</div></div><button type="button" class="btn btn-sm" onclick="verDocumentoMpba(\''+k+'\',\''+esc(t.codigo)+'\')" style="font-size:.72em;white-space:nowrap;">📄 Ver</button></div>'; }).join('');
+                    if(!tram.length)return;
+                    var ult=tram[0];
+                    if(p.visto===ult.codigo)return;   // ya marcada como trabajada
+                    novs.push({k:k,p:p,t:ult});
+                  });
+                  if(!novs.length){ cont.innerHTML='<div style="opacity:.6;padding:12px;">Sin novedades nuevas de MPBA.</div>'; if(window.cmRefresh)cmRefresh(); return; }
+                  cont.innerHTML=novs.map(function(n){
+                    var col=n.p.proceso_columnas||[]; var partes=partesDe(n.p); var cli=matchCliente(partes);
+                    var matchHtml = cli ? '<span style="background:var(--gold-dim,rgba(201,169,110,.12));color:var(--gold-dark,#a07840);border-radius:10px;padding:2px 8px;font-size:.75em;">✔ '+esc(cli.nombre||'')+'</span>' : '<span style="background:rgba(217,79,79,.12);color:#c0392b;border-radius:10px;padding:2px 8px;font-size:.75em;">penal — sin caso en planilla</span>';
                     return '<div class="card mpba-card" style="border-left:4px solid #6a5acd;margin-bottom:16px;">'
-                      +'<h3><span>⚖️ '+esc(partes||num||k)+'</span></h3>'
-                      +'<div style="font-size:.82em;opacity:.8;margin-bottom:6px;">N° '+esc(num)+' · '+esc(org)+' · '+esc(estado)+' · '+tram.length+' trámites &nbsp; '+matchHtml+'</div>'
-                      +'<div class="reviews-list" style="max-height:260px;">'+(novedades||'<div style="opacity:.6;padding:8px;">Sin novedades.</div>')+'</div></div>';
+                      +'<h3><span>⚖️ '+esc(partes||col[2]||n.k)+'</span></h3>'
+                      +'<div style="font-size:.82em;opacity:.8;margin-bottom:8px;">N° '+esc(col[2]||'')+' · '+esc(deco(col[3]||''))+' &nbsp; '+matchHtml+'</div>'
+                      +'<div class="review-item" style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="review-item-content"><div class="review-date">'+esc(n.t.fecha||'')+'</div><div class="review-obs">'+esc(deco(n.t.tipo)||'')+(n.t.descripcion?(' — '+esc(deco(n.t.descripcion))):'')+'</div></div>'
+                      +'<div style="display:flex;gap:6px;flex-shrink:0;"><button type="button" class="btn btn-sm" onclick="verDocumentoMpba(\''+n.k+'\',\''+esc(n.t.codigo)+'\')" style="font-size:.72em;">📄 Ver</button>'
+                      +'<button type="button" class="btn btn-sm" onclick="mpbaTrabajada(\''+n.k+'\',\''+esc(n.t.codigo)+'\')" style="font-size:.72em;">✓ Trabajada</button></div></div></div>';
                   }).join('');
                   if(window.cmRefresh)cmRefresh();
                 }
+                window.mpbaTrabajada=function(k,codigo){
+                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba/'+encodeURIComponent(k)+'/visto.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(codigo)})
+                    .then(function(){ if(window.__mpba[k])window.__mpba[k].visto=codigo; render(window.__mpba); })
+                    .catch(function(){ alert('No se pudo marcar como trabajada.'); });
+                };
                 window.mpbaDeCliente=function(cli){
                   if(!cli||!esPenal(cli))return [];
                   var ap=norm(cli.nombre).split(/[ ,]/)[0]; if(ap.length<=3)return [];
@@ -2412,6 +2424,29 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 function cargar(){ fetch(FB,{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(render).catch(function(){var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>';}); }
                 cargar(); setInterval(cargar, 15*60*1000);
               })();
+              </script>
+              <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+              <script>
+              window.mpbaBajarExpediente=async function(clave){
+                if(typeof PDFLib==='undefined'){ alert('La librería PDF todavía se está cargando, probá de nuevo en unos segundos.'); return; }
+                var p=(window.__mpba||{})[clave]; if(!p)return;
+                var codigos=(p.tramites||[]).slice().sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');}).map(function(t){return t.codigo;});
+                var base='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(clave)+'/';
+                var merged=await PDFLib.PDFDocument.create(); var n=0;
+                for(var i=0;i<codigos.length;i++){
+                  try{
+                    var r=await fetch(base+encodeURIComponent(codigos[i])+'.json',{cache:'no-store'}); var d=await r.json();
+                    if(!d||!d.b64||!/pdf/i.test(d.ct||''))continue;
+                    var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j);
+                    var src=await PDFLib.PDFDocument.load(arr,{ignoreEncryption:true});
+                    var pgs=await merged.copyPages(src, src.getPageIndices()); pgs.forEach(function(pg){merged.addPage(pg);}); n++;
+                  }catch(e){}
+                }
+                if(!n){ alert('No hay PDFs para unir en este expediente.'); return; }
+                var bytes=await merged.save();
+                var num=((p.proceso_columnas||[])[2]||clave);
+                var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})); a.download='Expediente_'+String(num).replace(/[^0-9A-Za-z]/g,'_')+'.pdf'; document.body.appendChild(a); a.click(); setTimeout(function(){a.remove();},1000);
+              };
               </script>
               <div class="cm-panel" data-tab="revis">
                 <div class="dashboard-revisiones">
@@ -6822,7 +6857,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     return `<div style="margin-top:24px;border-top:1px solid var(--border-item);padding-top:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                             <h5 style="margin:0;color:#6a5acd;font-family:'Cormorant Garamond',serif;font-weight:500;letter-spacing:.04em;">⚖️ Expediente MPBA (penal)</h5>
-                            <span style="font-size:0.78em;color:var(--text-muted);">N° ${col[2]||''} · ${e.data.total_tramites||tram.length} trámites</span>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:0.78em;color:var(--text-muted);">N° ${col[2]||''} · ${e.data.total_tramites||tram.length} trámites</span>
+                                <button onclick="mpbaBajarExpediente('${e.clave}')" style="font-size:0.78em;padding:6px 12px;border:1px solid #6a5acd;border-radius:8px;color:#6a5acd;background:rgba(106,90,205,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;">⬇ Bajar expediente</button>
+                            </div>
                         </div>
                         <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-item);border-radius:8px;background:var(--bg-item);">${filas}</div>
                     </div>`;
