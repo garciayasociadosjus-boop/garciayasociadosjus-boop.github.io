@@ -2380,17 +2380,18 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     var matchHtml = cli ? '<span style="background:var(--gold-dim,rgba(201,169,110,.12));color:var(--gold-dark,#a07840);border-radius:10px;padding:2px 8px;font-size:.75em;">✔ '+esc((cli.nombre||'')+(cli.materia?(' · '+cli.materia):''))+'</span>' : '<span style="background:rgba(217,79,79,.12);color:#c0392b;border-radius:10px;padding:2px 8px;font-size:.75em;">penal — sin caso en planilla</span>';
                     var novedades = tram.map(function(t){ return '<div class="review-item" style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="review-item-content"><div class="review-date">'+esc(t.fecha||'')+'</div><div class="review-obs">'+esc(deco(t.tipo)||'')+(t.descripcion?(' — '+esc(deco(t.descripcion))):'')+'</div></div><button type="button" class="btn btn-sm" onclick="verDocumentoMpba(\''+k+'\',\''+esc(t.codigo)+'\')" style="font-size:.72em;white-space:nowrap;">📄 Ver</button></div>'; }).join('');
                     return '<div class="card mpba-card" style="border-left:4px solid #6a5acd;margin-bottom:16px;">'
-                      +'<h3 style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;"><span>⚖️ '+esc(partes||num||k)+'</span><button type="button" class="btn btn-sm" onclick="mpbaExpediente(\''+k+'\')" style="font-size:.75em;white-space:nowrap;">📂 Abrir expediente</button></h3>'
+                      +'<h3><span>⚖️ '+esc(partes||num||k)+'</span></h3>'
                       +'<div style="font-size:.82em;opacity:.8;margin-bottom:6px;">N° '+esc(num)+' · '+esc(org)+' · '+esc(estado)+' · '+tram.length+' trámites &nbsp; '+matchHtml+'</div>'
                       +'<div class="reviews-list" style="max-height:260px;">'+(novedades||'<div style="opacity:.6;padding:8px;">Sin novedades.</div>')+'</div></div>';
                   }).join('');
                   if(window.cmRefresh)cmRefresh();
                 }
-                window.mpbaExpediente=function(k){
-                  var p=(window.__mpba||{})[k]; if(!p)return;
-                  var enc=(p.proceso_columnas||[])[10];
-                  if(!enc){ alert('Falta el enlace del expediente.'); return; }
-                  window.open('https://mv.mpba.gov.ar/Web/Solicitud/VerProcesoIndiceDigital?enc='+encodeURIComponent(enc),'_blank');
+                window.mpbaDeCliente=function(cli){
+                  if(!cli||!esPenal(cli))return [];
+                  var ap=norm(cli.nombre).split(/[ ,]/)[0]; if(ap.length<=3)return [];
+                  var res=[], md=window.__mpba||{};
+                  Object.keys(md).forEach(function(k){ if(norm(partesDe(md[k])).indexOf(ap)>=0) res.push({clave:k,data:md[k]}); });
+                  return res;
                 };
                 window.verDocumentoMpba=function(k, codigo){
                   var p=(window.__mpba||{})[k]; if(!p)return;
@@ -6805,6 +6806,27 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     </div>
                     ${renderScbaNotifs(client)}
                 </div>`;
+            })() : ''}
+
+            <!-- SECCIÓN MPBA (penal) -->
+            ${(window.mpbaDeCliente && window.mpbaDeCliente(client).length > 0) ? (() => {
+                const exps = window.mpbaDeCliente(client);
+                return exps.map(e => {
+                    const col = e.data.proceso_columnas || [];
+                    const tram = (e.data.tramites || []).slice().sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+                    const filas = tram.map(t => `<div style="padding:6px 10px;border-bottom:1px solid var(--border-item);display:flex;gap:10px;align-items:center;">
+                        <div style="min-width:120px;font-size:0.82em;color:var(--text-muted);">${t.fecha||''}</div>
+                        <div style="flex:1;font-size:0.88em;">${t.tipo||''}${t.descripcion?(' — '+t.descripcion):''}</div>
+                        <button onclick="verDocumentoMpba('${e.clave}','${t.codigo}')" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">📄 Ver</button>
+                    </div>`).join('');
+                    return `<div style="margin-top:24px;border-top:1px solid var(--border-item);padding-top:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <h5 style="margin:0;color:#6a5acd;font-family:'Cormorant Garamond',serif;font-weight:500;letter-spacing:.04em;">⚖️ Expediente MPBA (penal)</h5>
+                            <span style="font-size:0.78em;color:var(--text-muted);">N° ${col[2]||''} · ${e.data.total_tramites||tram.length} trámites</span>
+                        </div>
+                        <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-item);border-radius:8px;background:var(--bg-item);">${filas}</div>
+                    </div>`;
+                }).join('');
             })() : ''}
 
             <!-- SECCIÓN PJN -->
