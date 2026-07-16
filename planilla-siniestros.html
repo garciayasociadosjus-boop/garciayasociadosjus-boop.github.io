@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -10,6 +11,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -1937,6 +1939,64 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         <div id="advanceNoticeContainer" class="reviews-list" style="max-height: 300px; display: block;"></div>
     </section>
 
+    <!-- ═══ PANEL AVISOS DEL DÍA (auto-generado por rutina Calendar+Gmail) ═══ -->
+    <div class="card" id="avisosDelDiaCard" style="border-left:4px solid var(--warning-color,#d4901a);margin-bottom:22px;">
+      <h3 style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <span>📌 Avisos del día <span id="avisosDelDiaCount" style="font-size:.8em;opacity:.7;"></span></span>
+        <span id="avisosDelDiaFecha" style="font-size:.7em;font-weight:normal;opacity:.6;"></span>
+      </h3>
+      <div id="avisosDelDiaLista" class="reviews-list" style="max-height:340px;">
+        <div style="opacity:.6;padding:10px;">Cargando avisos…</div>
+      </div>
+    </div>
+    <script>
+    (function(){
+      var NODO = 'avisos_siniestros';
+      var COLORES = { alta:'#d94f4f', media:'#d4901a', baja:'#3a8bd4' };
+      var ICONO = { calendar:'📅', mail:'✉️', otro:'📌' };
+      var ORDEN = { alta:0, media:1, baja:2 };
+      function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+      function pri(u){ return (ORDEN[u]==null)?3:ORDEN[u]; }
+      function render(data){
+        var cont = document.getElementById('avisosDelDiaLista');
+        var cnt = document.getElementById('avisosDelDiaCount');
+        var fch = document.getElementById('avisosDelDiaFecha');
+        if(!cont) return;
+        var items = (data && data.items) ? data.items : [];
+        if(data && data.actualizado && fch){ try { fch.textContent = 'Actualizado: ' + new Date(data.actualizado).toLocaleString('es-AR'); } catch(e){ fch.textContent=''; } }
+        if(cnt) cnt.textContent = items.length ? '('+items.length+')' : '';
+        if(!items.length){ cont.innerHTML = '<div style="opacity:.6;padding:10px;">Sin avisos por ahora. La rutina actualiza 2 veces al día.</div>'; return; }
+        items.sort(function(a,b){ return pri(a.urgencia)-pri(b.urgencia); });
+        cont.innerHTML = items.map(function(it){
+          var col = COLORES[it.urgencia] || '#888';
+          var ic = ICONO[it.fuente] || ICONO.otro;
+          return '<div style="padding:10px 12px;border-left:3px solid '+col+';background:rgba(0,0,0,0.02);border-radius:6px;margin-bottom:8px;">'
+            + '<div style="font-weight:600;">'+ic+' '+esc(it.titulo)+'</div>'
+            + (it.detalle?'<div style="font-size:.86em;opacity:.8;margin-top:3px;">'+esc(it.detalle)+'</div>':'')
+            + '<div style="font-size:.78em;opacity:.6;margin-top:4px;">'
+              + (it.fecha?('🗓 '+esc(it.fecha)+'  '):'')
+              + '<span style="color:'+col+';font-weight:600;text-transform:uppercase;">'+esc(it.urgencia||'')+'</span>'
+            + '</div></div>';
+        }).join('');
+      }
+      function leer(){
+        firebase.database().ref(NODO).once('value')
+          .then(function(snap){ render(snap.val()); })
+          .catch(function(){ var c=document.getElementById('avisosDelDiaLista'); if(c) c.innerHTML='<div style="opacity:.6;padding:10px;">No se pudieron cargar los avisos.</div>'; });
+      }
+      function cargar(){
+        // Espera a que la app Firebase exista y haya sesión anónima activa (reglas exigen auth != null)
+        if (typeof firebase==='undefined' || !firebase.apps || !firebase.apps.length){ setTimeout(cargar,400); return; }
+        var user = firebase.auth().currentUser;
+        if (user){ leer(); return; }
+        firebase.auth().onAuthStateChanged(function(u){ if(u) leer(); });
+      }
+      cargar();
+      setInterval(cargar, 30*60*1000);
+    })();
+    </script>
+    <!-- ═══ FIN PANEL AVISOS DEL DÍA ═══ -->
+
     <div class="dashboard">
       <div class="card today-reviews"><h3>Eventos de Hoy</h3><div class="reviews-list" id="todayReviews"></div></div>
       <div class="card overdue-reviews"><h3>Eventos Vencidos</h3><div class="reviews-list" id="overdueReviews"></div></div>
@@ -2383,48 +2443,58 @@ function initFirebase() {
     try {
         firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
         firebaseDB = firebase.database();
-        firebaseRef = firebaseDB.ref(FIREBASE_KEY);
 
-        // Escuchar cambios en tiempo real
-        firebaseRef.on('value', (snapshot) => {
-            if (ignorarProximoCambioFirebase) {
-                ignorarProximoCambioFirebase = false;
-                return;
-            }
-            const data = snapshot.val();
-            if (data && Array.isArray(data)) {
-                siniestrosData = sanitizeData(data);
-                safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
-                renderAll();
-                updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
-            } else if (data === null) {
-                // Base de datos vacía, intentar cargar desde localStorage
-                const local = localStorage.getItem('planilla_siniestros_data');
-                if (local) {
-                    siniestrosData = sanitizeData(JSON.parse(local));
-                    saveToFirebase(); // Subir lo local a Firebase
-                    updateFirebaseStatus('✅ Datos locales subidos a Firebase', 'ok');
-                } else {
-                    updateFirebaseStatus('✅ Firebase listo (base vacía)', 'ok');
-                }
-            }
-            firebaseConectado = true;
-        }, (error) => {
-            console.error('Error Firebase listener:', error);
-            updateFirebaseStatus('❌ Error de conexión Firebase', 'error');
-            firebaseConectado = false;
+        firebase.auth().signInAnonymously().catch((error) => {
+            console.error('Error auth anónima Firebase:', error);
+            updateFirebaseStatus('❌ Error de autenticación Firebase', 'error');
         });
 
-        // Detectar estado de conexión
-        firebaseDB.ref('.info/connected').on('value', (snap) => {
-            if (snap.val() === true) {
+        // Recién con sesión anónima activa nos conectamos (las reglas exigen auth != null)
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user || firebaseRef) return;
+            firebaseRef = firebaseDB.ref(FIREBASE_KEY);
+
+            // Escuchar cambios en tiempo real
+            firebaseRef.on('value', (snapshot) => {
+                if (ignorarProximoCambioFirebase) {
+                    ignorarProximoCambioFirebase = false;
+                    return;
+                }
+                const data = snapshot.val();
+                if (data && Array.isArray(data)) {
+                    siniestrosData = sanitizeData(data);
+                    safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
+                    renderAll();
+                    updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                } else if (data === null) {
+                    // Base de datos vacía, intentar cargar desde localStorage
+                    const local = localStorage.getItem('planilla_siniestros_data');
+                    if (local) {
+                        siniestrosData = sanitizeData(JSON.parse(local));
+                        saveToFirebase(); // Subir lo local a Firebase
+                        updateFirebaseStatus('✅ Datos locales subidos a Firebase', 'ok');
+                    } else {
+                        updateFirebaseStatus('✅ Firebase listo (base vacía)', 'ok');
+                    }
+                }
                 firebaseConectado = true;
-                updateFirebaseStatus('✅ Firebase: Conectado en tiempo real', 'ok');
-                cargarNombreEstudio();
-            } else {
+            }, (error) => {
+                console.error('Error Firebase listener:', error);
+                updateFirebaseStatus('❌ Error de conexión Firebase', 'error');
                 firebaseConectado = false;
-                updateFirebaseStatus('⚠️ Firebase: Sin conexión (modo local)', 'warn');
-            }
+            });
+
+            // Detectar estado de conexión
+            firebaseDB.ref('.info/connected').on('value', (snap) => {
+                if (snap.val() === true) {
+                    firebaseConectado = true;
+                    updateFirebaseStatus('✅ Firebase: Conectado en tiempo real', 'ok');
+                    cargarNombreEstudio();
+                } else {
+                    firebaseConectado = false;
+                    updateFirebaseStatus('⚠️ Firebase: Sin conexión (modo local)', 'warn');
+                }
+            });
         });
 
     } catch(e) {
