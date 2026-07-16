@@ -8,6 +8,16 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script>
+    // Espera a que la app Firebase exista y haya sesión (anónima) activa — las reglas exigen auth != null
+    window.esperarFirebaseAuth = function(cb){
+      if (typeof firebase==='undefined' || !firebase.apps || !firebase.apps.length){ setTimeout(function(){window.esperarFirebaseAuth(cb);},300); return; }
+      var user = firebase.auth().currentUser;
+      if (user){ cb(); return; }
+      firebase.auth().onAuthStateChanged(function(u){ if(u) cb(); });
+    };
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -2296,7 +2306,6 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             <script>
             (function(){
               var NODO = 'avisos_juridica';
-              var URL = 'https://garcia-asociados-default-rtdb.firebaseio.com/' + NODO + '.json';
               var DKEY = 'avisosJuridicaDismiss';
               var COLORES = { alta:'#d94f4f', media:'#d4901a', baja:'#3a8bd4' };
               var ICONO = { calendar:'📅', mail:'✉️', otro:'📌' };
@@ -2337,12 +2346,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 }).join('');
                 if(window.cmRefresh) window.cmRefresh();
               }
-              function cargar(){
-                fetch(URL, {cache:'no-store'})
-                  .then(function(r){ return r.ok ? r.json() : null; })
-                  .then(render)
+              function leer(){
+                firebase.database().ref(NODO).once('value')
+                  .then(function(snap){ render(snap.val()); })
                   .catch(function(){ var c=document.getElementById('avisosDelDiaLista'); if(c) c.innerHTML='<div style="opacity:.6;padding:10px;">No se pudieron cargar los avisos.</div>'; });
               }
+              function cargar(){ window.esperarFirebaseAuth(leer); }
               cargar();
               setInterval(cargar, 30*60*1000);
             })();
@@ -2357,7 +2366,6 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
               <div class="cm-panel" data-tab="mpba"><div id="mpbaDashboardRow"><div style="opacity:.6;padding:12px;">Cargando MPBA…</div></div></div>
               <script>
               (function(){
-                var FB='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba.json';
                 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
                 function deco(s){ if(s==null)return ''; return String(s).replace(/&#(\d+);/g,function(_,n){return String.fromCharCode(+n);}).replace(/&nbsp;/g,' ').replace(/&aacute;/g,'á').replace(/&eacute;/g,'é').replace(/&iacute;/g,'í').replace(/&oacute;/g,'ó').replace(/&uacute;/g,'ú').replace(/&ntilde;/g,'ñ').replace(/&Ntilde;/g,'Ñ').replace(/&ordm;/g,'º').replace(/&ordf;/g,'ª').replace(/&amp;/g,'&'); }
                 function norm(s){return (s||'').toString().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
@@ -2394,9 +2402,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                   if(window.cmRefresh)cmRefresh();
                 }
                 window.mpbaTrabajada=function(k,codigo){
-                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba/'+encodeURIComponent(k)+'/visto.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(codigo)})
-                    .then(function(){ if(window.__mpba[k])window.__mpba[k].visto=codigo; render(window.__mpba); })
-                    .catch(function(){ alert('No se pudo marcar como trabajada.'); });
+                  window.esperarFirebaseAuth(function(){
+                    firebase.database().ref('planilla_mpba/'+k+'/visto').set(codigo)
+                      .then(function(){ if(window.__mpba[k])window.__mpba[k].visto=codigo; render(window.__mpba); })
+                      .catch(function(){ alert('No se pudo marcar como trabajada.'); });
+                  });
                 };
                 window.mpbaFK=function(f){ var m=(f||'').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2}):(\d{2}))?/); return m?(m[3]+m[2]+m[1]+(m[4]||'00')+(m[5]||'00')+(m[6]||'00')):''; };
                 function matchClienteDe(data){
@@ -2432,8 +2442,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 window.verDocumentoMpba=function(k, codigo){
                   var p=(window.__mpba||{})[k]; if(!p)return;
                   var meta=(p.tramites||[]).find(function(x){return x.codigo===codigo;})||{};
-                  fetch('https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(k)+'/'+encodeURIComponent(codigo)+'.json',{cache:'no-store'})
-                    .then(function(r){return r.ok?r.json():null;})
+                  new Promise(function(resolve){ window.esperarFirebaseAuth(function(){ resolve(); }); })
+                    .then(function(){ return firebase.database().ref('planilla_mpba_docs/'+k+'/'+codigo).once('value'); })
+                    .then(function(snap){return snap.val();})
                     .then(function(d){
                       if(!d||!d.b64){ alert('El documento no está descargado todavía. Corré el scraper.'); return; }
                       var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
