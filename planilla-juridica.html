@@ -4081,14 +4081,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 alert('Falta configurar la URL del Apps Script de dossiers en la planilla.');
                 return;
             }
-            // Enviar los datos del caso: el Apps Script busca la subcarpeta del cliente y arma el dossier
-            const payload = {
-                nombre: client.nombre || '',
-                caratula: client.caratula || '',
-                materia: client.materia || '',
-                expediente: client.expediente || '',
-                mev_movimientos: client.mev_movimientos || []
-            };
+            // Mandamos solo el ÍNDICE: el Apps Script lee la causa de Firebase y los textos
+            // de docs_juridica (fuente única de verdad). Antes se mandaban los movimientos
+            // completos, pero los textos ya no viven en planilla_juridica.
+            const indice = clientsData.indexOf(client);
+            if (indice < 0) { alert('No se pudo ubicar la causa para guardarla en Drive.'); return; }
+            const payload = { indice: indice };
             const textoOrig = btn ? btn.innerHTML : '';
             if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
             try {
@@ -4128,8 +4126,34 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             return overlay;
         }
 
-        // Arma el dossier completo de la causa (string listo para pegar en Claude.ai)
-        function construirDossierCliente(client) {
+        // ── docs_juridica: los textos de documentos MEV viven en un nodo aparte ──
+        // (no dentro de planilla_juridica) para no re-descargar MB de texto todo el tiempo.
+        // docKeyMev DEBE coincidir con docKey() del worker MEV.
+        function docKeyMev(m){
+            const s = ((m.nidCausa||'')+'_'+(m.pidJuzgado||'')) + '|' + (m.fecha||'') + '|' + (m.descripcion||'');
+            let h=0; for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0;
+            return 'd'+(h>>>0).toString(36);
+        }
+        // Lee docs_juridica/{idx} UNA sola vez (gateado por auth anónima). Devuelve {docKey:{texto,...}}.
+        async function docsJuridicaDeCaso(idx){
+            if(idx==null || idx<0) return {};
+            return await new Promise(function(res){
+                window.esperarFirebaseAuth(function(){
+                    firebase.database().ref('docs_juridica/'+idx).once('value')
+                        .then(function(s){ res(s.val()||{}); }).catch(function(){ res({}); });
+                });
+            });
+        }
+        // Texto de un movimiento MEV: embebido (legacy, sin migrar) o desde docs_juridica.
+        function textoMevDe(m, docsMap){
+            if(m.documento_texto) return m.documento_texto;
+            if(docsMap){ const d = docsMap[docKeyMev(m)]; if(d && d.texto) return d.texto; }
+            return '';
+        }
+
+        // Arma el dossier completo de la causa (string listo para pegar en Claude.ai).
+        // docsMap = textos MEV traídos on-demand de docs_juridica (docsJuridicaDeCaso).
+        function construirDossierCliente(client, docsMap) {
             const movs = client.mev_movimientos || [];
             let dossier = `═══ EXPEDIENTE ═══\n`;
             dossier += `Cliente que representa el estudio: ${client.nombre || '(no especificado)'}\n`;
@@ -4137,13 +4161,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             dossier += `Materia: ${client.materia || ''}\n`;
             dossier += `Expediente: ${client.expediente || ''}\n`;
             dossier += `DNI cliente: ${client.dni || 'S/D'}\n`;
-            const conTexto = movs.filter(m => m.documento_texto);
+            const conTexto = movs.filter(m => textoMevDe(m, docsMap));
             if (movs.length > 0) {
                 dossier += `\n═══ MEV — HISTORIAL PROCESAL ═══\n`;
                 movs.forEach(m => { dossier += `- ${m.fecha}: ${m.descripcion}\n`; });
                 dossier += `\n═══ MEV — TEXTOS DE DOCUMENTOS (${conTexto.length}) ═══\n`;
                 conTexto.forEach(m => {
-                    dossier += `\n\n───── ${m.fecha} — ${(m.tipo_documento||'doc').toUpperCase()} — ${m.descripcion} ─────\n${m.documento_texto}`;
+                    dossier += `\n\n───── ${m.fecha} — ${(m.tipo_documento||'doc').toUpperCase()} — ${m.descripcion} ─────\n${textoMevDe(m, docsMap)}`;
                 });
             }
             const acts = client.pjn_actuaciones || [];
@@ -4163,7 +4187,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         async function abrirEnProyectoClaude(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const { dossier, conTexto, total } = construirDossierCliente(client);
+            const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
+            const { dossier, conTexto, total } = construirDossierCliente(client, docsMap);
             try {
                 await navigator.clipboard.writeText(dossier);
             } catch (e) {
@@ -4181,10 +4206,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         // Ver/copiar el dossier sin abrir Claude.ai (fallback y "Solo dossier")
-        function exportarDossier(clientId) {
+        async function exportarDossier(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const { dossier, conTexto, total } = construirDossierCliente(client);
+            const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
+            const { dossier, conTexto, total } = construirDossierCliente(client, docsMap);
             const html = `
                 <div style="font-size:0.85em;color:var(--text-muted);margin-bottom:10px;">Dossier completo de la causa. Incluye historial + textos de los ${conTexto} documentos cargados (de ${total} movimientos).</div>
                 <textarea id="dossierTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">${dossier.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
@@ -4197,14 +4223,15 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
         // Descarga el dossier como documento de Word (.doc) ESTRUCTURADO:
         // portada + historial + cada documento en su propia hoja (salto de página).
-        function descargarDossierCliente(clientId) {
+        async function descargarDossierCliente(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
+            const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
             const esc = s => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const salto = '<div style="page-break-before:always;"></div>';
             const movs = client.mev_movimientos || [];
             const acts = client.pjn_actuaciones || [];
-            const conTextoM = movs.filter(m => m.documento_texto);
+            const conTextoM = movs.filter(m => textoMevDe(m, docsMap));
             const conTextoP = acts.filter(a => a.documento_texto);
 
             let body = '';
@@ -4228,7 +4255,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 body += salto;
                 body += '<h2 style="font-size:13pt;color:#2b579a;margin:0;">' + esc(m.fecha) + ' — ' + esc((m.tipo_documento || 'doc').toUpperCase()) + '</h2>';
                 body += '<p style="font-weight:bold;font-size:11pt;margin:2px 0 8px 0;">' + esc(m.descripcion || '') + '</p>';
-                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(m.documento_texto) + '</div>';
+                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(textoMevDe(m, docsMap)) + '</div>';
             });
 
             // PJN — historial
@@ -4257,14 +4284,21 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         // Muestra el texto del documento MEV (guardado en Firebase) en un modal
-        function verDocumentoMev(clientId, movIndex) {
+        async function verDocumentoMev(clientId, movIndex) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             const mov = (client.mev_movimientos || [])[movIndex];
-            if (!mov || !mov.documento_texto) {
+            if (!mov || (!mov.documento_texto && !mov.documento_guardado)) {
                 alert('No hay texto de documento guardado para este movimiento.');
                 return;
             }
+            // El texto vive en docs_juridica (o embebido, si es legacy sin migrar)
+            let texto = mov.documento_texto;
+            if (!texto && mov.documento_guardado) {
+                const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
+                texto = textoMevDe(mov, docsMap);
+            }
+            if (!texto) { alert('No se pudo cargar el texto del documento.'); return; }
             const dict = mov.dictamen;
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -4296,7 +4330,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                     <div style="padding:18px 20px;overflow-y:auto;">
                         ${dictHtml}
-                        <div style="white-space:pre-wrap;font-family:'DM Sans',monospace;font-size:0.9em;line-height:1.5;color:var(--text-primary);">${(mov.documento_texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                        <div style="white-space:pre-wrap;font-family:'DM Sans',monospace;font-size:0.9em;line-height:1.5;color:var(--text-primary);">${(texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
                     </div>
                     <div style="padding:12px 20px;border-top:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:flex-end;gap:8px;">
                         ${mov.urlCausa?`<button onclick="abrirMEVEnCausa('${mov.urlCausa}')" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--success-color);border-radius:6px;color:var(--success-color);background:rgba(31,158,114,0.08);cursor:pointer;">Abrir en MEV</button>`:''}
@@ -6799,7 +6833,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <span style="color:${nivelColor}; font-size:0.8em;" title="Nivel ${nivel}">${nivelLabel}</span>
                         <div style="font-size:0.9em; color:var(--text-primary); flex:1;">${m.descripcion || ''}</div>
                         <div style="display:flex; gap:4px; flex-shrink:0;">
-                            ${m.documento_texto ? `<button onclick="verDocumentoMev('${client.id}', ${mev.indexOf(m)})" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                            ${(m.documento_texto || m.documento_guardado) ? `<button onclick="verDocumentoMev('${client.id}', ${mev.indexOf(m)})" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Ver documento</button>` : ''}
                             ${m.urlCausa ? `<button onclick="abrirMEVEnCausa('${m.urlCausa}')"
                                 style="font-size:0.75em;padding:4px 10px;border:1px solid var(--success-color);border-radius:6px;color:var(--success-color);background:rgba(31,158,114,0.08);cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;">
