@@ -2456,7 +2456,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                       document.body.appendChild(ov);
                     }).catch(function(){ alert('No se pudo cargar el documento.'); });
                 };
-                function cargar(){ fetch(FB,{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(render).catch(function(){var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>';}); }
+                // Lee planilla_mpba por SDK (la base exige auth != null desde 16/07/2026)
+                function leerMpba(){
+                  firebase.database().ref('planilla_mpba').once('value')
+                    .then(function(s){ render(s.val()); })
+                    .catch(function(){ var c=document.getElementById('mpbaDashboardRow'); if(c)c.innerHTML='<div style="opacity:.6;padding:12px;">No se pudo leer MPBA.</div>'; });
+                }
+                function cargar(){ window.esperarFirebaseAuth(leerMpba); }
                 cargar(); setInterval(cargar, 15*60*1000);
               })();
               </script>
@@ -2466,11 +2472,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 if(typeof PDFLib==='undefined'){ alert('La librería PDF todavía se está cargando, probá de nuevo en unos segundos.'); return; }
                 var p=(window.__mpba||{})[clave]; if(!p)return;
                 var codigos=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha));}).map(function(t){return t.codigo;});
-                var base='https://garcia-asociados-default-rtdb.firebaseio.com/planilla_mpba_docs/'+encodeURIComponent(clave)+'/';
+                // Esperar la sesión anónima: la base exige auth != null (16/07/2026)
+                await new Promise(function(res){ window.esperarFirebaseAuth(res); });
                 var merged=await PDFLib.PDFDocument.create(); var n=0;
                 for(var i=0;i<codigos.length;i++){
                   try{
-                    var r=await fetch(base+encodeURIComponent(codigos[i])+'.json',{cache:'no-store'}); var d=await r.json();
+                    var snap=await firebase.database().ref('planilla_mpba_docs/'+clave+'/'+codigos[i]).once('value');
+                    var d=snap.val();
                     if(!d||!d.b64||!/pdf/i.test(d.ct||''))continue;
                     var bin=atob(d.b64); var arr=new Uint8Array(bin.length); for(var j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j);
                     var src=await PDFLib.PDFDocument.load(arr,{ignoreEncryption:true});
