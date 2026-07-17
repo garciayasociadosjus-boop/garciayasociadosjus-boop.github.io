@@ -4150,6 +4150,19 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if(docsMap){ const d = docsMap[docKeyMev(m)]; if(d && d.texto) return d.texto; }
             return '';
         }
+        // Ídem para actuaciones PJN. docKeyPjn DEBE coincidir con el del worker PJN
+        // (misma identidad que su merge: fecha+oficina+tipo+desc; prefijo 'p' para no
+        // chocar con las claves 'd' del MEV dentro del mismo nodo docs_juridica/{idx}).
+        function docKeyPjn(a){
+            const s = (a.fecha||'') + (a.oficina||'') + (a.tipo||'') + (a.desc||'');
+            let h=0; for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0;
+            return 'p'+(h>>>0).toString(36);
+        }
+        function textoPjnDe(a, docsMap){
+            if(a.documento_texto) return a.documento_texto;
+            if(docsMap){ const d = docsMap[docKeyPjn(a)]; if(d && d.texto) return d.texto; }
+            return '';
+        }
 
         // Arma el dossier completo de la causa (string listo para pegar en Claude.ai).
         // docsMap = textos MEV traídos on-demand de docs_juridica (docsJuridicaDeCaso).
@@ -4171,13 +4184,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 });
             }
             const acts = client.pjn_actuaciones || [];
-            const conTextoP = acts.filter(a => a.documento_texto);
+            const conTextoP = acts.filter(a => textoPjnDe(a, docsMap));
             if (acts.length > 0) {
                 dossier += `\n\n═══ PJN — HISTORIAL PROCESAL ═══\n`;
                 acts.forEach(a => { dossier += `- ${a.fecha}: ${a.tipo||''} — ${a.desc||''}\n`; });
                 dossier += `\n═══ PJN — TEXTOS DE DOCUMENTOS (${conTextoP.length}) ═══\n`;
                 conTextoP.forEach(a => {
-                    dossier += `\n\n───── ${a.fecha} — ${a.tipo||'doc'} — ${a.desc||''} ─────\n${a.documento_texto}`;
+                    dossier += `\n\n───── ${a.fecha} — ${a.tipo||'doc'} — ${a.desc||''} ─────\n${textoPjnDe(a, docsMap)}`;
                 });
             }
             return { dossier, conTexto: conTexto.length + conTextoP.length, total: movs.length + acts.length };
@@ -4232,7 +4245,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const movs = client.mev_movimientos || [];
             const acts = client.pjn_actuaciones || [];
             const conTextoM = movs.filter(m => textoMevDe(m, docsMap));
-            const conTextoP = acts.filter(a => a.documento_texto);
+            const conTextoP = acts.filter(a => textoPjnDe(a, docsMap));
 
             let body = '';
             // Portada
@@ -4270,7 +4283,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 body += salto;
                 body += '<h2 style="font-size:13pt;color:#8b6fc9;margin:0;">' + esc(a.fecha) + ' — ' + esc(a.tipo || 'doc') + '</h2>';
                 body += '<p style="font-weight:bold;font-size:11pt;margin:2px 0 8px 0;">' + esc(a.desc || '') + '</p>';
-                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(a.documento_texto) + '</div>';
+                body += '<div style="white-space:pre-wrap;font-size:11pt;">' + esc(textoPjnDe(a, docsMap)) + '</div>';
             });
 
             const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Dossier</title></head>'
@@ -4341,11 +4354,18 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         // Muestra el texto del documento PJN (extraído del PDF) en un modal
-        function verDocumentoPjn(clientId, actIndex) {
+        async function verDocumentoPjn(clientId, actIndex) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             const a = (client.pjn_actuaciones || [])[actIndex];
-            if (!a || !a.documento_texto) { alert('No hay texto guardado para esta actuación.'); return; }
+            if (!a || (!a.documento_texto && !a.documento_guardado)) { alert('No hay texto guardado para esta actuación.'); return; }
+            // El texto vive en docs_juridica (o embebido, si es legacy sin migrar)
+            let textoPjn = a.documento_texto;
+            if (!textoPjn && a.documento_guardado) {
+                const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
+                textoPjn = textoPjnDe(a, docsMap);
+            }
+            if (!textoPjn) { alert('No se pudo cargar el texto del documento.'); return; }
             const dict = a.dictamen;
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -4375,7 +4395,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                     <div style="padding:18px 20px;overflow-y:auto;">
                         ${dictHtml}
-                        <div style="white-space:pre-wrap;font-family:'DM Sans',monospace;font-size:0.9em;line-height:1.5;color:var(--text-primary);">${(a.documento_texto||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                        <div style="white-space:pre-wrap;font-family:'DM Sans',monospace;font-size:0.9em;line-height:1.5;color:var(--text-primary);">${(textoPjn||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
                     </div>
                     <div style="padding:12px 20px;border-top:1px solid var(--border-item,#e5e5e5);display:flex;justify-content:flex-end;gap:8px;">
                         ${a.docUrl?`<button onclick="window.open('${a.docUrl}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--info-color);border-radius:6px;color:var(--info-color);background:rgba(139,110,199,0.08);cursor:pointer;">Ver PDF en PJN</button>`:''}
@@ -6986,7 +7006,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                                 <span style="font-size:0.85em; color:var(--text-primary);"> — ${a.desc || ''}</span>
                             </div>
                             <div style="display:flex; gap:4px; flex-shrink:0;">
-                                ${a.documento_texto ? `<button onclick="verDocumentoPjn('${client.id}', ${idx})" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                                ${(a.documento_texto || a.documento_guardado) ? `<button onclick="verDocumentoPjn('${client.id}', ${idx})" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Ver documento</button>` : ''}
                             </div>
                         </div>
