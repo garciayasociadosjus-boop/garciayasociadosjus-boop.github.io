@@ -2409,6 +2409,66 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                   });
                 };
                 window.mpbaFK=function(f){ var m=(f||'').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2}):(\d{2}))?/); return m?(m[3]+m[2]+m[1]+(m[4]||'00')+(m[5]||'00')+(m[6]||'00')):''; };
+
+                // Arma el dossier del expediente penal MPBA (trámites + textos de docs)
+                window.construirDossierMpba=async function(clave){
+                  var p=(window.__mpba||{})[clave]; if(!p) return {dossier:'',conTexto:0,total:0};
+                  var col=p.proceso_columnas||[];
+                  var tram=(p.tramites||[]).slice().sort(function(a,b){return window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha));});
+                  // Los textos de los documentos viven en planilla_mpba_docs/{clave}/{codigo}.texto
+                  var docs=await new Promise(function(res){ window.esperarFirebaseAuth(function(){ firebase.database().ref('planilla_mpba_docs/'+clave).once('value').then(function(s){res(s.val()||{});}).catch(function(){res({});}); }); });
+                  var s='═══ EXPEDIENTE MPBA (penal) ═══\n';
+                  s+='N°: '+(col[2]||'')+'\nOrganismo: '+(deco(col[3])||'')+'\n';
+                  s+='\n═══ TRÁMITES (del más viejo al más nuevo) ═══\n';
+                  tram.forEach(function(t){ s+='- '+(t.fecha||'')+': '+(deco(t.tipo)||'')+(t.descripcion?(' — '+deco(t.descripcion)):'')+'\n'; });
+                  var conTexto=0, cuerpo='';
+                  tram.forEach(function(t){ var d=docs[t.codigo]; if(d&&d.texto){ conTexto++; cuerpo+='\n\n----- '+(t.fecha||'')+' — '+(deco(t.tipo)||'doc')+' -----\n'+d.texto; } });
+                  s+='\n═══ TEXTOS DE DOCUMENTOS ('+conTexto+') ═══'+cuerpo;
+                  return {dossier:s, conTexto:conTexto, total:tram.length};
+                };
+                window.abrirClaudeMpba=async function(clave, clientId){
+                  var r=await window.construirDossierMpba(clave);
+                  try{ await navigator.clipboard.writeText(r.dossier); }catch(e){ window.soloDossierMpba(clave); return; }
+                  var toast=document.createElement('div');
+                  toast.style.cssText='position:fixed;top:20px;right:20px;z-index:10000;background:#1f9e72;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:"DM Sans",sans-serif;font-size:0.9em;font-weight:600;';
+                  toast.innerHTML='✓ Dossier MPBA copiado ('+r.conTexto+'/'+r.total+' docs). Abriendo tu Proyecto…<br><span style="font-weight:400;font-size:0.85em;opacity:0.9;">Pegá con Ctrl+V y presioná Enter.</span>';
+                  document.body.appendChild(toast); setTimeout(function(){toast.remove();},5000);
+                  var cli=(typeof clientsData!=='undefined'?clientsData:[]).find(function(c){return c.id===clientId;});
+                  var url=(cli&&typeof proyectoParaCliente==='function')?proyectoParaCliente(cli):'https://claude.ai';
+                  window.open(url,'_blank');
+                };
+                window.soloDossierMpba=async function(clave){
+                  var r=await window.construirDossierMpba(clave);
+                  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+                  var html='<div style="font-size:0.85em;color:var(--text-muted);margin-bottom:10px;">Dossier del expediente penal (MPBA). Incluye trámites + textos de los '+r.conTexto+' documentos (de '+r.total+').</div>'
+                    +'<textarea id="dossierMpbaTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">'+esc(r.dossier)+'</textarea>';
+                  var acciones='<button onclick="(function(){var t=document.getElementById(\'dossierMpbaTxt\');t.select();navigator.clipboard.writeText(t.value);this.textContent=\'✓ Copiado\';}).call(this)" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--gold-border,#c9a96e);border-radius:6px;background:rgba(201,169,110,0.15);color:var(--text-primary);cursor:pointer;font-weight:600;">Copiar todo</button>';
+                  var pp=(window.__mpba||{})[clave]||{}; var nro=((pp.proceso_columnas||[])[2])||'';
+                  if(typeof abrirModalTexto==='function') abrirModalTexto('Dossier MPBA — '+nro, html, acciones);
+                  else alert(r.dossier.substring(0,3000));
+                };
+                // Guarda el dossier MPBA en la subcarpeta del cliente en Drive (para el Proyecto del Comité)
+                window.guardarDossierMpbaEnDrive=async function(clave, clientId, btn){
+                  var cli=(typeof clientsData!=='undefined'?clientsData:[]).find(function(c){return c.id===clientId;})||{};
+                  var orig=btn?btn.innerHTML:'';
+                  if(typeof APPS_SCRIPT_DOSSIERS_URL==='undefined' || !APPS_SCRIPT_DOSSIERS_URL){ alert('Falta la URL del Apps Script de dossiers.'); return; }
+                  if(btn){ btn.disabled=true; btn.innerHTML='⏳ Guardando…'; }
+                  try{
+                    await fetch(APPS_SCRIPT_DOSSIERS_URL,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion:'dossier-mpba', clave:clave, nombre:cli.nombre||'', caratula:cli.caratula||'' }) });
+                    if(btn){ btn.innerHTML='✓ Guardado en Drive'; setTimeout(function(){ btn.innerHTML=orig; btn.disabled=false; },2500); }
+                  }catch(e){ if(btn){ btn.innerHTML=orig; btn.disabled=false; } alert('No se pudo guardar en Drive: '+e.message); }
+                };
+                // Marca/desmarca "fuera del estudio" — el script local deja de correr el comité si está marcada
+                window.mpbaFueraEstudio=function(clave, btn){
+                  var cur=(window.__mpba||{})[clave]||{};
+                  var nuevo=!cur.fuera_estudio;
+                  window.esperarFirebaseAuth(function(){
+                    firebase.database().ref('planilla_mpba/'+clave+'/fuera_estudio').set(nuevo)
+                      .then(function(){ if(window.__mpba[clave]) window.__mpba[clave].fuera_estudio=nuevo;
+                        if(btn){ btn.innerHTML = nuevo?'↩ Reactivar causa':'✕ Fuera del estudio'; btn.style.color=nuevo?'var(--success-color)':'#d94f4f'; btn.style.borderColor=nuevo?'var(--success-color)':'#d94f4f'; } })
+                      .catch(function(){ alert('No se pudo cambiar el estado.'); });
+                  });
+                };
                 function matchClienteDe(data){
                   var lista=(typeof clientsData!=='undefined'&&clientsData)?clientsData:[];
                   var col=data.proceso_columnas||[]; var numM=(col[2]||'').replace(/\D/g,''); var partes=norm(partesDe(data));
@@ -6958,12 +7018,31 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 const exps = window.mpbaDeCliente(client);
                 return exps.map(e => {
                     const col = e.data.proceso_columnas || [];
-                    const tram = (e.data.tramites || []).slice().sort((a,b)=> window.mpbaFK(a.fecha).localeCompare(window.mpbaFK(b.fecha)));
-                    const filas = tram.map(t => `<div style="padding:6px 10px;border-bottom:1px solid var(--border-item);display:flex;gap:10px;align-items:center;">
-                        <div style="min-width:120px;font-size:0.82em;color:var(--text-muted);">${t.fecha||''}</div>
-                        <div style="flex:1;font-size:0.88em;">${t.tipo||''}${t.descripcion?(' — '+t.descripcion):''}</div>
-                        <button onclick="verDocumentoMpba('${e.clave}','${t.codigo}')" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">📄 Ver</button>
-                    </div>`).join('');
+                    const tram = (e.data.tramites || []).slice().sort((a,b)=> window.mpbaFK(b.fecha).localeCompare(window.mpbaFK(a.fecha)));
+                    const filas = tram.map(t => {
+                        const nivel = t.nivel_relevancia || 0;
+                        const nColor = nivel>=4?'#d94f4f':nivel>=3?'#e67e22':nivel>=2?'#8b6fc9':'var(--text-muted)';
+                        const nLabel = nivel>=4?'■':nivel>=3?'▲':nivel>=2?'●':'·';
+                        const dict = t.dictamen;
+                        const dictHtml = dict ? `<div style="margin-top:4px;padding:6px 10px;border-radius:6px;background:${dict.urgencia==='ALTA'?'rgba(217,79,79,0.08)':dict.urgencia==='MEDIA'?'rgba(212,144,26,0.08)':'rgba(31,158,114,0.08)'};border-left:3px solid ${dict.urgencia==='ALTA'?'#d94f4f':dict.urgencia==='MEDIA'?'#d4901a':'#1f9e72'};">
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <span class="dictamen-badge dictamen-badge-${dict.urgencia}">${dict.urgencia}</span>
+                                ${dict.resultado?`<span style="font-size:0.72em;font-weight:700;padding:2px 8px;border-radius:10px;color:#fff;background:${dict.resultado==='FAVORABLE'?'#1f9e72':dict.resultado==='ADVERSO'?'#d94f4f':dict.resultado==='MIXTO'?'#d4901a':'#7a7a7a'};">${dict.resultado==='FAVORABLE'?'✓ A FAVOR':dict.resultado==='ADVERSO'?'⚠ EN CONTRA':dict.resultado}</span>`:''}
+                                <span style="font-size:0.82em;font-weight:600;color:var(--text-primary);">${dict.accion_requerida||''}</span>
+                                ${dict.dias_plazo>0?`<span style="font-size:0.72em;font-weight:600;color:${dict.dias_plazo<=3?'#d94f4f':'#d4901a'};">⏱ ${dict.dias_plazo} días</span>`:''}
+                            </div>
+                            <div style="font-size:0.78em;color:var(--text-muted);margin-top:2px;">${dict.resumen||''}</div>
+                        </div>` : '';
+                        return `<div style="padding:6px 10px;border-bottom:1px solid var(--border-item);">
+                            <div style="display:flex;gap:10px;align-items:center;">
+                                <div style="min-width:110px;font-size:0.82em;color:var(--text-muted);">${t.fecha||''}</div>
+                                <span style="color:${nColor};font-size:0.8em;" title="Nivel ${nivel}">${nLabel}</span>
+                                <div style="flex:1;font-size:0.88em;">${t.tipo||''}${t.descripcion?(' — '+t.descripcion):''}</div>
+                                <button onclick="verDocumentoMpba('${e.clave}','${t.codigo}')" class="btn-doc-drive" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">📄 Ver</button>
+                            </div>
+                            ${dictHtml}
+                        </div>`;
+                    }).join('');
                     return `<div style="margin-top:24px;border-top:1px solid var(--border-item);padding-top:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                             <h5 id="mpbaFichaAncla" style="margin:0;color:#6a5acd;font-family:'Cormorant Garamond',serif;font-weight:500;letter-spacing:.04em;">⚖️ Expediente MPBA</h5>
@@ -6973,6 +7052,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             </div>
                         </div>
                         <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-item);border-radius:8px;background:var(--bg-item);">${filas}</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+                            <button onclick="abrirClaudeMpba('${e.clave}','${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Copia el dossier del expediente penal (trámites + textos) y abre tu Proyecto del Comité">💬 Ir a Claude.ai con esta causa</button>
+                            <button onclick="guardarDossierMpbaEnDrive('${e.clave}','${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier del expediente penal en tu Google Drive (para el Proyecto del Comité)">📁 Guardar en Drive</button>
+                            <button onclick="soloDossierMpba('${e.clave}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Ver/copiar el dossier del expediente penal sin abrir Claude.ai">⬇ Solo dossier</button>
+                            <button onclick="mpbaFueraEstudio('${e.clave}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${e.data.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${e.data.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${e.data.fuera_estudio ? 'Reactivar: el comité vuelve a analizar esta causa' : 'Dejar de analizar esta causa (terminada): el script deja de correr el comité'}">${e.data.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}</button>
+                        </div>
                     </div>`;
                 }).join('');
             })() : ''}
