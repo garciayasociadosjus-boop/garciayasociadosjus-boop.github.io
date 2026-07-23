@@ -6,6 +6,7 @@
     <title>Ingresos y Egresos - García & Asociados</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -214,6 +215,8 @@ function initFirebase() {
     if (typeof firebase === 'undefined') { setTimeout(initFirebase, 600); return; }
     try {
         firebase.initializeApp(FB_CONFIG);
+        // Puerta de acceso: sesión iniciada en el portal, compartida en el dominio.
+        firebase.auth().onAuthStateChanged(function(u){ if(!u) window.location.replace('index.html'); });
         const db = firebase.database();
         fbRef = db.ref('planilla_egresos');
         fbRef.on('value', snap => {
