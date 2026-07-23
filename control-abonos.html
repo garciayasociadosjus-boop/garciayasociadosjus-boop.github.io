@@ -8,6 +8,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -996,6 +997,9 @@
         if (typeof firebase === 'undefined') { setTimeout(initFirebase, 600); return; }
         try {
             firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+            // Puerta de acceso: la sesión la inicia el portal (login del estudio) y se comparte
+            // con todas las páginas del dominio. Si no hay sesión, volver al portal.
+            firebase.auth().onAuthStateChanged(function(u){ if(!u) window.location.replace('index.html'); });
             firebaseDB = firebase.database();
             firebaseRef = firebaseDB.ref(FIREBASE_KEY_ABONOS);
 
