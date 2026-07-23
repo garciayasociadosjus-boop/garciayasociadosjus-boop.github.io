@@ -9,7 +9,27 @@
   <link rel="icon" href="activos/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="activos/style.css">
   <meta name="description" content="Portal del Estudio Jurídico García y Asociados. Acceso a Planillas de Gestion.">
-  
+
+  <!-- Firebase Auth: puerta de entrada real del estudio -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    #authGate{position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#020c24 0%,#081e4b 100%);display:flex;align-items:center;justify-content:center;padding:20px;}
+    #authGate .box{background:#fff;border-radius:14px;padding:34px 28px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center;font-family:'Segoe UI',Tahoma,sans-serif;}
+    #authGate .logo2{width:64px;height:64px;border-radius:50%;border:2px solid #bca05b;color:#bca05b;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:1.5rem;margin:0 auto 16px;}
+    #authGate h2{font-family:Georgia,serif;color:#1a237e;margin:0 0 4px;font-size:1.4rem;}
+    #authGate p.sub{color:#5a6c7d;font-size:.9rem;margin:0 0 20px;}
+    #authGate input{width:100%;box-sizing:border-box;padding:12px 14px;margin:6px 0;border:1px solid #d5d9e0;border-radius:8px;font-size:1rem;}
+    #authGate button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#081e4b,#3949ab);color:#fff;font-size:1rem;font-weight:600;cursor:pointer;}
+    #authGate button:disabled{opacity:.6;cursor:default;}
+    #authGate .err{color:#c0392b;font-size:.85em;margin-top:10px;min-height:1.2em;}
+    #authGate .loading{color:#5a6c7d;font-size:.9em;padding:8px 0;}
+    body.auted #authGate{display:none;}
+    body:not(.auted) main,body:not(.auted) .site-footer{filter:blur(6px);pointer-events:none;}
+    #logoutBtn{position:fixed;top:14px;right:14px;z-index:9998;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 12px;font-size:.82rem;cursor:pointer;font-family:'Segoe UI',sans-serif;}
+    #logoutBtn:hover{background:rgba(255,255,255,.22);}
+  </style>
+
   <style>
     .site-header {
         background: linear-gradient(135deg, #020c24 0%, #081e4b 100%);
@@ -188,6 +208,23 @@
   </style>
 </head>
 <body class="notranslate" translate="no" data-page="portal">
+  <!-- Puerta de acceso: tapa el portal hasta iniciar sesión -->
+  <div id="authGate">
+    <div class="box">
+      <div class="logo2" aria-hidden="true">G&amp;A</div>
+      <h2>García &amp; Asociados</h2>
+      <p class="sub">Acceso al portal del estudio</p>
+      <div id="authLoading" class="loading">Verificando sesión…</div>
+      <form id="authForm" style="display:none;">
+        <input type="email" id="authEmail" placeholder="Correo" autocomplete="username">
+        <input type="password" id="authPass" placeholder="Contraseña" autocomplete="current-password">
+        <button type="submit" id="authBtn">Ingresar</button>
+        <div class="err" id="authErr"></div>
+      </form>
+    </div>
+  </div>
+  <button id="logoutBtn" style="display:none;" onclick="portalLogout()">Cerrar sesión</button>
+
   <header class="site-header notranslate" translate="no" aria-label="Encabezado">
     <div class="brand">
       <div class="logo" aria-hidden="true">G&A</div>
@@ -264,6 +301,59 @@
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+
+  <script>
+    // ── Login real del estudio (Firebase Authentication) ──
+    var FBCFG = {
+      apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+      authDomain: "garcia-asociados.firebaseapp.com",
+      databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+      projectId: "garcia-asociados",
+      storageBucket: "garcia-asociados.firebasestorage.app",
+      messagingSenderId: "579231843924",
+      appId: "1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(FBCFG);
+
+    var _loading = document.getElementById('authLoading'),
+        _form = document.getElementById('authForm'),
+        _err = document.getElementById('authErr'),
+        _btn = document.getElementById('authBtn'),
+        _logout = document.getElementById('logoutBtn');
+
+    // La sesión persiste (LOCAL) y se comparte con TODAS las planillas del mismo dominio:
+    // se inicia sesión una vez acá y las demás páginas quedan autenticadas solas.
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        document.body.classList.add('auted');
+        _logout.style.display = 'block';
+      } else {
+        document.body.classList.remove('auted');
+        _loading.style.display = 'none';
+        _form.style.display = 'block';
+        _logout.style.display = 'none';
+      }
+    });
+
+    _form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      _err.textContent = ''; _btn.disabled = true; _btn.textContent = 'Ingresando…';
+      var mail = (document.getElementById('authEmail').value || '').trim();
+      var pass = document.getElementById('authPass').value || '';
+      firebase.auth().signInWithEmailAndPassword(mail, pass)
+        .catch(function (err) {
+          _btn.disabled = false; _btn.textContent = 'Ingresar';
+          var c = err.code || '';
+          _err.textContent =
+            (c === 'auth/invalid-login-credentials' || c === 'auth/wrong-password' || c === 'auth/user-not-found') ? 'Correo o contraseña incorrectos.'
+            : (c === 'auth/invalid-email') ? 'El correo no es válido.'
+            : (c === 'auth/too-many-requests') ? 'Demasiados intentos. Esperá unos minutos.'
+            : 'No se pudo ingresar: ' + err.message;
+        });
+    });
+
+    window.portalLogout = function () { firebase.auth().signOut(); };
   </script>
 </body>
 </html>
