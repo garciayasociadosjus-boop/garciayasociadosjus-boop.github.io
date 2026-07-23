@@ -3148,6 +3148,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
             try {
                 firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+                // Puerta de acceso: si no hay sesión iniciada (en el portal), volver al portal.
+                // La sesión se comparte entre todas las páginas del mismo dominio.
+                firebase.auth().onAuthStateChanged(function(u){ if(!u) window.location.replace('index.html'); });
                 firebaseDB = firebase.database();
                 firebaseRef = firebaseDB.ref(FIREBASE_KEY_JURIDICA);
 
