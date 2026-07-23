@@ -3148,11 +3148,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
             try {
                 firebaseApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
-                // Puerta de acceso: si no hay sesión iniciada (en el portal), volver al portal.
-                // La sesión se comparte entre todas las páginas del mismo dominio.
-                firebase.auth().onAuthStateChanged(function(u){ if(!u) window.location.replace('index.html'); });
                 firebaseDB = firebase.database();
                 firebaseRef = firebaseDB.ref(FIREBASE_KEY_JURIDICA);
+
+                // Esperar la sesión del portal ANTES de leer/escribir. Sin esto, la lectura se
+                // disparaba sin sesión, traía vacío/error y la planilla mostraba la caché VIEJA
+                // (revisiones "vencidas" que no eran reales). Si no hay sesión, volver al portal.
+                let _fbListenersListos = false;
+                firebase.auth().onAuthStateChanged(function(user){
+                  if (!user) { window.location.replace('index.html'); return; }
+                  if (_fbListenersListos) return;
+                  _fbListenersListos = true;
 
                 firebaseRef.on('value', (snapshot) => {
                     if (ignorarProximoCambioFirebase) {
@@ -3167,14 +3173,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         scheduleRenderAll();
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sincronizado en tiempo real', 'ok');
                     } else if (data === null) {
-                        const local = localStorage.getItem('planilla_juridica_data');
-                        if (local) {
-                            clientsData = sanitizeData(JSON.parse(local));
-                            saveToFirebase();
-                            updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Datos locales subidos a Firebase', 'ok');
-                        } else {
-                            updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Firebase listo (base vacía)', 'ok');
-                        }
+                        // Firebase devolvió vacío. NUNCA subir la caché local automáticamente:
+                        // un vacío casi siempre es transitorio (sesión que aún no atachó el token,
+                        // o lectura antes de tiempo), y subir la caché VIEJA pisaría los datos buenos
+                        // con una versión con fechas vencidas. Solo avisar y esperar el próximo evento.
+                        updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Firebase sin datos — esperando (no se sube la caché local)', 'warn');
                     }
                     firebaseConectado = true;
                 }, (error) => {
@@ -3192,6 +3195,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Firebase: Sin conexión (modo local)', 'warn');
                     }
                 });
+                }); // cierra onAuthStateChanged — los listeners corren solo con sesión confirmada
 
             } catch(e) {
                 console.error('Error iniciando Firebase:', e);
