@@ -2444,14 +2444,11 @@ function initFirebase() {
         firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
         firebaseDB = firebase.database();
 
-        firebase.auth().signInAnonymously().catch((error) => {
-            console.error('Error auth anónima Firebase:', error);
-            updateFirebaseStatus('❌ Error de autenticación Firebase', 'error');
-        });
-
-        // Recién con sesión anónima activa nos conectamos (las reglas exigen auth != null)
+        // Puerta de acceso: la sesión la inicia el portal (login real del estudio) y se
+        // comparte con todas las páginas del dominio. Si no hay sesión, volver al portal.
         firebase.auth().onAuthStateChanged((user) => {
-            if (!user || firebaseRef) return;
+            if (!user) { window.location.replace('index.html'); return; }
+            if (firebaseRef) return;
             firebaseRef = firebaseDB.ref(FIREBASE_KEY);
 
             // Escuchar cambios en tiempo real
