@@ -3232,12 +3232,38 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             try {
                 ignorarProximoCambioFirebase = true;
                 firebaseRef.set(clientsData)
-                    .then(() => { try { localStorage.setItem('planilla_juridica_count', String(nActual)); } catch(e){} })
+                    .then(() => {
+                        try { localStorage.setItem('planilla_juridica_count', String(nActual)); } catch(e){}
+                        actualizarIndiceLiviano();
+                    })
                     .catch(e => { console.error('Error guardando en Firebase:', e); ignorarProximoCambioFirebase = false; });
             } catch(e) {
                 console.error('Error en saveToFirebase:', e);
                 ignorarProximoCambioFirebase = false;
             }
+        }
+
+        // Índice liviano (~28 KB) que leen los workers MEV y PJN en lugar de bajarse la planilla
+        // entera (2,7 MB). Parsear la planilla completa se comía el presupuesto de 10 ms de CPU
+        // del plan gratuito de Cloudflare y los cron morían con exceededCpu. Se reescribe con
+        // cada guardado para que un expediente nuevo no quede invisible para los workers.
+        function actualizarIndiceLiviano() {
+            try {
+                const idx = {};
+                clientsData.forEach((c, k) => {
+                    if (!c || typeof c !== 'object') return;
+                    idx[k] = {
+                        expediente: c.expediente || '',
+                        caratula:   c.caratula || '',
+                        nombre:     c.nombre || '',
+                        movs:  Array.isArray(c.mev_movimientos) ? c.mev_movimientos.length : 0,
+                        pjn:   Array.isArray(c.pjn_actuaciones) ? c.pjn_actuaciones.length : 0,
+                        mev_ultima_sync: c.mev_ultima_sync || ''
+                    };
+                });
+                firebaseDB.ref('juridica_index').set(idx)
+                    .catch(e => console.error('No se pudo actualizar juridica_index:', e));
+            } catch(e) { console.error('Error armando juridica_index:', e); }
         }
 
         // Guarda un caché liviano en localStorage: sin los textos de documentos (MEV + PJN),
