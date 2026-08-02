@@ -2580,6 +2580,22 @@ function updateFirebaseStatus(msg, tipo) {
 
 function saveToFirebase() {
     if (!firebaseRef) return;
+
+    // RED DE SEGURIDAD (la planilla jurídica ya la tenía; esta no).
+    // Guardar escribe el array ENTERO, así que una pestaña vieja —o un error que deje
+    // siniestrosData a medias— pisa todos los reclamos de una. Estas dos guardas cortan
+    // el guardado antes de que eso pase. El número de la última vez queda en localStorage.
+    const nActual = (siniestrosData || []).filter(Boolean).length;
+    const nUltimo = parseInt(localStorage.getItem('planilla_siniestros_count') || '0', 10) || 0;
+    if (nActual === 0) {
+        console.warn('🔒 Guardado abortado: la planilla está vacía. NO se sobrescribe Firebase.');
+        return;
+    }
+    if (nUltimo > 20 && nActual < nUltimo * 0.6) {
+        alert('⚠️ GUARDADO FRENADO POR SEGURIDAD\n\nEsta pestaña tiene ' + nActual + ' siniestros, pero la última vez había ' + nUltimo + '.\n\nParece una versión vieja o desincronizada. Cerrá esta pestaña y volvé a abrir la planilla; no se guardó nada.');
+        return;
+    }
+
     try {
         ignorarProximoCambioFirebase = true;
         // Safety: reset flag after 5 seconds in case Firebase callback never fires (mobile issue)
@@ -2588,6 +2604,9 @@ function saveToFirebase() {
         firebaseRef.set(siniestrosData)
             .then(() => {
                 clearTimeout(window._ignorarResetTimer);
+                // Dejar constancia de cuántos siniestros se guardaron: es la referencia
+                // con la que la próxima vez se detecta una pestaña desincronizada.
+                try { localStorage.setItem('planilla_siniestros_count', String(nActual)); } catch(e){}
                 // Keep flag true briefly to ignore the echo, then reset
                 setTimeout(() => { ignorarProximoCambioFirebase = false; }, 1500);
             })
