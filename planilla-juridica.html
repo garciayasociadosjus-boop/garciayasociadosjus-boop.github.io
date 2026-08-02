@@ -2306,49 +2306,91 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             <script>
             (function(){
               var NODO = 'avisos_juridica';
-              var DKEY = 'avisosJuridicaDismiss';
+              var NODO_OCULTOS = 'avisos_ocultos/juridica';
+              var DIAS_VIDA = 30;   // a los 30 días el aviso descartado se olvida solo
               var COLORES = { alta:'#d94f4f', media:'#d4901a', baja:'#3a8bd4' };
               var ICONO = { calendar:'📅', mail:'✉️', otro:'📌' };
               var ORDEN = { alta:0, media:1, baja:2 };
+              var ocultos = {};
               function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
               function pri(u){ return (ORDEN[u]==null)?3:ORDEN[u]; }
               function hash(s){ var h=0,i; for(i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return 'a'+(h>>>0).toString(36); }
               function idOf(it){ return hash((it.titulo||'')+'|'+(it.fecha||'')); }
-              function getDis(){ try{ return JSON.parse(localStorage.getItem(DKEY)||'[]'); }catch(e){ return []; } }
-              function setDis(a){ try{ localStorage.setItem(DKEY, JSON.stringify(a)); }catch(e){} }
-              window.avisosJurDismiss = function(id){ var d=getDis(); if(d.indexOf(id)<0){ d.push(id); setDis(d); } render(window.__avisosJurData); };
-              window.avisosJurReset = function(){ setDis([]); render(window.__avisosJurData); };
+
+              // Los descartes viven en Firebase, no en localStorage: antes cada computadora
+              // tenía su propia lista, así que lo que uno marcaba como trabajado le seguía
+              // apareciendo al otro. La rutina reescribe los avisos 2 veces por día, y como la
+              // clave sale del título + la fecha, un aviso descartado no reaparece al regenerarse.
+              function purgarViejos(){
+                var corte = Date.now() - DIAS_VIDA*24*60*60*1000, borrar = {}, hay = false;
+                Object.keys(ocultos).forEach(function(k){
+                  var t = new Date(ocultos[k]).getTime();
+                  if(!t || t < corte){ borrar[k] = null; delete ocultos[k]; hay = true; }
+                });
+                if(hay) firebase.database().ref(NODO_OCULTOS).update(borrar).catch(function(){});
+              }
+              window.avisosJurDismiss = function(id){
+                ocultos[id] = new Date().toISOString();
+                render(window.__avisosJurData);
+                firebase.database().ref(NODO_OCULTOS+'/'+id).set(ocultos[id])
+                  .catch(function(){ delete ocultos[id]; render(window.__avisosJurData);
+                                     alert('No se pudo guardar el descarte. Revisá la conexión.'); });
+              };
+              window.avisosJurReset = function(){
+                var previo = ocultos; ocultos = {};
+                render(window.__avisosJurData);
+                firebase.database().ref(NODO_OCULTOS).remove()
+                  .catch(function(){ ocultos = previo; render(window.__avisosJurData); });
+              };
+              window.avisosJurLimpiarTodos = function(){
+                var data = window.__avisosJurData, items = (data && data.items) ? data.items : [];
+                var visibles = items.filter(function(it){ return !ocultos[idOf(it)]; });
+                if(!visibles.length) return;
+                if(!confirm('¿Marcar como trabajados los '+visibles.length+' avisos visibles?')) return;
+                var ahora = new Date().toISOString(), lote = {};
+                visibles.forEach(function(it){ var id=idOf(it); ocultos[id]=ahora; lote[id]=ahora; });
+                render(data);
+                firebase.database().ref(NODO_OCULTOS).update(lote).catch(function(){});
+              };
               function render(data){
                 window.__avisosJurData = data;
                 var cont = document.getElementById('avisosDelDiaLista');
                 var cnt = document.getElementById('avisosDelDiaCount');
                 var fch = document.getElementById('avisosDelDiaFecha');
                 if(!cont) return;
-                var dis = getDis();
-                var items = (data && data.items) ? data.items.slice() : [];
-                items = items.filter(function(it){ return dis.indexOf(idOf(it))<0; });
+                var todos = (data && data.items) ? data.items.slice() : [];
+                var items = todos.filter(function(it){ return !ocultos[idOf(it)]; });
+                var nOcultos = todos.length - items.length;
+                var pie = nOcultos ? '<div style="padding:8px 10px;font-size:.8em;opacity:.65;">'
+                        + nOcultos + ' trabajado(s) · <a href="#" onclick="avisosJurReset();return false;" style="text-decoration:underline;">volver a mostrar</a></div>' : '';
                 if(data && data.actualizado && fch){ try { fch.textContent = 'Actualizado: ' + new Date(data.actualizado).toLocaleString('es-AR'); } catch(e){ fch.textContent=''; } }
                 if(cnt) cnt.textContent = items.length ? '('+items.length+')' : '';
-                if(!items.length){ cont.innerHTML = '<div style="opacity:.6;padding:10px;">Sin avisos pendientes. La rutina actualiza 2 veces al día.</div>'; if(window.cmRefresh) window.cmRefresh(); return; }
+                var barra = items.length ? '<div style="text-align:right;padding:0 2px 6px;"><a href="#" onclick="avisosJurLimpiarTodos();return false;" style="font-size:.78em;opacity:.7;text-decoration:underline;">marcar todos como trabajados</a></div>' : '';
+                if(!items.length){ cont.innerHTML = '<div style="opacity:.6;padding:10px;">Sin avisos pendientes. La rutina actualiza 2 veces al día.</div>' + pie; if(window.cmRefresh) window.cmRefresh(); return; }
                 items.sort(function(a,b){ return pri(a.urgencia)-pri(b.urgencia); });
-                cont.innerHTML = items.map(function(it){
+                cont.innerHTML = barra + items.map(function(it){
                   var col = COLORES[it.urgencia] || '#888';
                   var ic = ICONO[it.fuente] || ICONO.otro;
                   var id = idOf(it);
                   return '<div class="aviso-row" data-urgencia="'+esc(it.urgencia||'')+'" style="padding:10px 34px 10px 12px;border-left:3px solid '+col+';background:rgba(0,0,0,0.02);border-radius:6px;margin-bottom:8px;">'
-                    + '<button class="aviso-x" type="button" title="No mostrar más" aria-label="Descartar aviso" onclick="avisosJurDismiss(\''+id+'\')">✕</button>'
+                    + '<button class="aviso-x" type="button" title="Marcar como trabajado" aria-label="Marcar como trabajado" onclick="avisosJurDismiss(\''+id+'\')">✓</button>'
                     + '<div style="font-weight:600;">'+ic+' '+esc(it.titulo)+'</div>'
                     + (it.detalle?'<div style="font-size:.86em;opacity:.8;margin-top:3px;">'+esc(it.detalle)+'</div>':'')
                     + '<div style="font-size:.78em;opacity:.6;margin-top:4px;">'
                       + (it.fecha?('🗓 '+esc(it.fecha)+'  '):'')
                       + '<span style="color:'+col+';font-weight:600;text-transform:uppercase;">'+esc(it.urgencia||'')+'</span>'
                     + '</div></div>';
-                }).join('');
+                }).join('') + pie;
                 if(window.cmRefresh) window.cmRefresh();
               }
               function leer(){
-                firebase.database().ref(NODO).once('value')
-                  .then(function(snap){ render(snap.val()); })
+                var db = firebase.database();
+                Promise.all([ db.ref(NODO).once('value'), db.ref(NODO_OCULTOS).once('value') ])
+                  .then(function(r){
+                    ocultos = r[1].val() || {};
+                    purgarViejos();
+                    render(r[0].val());
+                  })
                   .catch(function(){ var c=document.getElementById('avisosDelDiaLista'); if(c) c.innerHTML='<div style="opacity:.6;padding:10px;">No se pudieron cargar los avisos.</div>'; });
               }
               function cargar(){ window.esperarFirebaseAuth(leer); }
