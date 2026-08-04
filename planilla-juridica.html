@@ -4156,7 +4156,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 const resp = await fetch(`${MEV_WORKER}/sync-causa?indice=${indice}&depto=${depto}&fuero=${fuero}`);
                 const data = await resp.json();
                 if (data.ok && data.encontrada) {
-                    alert(`✓ Cargada. ${data.movimientosGrabados} movimientos (${data.nuevos} nuevos). Refrescando…`);
+                    // El worker escribió en Firebase, pero clientsData —la copia que tiene este
+                    // navegador— sigue con lo viejo. showClientModal solo REDIBUJA desde esa
+                    // copia, así que la ficha mostraba exactamente lo mismo de antes y parecía
+                    // que la novedad no se había guardado. Hay que releer el caso primero.
+                    await releerCasoDesdeFirebase(indice);
+                    alert(`✓ Cargada. ${data.movimientosGrabados} movimientos (${data.nuevos} nuevos).`);
                     showClientModal(clientId);
                 } else if (data.encontrada === false) {
                     alert(data.msg || 'No se encontró la causa en ese departamento. Verificá el Departamento Judicial.');
@@ -4191,7 +4196,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 }
                 const acts = data.actuaciones ?? data.total ?? data.grabadas ?? '';
                 const docs = data.conTexto ?? data.docs ?? 0;
-                alert(`✓ Cargado desde el PJN. Actuaciones: ${acts}${docs !== '' ? ` — documentos con texto: ${docs}` : ''}. Refrescando…`);
+                // Mismo caso que el botón del MEV: hay que releer, no solo redibujar.
+                await releerCasoDesdeFirebase(clientsData.indexOf(client));
+                alert(`✓ Cargado desde el PJN. Actuaciones: ${acts}${docs !== '' ? ` — documentos con texto: ${docs}` : ''}.`);
                 showClientModal(clientId);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
@@ -4209,7 +4216,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 const resp = await fetch(`${PJN_WORKER}/reanalizar?indice=${indice}`);
                 const data = await resp.json();
                 if (!data.ok) throw new Error(data.error || 'Error');
-                alert(data.reanalizado ? 'Dictamen PJN regenerado con la lógica nueva. Refrescando…' : (data.msg || 'No se pudo re-analizar (sin documento de texto). Cargá novedades primero.'));
+                await releerCasoDesdeFirebase(indice);   // releer, no solo redibujar
+                alert(data.reanalizado ? 'Dictamen PJN regenerado con la lógica nueva.' : (data.msg || 'No se pudo re-analizar (sin documento de texto). Cargá novedades primero.'));
                 showClientModal(clientId);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '↻ Re-analizar'; }
@@ -4341,6 +4349,26 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         // Copia el dossier al portapapeles y abre el Proyecto de Familia en pestaña nueva
+        // Vuelve a leer UN caso de Firebase y lo mete en clientsData. Los botones de "cargar
+        // novedades" le piden el trabajo a un worker, que escribe en Firebase; esta pestaña no
+        // se entera sola en el acto, así que sin esto la ficha se redibujaba con los datos de
+        // antes y parecía que la novedad no se había guardado (pasó con VELARDE el 03/08/2026).
+        // Lee un solo caso, no la planilla entera: son unos 20 KB.
+        async function releerCasoDesdeFirebase(indice) {
+            if (!(indice >= 0) || !firebaseDB) return false;
+            try {
+                const snap = await firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + indice).once('value');
+                const fresco = snap.val();
+                if (!fresco) return false;
+                clientsData[indice] = sanitizeData([fresco])[0];
+                guardarCacheLocal();
+                return true;
+            } catch (e) {
+                console.error('No se pudo releer el caso ' + indice + ':', e);
+                return false;
+            }
+        }
+
         async function abrirEnProyectoClaude(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
@@ -4353,6 +4381,19 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 exportarDossier(clientId);
                 return;
             }
+            // El botón NO adjunta ningún archivo: deja el dossier en el portapapeles y abre
+            // el proyecto. El aviso quedaba en ESTA pestaña, que es justo la que abandonás al
+            // saltar a Claude, y encima se borraba a los 5 segundos: llegabas allá sin saber
+            // que tenías que pegar. Por eso ahora hay que confirmarlo antes de abrir.
+            const seguir = confirm(
+                'Dossier copiado al portapapeles (' + conTexto + ' de ' + total + ' documentos con texto).\n\n' +
+                'IMPORTANTE: no se adjunta ningún archivo. Cuando se abra Claude:\n' +
+                '   1) hacé clic en el cuadro de texto\n' +
+                '   2) pegá con Ctrl+V\n' +
+                '   3) presioná Enter\n\n' +
+                'Abrir el proyecto ' + nombreProyectoMateria(client) + '?'
+            );
+            if (!seguir) return;
             // Aviso rápido y abrir el proyecto
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;background:#1f9e72;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:"DM Sans",sans-serif;font-size:0.9em;font-weight:600;';
