@@ -4165,12 +4165,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     showClientModal(clientId);
                 } else if (data.encontrada === false) {
                     alert(data.msg || 'No se encontró la causa en ese departamento. Verificá el Departamento Judicial.');
-                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar del MEV'; }
                 } else {
                     throw new Error(data.error || data.msg || 'Error desconocido');
                 }
             } catch (e) {
-                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar del MEV'; }
                 alert('Error: ' + e.message);
             }
         }
@@ -4179,9 +4179,15 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         async function cargarNovedadesPjnAhora(clientId, btn) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const exp = (client.expediente || '').trim();
+            // En la ficha el expediente está partido en DOS campos: "N° Expediente" y "Año".
+            // Esta función pedía uno solo con formato NÚMERO/AÑO, así que en las causas cargadas
+            // con los campos separados avisaba que faltaba el dato aunque estuviera completo
+            // (visto en RUPPEL el 04/08/2026: 044666 y 2025 en campos distintos). Ahora los une.
+            const nroExp  = (client.expediente || '').toString().trim();
+            const anioExp = (client.anioExpediente || '').toString().trim();
+            const exp = (nroExp && !nroExp.includes('/') && anioExp) ? (nroExp + '/' + anioExp) : nroExp;
             if (!exp || !/\d+\s*\/\s*\d{2,4}/.test(exp)) {
-                alert('Esta causa no tiene el Expediente en formato NÚMERO/AÑO (ej: 23693/2025). Completá el campo "Expediente" en la ficha y volvé a intentar.');
+                alert('Falta el expediente para buscar en el PJN.\n\nCompletá en la ficha el "N° Expediente" y el "Año" (por ejemplo 23693 y 2025), o escribí el número completo como 23693/2025.');
                 return;
             }
             if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Buscando en el PJN…'; }
@@ -4191,7 +4197,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 if (data.ok === false) throw new Error(data.error || data.msg || 'Error');
                 if (data.matched === false || data.encontrada === false) {
                     alert(data.msg || 'No se encontró el expediente en el PJN. Verificá el número (NÚMERO/AÑO).');
-                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar del PJN'; }
                     return;
                 }
                 const acts = data.actuaciones ?? data.total ?? data.grabadas ?? '';
@@ -4201,7 +4207,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 alert(`✓ Cargado desde el PJN. Actuaciones: ${acts}${docs !== '' ? ` — documentos con texto: ${docs}` : ''}.`);
                 showClientModal(clientId);
             } catch (e) {
-                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar novedades ahora'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Cargar del PJN'; }
                 alert('Error: ' + e.message);
             }
         }
@@ -7086,12 +7092,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${mevUltimaSync ? `<span style="font-size:0.78em; color:var(--text-muted);">Última sync: ${mevUltimaSync}</span>` : ''}
                         <button onclick="cargarNovedadesAhora('${client.id}', this)" style="font-size:0.78em;padding:6px 12px;border:1px solid #3498db;border-radius:8px;color:#3498db;background:rgba(52,152,219,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;" title="Buscar la causa en el MEV y cargar sus movimientos ahora (sin esperar al cron)">
-                            🔄 Cargar novedades ahora
+                            🔄 Cargar del MEV
                         </button>
                     </div>
                 </div>
                 ${mev.length === 0
-                    ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún. Usá el botón "🔄 Cargar novedades ahora" para traerlos al instante (necesita el Departamento Judicial cargado en la ficha).</p>'
+                    ? '<p style="color:var(--text-muted); font-style:italic; font-size:0.9em;">No hay movimientos del MEV sincronizados aún. Usá el botón "🔄 Cargar del MEV" para traerlos al instante (necesita el Departamento Judicial cargado en la ficha).</p>'
                     : `<div style="max-height:350px; overflow-y:auto; border:1px solid var(--border-item); border-radius:8px; background:var(--bg-item);">${mevHtml}</div>`
                 }
                 ${mev.length > 0 ? `
@@ -7231,7 +7237,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             <button onclick="abrirExpedientePJN('${client.expediente||''}', this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;background:linear-gradient(145deg, rgba(139,110,199,0.22), rgba(139,110,199,0.1));color:var(--info-color);border-radius:20px;font-size:0.76em;font-weight:500;border:1px solid rgba(139,110,199,0.35);cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.04em;transition:all .25s ease;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Ver en SCW</button>
                         </div>
                         <div style="display:flex; gap:12px; align-items:center;">
-                            <button onclick="cargarNovedadesPjnAhora('${client.id}', this)" style="font-size:0.78em;padding:6px 12px;border:1px solid var(--info-color);border-radius:8px;color:var(--info-color);background:rgba(139,110,199,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;" title="Buscar el expediente en el PJN y cargar sus actuaciones ahora (sin esperar al cron)">🔄 Cargar novedades ahora</button>
+                            <button onclick="cargarNovedadesPjnAhora('${client.id}', this)" style="font-size:0.78em;padding:6px 12px;border:1px solid var(--info-color);border-radius:8px;color:var(--info-color);background:rgba(139,110,199,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;" title="Buscar el expediente en el PJN y cargar sus actuaciones ahora (sin esperar al cron)">🔄 Cargar del PJN</button>
                             ${pjnSituacion ? `<span style="font-size:0.78em; background:rgba(139,110,199,0.12); color:var(--info-color); padding:3px 10px; border-radius:10px; font-weight:500; border:1px solid rgba(139,110,199,0.28);">${pjnSituacion}</span>` : ''}
                             ${(() => {
                         const revision = client.pjn_ultima_revision
