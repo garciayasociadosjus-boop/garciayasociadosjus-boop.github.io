@@ -4085,9 +4085,19 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (nuevoValor && !confirm('¿Marcar esta causa como FUERA DEL ESTUDIO? El comité va a dejar de analizarla y no te va a traer más dictámenes.')) return;
             if (btn) { btn.disabled = true; btn.innerHTML = '⏳...'; }
             try {
-                await fetch(`${MEV_WORKER}/fuera-estudio?indice=${indice}&valor=${nuevoValor ? '1' : '0'}`);
+                // Antes no se miraba la respuesta: si el worker fallaba igual decia "marcada",
+                // la causa quedaba activa en Firebase y los workers la seguian recorriendo.
+                const r = await fetch(`${MEV_WORKER}/fuera-estudio?indice=${indice}&valor=${nuevoValor ? '1' : '0'}`);
+                const j = await r.json().catch(() => null);
+                if (!r.ok || !j || j.error || j.ok !== true) {
+                    throw new Error((j && j.error) || ('el worker respondio ' + r.status));
+                }
                 client.fuera_estudio = nuevoValor; // reflejar localmente
-                alert(nuevoValor ? 'Causa marcada como fuera del estudio. Ya no se va a analizar.' : 'Causa reactivada. Vuelve a analizarse.');
+                guardarCacheLocal();
+                alert(nuevoValor
+                    ? 'Causa archivada. Pasa al apartado "Archivadas (fuera del estudio)" y los workers dejan de recorrerla.'
+                    : 'Causa reactivada. Vuelve al listado normal y los workers la recorren de nuevo.');
+                renderAll();
                 showClientModal(clientId);
             } catch (e) {
                 if (btn) { btn.disabled = false; }
@@ -4231,36 +4241,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
-        // Guarda (sobrescribe) el dossier de esta causa en tu Drive
+        // El dossier ya NO se guarda en Drive (05/08/2026). Generarlo alla tardaba ~100 s
+        // por causa y frenaba las corridas de los workers. Ahora se baja en Word en el momento.
+        // Se deja el nombre viejo apuntando al Word por si algun boton quedo sin cambiar.
         async function guardarDossierEnDrive(clientId, btn) {
-            const client = clientsData.find(c => c.id === clientId);
-            if (!client) return;
-            if (!APPS_SCRIPT_DOSSIERS_URL || APPS_SCRIPT_DOSSIERS_URL.indexOf('PEGAR') === 0) {
-                alert('Falta configurar la URL del Apps Script de dossiers en la planilla.');
-                return;
-            }
-            // Mandamos solo el ÍNDICE: el Apps Script lee la causa de Firebase y los textos
-            // de docs_juridica (fuente única de verdad). Antes se mandaban los movimientos
-            // completos, pero los textos ya no viven en planilla_juridica.
-            const indice = clientsData.indexOf(client);
-            if (indice < 0) { alert('No se pudo ubicar la causa para guardarla en Drive.'); return; }
-            const payload = { indice: indice };
-            const textoOrig = btn ? btn.innerHTML : '';
-            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
-            try {
-                // no-cors: el POST se envía y guarda; la respuesta (redirect de Apps Script)
-                // no se puede leer por CORS, pero no la necesitamos.
-                await fetch(APPS_SCRIPT_DOSSIERS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-                if (btn) { btn.innerHTML = '✓ Guardado en Drive'; setTimeout(() => { btn.innerHTML = textoOrig; btn.disabled = false; }, 2500); }
-            } catch (e) {
-                if (btn) { btn.innerHTML = textoOrig; btn.disabled = false; }
-                alert('No se pudo guardar en Drive: ' + e.message);
-            }
+            return descargarDossierCliente(clientId);
         }
 
         // Modal genérico con contenido HTML
@@ -4420,16 +4405,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 <textarea id="dossierTxt" readonly style="width:100%;height:400px;font-family:monospace;font-size:0.82em;padding:10px;border:1px solid var(--border-item);border-radius:6px;background:var(--bg-item);color:var(--text-primary);">${dossier.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
             const acciones = `
                 <button onclick="(function(){const t=document.getElementById('dossierTxt');t.select();navigator.clipboard.writeText(t.value);this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar todo',1800);}).call(this)" style="font-size:0.85em;padding:7px 14px;border:1px solid var(--gold-border,#c9a96e);border-radius:6px;background:rgba(201,169,110,0.15);color:var(--text-primary);cursor:pointer;font-weight:600;">Copiar todo</button>
-                <button onclick="descargarDossierCliente('${client.id}')" style="font-size:0.85em;padding:7px 14px;border:1px solid #2b579a;border-radius:6px;background:rgba(43,87,154,0.12);color:var(--text-primary);cursor:pointer;font-weight:600;">⬇ Descargar Word</button>
+                <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.85em;padding:7px 14px;border:1px solid #2b579a;border-radius:6px;background:rgba(43,87,154,0.12);color:var(--text-primary);cursor:pointer;font-weight:600;">⬇ Descargar Word</button>
                 <button onclick="window.open('${proyectoParaCliente(client)}','_blank')" style="font-size:0.85em;padding:7px 14px;border:1px solid #c9a96e;border-radius:6px;background:#c9a96e;color:#fff;cursor:pointer;font-weight:600;">Abrir mi Proyecto ${nombreProyectoMateria(client)} ↗</button>`;
             abrirModalTexto('Dossier — ' + (client.caratula || ''), html, acciones);
         }
 
         // Descarga el dossier como documento de Word (.doc) ESTRUCTURADO:
         // portada + historial + cada documento en su propia hoja (salto de página).
-        async function descargarDossierCliente(clientId) {
+        async function descargarDossierCliente(clientId, btn) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
+            // Bajar los textos de docs_juridica tarda unos segundos en una causa con muchos
+            // documentos (RUPPEL tiene 91). Sin aviso, el boton parece que no hizo nada y se
+            // termina apretando dos o tres veces.
+            const textoOrig = btn ? btn.innerHTML : null;
+            if (btn) { btn.disabled = true; btn.innerHTML = 'Armando el dossier…'; }
+            try {
             const docsMap = await docsJuridicaDeCaso(clientsData.indexOf(client));
             const esc = s => (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const salto = '<div style="page-break-before:always;"></div>';
@@ -4485,6 +4476,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             link.download = nombre;
             link.click();
             setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+            } catch (e) {
+                alert('No se pudo armar el dossier: ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = textoOrig; }
+            }
         }
 
         // Muestra el texto del documento MEV (guardado en Firebase) en un modal
@@ -4707,8 +4703,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (!cont) return;
             if (filteredData.length === 0) { cont.innerHTML = '<p>No se encontraron casos.</p>'; return; }
 
-            const groups = { vencidas:[], hoy:[], semana:[], adelante:[], sinfecha:[] };
+            const groups = { vencidas:[], hoy:[], semana:[], adelante:[], sinfecha:[], archivadas:[] };
             filteredData.forEach(c => {
+                // Archivadas: causas que el estudio ya no lleva. Se sacan de los grupos por
+                // fecha —si no, aparecen para siempre en "Vencidas" pidiendo una revision que
+                // nadie va a hacer— y van a su propio apartado, cerrado, al final. Los workers
+                // tampoco las recorren mas: leen el mismo flag desde juridica_index.
+                if (c.fuera_estudio) { groups.archivadas.push(c); return; }
                 const pr = c.proximaRevision;
                 if (!pr) groups.sinfecha.push(c);
                 else if (isPastDue(pr)) groups.vencidas.push(c);
@@ -4724,7 +4725,8 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 { k:'hoy', label:'Hoy', color:'#e67e22', open:true },
                 { k:'semana', label:'Esta semana', color:'var(--gold-dark)', open:false },
                 { k:'adelante', label:'Más adelante', color:'var(--gold)', open:false },
-                { k:'sinfecha', label:'Sin fecha', color:'#8a8073', open:false }
+                { k:'sinfecha', label:'Sin fecha', color:'#8a8073', open:false },
+                { k:'archivadas', label:'Archivadas (fuera del estudio)', color:'#9aa0a6', open:false }
             ];
 
             cont.innerHTML = defs.filter(d => groups[d.k].length > 0).map(d => {
@@ -7106,8 +7108,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         Ir a Claude.ai con esta causa
                     </button>
-                    <button onclick="guardarDossierEnDrive('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier en tu Google Drive">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Guardar en Drive
+                    <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bajar dossier en Word
                     </button>
                     <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
@@ -7257,8 +7259,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             Ir a Claude.ai con esta causa
                         </button>
-                        <button onclick="guardarDossierEnDrive('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier en tu Google Drive">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Guardar en Drive
+                        <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bajar dossier en Word
                         </button>
                         <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Solo dossier
