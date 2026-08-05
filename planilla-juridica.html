@@ -3289,11 +3289,40 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         // entera (2,7 MB). Parsear la planilla completa se comía el presupuesto de 10 ms de CPU
         // del plan gratuito de Cloudflare y los cron morían con exceededCpu. Se reescribe con
         // cada guardado para que un expediente nuevo no quede invisible para los workers.
-        function actualizarIndiceLiviano() {
+        // El índice liviano lo escriben DOS lados: esta planilla y los workers. Esta función
+        // hacía un .set() de TODO el índice con siete campos, así que cada guardado borraba
+        // los campos que son de los workers y que ellos usan para decidir qué recorrer:
+        //
+        //   fuera_estudio  las causas archivadas volvían a recorrerse solas
+        //   mev_huellas    el MEV perdía el atajo y volvía a bajar y reescribir cada caso
+        //   docs_pend      idem
+        //   dossier        se perdía la marca
+        //
+        // Pasó el 05/08/2026: la causa 15 quedó archivada en la planilla pero desarchivada en
+        // el índice, y el vigía la seguía contando como parada. Ahora se lee el índice actual
+        // y se preserva lo que no es nuestro. Son 31 KB contra los 2,9 MB que ya baja la
+        // planilla al abrirse: no se nota.
+        async function actualizarIndiceLiviano() {
             try {
+                let previo = {};
+                try {
+                    const snap = await firebaseDB.ref('juridica_index').once('value');
+                    previo = snap.val() || {};
+                } catch (e) {
+                    // Sin el índice previo NO se puede escribir sin romper: mejor no tocar nada
+                    // y dejar el índice como está que pisarlo con campos incompletos.
+                    console.error('No se pudo leer juridica_index; no se reescribe:', e);
+                    return;
+                }
                 const idx = {};
                 clientsData.forEach((c, k) => {
                     if (!c || typeof c !== 'object') return;
+                    const antes = previo[k] || {};
+                    // La fecha más nueva gana: si el worker sincronizó después de que esta
+                    // pestaña cargó los datos, pisarla haría que el vigía crea que la causa
+                    // se quedó parada.
+                    const syncLocal = c.mev_ultima_sync || '';
+                    const syncPrevio = antes.mev_ultima_sync || '';
                     idx[k] = {
                         expediente: c.expediente || '',
                         caratula:   c.caratula || '',
@@ -3301,12 +3330,16 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         materia:    c.materia || '',   // lo usa esPenalCaso() en mpba-sync.js
                         movs:  Array.isArray(c.mev_movimientos) ? c.mev_movimientos.length : 0,
                         pjn:   Array.isArray(c.pjn_actuaciones) ? c.pjn_actuaciones.length : 0,
-                        mev_ultima_sync: c.mev_ultima_sync || ''
+                        mev_ultima_sync: syncLocal > syncPrevio ? syncLocal : syncPrevio,
+                        fuera_estudio: !!c.fuera_estudio,
+                        // De los workers: se copian tal cual, nunca se calculan acá.
+                        ...(antes.mev_huellas !== undefined ? { mev_huellas: antes.mev_huellas } : {}),
+                        ...(antes.docs_pend   !== undefined ? { docs_pend:   antes.docs_pend }   : {}),
+                        ...(antes.dossier     !== undefined ? { dossier:     antes.dossier }     : {})
                     };
                 });
-                firebaseDB.ref('juridica_index').set(idx)
-                    .catch(e => console.error('No se pudo actualizar juridica_index:', e));
-            } catch(e) { console.error('Error armando juridica_index:', e); }
+                await firebaseDB.ref('juridica_index').set(idx);
+            } catch(e) { console.error('No se pudo actualizar juridica_index:', e); }
         }
 
         // Guarda un caché liviano en localStorage: sin los textos de documentos (MEV + PJN),
