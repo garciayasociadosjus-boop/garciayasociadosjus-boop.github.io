@@ -3273,11 +3273,82 @@ function renderAllSiniestrosList(){
     }).join(''):'<p>No se encontraron siniestros.</p>'; 
 }
 
+
+// Leer la denuncia DESDE EL ALTA, no desde la ficha. Sin esto habia que cargar el
+// cliente a mano primero —que es justo el trabajo que se quiere evitar— porque a la
+// ficha no se llega de otra forma. Precarga los seis campos del alta y se guarda el
+// resto; apenas se crea el siniestro aparece la revision con todo lo demas.
+let _denunciaPendiente = null;
+
+async function leerDenunciaParaNuevo(btn) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,.pdf';
+    input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) { alert('El PDF supera los 20 MB.'); return; }
+        const textoOrig = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = 'Leyendo la denuncia…';
+        try {
+            const b64 = await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
+                fr.onerror = () => reject(new Error('No se pudo leer el archivo'));
+                fr.readAsDataURL(file);
+            });
+            const r = await fetch('https://garcia-ia.garciayasociadosjus.workers.dev/api/leer-denuncia', {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: b64
+            });
+            const j = await r.json().catch(() => null);
+            if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ('el worker respondio ' + r.status));
+
+            const c = j.campos || {};
+            _denunciaPendiente = c;
+
+            // Los seis campos del alta se completan solos; el usuario los ve y los puede
+            // corregir antes de guardar. Solo se pisa lo que este vacio.
+            const poner = (id, valor) => {
+                const el = document.getElementById(id);
+                if (el && valor && !String(el.value || '').trim()) el.value = valor;
+            };
+            poner('newCliente', c.cliente);
+            poner('newDni', c.dni);
+            poner('newCelular', c.celular);
+            poner('newAseguradoEn', c.aseguradoEn);
+            const t0 = (c.terceros || [])[0] || {};
+            poner('newContra', t0.contra);
+            const gen = document.getElementById('newGenero');
+            if (gen && (c.genero === 'Masculino' || c.genero === 'Femenino')) gen.value = c.genero;
+
+            const nT = (c.terceros || []).length;
+            const aviso = document.getElementById('avisoDenunciaAlta');
+            if (aviso) {
+                aviso.style.display = 'block';
+                aviso.innerHTML = 'Denuncia leida' + (nT ? ' · ' + nT + (nT === 1 ? ' tercero' : ' terceros') : '')
+                    + '. Revisa estos datos y guarda: al abrirse la ficha vas a poder confirmar el resto '
+                    + '(vehiculo, chasis, motor, domicilio, datos del siniestro y del tercero).';
+            }
+        } catch (e) {
+            alert('No se pudo leer la denuncia: ' + e.message);
+        } finally {
+            btn.disabled = false; btn.innerHTML = textoOrig;
+        }
+    };
+    input.click();
+}
+
 function showNewSiniestroModal(){ 
+    _denunciaPendiente = null;   // arranca limpio: una lectura vieja no se cuela en el alta siguiente
     const modal=document.getElementById('newSiniestroModal'); 
     const content=` <span class="close" onclick="closeModal('newSiniestroModal')">&times;</span>
     <div class="modal-cliente-nombre" style="font-size:1.4em;margin-bottom:4px;">Nuevo Siniestro</div>
     <div style="color:var(--text-muted);font-size:.85em;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border-item);">Completá los datos básicos. El resto lo cargás desde la ficha.</div>
+    <div style="margin-bottom:16px;padding:12px;background:var(--bg-card-hover);border-radius:8px;">
+        <button type="button" onclick="leerDenunciaParaNuevo(this)" style="padding:9px 16px;border:none;border-radius:8px;background:#2b579a;color:#fff;cursor:pointer;font-weight:600;font-size:.85em;">Leer denuncia (PDF)</button>
+        <span style="font-size:.8em;color:var(--text-muted);margin-left:10px;">Cargá la denuncia y se completa sola.</span>
+        <div id="avisoDenunciaAlta" style="display:none;font-size:.82em;color:var(--success-color,#1f9e72);margin-top:8px;line-height:1.4;"></div>
+    </div>
     <form onsubmit="addNewSiniestro(event)">
         <div class="info-grid">
             <div class="form-group"><label>Nombre y Apellido *</label><input type="text" id="newCliente" onblur="autocompletarCliente(this.value)" required placeholder="Ej: PEREZ JUAN"></div>
@@ -3390,7 +3461,16 @@ function addNewSiniestro(e){
     renderAll(); 
     closeModal('newSiniestroModal');
     // Abrir ficha completa automáticamente
-    setTimeout(function(){ showSiniestroModal(newSiniestro.id); }, 300);
+    setTimeout(function(){
+        showSiniestroModal(newSiniestro.id);
+        // Si el alta vino de una denuncia, se abre la revision con todo lo que no entra en
+        // el formulario corto: vehiculo, chasis, motor, domicilio, siniestro y terceros.
+        if (_denunciaPendiente) {
+            const campos = _denunciaPendiente;
+            _denunciaPendiente = null;
+            setTimeout(function(){ mostrarRevisionDenuncia(newSiniestro.id, campos, null); }, 350);
+        }
+    }, 300);
 }
 
 function enviarSiniestroAAbonos(s) {
