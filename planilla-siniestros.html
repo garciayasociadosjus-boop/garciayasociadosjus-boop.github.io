@@ -3503,6 +3503,259 @@ function showSiniestroSelectorModal(){ const modal=document.getElementById('sini
 function loadSiniestroInfo(){ const id=document.getElementById('siniestroSelector').value; if(id){closeModal('siniestroSelectorModal');showSiniestroModal(id);} }
 function closeModal(id){ const modal=document.getElementById(id); if(modal)modal.classList.remove('active'); editingSiniestroId=null; editingField=null; }
 
+
+// ══ LEER LA DENUNCIA ADMINISTRATIVA EN PDF Y PRECARGAR LA FICHA ══════════════════
+//
+// Los campos peor cargados de la ficha (chasis, motor, cuil, domicilio, conductor,
+// datos del tercero) son justo los que trae la denuncia. Esto los lee de una.
+//
+// REGLA DE ORO: no escribe nada sin confirmacion. Muestra lo que leyo campo por
+// campo y solo aplica lo que se tilda. Y lo que ya esta cargado en la ficha viene
+// DESTILDADO: un dato existente no se pisa por accidente, hay que elegirlo.
+
+const CAMPOS_DENUNCIA_CLIENTE = {
+    cliente: 'Cliente (titular)', genero: 'Genero', dni: 'DNI titular',
+    fechaNacimiento: 'Fecha de nacimiento', cuil: 'CUIL',
+    conductorNombre: 'Nombre conductor', conductorDni: 'DNI conductor',
+    celular: 'Celular', mailCliente: 'Mail',
+    domicilioCliente: 'Domicilio', provinciaCliente: 'Provincia',
+    partidoCliente: 'Partido', localidadCliente: 'Localidad',
+    aseguradoEn: 'Aseguradora cliente', polizaCliente: 'Poliza cliente',
+    tipoVehiculo: 'Tipo vehiculo', marcaCliente: 'Marca', modeloCliente: 'Modelo',
+    dominioCliente: 'Dominio', anoCliente: 'Anio', colorVehiculo: 'Color',
+    chasis: 'N° chasis', motor: 'N° motor'
+};
+const CAMPOS_DENUNCIA_SINIESTRO = {
+    fechaSiniestro: 'Fecha siniestro', horaSiniestro: 'Hora siniestro',
+    lugarSiniestro: 'Direccion siniestro', provinciaSiniestro: 'Provincia siniestro',
+    partidoSiniestro: 'Partido siniestro', localidadSiniestro: 'Localidad siniestro',
+    numeroReclamo: 'N° reclamo'
+};
+const CAMPOS_DENUNCIA_TERCERO = {
+    nombreTercero: 'Nombre tercero', dniTercero: 'DNI tercero',
+    conductorTerceroNombre: 'Conductor tercero', conductorTerceroDni: 'DNI conductor tercero',
+    telefonoTercero: 'Telefono tercero', contra: 'Aseguradora tercero',
+    polizaTercero: 'N° poliza tercero', marcaTercero: 'Marca tercero',
+    modeloTercero: 'Modelo tercero', dominioTercero: 'Dominio tercero',
+    anoTercero: 'Anio tercero'
+};
+
+function leerDenunciaPDF(siniestroId, btn) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,.pdf';
+    input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) { alert('El PDF supera los 20 MB.'); return; }
+
+        const textoOrig = btn ? btn.innerHTML : null;
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Leyendo la denuncia…'; }
+        try {
+            // readAsDataURL da "data:application/pdf;base64,XXXX" — se manda solo la parte de atras.
+            const b64 = await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
+                fr.onerror = () => reject(new Error('No se pudo leer el archivo'));
+                fr.readAsDataURL(file);
+            });
+
+            const r = await fetch('https://garcia-ia.garciayasociadosjus.workers.dev/api/leer-denuncia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: b64
+            });
+            const j = await r.json().catch(() => null);
+            if (!r.ok || !j || !j.ok) {
+                throw new Error((j && j.error) || ('el worker respondio ' + r.status));
+            }
+            mostrarRevisionDenuncia(siniestroId, j.campos, j.uso);
+        } catch (e) {
+            alert('No se pudo leer la denuncia: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = textoOrig; }
+        }
+    };
+    input.click();
+}
+
+function mostrarRevisionDenuncia(siniestroId, campos, uso) {
+    const s = siniestrosData.find(x => x.id === siniestroId);
+    if (!s) return;
+    const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // Una fila por campo que la denuncia trajo con algo. Los que la ficha ya tiene
+    // cargado quedan destildados y mostrando ambos valores: pisar es decision del usuario.
+    const fila = (clave, etiqueta, valorLeido, grupo) => {
+        const actual = (s[clave] == null ? '' : String(s[clave])).trim();
+        const leido = String(valorLeido == null ? '' : valorLeido).trim();
+        if (!leido) return '';
+        const igual = actual && actual.toLowerCase() === leido.toLowerCase();
+        if (igual) return '';
+        const pisa = !!actual;
+        return `<tr data-grupo="${grupo}">
+            <td style="padding:5px 8px;"><input type="checkbox" class="chk-denuncia" data-campo="${esc(clave)}"
+                data-valor="${esc(leido)}" data-grupo="${grupo}" data-pisa="${pisa ? '1' : '0'}" ${pisa ? '' : 'checked'}></td>
+            <td style="padding:5px 8px;font-size:.82em;color:var(--text-label);">${esc(etiqueta)}</td>
+            <td style="padding:5px 8px;font-size:.85em;">${
+                pisa ? `<span style="color:#c0392b;text-decoration:line-through;">${esc(actual)}</span><br>` : ''
+            }<b>${esc(leido)}</b>${pisa ? ' <span style="font-size:.75em;color:#c0392b;">(pisa lo cargado)</span>' : ''}</td>
+        </tr>`;
+    };
+
+    let filas = '';
+    let n = 0;
+    const bloque = (titulo, mapa, fuente, grupo) => {
+        const cuerpo = Object.entries(mapa).map(([k, et]) => fila(k, et, fuente[k], grupo)).join('');
+        if (!cuerpo) return '';
+        n += (cuerpo.match(/chk-denuncia/g) || []).length;
+        return `<tr><td colspan="3" style="padding:10px 8px 4px;font-weight:700;font-size:.8em;letter-spacing:.06em;text-transform:uppercase;color:var(--text-label);">${titulo}</td></tr>` + cuerpo;
+    };
+
+    filas += bloque('Cliente y vehiculo', CAMPOS_DENUNCIA_CLIENTE, campos, 'base');
+    filas += bloque('Siniestro', CAMPOS_DENUNCIA_SINIESTRO, campos, 'base');
+
+    // La ficha tiene UN solo juego de campos de tercero, pero un choque en cadena trae
+    // varios. Se elige cual va a la ficha; los demas quedan en el relato para no perderlos.
+    const terceros = Array.isArray(campos.terceros) ? campos.terceros.filter(t => t && (t.nombreTercero || t.dominioTercero)) : [];
+    let selectorTerceros = '';
+    if (terceros.length > 1) {
+        selectorTerceros = `<div style="padding:10px;background:var(--bg-card-hover);border-radius:8px;margin:10px 0;">
+            <div style="font-size:.82em;font-weight:600;margin-bottom:6px;">La denuncia trae ${terceros.length} terceros. ¿Cual va en la ficha?</div>
+            ${terceros.map((t, i) => `<label style="display:block;font-size:.85em;padding:3px 0;cursor:pointer;">
+                <input type="radio" name="terceroElegido" value="${i}" ${i === 0 ? 'checked' : ''} onchange="cambiarTerceroDenuncia(${i})">
+                ${esc(t.nombreTercero || '(sin nombre)')} — ${esc(t.dominioTercero || 's/dominio')} ${esc(t.marcaTercero || '')} ${esc(t.detalleDanos ? '· ' + t.detalleDanos : '')}
+            </label>`).join('')}
+            <div style="font-size:.78em;color:var(--text-muted);margin-top:6px;">Los otros quedan anotados en la observacion, no se pierden.</div>
+        </div>`;
+    }
+    // Las filas del tercero se arman con la UNION de todos: si el primero no trae
+    // aseguradora pero el segundo si, tiene que existir la fila para poder mostrarla al
+    // cambiar de tercero. Sin esto, elegir otro tercero perdia en silencio los campos que
+    // el primero tenia vacios (paso con la aseguradora y la poliza de CAPPELLO).
+    if (terceros.length) {
+        const union = {};
+        Object.keys(CAMPOS_DENUNCIA_TERCERO).forEach(k => {
+            const conValor = terceros.find(t => String(t[k] == null ? '' : t[k]).trim());
+            union[k] = conValor ? conValor[k] : '';
+        });
+        filas += bloque('Tercero', CAMPOS_DENUNCIA_TERCERO, union, 'tercero');
+    }
+
+    window.__denunciaTerceros = terceros;
+    window.__denunciaCampos = campos;
+    window.__denunciaSiniestroId = siniestroId;
+
+    const relato = String(campos.relato || '').trim();
+    const danos = String(campos.danosCliente || '').trim();
+    const extra = (relato || danos)
+        ? `<div style="margin-top:12px;padding:10px;background:var(--bg-card-hover);border-radius:8px;">
+             <label style="display:flex;gap:8px;align-items:flex-start;font-size:.85em;cursor:pointer;">
+               <input type="checkbox" id="chkObsDenuncia" checked style="margin-top:3px;">
+               <span>Guardar el relato como "Relato de los hechos" de la carta de patrocinio, y anotarlo junto con los danos en la observacion de hoy</span>
+             </label>
+             <div style="font-size:.8em;color:var(--text-muted);white-space:pre-wrap;margin-top:6px;max-height:120px;overflow:auto;">${esc([relato, danos].filter(Boolean).join('\n\n'))}</div>
+           </div>` : '';
+
+    const costo = uso ? `<div style="font-size:.75em;color:var(--text-muted);margin-top:8px;">Leido en ${((uso.ms || 0) / 1000).toFixed(1)} s · ${uso.entrada || '?'} tokens de entrada, ${uso.salida || '?'} de salida.</div>` : '';
+
+    const ov = document.createElement('div');
+    ov.id = 'overlayDenuncia';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    ov.innerHTML = `<div style="background:var(--bg-card);border-radius:12px;max-width:760px;width:100%;max-height:88vh;overflow:auto;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4);">
+        <h3 style="margin:0 0 4px;font-size:1.05em;">Datos leidos de la denuncia</h3>
+        <div style="font-size:.82em;color:var(--text-muted);margin-bottom:10px;">Se aplica solo lo tildado. Lo que ya estaba cargado viene destildado para que no se pise sin querer.</div>
+        ${selectorTerceros}
+        <div id="tablaDenunciaCont"><table style="width:100%;border-collapse:collapse;">${filas || '<tr><td style="padding:14px;font-size:.9em;">No se pudo leer ningun dato nuevo de este PDF.</td></tr>'}</table></div>
+        ${extra}
+        ${costo}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+            <button onclick="document.getElementById('overlayDenuncia').remove()" style="padding:8px 16px;border:1px solid var(--border-item);border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.85em;">Cancelar</button>
+            <button onclick="aplicarDenuncia()" style="padding:8px 16px;border:none;border-radius:8px;background:var(--success-color,#1f9e72);color:#fff;cursor:pointer;font-weight:600;font-size:.85em;">Aplicar a la ficha</button>
+        </div>
+    </div>`;
+    document.body.appendChild(ov);
+    // Las filas se armaron con la union; esto las deja mostrando el tercero seleccionado.
+    if (terceros.length) cambiarTerceroDenuncia(0);
+}
+
+// Redibuja solo las filas del tercero cuando se elige otro del choque en cadena.
+function cambiarTerceroDenuncia(indice) {
+    const t = (window.__denunciaTerceros || [])[indice];
+    if (!t) return;
+    document.querySelectorAll('.chk-denuncia[data-grupo="tercero"]').forEach(chk => {
+        const clave = chk.dataset.campo;
+        const valor = String(t[clave] == null ? '' : t[clave]).trim();
+        chk.dataset.valor = valor;
+        const fila = chk.closest('tr');
+        if (fila) {
+            fila.style.display = valor ? '' : 'none';
+            const celda = fila.querySelector('td:last-child b');
+            if (celda) celda.textContent = valor;
+        }
+        // Al cambiar de tercero hay que volver a tildar lo que reaparece: si no, un campo
+        // que estaba vacio en el tercero anterior quedaba destildado para siempre y se
+        // perdia en silencio. Se respeta la regla: si pisaria algo cargado, sigue destildado.
+        chk.checked = !!valor && chk.dataset.pisa !== '1';
+    });
+}
+
+function aplicarDenuncia() {
+    const s = siniestrosData.find(x => x.id === window.__denunciaSiniestroId);
+    if (!s) return;
+    let aplicados = 0;
+    document.querySelectorAll('.chk-denuncia:checked').forEach(chk => {
+        const fila = chk.closest('tr');
+        if (fila && fila.style.display === 'none') return;
+        s[chk.dataset.campo] = chk.dataset.valor;
+        aplicados++;
+    });
+
+    const chkObs = document.getElementById('chkObsDenuncia');
+    if (chkObs && chkObs.checked) {
+        const c = window.__denunciaCampos || {};
+        const terceros = window.__denunciaTerceros || [];
+        const partes = [];
+        if (c.relato) partes.push(String(c.relato).trim());
+        if (c.danosCliente) partes.push('DANOS DEL VEHICULO ASEGURADO: ' + String(c.danosCliente).trim());
+        // Los terceros que NO fueron a la ficha se anotan aca para no perderlos.
+        const elegido = document.querySelector('input[name="terceroElegido"]:checked');
+        const idxElegido = elegido ? parseInt(elegido.value, 10) : 0;
+        const otros = terceros.filter((_, i) => i !== idxElegido);
+        if (otros.length) {
+            partes.push('OTROS VEHICULOS DE LA DENUNCIA:\n' + otros.map(t =>
+                '- ' + [t.nombreTercero, t.dniTercero && 'DNI ' + t.dniTercero, t.dominioTercero,
+                        [t.marcaTercero, t.modeloTercero].filter(Boolean).join(' '),
+                        t.contra && 'Aseg.: ' + t.contra, t.polizaTercero && 'Pol. ' + t.polizaTercero]
+                       .filter(Boolean).join(' · ')).join('\n'));
+        }
+        // El relato tambien va al campo "Relato de los hechos" de la carta de patrocinio,
+        // que hoy se escribe a mano cada vez. Solo si estaba vacio: un relato ya redactado
+        // no se pisa con el texto crudo de la denuncia.
+        if (c.relato && !String(s.relatoHechos || '').trim()) {
+            s.relatoHechos = String(c.relato).trim();
+        }
+        const texto = partes.join('\n\n');
+        if (texto) {
+            s.observaciones = s.observaciones || [];
+            s.observaciones.push({
+                fecha: new Date().toISOString().split('T')[0],
+                texto: texto,
+                proximaRevision: ''
+            });
+            aplicados++;
+        }
+    }
+
+    saveData();
+    const ov = document.getElementById('overlayDenuncia');
+    if (ov) ov.remove();
+    showSiniestroModal(s.id);
+    alert(aplicados
+        ? 'Se cargaron ' + aplicados + ' datos de la denuncia. Revisalos antes de seguir.'
+        : 'No se aplico ningun dato.');
+}
+
 function showSiniestroModal(id){ 
     const s=siniestrosData.find(x=>x.id===id); 
     if(!s)return; 
@@ -3856,7 +4109,7 @@ function showSiniestroModal(id){
         </div>
     </div>
 
-    <div class="action-buttons"><button class="btn btn-info" onclick="printFicha('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M12 3v18M3 9l9-6 9 6M5 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3L8 9M19 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3l-2-6"/></svg> Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Eliminar</button></div>${datalistsHTML}`; 
+    <div class="action-buttons"><button class="btn" onclick="leerDenunciaPDF('${s.id}', this)" title="Leer la denuncia administrativa en PDF y precargar los campos de la ficha" style="background:#2b579a;color:#fff;">Leer denuncia (PDF)</button><button class="btn btn-info" onclick="printFicha('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="startLetterGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Generar Carta Patrocinio</button><button class="btn btn-warning" onclick="startConvenioGeneration('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="M12 3v18M3 9l9-6 9 6M5 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3L8 9M19 9l-2 6c0 2 2 3 3.5 3s3.5-1 3.5-3l-2-6"/></svg> Generar Convenio</button><button class="btn btn-danger" onclick="deleteSiniestro('${s.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Eliminar</button></div>${datalistsHTML}`; 
     document.getElementById('siniestroInfoModal').querySelector('.modal-content').innerHTML=html; 
     document.getElementById('siniestroInfoModal').classList.add('active');
 }
@@ -4464,7 +4717,7 @@ function startLetterGeneration(siniestroId) {
             </div> 
 
             <div class="form-section" style="margin-top:15px;">
-                <div class="form-group"><label>Relato de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente." required></textarea></div>
+                <div class="form-group"><label>Relato de los hechos</label><textarea id="letterRelato" rows="4" placeholder="Describe cómo ocurrió el accidente." required>${(s.relatoHechos || '').replace(/</g, '&lt;')}</textarea>${s.relatoHechos ? '<div style="font-size:.75em;color:var(--text-muted);margin-top:3px;">Tomado de la denuncia — corregilo si hace falta antes de generar la carta.</div>' : ''}</div>
                 <div class="form-group"><label>Infracciones del tercero</label><textarea id="letterInfracciones" rows="3" placeholder="Ej: Cruzó en rojo, no respetó prioridad, etc." required></textarea></div>
             </div> 
 
