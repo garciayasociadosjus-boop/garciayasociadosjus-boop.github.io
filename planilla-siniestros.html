@@ -2122,7 +2122,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 </div>
 <script>
 let siniestrosData=[];
-let editingSiniestroId=null,editingField=null;
+let editingSiniestroId=null,editingField=null,editingTerceroAdicionalIdx=null;
 let onConfirmCallback = null;
 let weeklyGlanceStartDate = new Date();
 
@@ -2905,6 +2905,13 @@ function renderUbicacionEnCapas(sid, prefijo, provinciaVal, partidoVal, localida
 
 function onUbicProvChange(sid, pref, provId, partId, partLibreId, locId, locLibreId) {
     const prov = document.getElementById(provId)?.value || '';
+    // Si la provincia no cambio de verdad (p.ej. se volvio a elegir la misma para que el
+    // combo se vea seleccionado), no tocar partido/localidad: antes esto los borraba igual.
+    const sChk = siniestrosData.find(x => x.id === sid);
+    if (sChk) {
+        const pfChk = geoFieldsForPref(pref);
+        if ((sChk[pfChk.prov] || '') === prov) return;
+    }
     const partSel = document.getElementById(partId);
     const partLibre = document.getElementById(partLibreId);
     const locSel = document.getElementById(locId);
@@ -2929,6 +2936,15 @@ function onUbicProvChange(sid, pref, provId, partId, partLibreId, locId, locLibr
 
 function onUbicPartChange(sid, pref, partId, locId, locLibreId) {
     const partido = document.getElementById(partId)?.value || '';
+    // Mismo resguardo que en provincia: si es el mismo partido que ya estaba, no borrar
+    // la localidad que ya estaba cargada.
+    if (partido !== 'OTRO') {
+        const sChk = siniestrosData.find(x => x.id === sid);
+        if (sChk) {
+            const pfChk = geoFieldsForPref(pref);
+            if ((sChk[pfChk.part] || '') === partido) return;
+        }
+    }
     const locSel = document.getElementById(locId);
     const locLibre = document.getElementById(locLibreId);
     // Si eligió OTRO en partido, mostrar campo libre para partido y localidad
@@ -2983,6 +2999,38 @@ function geoFieldsForPref(pref) {
     if (pref === 'cli') return { prov:'provinciaCliente', part:'partidoCliente', loc:'localidadCliente' };
     if (pref === 'sin') return { prov:'provinciaSiniestro', part:'partidoSiniestro', loc:'localidadSiniestro' };
     return { prov:`provincia_${pref}`, part:`partido_${pref}`, loc:`localidad_${pref}` };
+}
+
+// Compara ignorando mayusculas/acentos: el texto que lee la IA de una denuncia rara vez
+// coincide letra por letra con las listas fijas de los combos ("Cap. Fed." vs "CABA"),
+// y eso hacia que el dato se guardara bien pero el select se mostrara vacio.
+function normalizarTexto(v) {
+    return String(v == null ? '' : v).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+function normalizarContraLista(valor, lista) {
+    const v = String(valor == null ? '' : valor).trim();
+    if (!v || !lista || !lista.length) return v;
+    const norm = normalizarTexto(v);
+    const match = lista.find(op => normalizarTexto(op) === norm);
+    return match || v;
+}
+// Para compañías de seguros: la denuncia casi nunca trae la razón social completa
+// ("RIVADAVIA" o "Rivadavia Seguros" en vez de "Rivadavia Cooperativa de Seguros
+// Limitada"), asi que ademas del match exacto se prueba si una contiene a la otra.
+function normalizarCompania(valor, lista) {
+    const v = String(valor == null ? '' : valor).trim();
+    if (!v || !lista || !lista.length) return v;
+    const norm = normalizarTexto(v);
+    const candidatos = lista.filter(op => op !== 'OTRAS');
+    let match = candidatos.find(op => normalizarTexto(op) === norm);
+    if (match) return match;
+    if (norm.length >= 4) {
+        match = candidatos.find(op => {
+            const opNorm = normalizarTexto(op);
+            return opNorm.startsWith(norm) || norm.startsWith(opNorm) || opNorm.includes(norm) || norm.includes(opNorm);
+        });
+    }
+    return match || v;
 }
 
 // Helpers para el formulario de NUEVO siniestro
@@ -3451,7 +3499,8 @@ function addNewSiniestro(e){
         conductorNombre:'', conductorDni:'',
         marcaClienteOtros:'', marcaTerceroOtros:'',
         productor:'', productorPorcentaje:'', productorImporte:'',
-        observaciones:[], mediaciones_list:[], vencimientos_list:[],
+        observaciones:[], mediaciones_list:[], vencimientos_list:[], tercerosAdicionales:[],
+        relatoHechos:'', partesDanadas:'',
         cobradoCliente:'No', cobradoEstudio:'No', fechaCobro:'',
         franquicia:'No'
     }; 
@@ -3602,8 +3651,9 @@ const CAMPOS_DENUNCIA_CLIENTE = {
 const CAMPOS_DENUNCIA_SINIESTRO = {
     fechaSiniestro: 'Fecha siniestro', horaSiniestro: 'Hora siniestro',
     lugarSiniestro: 'Direccion siniestro', provinciaSiniestro: 'Provincia siniestro',
-    partidoSiniestro: 'Partido siniestro', localidadSiniestro: 'Localidad siniestro',
-    numeroReclamo: 'N° reclamo'
+    partidoSiniestro: 'Partido siniestro', localidadSiniestro: 'Localidad siniestro'
+    // numeroReclamo NO se ofrece: ese campo es el numero de reclamo que inicia el estudio,
+    // no el que asigna la aseguradora al denunciar. Se carga siempre a mano.
 };
 const CAMPOS_DENUNCIA_TERCERO = {
     nombreTercero: 'Nombre tercero', dniTercero: 'DNI tercero',
@@ -3689,18 +3739,22 @@ function mostrarRevisionDenuncia(siniestroId, campos, uso) {
     filas += bloque('Cliente y vehiculo', CAMPOS_DENUNCIA_CLIENTE, campos, 'base');
     filas += bloque('Siniestro', CAMPOS_DENUNCIA_SINIESTRO, campos, 'base');
 
-    // La ficha tiene UN solo juego de campos de tercero, pero un choque en cadena trae
-    // varios. Se elige cual va a la ficha; los demas quedan en el relato para no perderlos.
+    // La ficha tiene UN solo juego de campos de tercero "principal" (a quien se le reclama),
+    // pero un choque en cadena trae varios. Se elige cual va como principal; los demas quedan
+    // guardados como vehiculos adicionales en la ficha, no se pierden.
     const terceros = Array.isArray(campos.terceros) ? campos.terceros.filter(t => t && (t.nombreTercero || t.dominioTercero)) : [];
+    let idxSugerido = terceros.findIndex(t => t && t.esUltimoDeLaCadena);
+    if (idxSugerido < 0) idxSugerido = 0;
     let selectorTerceros = '';
     if (terceros.length > 1) {
         selectorTerceros = `<div style="padding:10px;background:var(--bg-card-hover);border-radius:8px;margin:10px 0;">
-            <div style="font-size:.82em;font-weight:600;margin-bottom:6px;">La denuncia trae ${terceros.length} terceros. ¿Cual va en la ficha?</div>
+            <div style="font-size:.82em;font-weight:600;margin-bottom:6px;">La denuncia trae ${terceros.length} terceros. ¿A cual le reclamamos (va como tercero principal de la ficha)?</div>
             ${terceros.map((t, i) => `<label style="display:block;font-size:.85em;padding:3px 0;cursor:pointer;">
-                <input type="radio" name="terceroElegido" value="${i}" ${i === 0 ? 'checked' : ''} onchange="cambiarTerceroDenuncia(${i})">
+                <input type="radio" name="terceroElegido" value="${i}" ${i === idxSugerido ? 'checked' : ''} onchange="cambiarTerceroDenuncia(${i})">
                 ${esc(t.nombreTercero || '(sin nombre)')} — ${esc(t.dominioTercero || 's/dominio')} ${esc(t.marcaTercero || '')} ${esc(t.detalleDanos ? '· ' + t.detalleDanos : '')}
+                ${t.esUltimoDeLaCadena ? '<span style="color:var(--warning-color,#c98a1f);font-weight:600;"> · sugerido: último de la cadena</span>' : ''}
             </label>`).join('')}
-            <div style="font-size:.78em;color:var(--text-muted);margin-top:6px;">Los otros quedan anotados en la observacion, no se pierden.</div>
+            <div style="font-size:.78em;color:var(--text-muted);margin-top:6px;">Los demás quedan guardados como vehículos adicionales en la ficha (sección Datos del Tercero), no se pierden. Revisá la sugerencia antes de confirmar: la marca el sistema leyendo el relato, no reemplaza tu criterio.</div>
         </div>`;
     }
     // Las filas del tercero se arman con la UNION de todos: si el primero no trae
@@ -3726,7 +3780,7 @@ function mostrarRevisionDenuncia(siniestroId, campos, uso) {
         ? `<div style="margin-top:12px;padding:10px;background:var(--bg-card-hover);border-radius:8px;">
              <label style="display:flex;gap:8px;align-items:flex-start;font-size:.85em;cursor:pointer;">
                <input type="checkbox" id="chkObsDenuncia" checked style="margin-top:3px;">
-               <span>Guardar el relato como "Relato de los hechos" de la carta de patrocinio, y anotarlo junto con los danos en la observacion de hoy</span>
+               <span>Guardar el relato como "Relato de los hechos" y los daños como "Partes dañadas" para cuando se genere la carta de patrocinio</span>
              </label>
              <div style="font-size:.8em;color:var(--text-muted);white-space:pre-wrap;margin-top:6px;max-height:120px;overflow:auto;">${esc([relato, danos].filter(Boolean).join('\n\n'))}</div>
            </div>` : '';
@@ -3749,8 +3803,9 @@ function mostrarRevisionDenuncia(siniestroId, campos, uso) {
         </div>
     </div>`;
     document.body.appendChild(ov);
-    // Las filas se armaron con la union; esto las deja mostrando el tercero seleccionado.
-    if (terceros.length) cambiarTerceroDenuncia(0);
+    // Las filas se armaron con la union; esto las deja mostrando el tercero seleccionado
+    // (el sugerido como ultimo de la cadena si el sistema pudo identificarlo).
+    if (terceros.length) cambiarTerceroDenuncia(idxSugerido);
 }
 
 // Redibuja solo las filas del tercero cuando se elige otro del choque en cadena.
@@ -3778,44 +3833,86 @@ function aplicarDenuncia() {
     const s = siniestrosData.find(x => x.id === window.__denunciaSiniestroId);
     if (!s) return;
     let aplicados = 0;
+
+    // Se juntan los campos tildados antes de guardarlos (en vez de escribirlos uno a uno)
+    // para poder normalizarlos contra las listas fijas de los combos en el orden correcto:
+    // provincia antes que partido, partido antes que localidad, tipo antes que marca. Sin
+    // esto el texto de la denuncia queda guardado pero el combo se muestra vacio porque no
+    // coincide letra por letra (mayusculas, acentos, "Cap. Fed." vs "CABA", etc.).
+    const pendientes = {};
     document.querySelectorAll('.chk-denuncia:checked').forEach(chk => {
         const fila = chk.closest('tr');
         if (fila && fila.style.display === 'none') return;
-        s[chk.dataset.campo] = chk.dataset.valor;
+        pendientes[chk.dataset.campo] = chk.dataset.valor;
         aplicados++;
     });
+
+    if ('tipoVehiculo' in pendientes) pendientes.tipoVehiculo = normalizarContraLista(pendientes.tipoVehiculo, TIPOS_VEHICULO);
+    if ('marcaCliente' in pendientes) {
+        const listaMarca = MARCAS_POR_TIPO[pendientes.tipoVehiculo || s.tipoVehiculo] || MARCAS_VEHICULOS;
+        pendientes.marcaCliente = normalizarContraLista(pendientes.marcaCliente, listaMarca);
+    }
+    if ('marcaTercero' in pendientes) pendientes.marcaTercero = normalizarContraLista(pendientes.marcaTercero, MARCAS_VEHICULOS);
+    if ('aseguradoEn' in pendientes) pendientes.aseguradoEn = normalizarCompania(pendientes.aseguradoEn, COMPANIAS_SEGUROS);
+    if ('contra' in pendientes) pendientes.contra = normalizarCompania(pendientes.contra, COMPANIAS_SEGUROS);
+    if ('provinciaCliente' in pendientes) pendientes.provinciaCliente = normalizarContraLista(pendientes.provinciaCliente, PROVINCIAS_AR);
+    if ('provinciaSiniestro' in pendientes) pendientes.provinciaSiniestro = normalizarContraLista(pendientes.provinciaSiniestro, PROVINCIAS_AR);
+    if ('partidoCliente' in pendientes && (pendientes.provinciaCliente || s.provinciaCliente) === 'Buenos Aires') {
+        pendientes.partidoCliente = normalizarContraLista(pendientes.partidoCliente, PARTIDOS_PBA);
+    }
+    if ('partidoSiniestro' in pendientes && (pendientes.provinciaSiniestro || s.provinciaSiniestro) === 'Buenos Aires') {
+        pendientes.partidoSiniestro = normalizarContraLista(pendientes.partidoSiniestro, PARTIDOS_PBA);
+    }
+    if ('localidadCliente' in pendientes) {
+        const prov = pendientes.provinciaCliente || s.provinciaCliente;
+        const part = pendientes.partidoCliente || s.partidoCliente;
+        const lista = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null) : prov === 'CABA' ? BARRIOS_CABA : null;
+        if (lista) pendientes.localidadCliente = normalizarContraLista(pendientes.localidadCliente, lista);
+    }
+    if ('localidadSiniestro' in pendientes) {
+        const prov = pendientes.provinciaSiniestro || s.provinciaSiniestro;
+        const part = pendientes.partidoSiniestro || s.partidoSiniestro;
+        const lista = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null) : prov === 'CABA' ? BARRIOS_CABA : null;
+        if (lista) pendientes.localidadSiniestro = normalizarContraLista(pendientes.localidadSiniestro, lista);
+    }
+
+    Object.entries(pendientes).forEach(([campo, valor]) => { s[campo] = valor; });
 
     const chkObs = document.getElementById('chkObsDenuncia');
     if (chkObs && chkObs.checked) {
         const c = window.__denunciaCampos || {};
         const terceros = window.__denunciaTerceros || [];
-        const partes = [];
-        if (c.relato) partes.push(String(c.relato).trim());
-        if (c.danosCliente) partes.push('DANOS DEL VEHICULO ASEGURADO: ' + String(c.danosCliente).trim());
-        // Los terceros que NO fueron a la ficha se anotan aca para no perderlos.
+        // El relato y los danos van directo a los campos que usa la carta de patrocinio
+        // (antes quedaban solo anotados en el historial y habia que retipearlos a mano).
+        // Se confirma con este checkbox, asi que se pisa lo que hubiera sin preguntar de nuevo.
+        if (c.relato) { s.relatoHechos = String(c.relato).trim(); aplicados++; }
+        if (c.danosCliente) { s.partesDanadas = String(c.danosCliente).trim(); aplicados++; }
+
+        // Los terceros que NO fueron elegidos como principal se guardan estructurados como
+        // vehiculos adicionales de la ficha (choque en cadena), no como texto suelto.
         const elegido = document.querySelector('input[name="terceroElegido"]:checked');
         const idxElegido = elegido ? parseInt(elegido.value, 10) : 0;
         const otros = terceros.filter((_, i) => i !== idxElegido);
         if (otros.length) {
-            partes.push('OTROS VEHICULOS DE LA DENUNCIA:\n' + otros.map(t =>
-                '- ' + [t.nombreTercero, t.dniTercero && 'DNI ' + t.dniTercero, t.dominioTercero,
-                        [t.marcaTercero, t.modeloTercero].filter(Boolean).join(' '),
-                        t.contra && 'Aseg.: ' + t.contra, t.polizaTercero && 'Pol. ' + t.polizaTercero]
-                       .filter(Boolean).join(' · ')).join('\n'));
-        }
-        // El relato tambien va al campo "Relato de los hechos" de la carta de patrocinio,
-        // que hoy se escribe a mano cada vez. Solo si estaba vacio: un relato ya redactado
-        // no se pisa con el texto crudo de la denuncia.
-        if (c.relato && !String(s.relatoHechos || '').trim()) {
-            s.relatoHechos = String(c.relato).trim();
-        }
-        const texto = partes.join('\n\n');
-        if (texto) {
-            s.observaciones = s.observaciones || [];
-            s.observaciones.push({
-                fecha: new Date().toISOString().split('T')[0],
-                texto: texto,
-                proximaRevision: ''
+            s.tercerosAdicionales = s.tercerosAdicionales || [];
+            otros.forEach(t => {
+                s.tercerosAdicionales.push({
+                    nombreTercero: t.nombreTercero || '',
+                    dniTercero: t.dniTercero || '',
+                    conductorTerceroNombre: t.conductorTerceroNombre || '',
+                    conductorTerceroDni: t.conductorTerceroDni || '',
+                    telefonoTercero: t.telefonoTercero || '',
+                    mailTercero: '',
+                    contra: normalizarCompania(t.contra || '', COMPANIAS_SEGUROS),
+                    polizaTercero: t.polizaTercero || '',
+                    tipoVehiculoTercero: '',
+                    marcaTercero: normalizarContraLista(t.marcaTercero || '', MARCAS_VEHICULOS),
+                    modeloTercero: t.modeloTercero || '',
+                    dominioTercero: t.dominioTercero || '',
+                    anoTercero: t.anoTercero || '',
+                    detalleDanos: t.detalleDanos || '',
+                    esUltimoDeLaCadena: !!t.esUltimoDeLaCadena
+                });
             });
             aplicados++;
         }
@@ -4126,7 +4223,13 @@ function showSiniestroModal(id){
 
     <div class="ficha-section ficha-tercero${getFichaOpenClass('sec-tercero', false)}" id="sec-tercero">
         <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${(s.nombreTercero || s.dominioTercero) ? `${s.nombreTercero || 'sin nombre'}${s.dominioTercero ? ` · ${s.dominioTercero}` : ''}` : 'sin datos'}</span></h4>
-        <div class="ficha-body"><div class="info-grid">${renderSection(terceroFields)}</div></div>
+        <div class="ficha-body">
+            <div class="info-grid">${renderSection(terceroFields)}</div>
+            ${renderTercerosAdicionales(s)}
+            <div style="margin-top:10px;">
+                <button type="button" class="btn btn-sm btn-neutral" onclick="agregarTerceroAdicional('${s.id}')">+ Agregar vehículo (choque en cadena)</button>
+            </div>
+        </div>
     </div>
 
     <div class="ficha-section ficha-siniestro${getFichaOpenClass('sec-siniestro', false)}" id="sec-siniestro">
@@ -4516,7 +4619,92 @@ function editField(sid,field,element){
     element.innerHTML='';
     element.appendChild(input);
     input.focus();
-    try { const valLength=input.value.length; input.setSelectionRange(valLength,valLength); } catch(e){} 
+    try { const valLength=input.value.length; input.setSelectionRange(valLength,valLength); } catch(e){}
+}
+
+// ── VEHÍCULOS ADICIONALES (choque en cadena) ──
+// La ficha guarda UN tercero "principal" (a quien se le reclama) en los campos de siempre.
+// Los demás vehículos de un choque en cadena se guardan acá, estructurados, para no
+// perderlos en un texto suelto y para poder pasárselos a la carta de patrocinio.
+const CAMPOS_TERCERO_ADICIONAL = {
+    nombreTercero:'Nombre Tercero (Titular)', dniTercero:'DNI Tercero (Titular)',
+    conductorTerceroNombre:'Conductor Tercero', conductorTerceroDni:'DNI Conductor Tercero',
+    telefonoTercero:'Teléfono Tercero', mailTercero:'Mail Tercero',
+    contra:'Aseguradora Tercero', polizaTercero:'N° Póliza Tercero',
+    tipoVehiculoTercero:'Tipo Vehículo', marcaTercero:'Marca',
+    modeloTercero:'Modelo', dominioTercero:'Dominio', anoTercero:'Año'
+};
+
+function renderTercerosAdicionales(s) {
+    const lista = s.tercerosAdicionales || [];
+    if (!lista.length) return '';
+    return lista.map((t, idx) => {
+        const campos = Object.entries(CAMPOS_TERCERO_ADICIONAL).map(([k, l]) => {
+            const val = t[k] || '<span class="val-empty">—</span>';
+            return `<div class="info-item"><div class="info-label">${l}</div><div class="info-value editable-field" onclick="editTerceroAdicionalField('${s.id}',${idx},'${k}',this)">${val}</div></div>`;
+        }).join('');
+        return `<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border-item);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <strong style="font-size:.82em;">Vehículo adicional ${idx + 1}${t.esUltimoDeLaCadena ? ' <span style="color:var(--warning-color,#c98a1f);">· sugerido: último de la cadena</span>' : ''}</strong>
+                <button type="button" class="btn btn-sm btn-danger" onclick="eliminarTerceroAdicional('${s.id}',${idx})">Quitar</button>
+            </div>
+            <div class="info-grid">${campos}</div>
+        </div>`;
+    }).join('');
+}
+
+function agregarTerceroAdicional(sid) {
+    const s = siniestrosData.find(x => x.id === sid);
+    if (!s) return;
+    s.tercerosAdicionales = s.tercerosAdicionales || [];
+    s.tercerosAdicionales.push({
+        nombreTercero:'', dniTercero:'', conductorTerceroNombre:'', conductorTerceroDni:'',
+        telefonoTercero:'', mailTercero:'', contra:'', polizaTercero:'',
+        tipoVehiculoTercero:'', marcaTercero:'', modeloTercero:'', dominioTercero:'', anoTercero:'',
+        detalleDanos:'', esUltimoDeLaCadena:false
+    });
+    saveData();
+    showSiniestroModal(sid);
+}
+
+function eliminarTerceroAdicional(sid, idx) {
+    const s = siniestrosData.find(x => x.id === sid);
+    if (!s || !s.tercerosAdicionales) return;
+    if (!confirm('¿Quitar este vehículo adicional de la ficha?')) return;
+    s.tercerosAdicionales.splice(idx, 1);
+    saveData();
+    showSiniestroModal(sid);
+}
+
+function editTerceroAdicionalField(sid, idx, field, element) {
+    if (editingField || editingTerceroAdicionalIdx !== null) return;
+    const s = siniestrosData.find(x => x.id === sid);
+    const t = s && (s.tercerosAdicionales || [])[idx];
+    if (!t) return;
+    editingSiniestroId = sid;
+    editingField = field;
+    editingTerceroAdicionalIdx = idx;
+
+    const input = document.createElement('input');
+    input.type = /dni/i.test(field) ? 'number' : /mail/i.test(field) ? 'email' : 'text';
+    input.value = t[field] || '';
+    input.className = 'ficha-select';
+    input.style.cssText = 'width:100%;font-size:0.85em;padding:2px;';
+    if (/marca/i.test(field)) input.setAttribute('list', 'marcasVehiculosList');
+
+    const save = () => {
+        const s2 = siniestrosData.find(x => x.id === sid);
+        const t2 = s2 && (s2.tercerosAdicionales || [])[idx];
+        if (t2) { t2[field] = input.value; saveData(); }
+        editingSiniestroId = null; editingField = null; editingTerceroAdicionalIdx = null;
+        showSiniestroModal(sid);
+    };
+    input.addEventListener('blur', save);
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+
+    element.innerHTML = '';
+    element.appendChild(input);
+    input.focus();
 }
 
 function onCompaniaSelectChange(sid, selectId, otrosId, field, otrosField) {
@@ -4567,8 +4755,10 @@ function onTipoVehChange(sid, tipoField, marcaField, tipoId, marcaId, modeloId, 
     const modeloSel = document.getElementById(modeloId);
     const modeloLibre = document.getElementById(modeloLibreId);
     if (!marcaSel) return;
-    // Guardar tipo
+    // Si el tipo no cambio de verdad, no borrar la marca ya cargada.
     const s = siniestrosData.find(x => x.id === sid);
+    if (s && (s[tipoField] || '') === tipo) return;
+    // Guardar tipo
     if (s) { s[tipoField] = tipo; s[marcaField] = ''; saveData(); }
     // Actualizar lista de marcas
     const marcas = getMarcasPorTipo(tipo);
@@ -4584,6 +4774,8 @@ function onMarcaVehChange(sid, marcaField, modeloField, marcaId, modeloId, model
     const modeloSel = document.getElementById(modeloId);
     const modeloLibre = document.getElementById(modeloLibreId);
     const s = siniestrosData.find(x => x.id === sid);
+    // Si la marca no cambio de verdad, no borrar el modelo ya cargado.
+    if (s && (s[marcaField] || '') === marca) return;
     if (s) { s[marcaField] = marca; s[modeloField] = ''; saveData(); }
     const modelos = getModelosPorMarca(marca);
     if (modelos && marca && marca !== 'OTRAS') {
@@ -4763,7 +4955,7 @@ function startLetterGeneration(siniestroId) {
             <div class="info-grid"> 
                 <div class="form-group"><label>Lugar de Emisión</label><input type="text" id="letterLugar" value="Bernal" required></div> 
                 <div class="form-group"><label>Aseguradora del TERCERO</label><input type="text" id="letterDestinatario" value="${s.contra || ''}" required></div> 
-                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" placeholder="Calle, N°, Localidad" required></div> 
+                <div class="form-group"><label>Domicilio Aseguradora</label><input type="text" id="letterDestinatarioDom" value="Dpto. de Siniestros" placeholder="Calle, N°, Localidad" required></div>
                 <div class="form-group"><label>Género de TU CLIENTE</label><select id="letterGeneroCliente"><option value="Masculino" ${isMasculino}>Sr. (Masculino)</option><option value="Femenino" ${isFemenino}>Sra. (Femenino)</option><option value="Otro" ${isOtro}>Otro</option></select></div> 
                 <div class="form-group"><label>N° Póliza de TU CLIENTE</label><input type="text" id="letterPolizaCliente" value="${s.polizaCliente || ''}" placeholder="Ej: 123456789" required></div> 
                 <div class="form-group"><label>Aseguradora de TU CLIENTE</label><input type="text" id="letterAseguradoraCliente" value="${s.aseguradoEn || ''}" required></div> 
@@ -4771,7 +4963,7 @@ function startLetterGeneration(siniestroId) {
                 <div class="form-group"><label>Hora del Siniestro</label><input type="time" id="letterHoraSiniestro" value="${s.horaSiniestro || ''}" required></div> 
                 <div class="form-group"><label>Lugar del Siniestro</label><input type="text" id="letterLugarSiniestro" value="${[s.lugarSiniestro, s.localidadSiniestro, (s.partidoSiniestro && s.partidoSiniestro !== s.localidadSiniestro) ? 'Partido de ' + s.partidoSiniestro : '', s.provinciaSiniestro].filter(Boolean).join(', ')}" placeholder="Ej: Av. Mitre esq. 9 de Julio" required></div> 
                 <div class="form-group"><label>Vehículo de TU CLIENTE</label><input type="text" id="letterVehiculoCliente" value="${vehiculoClienteString}" placeholder="Marca, Modelo, Año, Dominio" required></div> 
-                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" placeholder="Ej: paragolpes trasero, faro" required></div> 
+                <div class="form-group"><label>Partes dañadas (Cliente)</label><input type="text" id="letterPartesDanadas" value="${(s.partesDanadas || '').replace(/"/g, '&quot;')}" placeholder="Ej: paragolpes trasero, faro" required></div>
                 <div class="form-group"><label>Nombre del TERCERO</label><input type="text" id="letterNombreTercero" value="${s.nombreTercero || ''}" required></div> 
                 <div class="form-group"><label>Vehículo del TERCERO</label><input type="text" id="letterVehiculoTercero" value="${vehiculoTerceroString}" placeholder="Marca, Modelo, Año, Dominio"></div> 
             </div> 
@@ -4870,6 +5062,9 @@ async function processLetterData(event,siniestroId){
         partesDanadas:document.getElementById('letterPartesDanadas').value,
         nombreTercero:document.getElementById('letterNombreTercero').value,
         vehiculoTercero:document.getElementById('letterVehiculoTercero').value,
+        // Otros vehiculos del choque en cadena (no son el destinatario del reclamo, pero la
+        // IA los usa como contexto para que el relato de los hechos sea fiel a la dinamica real).
+        tercerosAdicionales: s.tercerosAdicionales || [],
         relato:relatoOriginal, // Relato con info del conductor incrustada si aplica
         franquiciaActiva: s.franquicia === 'Sí' || s.franquicia === 'Si' || s.franquicia === 'SI',
         montoFranquicia: s.presupuesto || 0,
