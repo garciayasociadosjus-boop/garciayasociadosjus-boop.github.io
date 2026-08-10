@@ -3473,25 +3473,75 @@ function addNewSiniestro(e){
     }, 300);
 }
 
+// El alta delega en la misma funcion que el resto. Antes habia dos copias de la misma
+// logica —una para crear y otra para actualizar— y era cuestion de tiempo que quedaran
+// distintas: de hecho ya diferian en el mes de servicio que asignaban.
 function enviarSiniestroAAbonos(s) {
+    actualizarAbonosDesdeSiniestro(s);
+}
+
+// Mantiene el abono del siniestro al dia. Crea el que falte y actualiza el que exista.
+//
+// Antes esto SOLO actualizaba: si el siniestro no tenia abono —los 181 anteriores a que
+// existiera este envio automatico— marcar FINALIZADA no hacia absolutamente nada, sin
+// ningun aviso. Ahora, si no lo encuentra, lo crea con el estado y el importe correctos.
+const MAP_ESTADO_ABONO = {
+    'SIN INICIAR':    'Pendiente',
+    'EJECUCION':      'Pendiente',
+    'MEDIACIONES':    'Pendiente',
+    'DEMORADA':       'Pendiente',
+    'FINALIZADA P':   'Pendiente',   // parcial: todavia hay algo por cobrar
+    'FINALIZADA':     'Terminado',
+    'RECHAZADO':      'Terminado',
+};
+
+function actualizarAbonosDesdeSiniestro(s, opciones) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-    setTimeout(() => {
-        try {
-            const db = firebase.database();
-            const abonosRef = db.ref('planilla_abonos');
-            const mapEstado = {
-                'SIN INICIAR':    'Pendiente',
-                'EJECUCION':      'Pendiente',
-                'MEDIACIONES':    'Pendiente',
-                'DEMORADA':       'Pendiente',
-                'FINALIZADA P':   'Pendiente',
-                'FINALIZADA':     'Terminado',
-                'RECHAZADO':      'Terminado',
-            };
-            const fechaCreacion = s.fechaCreacion || new Date().toISOString().substring(0,10);
-            const fechaObj = new Date(fechaCreacion + 'T00:00:00');
-            const mesServicio = { month: fechaObj.getMonth(), year: fechaObj.getFullYear() };
-            const nuevoAbono = {
+    const silencioso = !!(opciones && opciones.silencioso);
+    try {
+        const db = firebase.database();
+        db.ref('planilla_abonos').once('value', snapshot => {
+            const abonos = snapshot.val();
+            if (!Array.isArray(abonos)) {
+                console.error('planilla_abonos no es un array; no se toca nada.');
+                return;
+            }
+            const honorarios = parseFloat(s.honorarios);
+            const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
+
+            // TODAS las copias, no solo la primera. El arrastre mensual crea una copia por
+            // mes mientras el honorario siga sin cobrarse: si solo se actualizara una, el mes
+            // que uno esta mirando podria quedar en Pendiente para siempre y el "por cobrar"
+            // de los meses viejos seguiria sumando una deuda que ya se cerro.
+            const indices = [];
+            abonos.forEach((a, i) => { if (a && a.siniestroId === s.id) indices.push(i); });
+
+            if (indices.length) {
+                const updates = {};
+                indices.forEach(i => {
+                    updates['planilla_abonos/' + i + '/estado'] = MAP_ESTADO_ABONO[s.estado] || abonos[i].estado;
+                    if (tieneHonorarios) {
+                        updates['planilla_abonos/' + i + '/monto'] = honorarios;
+                        updates['planilla_abonos/' + i + '/montoBase'] = honorarios;
+                    }
+                    updates['planilla_abonos/' + i + '/expediente'] = 'SINIESTROS';
+                    if (s.dni) updates['planilla_abonos/' + i + '/dniCliente'] = s.dni;
+                    if (s.celular) updates['planilla_abonos/' + i + '/telefono'] = s.celular;
+                });
+                db.ref().update(updates)
+                    .then(() => { if (!silencioso) updateDataStatus(
+                        indices.length > 1
+                            ? '✅ Abono actualizado en ' + indices.length + ' meses.'
+                            : '✅ Abono actualizado automáticamente.'); })
+                    .catch(err => console.error('No se pudo actualizar el abono:', err));
+                return;
+            }
+
+            // No existia: se crea. El mes de servicio es el ACTUAL y no el de creacion del
+            // siniestro, porque la planilla de abonos filtra por mes: un honorario que se
+            // devenga hoy, puesto en el mes en que se abrio la causa, quedaria invisible.
+            const hoy = new Date();
+            const nuevo = {
                 id: 'SIN_' + s.id,
                 siniestroId: s.id,
                 cliente: s.cliente || '',
@@ -3503,78 +3553,22 @@ function enviarSiniestroAAbonos(s) {
                 respuestaCliente: '',
                 escalarACamila: false,
                 tipo: 'Honorarios Siniestro',
-                monto: parseFloat(s.honorarios) || 0,
-                montoBase: parseFloat(s.honorarios) || 0,
+                monto: tieneHonorarios ? honorarios : 0,
+                montoBase: tieneHonorarios ? honorarios : 0,
                 deudaAcumulada: 0,
                 montoPagado: '',
                 fechaPago: '',
-                estado: mapEstado[s.estado] || 'Ejecución de Honorarios',
-                observaciones: `Generado automáticamente desde Siniestros. Reclamo: ${s.numeroReclamo||'S/N'}. Aseguradora: ${s.contra||'S/N'}.`,
+                estado: MAP_ESTADO_ABONO[s.estado] || 'Pendiente',
+                observaciones: 'Generado desde Siniestros. Reclamo: ' + (s.numeroReclamo || 'S/N') + '. Aseguradora: ' + (s.contra || 'S/N') + '.',
                 observacionesAuto: '',
-                mesServicio: mesServicio,
+                mesServicio: { month: hoy.getMonth(), year: hoy.getFullYear() },
                 origenSiniestro: true
             };
-
-            // Leer solo el tamaño actual y escribir en el índice siguiente
-            abonosRef.once('value', snapshot => {
-                const abonos = snapshot.val();
-                const lista = Array.isArray(abonos) ? abonos : [];
-                const yaExiste = lista.some(a => a && a.siniestroId === s.id);
-                if (yaExiste) {
-                    console.log('Abono ya existe para:', s.id);
-                    return;
-                }
-                // Escribir directamente en el índice siguiente sin tocar el resto
-                const nuevoIndice = lista.length;
-                db.ref(`planilla_abonos/${nuevoIndice}`).set(nuevoAbono).then(() => {
-                    updateDataStatus('✅ Siniestro enviado a Planilla de Abonos automáticamente.');
-                    console.log('Abono creado en índice', nuevoIndice, 'para:', s.cliente);
-                }).catch(err => {
-                    console.error('Error al enviar a abonos:', err);
-                });
-            });
-        } catch(e) {
-            console.error('Error en enviarSiniestroAAbonos:', e);
-        }
-    }, 2000);
-}
-
-function actualizarAbonosDesdeSiniestro(s) {
-    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-    try {
-        const db = firebase.database();
-        const abonosRef = db.ref('planilla_abonos');
-        const mapEstado = {
-            'SIN INICIAR':    'Pendiente',
-            'EJECUCION':      'Pendiente',
-            'MEDIACIONES':    'Pendiente',
-            'DEMORADA':       'Pendiente',
-            'FINALIZADA P':   'Pendiente',
-            'FINALIZADA':     'Terminado',
-            'RECHAZADO':      'Terminado',
-        };
-        abonosRef.once('value', snapshot => {
-            const abonos = snapshot.val();
-            if (!Array.isArray(abonos)) return;
-            abonos.forEach((a, i) => {
-                if (a && a.siniestroId === s.id) {
-                    const updates = {};
-                    updates[`planilla_abonos/${i}/estado`] = mapEstado[s.estado] || a.estado;
-                    if (s.honorarios !== undefined && s.honorarios !== '') {
-                        updates[`planilla_abonos/${i}/monto`] = parseFloat(s.honorarios) || 0;
-                        updates[`planilla_abonos/${i}/montoBase`] = parseFloat(s.honorarios) || 0;
-                    }
-                    // Mantener expediente como SINIESTROS, actualizar DNI y teléfono
-                    updates[`planilla_abonos/${i}/expediente`] = 'SINIESTROS';
-                    if (s.dni) updates[`planilla_abonos/${i}/dniCliente`] = s.dni;
-                    if (s.celular) updates[`planilla_abonos/${i}/telefono`] = s.celular;
-                    db.ref().update(updates).then(() => {
-                        updateDataStatus('✅ Abono actualizado automáticamente.');
-                    });
-                }
-            });
+            db.ref('planilla_abonos/' + abonos.length).set(nuevo)
+                .then(() => { if (!silencioso) updateDataStatus('✅ Abono creado en la planilla de abonos.'); })
+                .catch(err => console.error('No se pudo crear el abono:', err));
         });
-    } catch(e) {
+    } catch (e) {
         console.error('Error en actualizarAbonosDesdeSiniestro:', e);
     }
 }
