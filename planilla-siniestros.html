@@ -3001,36 +3001,188 @@ function geoFieldsForPref(pref) {
     return { prov:`provincia_${pref}`, part:`partido_${pref}`, loc:`localidad_${pref}` };
 }
 
-// Compara ignorando mayusculas/acentos: el texto que lee la IA de una denuncia rara vez
-// coincide letra por letra con las listas fijas de los combos ("Cap. Fed." vs "CABA"),
-// y eso hacia que el dato se guardara bien pero el select se mostrara vacio.
+// ══════════════════════════════════════════════════════════════════════════
+// NORMALIZACION DE LO QUE SE LEE DE UNA DENUNCIA CONTRA LAS LISTAS DE LA FICHA
+// ══════════════════════════════════════════════════════════════════════════
+// El texto de una denuncia casi nunca coincide letra por letra con las listas fijas de
+// los combos, y un select solo se muestra seleccionado si el valor coincide EXACTO. Por
+// eso el dato quedaba guardado pero el desplegable se veia vacio.
+//
+// El caso mas duro es el tipo de vehiculo: la denuncia dice "SEDAN", "PICK UP" o
+// "FURGON", que no estan ni pueden estar en la lista de la ficha (Auto / Camioneta,
+// Moto, Acoplado / Camión). Ninguna comparacion de texto lo iba a resolver: el tipo hay
+// que DEDUCIRLO de la marca, buscandola en los catalogos por tipo.
+
 function normalizarTexto(v) {
-    return String(v == null ? '' : v).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    // ̀-ͯ = marcas de acento sueltas que deja normalize('NFD'). Escapadas a
+    // proposito: escritas como caracteres literales se rompen si el archivo se recodifica.
+    return String(v == null ? '' : v).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+// Deja solo letras y numeros: "Mercedes-Benz" y "MERCEDES BENZ" caen en la misma clave.
+function claveTexto(v) {
+    return normalizarTexto(v).replace(/[^a-z0-9]/g, '');
 }
 function normalizarContraLista(valor, lista) {
     const v = String(valor == null ? '' : valor).trim();
     if (!v || !lista || !lista.length) return v;
-    const norm = normalizarTexto(v);
-    const match = lista.find(op => normalizarTexto(op) === norm);
+    const clave = claveTexto(v);
+    const match = lista.find(op => claveTexto(op) === clave);
     return match || v;
 }
-// Para compañías de seguros: la denuncia casi nunca trae la razón social completa
-// ("RIVADAVIA" o "Rivadavia Seguros" en vez de "Rivadavia Cooperativa de Seguros
-// Limitada"), asi que ademas del match exacto se prueba si una contiene a la otra.
+
+// ── COMPANIAS DE SEGUROS ──
+// La lista de la ficha usa razones sociales completas ("Rivadavia Cooperativa de Seguros
+// Limitada") y la denuncia trae "RIVADAVIA" o "Rivadavia Coop. de Seguros Ltda.". Comparar
+// el texto entero no sirve: se comparan las palabras DISTINTIVAS, descartando las que
+// aparecen en casi todas las companias y no identifican a ninguna.
+const PALABRAS_GENERICAS_CIA = ['compania','companias','seguros','seguro','aseguradora','argentina',
+    'argentino','sa','sau','srl','s','a','de','del','la','el','los','las','cooperativa','coop',
+    'limitada','ltda','sociedad','anonima','mutua','generales','general','grupo','y','cia'];
+function tokensDistintivos(txt) {
+    return normalizarTexto(txt).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+        .filter(w => w && PALABRAS_GENERICAS_CIA.indexOf(w) === -1);
+}
 function normalizarCompania(valor, lista) {
     const v = String(valor == null ? '' : valor).trim();
     if (!v || !lista || !lista.length) return v;
-    const norm = normalizarTexto(v);
     const candidatos = lista.filter(op => op !== 'OTRAS');
-    let match = candidatos.find(op => normalizarTexto(op) === norm);
-    if (match) return match;
-    if (norm.length >= 4) {
-        match = candidatos.find(op => {
-            const opNorm = normalizarTexto(op);
-            return opNorm.startsWith(norm) || norm.startsWith(opNorm) || opNorm.includes(norm) || norm.includes(opNorm);
+    const clave = claveTexto(v);
+    const exacto = candidatos.find(op => claveTexto(op) === clave);
+    if (exacto) return exacto;
+    const tv = tokensDistintivos(v);
+    if (!tv.length) return v;
+    let mejor = null, mejorPuntaje = 0;
+    candidatos.forEach(op => {
+        const to = tokensDistintivos(op);
+        if (!to.length) return;
+        // La palabra igual vale mas que la que solo comparte el arranque. Sin esta
+        // diferencia "SANCOR SEGUROS" se iba a "San Cristobal" (sancor empieza con san)
+        // porque ambas puntuaban 1 y ganaba la primera de la lista.
+        let puntaje = 0;
+        tv.forEach(w => {
+            if (to.some(o => o === w)) puntaje += 2;
+            else if (w.length >= 4 && to.some(o => o.startsWith(w) || w.startsWith(o))) puntaje += 1;
+        });
+        if (puntaje > mejorPuntaje) { mejorPuntaje = puntaje; mejor = op; }
+    });
+    return mejorPuntaje > 0 ? mejor : v;
+}
+
+// ── VEHICULO: TIPO → MARCA → MODELO → VERSION ──
+// Abreviaturas que la ficha no puede adivinar sola.
+const ALIAS_MARCAS = { 'vw':'Volkswagen', 'mb':'Mercedes-Benz', 'gm':'Chevrolet', 'hd':'Harley-Davidson' };
+
+// El tipo que trae la denuncia ("SEDAN", "PICK UP") no sirve como valor, pero si sirve
+// como PISTA para desempatar marcas que existen en varios catalogos (Honda, BMW, Ford,
+// Suzuki, Volvo y Mercedes-Benz estan en autos y tambien en motos o camiones).
+function tipoDesdeTexto(txt) {
+    const t = normalizarTexto(txt);
+    if (!t) return null;
+    if (/(motocicleta|ciclomotor|scooter|cuatriciclo|triciclo|\bmoto\b)/.test(t)) return 'Moto';
+    if (/(camion|acoplado|semirremolque|remolque|tractor|chasis|colectivo|omnibus|\bmicro\b)/.test(t)) return 'Acoplado / Camión';
+    if (/(auto|automovil|sedan|pick ?up|camioneta|furgon|utilitario|\bsuv\b|coupe|hatchback|familiar|rural|monovolumen|\bvan\b|berlina)/.test(t)) return 'Auto / Camioneta';
+    return null;
+}
+
+// Busca la marca en los catalogos por tipo y devuelve {tipo, marca} con los valores
+// EXACTOS de las listas, que es lo unico que los selects aceptan como seleccionado.
+function buscarMarcaEnCatalogo(marcaLeida, textoTipo) {
+    const v = String(marcaLeida == null ? '' : marcaLeida).trim();
+    if (!v) return null;
+    const clave = claveTexto(v);
+    if (!clave) return null;
+    const alias = ALIAS_MARCAS[clave];
+    const claveBuscada = alias ? claveTexto(alias) : clave;
+    // Se busca primero en el tipo que sugiere la denuncia; si no hay pista, autos primero
+    // por ser el caso mas frecuente del estudio.
+    const preferido = tipoDesdeTexto(textoTipo);
+    const orden = preferido
+        ? [preferido].concat(TIPOS_VEHICULO.filter(t => t !== preferido))
+        : TIPOS_VEHICULO.slice();
+    for (const tipo of orden) {
+        const lista = (MARCAS_POR_TIPO[tipo] || []).filter(m => m !== 'OTRAS');
+        const exacto = lista.find(m => claveTexto(m) === claveBuscada);
+        if (exacto) return { tipo: tipo, marca: exacto };
+    }
+    for (const tipo of orden) {
+        const lista = (MARCAS_POR_TIPO[tipo] || []).filter(m => m !== 'OTRAS');
+        const parcial = lista.find(m => {
+            const cm = claveTexto(m);
+            return cm.length >= 4 && claveBuscada.length >= 4 &&
+                   (cm.startsWith(claveBuscada) || claveBuscada.startsWith(cm));
+        });
+        if (parcial) return { tipo: tipo, marca: parcial };
+    }
+    return null;
+}
+
+// La denuncia mete modelo y version en un solo campo ("PARTNER 1.6 HDI"). El modelo tiene
+// que quedar exacto para que el select lo tome; lo que sobra va a Version, que es libre.
+function separarModeloVersion(modeloLeido, marca) {
+    const crudo = String(modeloLeido == null ? '' : modeloLeido).trim();
+    if (!crudo) return { modelo: '', version: '' };
+    const lista = (getModelosPorMarca(marca) || []).filter(m => m !== 'OTRA');
+    if (!lista.length) return { modelo: crudo, version: '' };
+    const palabras = crudo.split(/\s+/);
+    // De la frase mas larga a la mas corta: "Grand Cherokee" antes que "Grand".
+    for (let n = Math.min(palabras.length, 4); n >= 1; n--) {
+        const intento = claveTexto(palabras.slice(0, n).join(' '));
+        if (!intento) continue;
+        const match = lista.find(m => claveTexto(m) === intento);
+        if (match) return { modelo: match, version: palabras.slice(n).join(' ').trim() };
+    }
+    return { modelo: crudo, version: '' };
+}
+
+// Normaliza un juego de campos de vehiculo (sirve igual para el cliente y para un tercero).
+function normalizarVehiculo(fuente, campos) {
+    const hallazgo = buscarMarcaEnCatalogo(fuente[campos.marca], fuente[campos.tipo]);
+    if (hallazgo) {
+        fuente[campos.tipo] = hallazgo.tipo;
+        fuente[campos.marca] = hallazgo.marca;
+        const partes = separarModeloVersion(fuente[campos.modelo], hallazgo.marca);
+        fuente[campos.modelo] = partes.modelo;
+        // Solo se pisa la version si el modelo traia detalle pegado; si no, se deja lo que haya.
+        if (partes.version) fuente[campos.version] = partes.version;
+    } else {
+        // Sin marca reconocida no se puede deducir el tipo; se deja al menos el tipo si el
+        // texto de la denuncia alcanza para clasificarlo (una moto sin marca en la lista).
+        const tipo = tipoDesdeTexto(fuente[campos.tipo]);
+        if (tipo) fuente[campos.tipo] = tipo;
+        else if (fuente[campos.tipo]) fuente[campos.tipo] = '';
+    }
+}
+
+// Punto unico de normalizacion: se corre ANTES de mostrar la pantalla de revision, para
+// que lo que se ve tildado sea exactamente lo que va a quedar guardado en la ficha.
+function normalizarCamposDenuncia(campos, s) {
+    const c = Object.assign({}, campos);
+
+    normalizarVehiculo(c, { tipo:'tipoVehiculo', marca:'marcaCliente', modelo:'modeloCliente', version:'versionCliente' });
+
+    c.aseguradoEn = normalizarCompania(c.aseguradoEn, COMPANIAS_SEGUROS);
+
+    // Ubicacion: el orden importa, la lista de localidades depende del partido elegido.
+    ['Cliente', 'Siniestro'].forEach(suf => {
+        const kProv = 'provincia' + suf, kPart = 'partido' + suf, kLoc = 'localidad' + suf;
+        if (c[kProv]) c[kProv] = normalizarContraLista(c[kProv], PROVINCIAS_AR);
+        const prov = c[kProv] || (s ? s[kProv] : '');
+        if (c[kPart] && prov === 'Buenos Aires') c[kPart] = normalizarContraLista(c[kPart], PARTIDOS_PBA);
+        const part = c[kPart] || (s ? s[kPart] : '');
+        const listaLoc = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null)
+                       : prov === 'CABA' ? BARRIOS_CABA : null;
+        if (c[kLoc] && listaLoc) c[kLoc] = normalizarContraLista(c[kLoc], listaLoc);
+    });
+
+    if (Array.isArray(c.terceros)) {
+        c.terceros = c.terceros.map(t => {
+            const nt = Object.assign({}, t);
+            normalizarVehiculo(nt, { tipo:'tipoVehiculoTercero', marca:'marcaTercero', modelo:'modeloTercero', version:'versionTercero' });
+            nt.contra = normalizarCompania(nt.contra, COMPANIAS_SEGUROS);
+            return nt;
         });
     }
-    return match || v;
+    return c;
 }
 
 // Helpers para el formulario de NUEVO siniestro
@@ -3646,6 +3798,7 @@ const CAMPOS_DENUNCIA_CLIENTE = {
     aseguradoEn: 'Aseguradora cliente', polizaCliente: 'Poliza cliente',
     tipoVehiculo: 'Tipo vehiculo', marcaCliente: 'Marca', modeloCliente: 'Modelo',
     dominioCliente: 'Dominio', anoCliente: 'Anio', colorVehiculo: 'Color',
+    versionCliente: 'Version / detalle',
     chasis: 'N° chasis', motor: 'N° motor'
 };
 const CAMPOS_DENUNCIA_SINIESTRO = {
@@ -3659,8 +3812,10 @@ const CAMPOS_DENUNCIA_TERCERO = {
     nombreTercero: 'Nombre tercero', dniTercero: 'DNI tercero',
     conductorTerceroNombre: 'Conductor tercero', conductorTerceroDni: 'DNI conductor tercero',
     telefonoTercero: 'Telefono tercero', contra: 'Aseguradora tercero',
-    polizaTercero: 'N° poliza tercero', marcaTercero: 'Marca tercero',
-    modeloTercero: 'Modelo tercero', dominioTercero: 'Dominio tercero',
+    polizaTercero: 'N° poliza tercero', tipoVehiculoTercero: 'Tipo vehiculo tercero',
+    marcaTercero: 'Marca tercero',
+    modeloTercero: 'Modelo tercero', versionTercero: 'Version / detalle tercero',
+    dominioTercero: 'Dominio tercero',
     anoTercero: 'Anio tercero'
 };
 
@@ -3706,6 +3861,10 @@ function leerDenunciaPDF(siniestroId, btn) {
 function mostrarRevisionDenuncia(siniestroId, campos, uso) {
     const s = siniestrosData.find(x => x.id === siniestroId);
     if (!s) return;
+    // Se normaliza ANTES de armar la pantalla: asi lo que se revisa y tilda es exactamente
+    // el valor que va a quedar guardado, ya convertido a las opciones de los desplegables
+    // ("SEDAN" + "PEUGEOT" se convierten en tipo "Auto / Camioneta" + marca "Peugeot").
+    campos = normalizarCamposDenuncia(campos, s);
     const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     // Una fila por campo que la denuncia trajo con algo. Los que la ficha ya tiene
@@ -3834,49 +3993,15 @@ function aplicarDenuncia() {
     if (!s) return;
     let aplicados = 0;
 
-    // Se juntan los campos tildados antes de guardarlos (en vez de escribirlos uno a uno)
-    // para poder normalizarlos contra las listas fijas de los combos en el orden correcto:
-    // provincia antes que partido, partido antes que localidad, tipo antes que marca. Sin
-    // esto el texto de la denuncia queda guardado pero el combo se muestra vacio porque no
-    // coincide letra por letra (mayusculas, acentos, "Cap. Fed." vs "CABA", etc.).
-    const pendientes = {};
+    // Los valores ya vienen normalizados desde mostrarRevisionDenuncia (convertidos a las
+    // opciones exactas de los desplegables), asi que aca solo se copian tal cual: lo que se
+    // reviso y tildo en pantalla es literalmente lo que se guarda.
     document.querySelectorAll('.chk-denuncia:checked').forEach(chk => {
         const fila = chk.closest('tr');
         if (fila && fila.style.display === 'none') return;
-        pendientes[chk.dataset.campo] = chk.dataset.valor;
+        s[chk.dataset.campo] = chk.dataset.valor;
         aplicados++;
     });
-
-    if ('tipoVehiculo' in pendientes) pendientes.tipoVehiculo = normalizarContraLista(pendientes.tipoVehiculo, TIPOS_VEHICULO);
-    if ('marcaCliente' in pendientes) {
-        const listaMarca = MARCAS_POR_TIPO[pendientes.tipoVehiculo || s.tipoVehiculo] || MARCAS_VEHICULOS;
-        pendientes.marcaCliente = normalizarContraLista(pendientes.marcaCliente, listaMarca);
-    }
-    if ('marcaTercero' in pendientes) pendientes.marcaTercero = normalizarContraLista(pendientes.marcaTercero, MARCAS_VEHICULOS);
-    if ('aseguradoEn' in pendientes) pendientes.aseguradoEn = normalizarCompania(pendientes.aseguradoEn, COMPANIAS_SEGUROS);
-    if ('contra' in pendientes) pendientes.contra = normalizarCompania(pendientes.contra, COMPANIAS_SEGUROS);
-    if ('provinciaCliente' in pendientes) pendientes.provinciaCliente = normalizarContraLista(pendientes.provinciaCliente, PROVINCIAS_AR);
-    if ('provinciaSiniestro' in pendientes) pendientes.provinciaSiniestro = normalizarContraLista(pendientes.provinciaSiniestro, PROVINCIAS_AR);
-    if ('partidoCliente' in pendientes && (pendientes.provinciaCliente || s.provinciaCliente) === 'Buenos Aires') {
-        pendientes.partidoCliente = normalizarContraLista(pendientes.partidoCliente, PARTIDOS_PBA);
-    }
-    if ('partidoSiniestro' in pendientes && (pendientes.provinciaSiniestro || s.provinciaSiniestro) === 'Buenos Aires') {
-        pendientes.partidoSiniestro = normalizarContraLista(pendientes.partidoSiniestro, PARTIDOS_PBA);
-    }
-    if ('localidadCliente' in pendientes) {
-        const prov = pendientes.provinciaCliente || s.provinciaCliente;
-        const part = pendientes.partidoCliente || s.partidoCliente;
-        const lista = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null) : prov === 'CABA' ? BARRIOS_CABA : null;
-        if (lista) pendientes.localidadCliente = normalizarContraLista(pendientes.localidadCliente, lista);
-    }
-    if ('localidadSiniestro' in pendientes) {
-        const prov = pendientes.provinciaSiniestro || s.provinciaSiniestro;
-        const part = pendientes.partidoSiniestro || s.partidoSiniestro;
-        const lista = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null) : prov === 'CABA' ? BARRIOS_CABA : null;
-        if (lista) pendientes.localidadSiniestro = normalizarContraLista(pendientes.localidadSiniestro, lista);
-    }
-
-    Object.entries(pendientes).forEach(([campo, valor]) => { s[campo] = valor; });
 
     const chkObs = document.getElementById('chkObsDenuncia');
     if (chkObs && chkObs.checked) {
@@ -3903,11 +4028,13 @@ function aplicarDenuncia() {
                     conductorTerceroDni: t.conductorTerceroDni || '',
                     telefonoTercero: t.telefonoTercero || '',
                     mailTercero: '',
-                    contra: normalizarCompania(t.contra || '', COMPANIAS_SEGUROS),
+                    // t ya viene normalizado desde mostrarRevisionDenuncia.
+                    contra: t.contra || '',
                     polizaTercero: t.polizaTercero || '',
-                    tipoVehiculoTercero: '',
-                    marcaTercero: normalizarContraLista(t.marcaTercero || '', MARCAS_VEHICULOS),
+                    tipoVehiculoTercero: t.tipoVehiculoTercero || '',
+                    marcaTercero: t.marcaTercero || '',
                     modeloTercero: t.modeloTercero || '',
+                    versionTercero: t.versionTercero || '',
                     dominioTercero: t.dominioTercero || '',
                     anoTercero: t.anoTercero || '',
                     detalleDanos: t.detalleDanos || '',
@@ -4632,7 +4759,8 @@ const CAMPOS_TERCERO_ADICIONAL = {
     telefonoTercero:'Teléfono Tercero', mailTercero:'Mail Tercero',
     contra:'Aseguradora Tercero', polizaTercero:'N° Póliza Tercero',
     tipoVehiculoTercero:'Tipo Vehículo', marcaTercero:'Marca',
-    modeloTercero:'Modelo', dominioTercero:'Dominio', anoTercero:'Año'
+    modeloTercero:'Modelo', versionTercero:'Versión / Detalle',
+    dominioTercero:'Dominio', anoTercero:'Año'
 };
 
 function renderTercerosAdicionales(s) {
@@ -4660,7 +4788,8 @@ function agregarTerceroAdicional(sid) {
     s.tercerosAdicionales.push({
         nombreTercero:'', dniTercero:'', conductorTerceroNombre:'', conductorTerceroDni:'',
         telefonoTercero:'', mailTercero:'', contra:'', polizaTercero:'',
-        tipoVehiculoTercero:'', marcaTercero:'', modeloTercero:'', dominioTercero:'', anoTercero:'',
+        tipoVehiculoTercero:'', marcaTercero:'', modeloTercero:'', versionTercero:'',
+        dominioTercero:'', anoTercero:'',
         detalleDanos:'', esUltimoDeLaCadena:false
     });
     saveData();
