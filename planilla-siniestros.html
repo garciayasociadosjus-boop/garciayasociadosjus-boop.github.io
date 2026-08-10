@@ -3153,6 +3153,55 @@ function normalizarVehiculo(fuente, campos) {
     }
 }
 
+// ── UBICACION: PROVINCIA → PARTIDO → LOCALIDAD ──
+// La denuncia casi nunca escribe la provincia ni el partido: pone la localidad sola
+// ("QUILMES"). Y sin provincia la ficha no puede armar los desplegables encadenados, asi
+// que partido y localidad caian en campos de texto libre y el combo quedaba vacio.
+// La localidad se busca en la MISMA tabla que usa la ficha, asi que ubicar su partido no
+// es adivinar: es leer la tabla. Si la localidad esta en dos partidos, se completa solo la
+// provincia y el partido queda para elegir a mano — no se elige uno al azar.
+function inferirUbicacion(prov, part, loc) {
+    let provincia = String(prov || '').trim();
+    let partido = String(part || '').trim();
+    let localidad = String(loc || '').trim();
+
+    if (provincia) provincia = normalizarContraLista(provincia, PROVINCIAS_AR);
+    // Un partido conocido implica la provincia sin margen de error.
+    if (partido) {
+        const pMatch = PARTIDOS_PBA.find(p => p !== 'OTRO' && claveTexto(p) === claveTexto(partido));
+        if (pMatch) { partido = pMatch; if (!provincia) provincia = 'Buenos Aires'; }
+    }
+
+    if (localidad && (!provincia || !partido)) {
+        const claveLoc = claveTexto(localidad);
+        const esBarrioCABA = BARRIOS_CABA.some(b => b !== 'OTRO' && claveTexto(b) === claveLoc);
+        const partidosConEsaLoc = Object.keys(LOCALIDADES_POR_PARTIDO).filter(p =>
+            p !== 'OTRO' && (LOCALIDADES_POR_PARTIDO[p] || []).some(l => l !== 'OTRA' && claveTexto(l) === claveLoc));
+
+        if (!provincia) {
+            // "Palermo" y "Villa del Parque" son barrio de CABA Y localidad de PBA. Para esos
+            // dos no se elige provincia: la marca el usuario. Si ya venia elegida, se respeta
+            // y sirve justamente para desambiguar.
+            if (esBarrioCABA && !partidosConEsaLoc.length) provincia = 'CABA';
+            else if (!esBarrioCABA && partidosConEsaLoc.length) provincia = 'Buenos Aires';
+        }
+        if (provincia === 'Buenos Aires' && !partido && partidosConEsaLoc.length) {
+            // Ambigua (El Palomar esta en Moron y en Tres de Febrero): si hay un partido que
+            // se llama igual que la localidad, ese; si no, se deja vacio a proposito.
+            partido = partidosConEsaLoc.length === 1
+                ? partidosConEsaLoc[0]
+                : (partidosConEsaLoc.find(p => claveTexto(p) === claveLoc) || '');
+        }
+    }
+
+    // Con la provincia y el partido ya resueltos, la localidad se lleva al nombre exacto.
+    const listaLoc = provincia === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[partido] || null)
+                   : provincia === 'CABA' ? BARRIOS_CABA : null;
+    if (localidad && listaLoc) localidad = normalizarContraLista(localidad, listaLoc);
+
+    return { provincia: provincia, partido: partido, localidad: localidad };
+}
+
 // Punto unico de normalizacion: se corre ANTES de mostrar la pantalla de revision, para
 // que lo que se ve tildado sea exactamente lo que va a quedar guardado en la ficha.
 function normalizarCamposDenuncia(campos, s) {
@@ -3162,16 +3211,17 @@ function normalizarCamposDenuncia(campos, s) {
 
     c.aseguradoEn = normalizarCompania(c.aseguradoEn, COMPANIAS_SEGUROS);
 
-    // Ubicacion: el orden importa, la lista de localidades depende del partido elegido.
+    // Se parte de lo que traiga la denuncia y, si falta, de lo que ya tenga la ficha.
     ['Cliente', 'Siniestro'].forEach(suf => {
         const kProv = 'provincia' + suf, kPart = 'partido' + suf, kLoc = 'localidad' + suf;
-        if (c[kProv]) c[kProv] = normalizarContraLista(c[kProv], PROVINCIAS_AR);
-        const prov = c[kProv] || (s ? s[kProv] : '');
-        if (c[kPart] && prov === 'Buenos Aires') c[kPart] = normalizarContraLista(c[kPart], PARTIDOS_PBA);
-        const part = c[kPart] || (s ? s[kPart] : '');
-        const listaLoc = prov === 'Buenos Aires' ? (LOCALIDADES_POR_PARTIDO[part] || null)
-                       : prov === 'CABA' ? BARRIOS_CABA : null;
-        if (c[kLoc] && listaLoc) c[kLoc] = normalizarContraLista(c[kLoc], listaLoc);
+        const inf = inferirUbicacion(
+            c[kProv] || (s ? s[kProv] : ''),
+            c[kPart] || (s ? s[kPart] : ''),
+            c[kLoc]  || (s ? s[kLoc]  : '')
+        );
+        if (inf.provincia) c[kProv] = inf.provincia;
+        if (inf.partido) c[kPart] = inf.partido;
+        if (inf.localidad) c[kLoc] = inf.localidad;
     });
 
     if (Array.isArray(c.terceros)) {
@@ -3515,9 +3565,13 @@ async function leerDenunciaParaNuevo(btn) {
             poner('newCliente', c.cliente);
             poner('newDni', c.dni);
             poner('newCelular', c.celular);
-            poner('newAseguradoEn', c.aseguradoEn);
+            // Las companias se pasan a la razon social exacta de la lista ANTES de cargarlas.
+            // Si entra el texto crudo de la denuncia, la ficha nace con ese valor y despues la
+            // pantalla de revision lo ve como "dato ya cargado", ofrece el canonico destildado
+            // y el crudo se queda para siempre: el desplegable quedaba en OTRAS.
+            poner('newAseguradoEn', normalizarCompania(c.aseguradoEn, COMPANIAS_SEGUROS));
             const t0 = (c.terceros || [])[0] || {};
-            poner('newContra', t0.contra);
+            poner('newContra', normalizarCompania(t0.contra, COMPANIAS_SEGUROS));
             const gen = document.getElementById('newGenero');
             if (gen && (c.genero === 'Masculino' || c.genero === 'Femenino')) gen.value = c.genero;
 
