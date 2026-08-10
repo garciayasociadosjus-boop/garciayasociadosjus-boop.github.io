@@ -1330,6 +1330,10 @@
     }
 
     // ====== ARRASTRE CLIENTES ======
+    // Los registros que vienen de un siniestro arrastran siniestroId y origenSiniestro.
+    // Sin eso la copia del mes nuevo queda sin vinculo: la planilla de siniestros busca por
+    // siniestroId, encuentra solo el registro del mes viejo y actualiza ese, de modo que
+    // marcar FINALIZADA no se ve en el mes que uno esta mirando. Paso el 07/08/2026.
 
     function carryOverClients(){
       var curr = getAbonosForMonth(currentMonth.month, currentMonth.year);
@@ -1478,7 +1482,7 @@
           }
           var debeArrastrar = montoRestante > 0 || (record.tipo === 'Honorarios Siniestro' && ['Pendiente', 'Falta de Pago', 'Ejecución de Honorarios'].includes(record.estado));
           if (debeArrastrar) {
-            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
+            addAbono({ cliente: cliente, expediente: record.expediente||'', telefono: telefono, dniCliente: dniCliente, autorizaWhatsapp: record.autorizaWhatsapp||false, ultimoContactoAgente: '', respuestaCliente: '', escalarACamila: false, tipo: record.tipo, monto: montoRestante, montoOriginal: montoRestante, montoBase: montoRestante, deudaAcumulada: 0, fechaOrigen: record.fechaOrigen || (record.mesServicio ? record.mesServicio.year + '-' + String(record.mesServicio.month+1).padStart(2,'0') : ''), mesOrigenServicio: record.mesOrigenServicio || record.mesServicio, siniestroId: record.siniestroId || '', origenSiniestro: record.origenSiniestro || false, fechaPago: '', estado: 'Pendiente', observaciones: record.observaciones||'', observacionesAuto: '📅 ' + MONTHS[mesServicioNuevo.month] + ' ' + mesServicioNuevo.year + '\n' + observacionOtro, mesServicio: mesServicioNuevo });
             added++;
           }
         }
@@ -2925,9 +2929,9 @@
               // Mensaje + apertura de WhatsApp
               var msg;
               if(copiada){
-                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nLucas Fernandez Sector Cobranzas';
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nDra. Camila García';
               } else {
-                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nLucas Fernandez Sector Cobranzas';
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nDra. Camila García';
               }
               setTimeout(function(){
                 window.open('https://wa.me/' + telN + '?text=' + encodeURIComponent(msg), '_blank');
