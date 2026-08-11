@@ -3332,6 +3332,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         pjn:   Array.isArray(c.pjn_actuaciones) ? c.pjn_actuaciones.length : 0,
                         mev_ultima_sync: syncLocal > syncPrevio ? syncLocal : syncPrevio,
                         fuera_estudio: !!c.fuera_estudio,
+                        // Audiencias detectadas y todavia sin agendar. Se calcula ACA y no se
+                        // copia del indice previo por dos razones: si no estuviera, guardar
+                        // desde la planilla borraria el contador y el vigia dejaria de avisar
+                        // sin que nadie se entere; y calculandolo, tocar "Ya esta agendada"
+                        // apaga la alerta del mail en el acto y no en la proxima corrida.
+                        aud_pend: (Array.isArray(c.mev_movimientos) ? c.mev_movimientos : [])
+                            .filter(m => m && m.audiencia && !m.audiencia.agendada).length,
                         // De los workers: se copian tal cual, nunca se calculan acá.
                         ...(antes.mev_huellas !== undefined ? { mev_huellas: antes.mev_huellas } : {}),
                         ...(antes.docs_pend   !== undefined ? { docs_pend:   antes.docs_pend }   : {}),
@@ -3640,6 +3647,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             renderReviewList('overdueReviews', overdueItems, 'No hay revisiones vencidas', 'overdue');
             renderReviewList('upcomingReviews', upcomingItems, 'No hay próximas revisiones', 'upcoming');
             renderMevAlertas(dataFiltrada);
+            renderAudienciasDetectadas(dataFiltrada);
             renderDictamenesAlertas(dataFiltrada);
             renderPjnAlertas(dataFiltrada);
             renderScbaAlertas(dataFiltrada);
@@ -3875,6 +3883,94 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 }
                 renderDictamenesAlertas(clientsData);
             }
+        }
+
+        // ── AUDIENCIAS DETECTADAS EN LOS PROVEIDOS ────────────────────────────────
+        // El worker del MEV lee el texto de cada proveido y, cuando uno fija una audiencia,
+        // deja la marca en el movimiento. Esta tarjeta las junta de todos los casos.
+        //
+        // La alerta NO se apaga sola ni con el tiempo: sigue hasta que se marque como
+        // agendada. Una audiencia que se pasa no se recupera, asi que insiste.
+        function audienciasDetectadas(dataFiltrada) {
+            const out = [];
+            (dataFiltrada || []).forEach(client => {
+                if (client.fuera_estudio) return;
+                (client.mev_movimientos || []).forEach((m, i) => {
+                    if (m && m.audiencia && !m.audiencia.agendada) {
+                        out.push({ client: client, mov: m, idx: i, a: m.audiencia });
+                    }
+                });
+            });
+            // Las que tienen fecha, primero y por fecha. Las que no se pudo leer, al final.
+            out.sort((x, y) => {
+                if (!x.a.fecha && !y.a.fecha) return 0;
+                if (!x.a.fecha) return 1;
+                if (!y.a.fecha) return -1;
+                return x.a.fecha.localeCompare(y.a.fecha);
+            });
+            return out;
+        }
+
+        function marcarAudienciaAgendada(clientId, movIdx) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const m = (client.mev_movimientos || [])[movIdx];
+            if (!m || !m.audiencia) return;
+            if (!confirm('¿Dar por agendada esta audiencia?\n\nLa alerta se saca y no vuelve a aparecer para este proveído.')) return;
+            m.audiencia.agendada = true;
+            m.audiencia.agendada_el = new Date().toISOString();
+            saveData();
+            renderAll();
+        }
+
+        function renderAudienciasDetectadas(dataFiltrada) {
+            const items = audienciasDetectadas(dataFiltrada);
+            let card = document.getElementById('audCard');
+            const row = document.getElementById('mevDashboardRow');
+            if (!items.length) { if (card) card.remove(); return; }
+            if (!card) {
+                if (!row) return;
+                card = document.createElement('div');
+                card.id = 'audCard';
+                card.className = 'card';
+                card.style.cssText = 'border-top:3px solid #d94f4f;border-left:3px solid #d94f4f;padding:15px;background:var(--bg-card);';
+                row.insertBefore(card, row.firstChild);
+            }
+
+            const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            const hoy = new Date().toISOString().slice(0, 10);
+
+            const filas = items.map(it => {
+                const a = it.a;
+                const pasada = a.fecha && a.fecha < hoy;
+                const cuando = a.fecha
+                    ? (a.fecha.slice(8, 10) + '/' + a.fecha.slice(5, 7) + '/' + a.fecha.slice(0, 4) + (a.hora ? ' · ' + a.hora : ''))
+                    : 'sin fecha legible';
+                return '<div style="padding:9px 11px;margin-bottom:7px;border:1px solid var(--border-item);border-left:3px solid '
+                    + (pasada ? '#c0392b' : '#d94f4f') + ';border-radius:8px;">'
+                    + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">'
+                    + '<div><b style="font-size:.9em;">' + esc(cuando) + '</b>'
+                    + (pasada ? ' <span style="color:#c0392b;font-size:.78em;font-weight:600;">YA PASÓ</span>' : '')
+                    + (!a.fecha ? ' <span style="color:var(--text-muted);font-size:.78em;">revisar el proveído</span>' : '')
+                    + '</div>'
+                    + '<div style="font-size:.8em;color:var(--text-muted);">proveído del ' + esc(it.mov.fecha || '') + '</div></div>'
+                    + '<div style="font-size:.85em;margin-top:3px;">' + esc(it.client.caratula || it.client.nombre || '') + '</div>'
+                    + '<div style="font-size:.78em;color:var(--text-muted);margin-top:3px;line-height:1.35;">"' + esc(a.cita || '') + '"</div>'
+                    + '<div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap;">'
+                    + '<button onclick="showClientModal(\'' + it.client.id + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--info-color);border-radius:6px;color:var(--info-color);background:transparent;cursor:pointer;font-weight:600;">Abrir la ficha y agendar</button>'
+                    + '<button onclick="marcarAudienciaAgendada(\'' + it.client.id + '\',' + it.idx + ')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--success-color);border-radius:6px;color:#fff;background:var(--success-color);cursor:pointer;font-weight:600;">Ya está agendada</button>'
+                    + '</div></div>';
+            }).join('');
+
+            card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
+                + '<h3 style="color:#d94f4f;margin:0;font-size:1em;font-family:\'Cormorant Garamond\',serif;font-weight:400;letter-spacing:.05em;">'
+                + 'Audiencias por agendar</h3>'
+                + '<span style="background:#d94f4f;color:#fff;border-radius:50%;padding:2px 7px;font-size:0.8em;font-weight:600;">' + items.length + '</span>'
+                + '</div>'
+                + '<div style="font-size:.8em;color:var(--text-muted);margin-bottom:9px;line-height:1.4;">'
+                + 'Salieron del texto de los proveídos. No se van hasta que las des por agendadas.</div>'
+                + '<div style="max-height:420px;overflow:auto;">' + filas + '</div>';
         }
 
         function renderMevAlertas(dataFiltrada) {
@@ -4672,6 +4768,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
+            renderAudienciasDetectadas(dataFiltrada);
         }
 
         function resetearVistasMEV() {
@@ -4681,6 +4778,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
             renderMevAlertas(dataFiltrada);
+            renderAudienciasDetectadas(dataFiltrada);
         }
 
         function renderReviewList(containerId, items, emptyMsg, type) {
@@ -4941,6 +5039,200 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             </div>`;
         }
 
+        // ── FUERO Y VINCULACION CON EL MEV ────────────────────────────────────────
+        // Las causas de FAMILIA las descubre el worker solo: salen de los listados con
+        // autorizacion, que recorre enteros. Las CIVILES y las de JUSTICIA DE PAZ no estan
+        // en ningun listado —son publicas y solo aparecen si alguien las busca por juzgado—
+        // asi que hay que vincularlas UNA vez. Despues quedan automaticas para siempre.
+        //
+        // El aviso rojo existe porque sin el la funcion no sirve: se marca la causa como
+        // civil, nadie toca el boton, y no se sincroniza nunca sin que nada avise.
+        // MEV_WORKER ya esta declarada mas arriba; se reusa.
+        const DEPTOS_MEV = {
+            'avellanedalanus':'80','azul':'10','bahiablanca':'11','dolores':'12','junin':'13',
+            'lamatanza':'14','laplata':'6','lomasdezamora':'16','mardelplata':'17','mercedes':'18',
+            'morenogralrodriguez':'52','moron':'19','necochea':'20','olavarria':'21','pergamino':'22',
+            'quilmes':'23','sanisidro':'24','sanmartin':'25','sannicolas':'26','tandil':'27',
+            'trenquelauquen':'28','tresarroyos':'49','zaratecampana':'29'
+        };
+        function deptoIdMev(nombre) {
+            const k = String(nombre || '').toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+            return DEPTOS_MEV[k] || '';
+        }
+
+        function fueroMevDe(client) { return client.fuero_mev || 'FAMILIA'; }
+
+        function saveFueroMev(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.fuero_mev = valor;
+            saveData();
+            showClientModal(clientId);
+        }
+
+        function renderFueroMev(client) {
+            const f = fueroMevDe(client);
+            const v = client.mev_civil_vinculada;
+            const necesita = (f === 'CIVIL' || f === 'PAZ') && !v;
+            const opt = (val, txt) => '<option value="' + val + '"' + (f === val ? ' selected' : '') + '>' + txt + '</option>';
+            let html = '<div style="margin-bottom:6px;">'
+                + '<select id="field-fuero-mev" onchange="saveFueroMev(\'' + client.id + '\', this.value)"'
+                + ' style="width:100%;padding:6px 10px;border:1px solid var(--border-item);border-radius:6px;font-size:0.85em;">'
+                + opt('FAMILIA', 'Fuero Familia')
+                + opt('CIVIL', 'Civil y Comercial')
+                + opt('PAZ', 'Justicia de Paz')
+                + opt('PENAL', 'Penal')
+                + '</select></div>';
+            if (necesita) {
+                html += '<div style="margin-bottom:6px;padding:9px 11px;background:rgba(217,79,79,0.12);border-left:3px solid #d94f4f;border-radius:6px;">'
+                    + '<div style="font-size:0.82em;font-weight:600;color:#d94f4f;margin-bottom:5px;">Falta vincular esta causa</div>'
+                    + '<div style="font-size:0.78em;color:var(--text-muted);margin-bottom:7px;line-height:1.4;">'
+                    + 'Las causas civiles y de Paz no salen en ningún listado del MEV: hay que buscarlas una vez. '
+                    + 'Hasta que la vincules, <b>no se va a sincronizar sola</b>.</div>'
+                    + '<button onclick="buscarCivilEnMev(\'' + client.id + '\', this)"'
+                    + ' style="font-size:0.82em;padding:7px 13px;border:1px solid #d94f4f;border-radius:7px;color:#fff;background:#d94f4f;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-weight:600;">'
+                    + 'Buscar en el MEV y vincular</button></div>';
+            }
+            if (v) {
+                html += '<div style="margin-bottom:6px;padding:7px 10px;background:rgba(31,158,114,0.10);border-left:3px solid var(--success-color);border-radius:6px;font-size:0.78em;">'
+                    + '<b style="color:var(--success-color);">Vinculada</b> · ' + (v.juzgado || '')
+                    + '<div style="color:var(--text-muted);margin-top:2px;">Se sincroniza sola en cada vuelta. '
+                    + '<a href="#" onclick="desvincularCivil(\'' + client.id + '\');return false;" style="color:#d94f4f;">desvincular</a></div></div>';
+            }
+            return html;
+        }
+
+        function desvincularCivil(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.mev_civil_vinculada) return;
+            if (!confirm('¿Desvincular esta causa? Va a dejar de sincronizarse.')) return;
+            const nid = client.mev_civil_vinculada.nidCausa;
+            fetch(MEV_WORKER + '/vincular-civil?borrar=' + encodeURIComponent(nid)).catch(function () {});
+            delete client.mev_civil_vinculada;
+            saveData();
+            showClientModal(clientId);
+        }
+
+        // Busca la causa en el MEV. Si el barrido corta por presupuesto de subrequests,
+        // sigue solo desde donde quedo: cada llamada al worker arranca con presupuesto nuevo.
+        async function buscarCivilEnMev(clientId, btn) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const fuero = fueroMevDe(client) === 'PAZ' ? 'PZ' : '';
+            const depto = deptoIdMev(client.deptoJudicial);
+            const exp = String(client.expediente || '').replace(/[^0-9]/g, '');
+            const car = String(client.caratula || '').trim();
+
+            if (!fuero && !depto) {
+                alert('Primero cargá el Departamento Judicial en la ficha: sin eso no sé en qué juzgados buscar.');
+                return;
+            }
+            if (!exp && !car) {
+                alert('Cargá el número de expediente o la carátula: son los dos únicos datos con los que se puede buscar.');
+                return;
+            }
+
+            const textoOrig = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = 'Buscando…'; }
+            try {
+                let desde = 0, vueltas = 0, todas = [], revisados = 0;
+                while (vueltas < 8) {
+                    vueltas++;
+                    const q = new URLSearchParams({ depto: depto, fuero: fuero, desde: String(desde) });
+                    if (exp) { q.set('exp', exp); } else { q.set('caratula', car.split(' ')[0]); }
+                    const r = await fetch(MEV_WORKER + '/mev-buscar?' + q.toString());
+                    const j = await r.json();
+                    if (j.error) throw new Error(j.error);
+                    todas = todas.concat(j.causas || []);
+                    revisados += (j.juzgados_probados || 0);
+                    if (btn) btn.innerHTML = 'Buscando… ' + revisados + ' juzgados';
+                    if (!j.cortado_por_presupuesto) break;
+                    desde = revisados;
+                }
+                if (!todas.length) {
+                    alert('No apareció ninguna causa con ese dato en ' + revisados + ' juzgados.\n\n'
+                        + 'Puede que el número esté mal cargado, que sea de otro departamento, '
+                        + 'o que la causa todavía no esté publicada en el MEV.');
+                    return;
+                }
+                mostrarCandidatosCivil(client, todas, depto, fuero);
+            } catch (e) {
+                alert('No se pudo buscar: ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = textoOrig; }
+            }
+        }
+
+        // El paso que NO se puede automatizar: buscar por numero devuelve una causa por
+        // juzgado —el numero se repite entre juzgados— asi que alguien tiene que leer la
+        // caratula y decir cual es. Automatizarlo terminaria metiendo la causa de un tercero
+        // en la ficha de un cliente.
+        function mostrarCandidatosCivil(client, causas, depto, fuero) {
+            const esc = function (v) {
+                return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            };
+            const filas = causas.map(function (c, i) {
+                return '<label style="display:block;padding:9px 11px;margin-bottom:6px;border:1px solid var(--border-item);border-radius:8px;cursor:pointer;font-size:.85em;">'
+                    + '<input type="radio" name="civilElegida" value="' + i + '" style="margin-right:7px;">'
+                    + '<b>' + esc(c.caratula) + '</b>'
+                    + '<div style="color:var(--text-muted);font-size:.92em;margin-top:2px;margin-left:20px;">'
+                    + esc(c.juzgado) + (c.expediente ? ' · exp ' + esc(c.expediente) : '')
+                    + ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener" style="color:var(--info-color);">ver en el MEV</a>'
+                    + '</div></label>';
+            }).join('');
+
+            const ov = document.createElement('div');
+            ov.id = 'overlayCivil';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;display:flex;align-items:center;justify-content:center;padding:20px;';
+            ov.innerHTML = '<div style="background:var(--bg-card);border-radius:12px;max-width:760px;width:100%;max-height:88vh;overflow:auto;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4);">'
+                + '<h3 style="margin:0 0 4px;font-size:1.05em;">¿Cuál de estas es la causa?</h3>'
+                + '<div style="font-size:.82em;color:var(--text-muted);margin-bottom:10px;">'
+                + 'El número de expediente se repite entre juzgados, así que aparecen varias. Elegí la tuya por la carátula.'
+                + '<br>Tu ficha dice: <b>' + esc(client.caratula || '(sin carátula)') + '</b></div>'
+                + filas
+                + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">'
+                + '<button onclick="document.getElementById(\'overlayCivil\').remove()" style="padding:8px 16px;border:1px solid var(--border-item);border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.85em;">Ninguna / Cancelar</button>'
+                + '<button onclick="confirmarCivil(\'' + client.id + '\',\'' + depto + '\',\'' + fuero + '\')" style="padding:8px 16px;border:none;border-radius:8px;background:var(--success-color,#1f9e72);color:#fff;cursor:pointer;font-weight:600;font-size:.85em;">Vincular la elegida</button>'
+                + '</div></div>';
+            document.body.appendChild(ov);
+            window.__candidatosCivil = causas;
+        }
+
+        async function confirmarCivil(clientId, depto, fuero) {
+            const sel = document.querySelector('input[name="civilElegida"]:checked');
+            if (!sel) { alert('Elegí una causa de la lista.'); return; }
+            const c = (window.__candidatosCivil || [])[parseInt(sel.value, 10)];
+            const client = clientsData.find(function (x) { return x.id === clientId; });
+            if (!c || !client) return;
+            try {
+                const q = new URLSearchParams({
+                    guardar: '1', nid: c.nidCausa, pid: c.pidJuzgado, depto: depto, fuero: fuero,
+                    caratula: c.caratula || '', exp: c.expediente || '', juzgado: c.juzgado || ''
+                });
+                const r = await fetch(MEV_WORKER + '/vincular-civil?' + q.toString());
+                const j = await r.json();
+                if (j.error) throw new Error(j.error);
+
+                client.mev_civil_vinculada = {
+                    nidCausa: c.nidCausa, pidJuzgado: c.pidJuzgado,
+                    juzgado: c.juzgado || '', caratula: c.caratula || '',
+                    fecha: new Date().toISOString()
+                };
+                saveData();
+                // Que entre en la cola ahora y no recien en la proxima vuelta.
+                fetch(MEV_WORKER + '/encolar-civiles').catch(function () {});
+                const ov = document.getElementById('overlayCivil');
+                if (ov) ov.remove();
+                showClientModal(clientId);
+                alert('Listo. La causa quedó vinculada y ya entró en la cola.\n\n'
+                    + 'En la próxima corrida del worker vas a tener los movimientos, los documentos y el dossier.');
+            } catch (e) {
+                alert('No se pudo vincular: ' + e.message);
+            }
+        }
+
         function showClientModal(clientId) {
             try {
                 const client = clientsData.find(c => c.id === clientId); 
@@ -5044,6 +5336,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 ${client.deptoJudicial ? `<div style="margin-top:4px;padding:5px 10px;background:rgba(139,110,199,0.1);border-left:3px solid var(--info-color);border-radius:6px;font-size:0.85em;color:var(--info-color);font-weight:500;">${client.deptoJudicial}</div>` : ''}
                             </div>
                             ${client.deptoJudicial === 'Otras (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir jurisdicción..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid rgba(139,110,199,0.4);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;"></div>` : ''}` : ''}
+                            ${renderFueroMev(client)}
                             <div class="editable-field" id="field-juzgado" onclick="editField('${client.id}', 'juzgado')">
                                 <div class="info-value">${client.juzgado || 'S/D'}</div>
                             </div>
