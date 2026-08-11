@@ -2929,9 +2929,9 @@
               // Mensaje + apertura de WhatsApp
               var msg;
               if(copiada){
-                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nLucas Fernandez Sector Cobranzas';
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\nSaludos,\nLucas Fernandez Sector cobranzas';
               } else {
-                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nLucas Fernandez Sector Cobranzas';
+                msg = 'Hola ' + nombreCompleto + ', ¿qué tal? Te envío el recibo de tu pago (Recibo N° ' + currentReceiptContext.numeroRecibo + ' por ' + formatCurrency(currentReceiptContext.monto) + ').\n\n📎 Adjunto la imagen del recibo.\n\nSaludos,\nLucas Fernandez Sector cobranzas';
               }
               setTimeout(function(){
                 window.open('https://wa.me/' + telN + '?text=' + encodeURIComponent(msg), '_blank');
@@ -3662,7 +3662,21 @@
       }
     }
     
-    function updateDriveStatus(message, isConnected = false) { 
+    // ── CONSTANCIA DE RESPALDO ─────────────────────────────────────────────────
+    // El vigia no puede mirar Drive: no tiene sesion de Google. Lo que puede mirar es esta
+    // marca, que deja cada planilla cuando Drive confirmo el guardado, y con eso avisa por
+    // mail cuantos dias pasaron sin copia. Se anota tambien cuantos registros tenia.
+    function marcarRespaldo(clave, cantidad) {
+        try {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            firebase.database().ref('salud/respaldos/' + clave).set({
+                fecha: new Date().toISOString(),
+                registros: cantidad || 0
+            }).catch(err => console.warn('No se pudo anotar el respaldo:', err.message));
+        } catch (e) { console.warn('No se pudo anotar el respaldo:', e.message); }
+    }
+
+    function updateDriveStatus(message, isConnected = false) {
       const driveStatusEl = document.getElementById('driveStatus');
       driveStatusEl.style.display = 'block'; 
       driveStatusEl.textContent = message; 
@@ -3706,6 +3720,9 @@
         };
         const content = JSON.stringify(wrapper, null, 2);
         dataFileId = await uploadContent(content, DATA_FILE_NAME, 'application/json', null, dataFileId);
+        // Constancia para el vigia: se escribe SOLO despues de que Drive confirmo, para
+        // que el "hace N dias" del mail cuente dias sin copia buena y no sin intentos.
+        marcarRespaldo('abonos', abonosData.length);
         updateDriveStatus('✅ ¡Datos guardados en Drive con éxito! — ' + ahora.toLocaleString('es-AR'), true);
       } catch (err) { console.error(err); updateDriveStatus('❌ Error al guardar en Drive.', false); }
     }
