@@ -2672,7 +2672,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             
             <section style="text-align: center; margin-bottom: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-                <button id="connectDriveBtn" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Conectar a Drive & Calendar</button>
+                <button id="connectDriveBtn" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Conectar a Drive</button>
                 <button id="saveToDriveBtn" class="btn btn-success" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Guardar en Drive</button>
                 <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Cargar de Drive</button>
                 <div id="firebaseStatus" style="margin-top:10px;padding:8px 16px;border-radius:10px;font-size:.88em;display:inline-block;background:rgba(212,144,26,0.1);color:var(--warning-color);border:1px solid rgba(212,144,26,0.3);">
@@ -5732,7 +5732,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         async function addAudience(event, clientId) {
             event.preventDefault();
-            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
+            // Ya no se exige estar conectado: el permiso del calendario se pide solo,
+            // al agendar, y sin pasar por Drive.
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             const fecha = document.getElementById('newAudienceDate').value;
             const hora = document.getElementById('newAudienceTime').value;
@@ -5748,7 +5749,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         
         async function addVencimiento(event, clientId) {
             event.preventDefault();
-            if (!isGoogleAuthenticated()) { alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); return; }
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             const newVencimiento = { id: generateId({}), fecha: document.getElementById('newVencimientoDate').value, hora: document.getElementById('newVencimientoTime').value, texto: document.getElementById('newVencimientoText').value, avisoPrevio: document.getElementById('newVencimientoAvisoPrevio').value, completed: false };
             const success = await crearEventoEnCalendario(client, newVencimiento, 'Vencimiento');
@@ -7643,7 +7643,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
     <script>
         const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
         const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-        const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+        // Drive pide SOLO Drive. El calendario pide lo suyo por separado, mas abajo.
+        const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const GD_DATA_FILE = 'datos_planilla_juridica.json';
         const GD_DOCS_ROOT = 'Planilla_Juridica_Documentos';
         let gdTokenClient, gapiReady = false, gisReady = false, gdDataFileId = null, gdDocsFolderId = null, localFilesForUpload = [];
@@ -7668,6 +7669,84 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         function handleAuthClick(){if(gdTokenClient){gdTokenClient.requestAccessToken({prompt:'consent'})}}
         async function tokenResponseCallback(resp){if(resp.error){updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Error de autenticación.',true);return}try{gapi.client.setToken({access_token:resp.access_token});const connectBtn=document.getElementById('connectDriveBtn');const saveBtn=document.getElementById('saveToDriveBtn');const loadBtn=document.getElementById('loadFromDriveBtn');if(connectBtn)connectBtn.style.display='none';if(saveBtn){saveBtn.style.display='inline-block';saveBtn.onclick=saveDataToDrive}if(loadBtn){loadBtn.style.display='inline-block';loadBtn.onclick=loadDataFromDrive}updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Conectado. Buscando archivo de respaldo...',false);await findDataFile()}catch(e){console.error("Error en callback:",e);updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Ocurrió un error después de conectar.',true)}}
         
+        // ── CALENDARIO SIN PASAR POR DRIVE ────────────────────────────────────────
+        // Hasta ahora el unico boton que autenticaba era el de Drive, y pedia los dos
+        // permisos juntos: para agendar una audiencia habia que conectarse a Drive
+        // aunque no se fuera a guardar un solo archivo ahi. Ahora el calendario pide su
+        // propio permiso, solo, y recien en el momento de agendar.
+        //
+        // El token vive en memoria (no se escribe en el disco) y es independiente del de
+        // Drive: por eso se usa fetch directo y no gapi, que guarda un unico token global
+        // y le pisaria la sesion al respaldo.
+        // ── CONSTANCIA DE RESPALDO ────────────────────────────────────────────────
+        // El vigia no puede mirar Drive: no tiene sesion de Google. Lo que puede mirar es
+        // esta marca, que se escribe SOLO cuando Drive confirmo el guardado. Si el guardado
+        // fallo no queda nada, asi que el "hace N dias" del mail siempre cuenta dias sin
+        // copia buena. Se anota tambien cuantos casos tenia: una copia hecha desde una
+        // pestaña vieja se delata sola porque trae menos que la anterior.
+        function marcarRespaldo(clave, cantidad) {
+            try {
+                if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+                firebase.database().ref('salud/respaldos/' + clave).set({
+                    fecha: new Date().toISOString(),
+                    registros: cantidad || 0
+                }).catch(err => console.warn('No se pudo anotar el respaldo:', err.message));
+            } catch (e) { console.warn('No se pudo anotar el respaldo:', e.message); }
+        }
+
+        const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+        let calTokenClient = null, calToken = '', calTokenVence = 0;
+
+        function tokenCalendarioEnMano() {
+            // Un minuto de margen: un token que vence en tres segundos no sirve de nada.
+            return (calToken && Date.now() < calTokenVence - 60000) ? calToken : '';
+        }
+
+        function pedirTokenCalendario() {
+            return new Promise((resolve, reject) => {
+                if (!(window.google && google.accounts && google.accounts.oauth2)) {
+                    reject(new Error('Google todavia no termino de cargar. Espera unos segundos y proba de nuevo.'));
+                    return;
+                }
+                if (!calTokenClient) {
+                    calTokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: GD_CLIENT_ID, scope: CAL_SCOPE, callback: function () {}
+                    });
+                }
+                calTokenClient.callback = function (resp) {
+                    if (resp.error) { reject(new Error(resp.error_description || resp.error)); return; }
+                    calToken = resp.access_token;
+                    calTokenVence = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000);
+                    resolve(calToken);
+                };
+                // prompt vacio: la primera vez muestra el consentimiento —que ahora nombra
+                // solo el calendario, no Drive— y despues renueva sin preguntar nada.
+                calTokenClient.requestAccessToken({ prompt: '' });
+            });
+        }
+
+        async function errorDeCalendario(r) {
+            try { const j = await r.json(); return (j.error && j.error.message) || ('HTTP ' + r.status); }
+            catch (e) { return 'HTTP ' + r.status; }
+        }
+
+        async function insertarEventoCalendario(evento) {
+            const enviar = (t) => fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' },
+                body: JSON.stringify(evento)
+            });
+            let t = tokenCalendarioEnMano() || await pedirTokenCalendario();
+            let r = await enviar(t);
+            if (r.status === 401 || r.status === 403) {
+                // Token vencido o permiso revocado: se pide de nuevo y se reintenta UNA vez.
+                calToken = ''; calTokenVence = 0;
+                r = await enviar(await pedirTokenCalendario());
+            }
+            if (!r.ok) throw new Error(await errorDeCalendario(r));
+            return r.json();
+        }
+
         async function crearEventoEnCalendario(client, evento, tipoEvento) {
             updateDataStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="8" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="16" cy="15" r="1" fill="currentColor"/></svg> Creando evento para ${tipoEvento} en Google Calendar...`, false);
             try {
@@ -7688,11 +7767,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         'timeZone': 'America/Argentina/Buenos_Aires'
                     }
                 };
-                await gapi.client.calendar.events.insert({
-                    'calendarId': 'primary',
-                    'resource': event
-                });
-                alert(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ¡Éxito!\n\nEl evento "${tipoEvento}" fue agendado correctamente en tu Google Calendar.`);
+                await insertarEventoCalendario(event);
+                // alert() muestra texto pelado: el SVG que habia aca se veia como codigo.
+                alert(`Listo.\n\nEl evento "${tipoEvento}" quedo agendado en tu Google Calendar.`);
                 updateDataStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evento de ${tipoEvento} creado en Google Calendar.`, false);
                 return true;
             } catch (e) {
@@ -7707,6 +7784,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         async function findDataFile(){updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscando archivo de Drive...',false);try{const response=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id, name)',spaces:'drive'});if(response.result.files&&response.result.files.length>0){gdDataFileId=response.result.files[0].id;updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Conexión exitosa. Archivo de respaldo encontrado.',false)}else{updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Conexión exitosa. No existe archivo (se creará al guardar).',true)}}catch(e){console.error("Error buscando archivo:",e);updateDriveStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Error buscando archivo: ${e.result?.error?.message}`,true)}}
         async function saveDataToDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!confirm('¿Guardar datos en Drive?'))return;updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardando en Drive...',false);const content=JSON.stringify(clientsData);try{if(!gdDataFileId){const buscar=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id)',spaces:'drive'});if(buscar.result.files&&buscar.result.files.length>0)gdDataFileId=buscar.result.files[0].id;}let response;if(gdDataFileId){response=await gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},headers:{'Content-Type':'application/json'},body:content})}else{const boundary='-------planilla314159';const delimiter='\r\n--'+boundary+'\r\n';const closeDelim='\r\n--'+boundary+'--';const metadata={name:GD_DATA_FILE,mimeType:'application/json'};const multipartBody=delimiter+'Content-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+delimiter+'Content-Type: application/json\r\n\r\n'+content+closeDelim;response=await gapi.client.request({path:'/upload/drive/v3/files',method:'POST',params:{uploadType:'multipart',fields:'id'},headers:{'Content-Type':'multipart/related; boundary="'+boundary+'"'},body:multipartBody})}if(response.result&&response.result.id)gdDataFileId=response.result.id;
         unsavedChanges = false; // RESTABLECER BANDERA AL GUARDAR EN DRIVE
+        marcarRespaldo('juridica', (clientsData||[]).filter(Boolean).length);
         updateDriveStatus('✓ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDriveStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Error al guardar: ${errorMsg}`,true)}}
         async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();
         unsavedChanges = false; // AL CARGAR DE DRIVE, ESTAMOS SINCRONIZADOS
