@@ -7154,6 +7154,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
                     </button>
                 </div>` : ''}
+                ${mev.length === 0 && !(client.pjn_actuaciones?.length > 0 || client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? `
+                <!-- Sin movimientos del MEV y sin bloque de PJN, la ficha se quedaba SIN el
+                     boton de archivar: justo las causas que nunca van a enganchar —las que
+                     saliste de la MEV, las que no son de familia— eran las unicas que no se
+                     podian sacar del recorrido. -->
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+                    <button onclick="toggleFueraEstudio('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:${client.fuera_estudio ? 'rgba(31,158,114,0.08)' : 'rgba(217,79,79,0.08)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${client.fuera_estudio ? 'Reactivar el análisis de esta causa' : 'Dejar de analizar esta causa (renunciaste / no la llevás más)'}">
+                        ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
+                    </button>
+                </div>` : ''}
             </div>
 
             <!-- SECCIÓN SCBA -->
