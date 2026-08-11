@@ -2069,7 +2069,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
     </div>
 
     <div class="drive-section">
-      <button id="connectDriveBtn" class="btn" onclick="handleAuthClick()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="m8.5 14.5-5-8.66A2 2 0 0 1 5.23 3h13.54a2 2 0 0 1 1.73 3L15.5 14.5"/><path d="M15.5 14.5h-7l-2 5h11l-2-5z"/></svg> Conectar a Drive & Calendar</button>
+      <button id="connectDriveBtn" class="btn" onclick="handleAuthClick()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><path d="m8.5 14.5-5-8.66A2 2 0 0 1 5.23 3h13.54a2 2 0 0 1 1.73 3L15.5 14.5"/><path d="M15.5 14.5h-7l-2 5h11l-2-5z"/></svg> Conectar a Drive</button>
       <button id="saveToDriveBtn" class="btn btn-success" style="display:none;" onclick="saveToDrive()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> Guardar en Drive</button>
       <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none;" onclick="loadFromDrive()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg> Cargar de Drive</button>
       <div id="driveStatus" class="data-status" style="display:none;margin-top:10px;"></div>
@@ -2316,7 +2316,8 @@ function getModelosPorMarca(marca) {
 let tokenClient, gapiReady = false, gisReady = false, gdDataFileId = null;
 const GD_CLIENT_ID = '976943805178-lr5pvivhpstfnjp4leoolopo0kvb1cif.apps.googleusercontent.com';
 const GD_API_KEY = 'AIzaSyDSMWMM3lJM4ZNqRezhH-8uxaE1GVOjrrM';
-const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+// Drive pide SOLO Drive. El calendario pide lo suyo por separado, mas abajo.
+const GD_SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const GD_DATA_FILE = 'datos_planilla_siniestros.json';
 
 document.addEventListener('DOMContentLoaded', ()=>{ 
@@ -2371,7 +2372,7 @@ function gisLoaded(){ try{ tokenClient=google.accounts.oauth2.initTokenClient({ 
 function handleAuthClick(){ if(tokenClient){ tokenClient.requestAccessToken({prompt:'consent'}); }else{ updateDriveStatus('❌ La autenticación de Google no está lista.'); }}
 async function tokenResponseCallback(resp){ if(resp.error){ updateDriveStatus('❌ Error de autenticación. Verifique pop-ups.'); return; } try{ gapi.client.setToken({access_token:resp.access_token}); document.getElementById('connectDriveBtn').style.display='none'; document.getElementById('saveToDriveBtn').style.display='inline-block'; document.getElementById('loadFromDriveBtn').style.display='inline-block'; updateDriveStatus('✅ Conectado. Buscando respaldo...'); await findDataFile(); }catch(e){ console.error("Error en callback:",e); updateDriveStatus('❌ Ocurrió un error después de conectar.'); }}
 async function findDataFile(){ updateDriveStatus('🔎 Buscando archivo de Drive...'); try{ const r=await gapi.client.drive.files.list({q:`name='${GD_DATA_FILE}' and trashed=false`,fields:'files(id,name)',spaces:'drive'}); if(r.result.files&&r.result.files.length>0){ gdDataFileId=r.result.files[0].id; updateDriveStatus('✅ Conexión exitosa. Archivo encontrado.'); }else{ updateDriveStatus('⚠️ Conexión exitosa. No existe archivo (se creará al guardar).'); }}catch(e){ console.error("Error buscando archivo:",e); updateDriveStatus(`❌ Error buscando archivo: ${e.result?.error?.message}`); }}
-async function saveToDrive(){ if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} if(!confirm('¿Guardar datos en Drive?'))return; updateDriveStatus('💾 Guardando en Drive...'); const content=JSON.stringify(siniestrosData,null,2); try{ let request; if(gdDataFileId){ request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content}); }else{ const metadata={name:GD_DATA_FILE,mimeType:'application/json'}; request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'}); } const response=await request; if(response.result.id)gdDataFileId=response.result.id; updateDriveStatus('✅ Guardado en Drive con éxito.'); }catch(e){ console.error('Error en saveToDrive:',e); updateDriveStatus(`❌ Error al guardar: ${e.result?.error?.message||e.message}`); }}
+async function saveToDrive(){ if(!gapi.client.getToken()?.access_token){alert('No está conectado a Google.');return;} if(!confirm('¿Guardar datos en Drive?'))return; updateDriveStatus('💾 Guardando en Drive...'); const content=JSON.stringify(siniestrosData,null,2); try{ let request; if(gdDataFileId){ request=gapi.client.request({path:`/upload/drive/v3/files/${gdDataFileId}`,method:'PATCH',params:{uploadType:'media'},body:content}); }else{ const metadata={name:GD_DATA_FILE,mimeType:'application/json'}; request=gapi.client.drive.files.create({resource:metadata,media:{mimeType:'application/json',body:content},fields:'id'}); } const response=await request; if(response.result.id)gdDataFileId=response.result.id; marcarRespaldo('siniestros', (siniestrosData||[]).filter(Boolean).length); updateDriveStatus('✅ Guardado en Drive con éxito.'); }catch(e){ console.error('Error en saveToDrive:',e); updateDriveStatus(`❌ Error al guardar: ${e.result?.error?.message||e.message}`); }}
 
 // --- MODIFICADO: Función loadFromDrive con "Cache Buster" para móviles ---
 async function loadFromDrive(){ 
@@ -2411,7 +2412,85 @@ async function loadFromDrive(){
 
 function isGoogleAuthenticated(){ try{ return !!(window.gapi && gapi.client && gapi.client.getToken() && gapi.client.getToken().access_token); }catch(e){ return false; } }
 
-async function addEventToGoogleCalendar(siniestro,item,type){ if(!isGoogleAuthenticated()){ alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar eventos.'); updateDriveStatus('⚠️ No conectado a Google. Evento no agendado.'); return false; } const title=`${type}: ${siniestro.cliente}`; const description=`Caso: ${siniestro.cliente} vs ${siniestro.contra||'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo||'S/N'}\n\nDescripción: ${item.texto}`; const isAllDay=type==='Vencimiento'; let start,end; if(isAllDay){ start={date:item.fecha}; end={date:item.fecha}; }else{ const eventStartTime=new Date(`${item.fecha}T${item.hora}:00`); const eventEndTime=new Date(eventStartTime.getTime()+36e5); start={dateTime:eventStartTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; end={dateTime:eventEndTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; } const event={summary:title,description:description,start:start,end:end}; updateDriveStatus(`🗓️ Agendando ${type} en Google Calendar...`); try{ const r=await gapi.client.calendar.events.insert({calendarId:'primary',resource:event}); console.log('Evento creado:',r.result); updateDriveStatus(`✅ ${type} agendado en Google Calendar.`); return true; }catch(e){ console.error("Error creando evento:",e); const msg=e.result?.error?.message||e.message||'Error desconocido.'; updateDriveStatus(`❌ Error al crear evento: ${msg}`); alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${msg}\n\nEl ${type.toLowerCase()} NO fue guardado. Verifique la conexión con Google y la fecha/hora ingresada.`); return false; }}
+// ── CONSTANCIA DE RESPALDO ───────────────────────────────────────────────────
+// El vigia no puede mirar Drive: no tiene sesion de Google. Lo que puede mirar es esta
+// marca, que se escribe SOLO cuando Drive confirmo el guardado. Si el guardado fallo no
+// queda nada, asi que el "hace N dias" del mail siempre cuenta dias sin copia buena.
+// Se anota tambien cuantos registros tenia: una copia hecha desde una pestaña vieja se
+// delata sola porque trae menos casos que la anterior.
+function marcarRespaldo(clave, cantidad) {
+    try {
+        if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+        firebase.database().ref('salud/respaldos/' + clave).set({
+            fecha: new Date().toISOString(),
+            registros: cantidad || 0
+        }).catch(err => console.warn('No se pudo anotar el respaldo:', err.message));
+    } catch (e) { console.warn('No se pudo anotar el respaldo:', e.message); }
+}
+
+// ── CALENDARIO SIN PASAR POR DRIVE ────────────────────────────────────────────
+// Hasta ahora el unico boton que autenticaba era el de Drive, y pedia los dos permisos
+// juntos: para agendar una mediacion o un vencimiento habia que conectarse a Drive
+// aunque no se fuera a guardar un solo archivo ahi. Ahora el calendario pide su propio
+// permiso, solo, y recien en el momento de agendar.
+//
+// El token vive en memoria (no se escribe en el disco) y es independiente del de Drive:
+// por eso se usa fetch directo y no gapi, que guarda un unico token global y le pisaria
+// la sesion al respaldo.
+const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let calTokenClient = null, calToken = '', calTokenVence = 0;
+
+function tokenCalendarioEnMano() {
+    // Un minuto de margen: un token que vence en tres segundos no sirve de nada.
+    return (calToken && Date.now() < calTokenVence - 60000) ? calToken : '';
+}
+
+function pedirTokenCalendario() {
+    return new Promise((resolve, reject) => {
+        if (!(window.google && google.accounts && google.accounts.oauth2)) {
+            reject(new Error('Google todavia no termino de cargar. Espera unos segundos y proba de nuevo.'));
+            return;
+        }
+        if (!calTokenClient) {
+            calTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GD_CLIENT_ID, scope: CAL_SCOPE, callback: function () {}
+            });
+        }
+        calTokenClient.callback = function (resp) {
+            if (resp.error) { reject(new Error(resp.error_description || resp.error)); return; }
+            calToken = resp.access_token;
+            calTokenVence = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000);
+            resolve(calToken);
+        };
+        // prompt vacio: la primera vez muestra el consentimiento —que ahora nombra solo el
+        // calendario, no Drive— y despues renueva sin preguntar nada.
+        calTokenClient.requestAccessToken({ prompt: '' });
+    });
+}
+
+async function errorDeCalendario(r) {
+    try { const j = await r.json(); return (j.error && j.error.message) || ('HTTP ' + r.status); }
+    catch (e) { return 'HTTP ' + r.status; }
+}
+
+async function insertarEventoCalendario(evento) {
+    const enviar = (t) => fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' },
+        body: JSON.stringify(evento)
+    });
+    let t = tokenCalendarioEnMano() || await pedirTokenCalendario();
+    let r = await enviar(t);
+    if (r.status === 401 || r.status === 403) {
+        // Token vencido o permiso revocado: se pide de nuevo y se reintenta UNA vez.
+        calToken = ''; calTokenVence = 0;
+        r = await enviar(await pedirTokenCalendario());
+    }
+    if (!r.ok) throw new Error(await errorDeCalendario(r));
+    return r.json();
+}
+
+async function addEventToGoogleCalendar(siniestro,item,type){ const title=`${type}: ${siniestro.cliente}`; const description=`Caso: ${siniestro.cliente} vs ${siniestro.contra||'N/A'}\nN° Reclamo: ${siniestro.numeroReclamo||'S/N'}\n\nDescripción: ${item.texto}`; const isAllDay=type==='Vencimiento'; let start,end; if(isAllDay){ start={date:item.fecha}; end={date:item.fecha}; }else{ const eventStartTime=new Date(`${item.fecha}T${item.hora}:00`); const eventEndTime=new Date(eventStartTime.getTime()+36e5); start={dateTime:eventStartTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; end={dateTime:eventEndTime.toISOString(),timeZone:'America/Argentina/Buenos_Aires'}; } const event={summary:title,description:description,start:start,end:end}; updateDriveStatus(`🗓️ Agendando ${type} en Google Calendar...`); try{ const r=await insertarEventoCalendario(event); console.log('Evento creado:',r); updateDriveStatus(`✅ ${type} agendado en Google Calendar.`); return true; }catch(e){ console.error("Error creando evento:",e); const msg=e.result?.error?.message||e.message||'Error desconocido.'; updateDriveStatus(`❌ Error al crear evento: ${msg}`); alert(`No se pudo crear el evento en Google Calendar.\n\nError: ${msg}\n\nEl ${type.toLowerCase()} NO fue guardado. Verifique la conexión con Google y la fecha/hora ingresada.`); return false; }}
 // --- FIN: CÓDIGO DE GOOGLE DRIVE Y CALENDAR ---
 
 // --- INICIO: Función de Modal de Confirmación ---
@@ -4405,10 +4484,17 @@ function showSiniestroModal(id){
     <div class="ficha-section ficha-tercero${getFichaOpenClass('sec-tercero', false)}" id="sec-tercero">
         <h4 onclick="toggleFichaSection('sec-tercero')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Datos del Tercero <span class="ficha-count">${(s.nombreTercero || s.dominioTercero) ? `${s.nombreTercero || 'sin nombre'}${s.dominioTercero ? ` · ${s.dominioTercero}` : ''}` : 'sin datos'}</span></h4>
         <div class="ficha-body">
-            <div class="info-grid">${renderSection(terceroFields)}</div>
-            ${renderTercerosAdicionales(s)}
-            <div style="margin-top:10px;">
-                <button type="button" class="btn btn-sm btn-neutral" onclick="agregarTerceroAdicional('${s.id}')">+ Agregar vehículo (choque en cadena)</button>
+            <!-- Todo esto va DENTRO de un solo hijo a proposito. El acordeon colapsa con
+                 grid-template-rows:0fr, que define UNA fila: el segundo hijo en adelante
+                 cae en filas implicitas de alto automatico y no colapsa nunca. Por eso los
+                 vehiculos adicionales y el boton "+" quedaban fijos, visibles con la
+                 seccion cerrada. Las demas secciones tienen un unico hijo y por eso andan. -->
+            <div>
+                <div class="info-grid">${renderSection(terceroFields)}</div>
+                ${renderTercerosAdicionales(s)}
+                <div style="margin-top:10px;">
+                    <button type="button" class="btn btn-sm btn-neutral" onclick="agregarTerceroAdicional('${s.id}')">+ Agregar vehículo (choque en cadena)</button>
+                </div>
             </div>
         </div>
     </div>
@@ -4606,9 +4692,9 @@ function renderHistoryList(s){
 function editObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); const el=document.getElementById(`task-item-${o.id}`); if(el)el.innerHTML=`<div class="form-group"><label>Texto Público</label><textarea id="edit-obs-text-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.texto}</textarea></div><div class="form-group"><label>Notas Privadas</label><textarea id="edit-obs-private-${o.id}" rows="2" style="font-size:1rem;min-height:60px;">${o.textoPrivado||''}</textarea></div><div class="form-group"><label>Fecha Revisión</label><input type="date" id="edit-obs-revision-${o.id}" value="${o.proximaRevision}"></div><button class="btn btn-success btn-sm" onclick="saveObs('${sid}','${o.id}')">Guardar</button><button class="btn btn-sm" onclick="showSiniestroModal('${sid}')">Cancelar</button>`; }
 function saveObs(sid,oid){ const s=siniestrosData.find(x=>x.id===sid),o=s.observaciones.find(k=>k.id===oid); o.texto=document.getElementById(`edit-obs-text-${o.id}`).value;o.textoPrivado=document.getElementById(`edit-obs-private-${o.id}`).value;o.proximaRevision=document.getElementById(`edit-obs-revision-${o.id}`).value; updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
 function deleteObs(sid,oid){ if(!confirm('¿Eliminar tarea?'))return; const s=siniestrosData.find(x=>x.id===sid); s.observaciones=s.observaciones.filter(o=>o.id!==oid); updateSiniestroNextRevision(s);saveData();renderAll();showSiniestroModal(sid); }
-async function addVencimiento(e,sid){ e.preventDefault(); if(!isGoogleAuthenticated()){ alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar vencimientos.'); return; } const s=siniestrosData.find(x=>x.id===sid); if(!s)return; const newVencimiento={id:generateId({}),fecha:document.getElementById('newVencimientoDate').value,texto:document.getElementById('newVencimientoText').value,completed:false,avisoPrevio:document.getElementById('newVencimientoAvisoPrevio').value}; const ok=await addEventToGoogleCalendar(s,newVencimiento,'Vencimiento'); if(!ok)return; s.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showSiniestroModal(sid); }
+async function addVencimiento(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); if(!s)return; const newVencimiento={id:generateId({}),fecha:document.getElementById('newVencimientoDate').value,texto:document.getElementById('newVencimientoText').value,completed:false,avisoPrevio:document.getElementById('newVencimientoAvisoPrevio').value}; const ok=await addEventToGoogleCalendar(s,newVencimiento,'Vencimiento'); if(!ok)return; s.vencimientos_list.push(newVencimiento); saveData(); renderAll(); showSiniestroModal(sid); }
 function deleteVencimiento(sid,vid){ if(!confirm('¿Eliminar vencimiento?'))return; const s=siniestrosData.find(x=>x.id===sid); s.vencimientos_list=s.vencimientos_list.filter(v=>v.id!==vid); saveData(); renderAll(); showSiniestroModal(sid); }
-async function addMediacion(e,sid){ e.preventDefault(); if(!isGoogleAuthenticated()){ alert('Su sesión con Google ha expirado o no está conectado.\n\nPor favor, refresque la página y vuelva a conectar su cuenta para poder agendar mediaciones.'); return; } const s=siniestrosData.find(x=>x.id===sid); if(!s)return; const newMediacion={id:generateId({}),fecha:document.getElementById('newMediacionDate').value,hora:document.getElementById('newMediacionTime').value,texto:document.getElementById('newMediacionText').value,completed:false,alertaMostrada:false,avisoPrevio:document.getElementById('newMediacionAvisoPrevio').value}; const ok=await addEventToGoogleCalendar(s,newMediacion,'Mediación'); if(!ok)return; s.mediaciones_list.push(newMediacion); saveData(); renderAll(); showSiniestroModal(sid); }
+async function addMediacion(e,sid){ e.preventDefault(); const s=siniestrosData.find(x=>x.id===sid); if(!s)return; const newMediacion={id:generateId({}),fecha:document.getElementById('newMediacionDate').value,hora:document.getElementById('newMediacionTime').value,texto:document.getElementById('newMediacionText').value,completed:false,alertaMostrada:false,avisoPrevio:document.getElementById('newMediacionAvisoPrevio').value}; const ok=await addEventToGoogleCalendar(s,newMediacion,'Mediación'); if(!ok)return; s.mediaciones_list.push(newMediacion); saveData(); renderAll(); showSiniestroModal(sid); }
 function deleteMediacion(sid,mid){ if(!confirm('¿Eliminar mediación?'))return; const s=siniestrosData.find(x=>x.id===sid); s.mediaciones_list=s.mediaciones_list.filter(m=>m.id!==mid); saveData(); renderAll(); showSiniestroModal(sid); }
 
 function saveColorVehiculo(sid, select) {
