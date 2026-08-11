@@ -3264,6 +3264,18 @@ function inferirUbicacion(prov, part, loc) {
             if (esBarrioCABA && !partidosConEsaLoc.length) provincia = 'CABA';
             else if (!esBarrioCABA && partidosConEsaLoc.length) provincia = 'Buenos Aires';
         }
+        // La denuncia casi siempre escribe el PARTIDO en el renglon de la localidad:
+        // "QUILMES", "LANUS", "SAN ISIDRO". Quilmes salia bien de casualidad, porque
+        // ademas figura como localidad dentro de su propio partido; Lanus no, porque sus
+        // localidades son "Lanus Este" y "Lanus Oeste". Buscar el nombre tambien entre los
+        // partidos resuelve toda esa familia sin adivinar: si es un partido de la
+        // provincia, la provincia es Buenos Aires y no hay ambiguedad posible.
+        const partidoHomonimo = PARTIDOS_PBA.find(p => p !== 'OTRO' && claveTexto(p) === claveLoc);
+        if (partidoHomonimo && !esBarrioCABA) {
+            if (!provincia) provincia = 'Buenos Aires';
+            if (provincia === 'Buenos Aires' && !partido) partido = partidoHomonimo;
+        }
+
         if (provincia === 'Buenos Aires' && !partido && partidosConEsaLoc.length) {
             // Ambigua (El Palomar esta en Moron y en Tres de Febrero): si hay un partido que
             // se llama igual que la localidad, ese; si no, se deja vacio a proposito.
@@ -4062,6 +4074,23 @@ function mostrarRevisionDenuncia(siniestroId, campos, uso) {
         filas += bloque('Tercero', CAMPOS_DENUNCIA_TERCERO, union, 'tercero');
     }
 
+    // Los demas vehiculos del choque en cadena tambien se revisan. Antes entraban a la
+    // ficha SIN una sola fila donde verlos y sin tilde para frenarlos: iban colgados del
+    // checkbox del relato, que es otra cosa. Se guardaban si o si.
+    let otrosTerceros = '';
+    if (terceros.length > 1) {
+        otrosTerceros = `<div style="margin-top:12px;padding:10px;background:var(--bg-card-hover);border-radius:8px;">
+            <div style="font-size:.82em;font-weight:600;margin-bottom:6px;">Otros vehículos del choque — se guardan como vehículos adicionales en la ficha</div>
+            <div id="listaOtrosTerceros">${terceros.map((t, i) => `
+                <label data-idx="${i}" style="display:block;font-size:.85em;padding:3px 0;cursor:pointer;">
+                    <input type="checkbox" class="chk-tercero-extra" data-idx="${i}" checked>
+                    ${esc(t.nombreTercero || '(sin nombre)')} — ${esc(t.dominioTercero || 's/dominio')}
+                    ${esc([t.marcaTercero, t.modeloTercero].filter(Boolean).join(' '))}${t.contra ? ' · ' + esc(t.contra) : ''}
+                </label>`).join('')}</div>
+            <div style="font-size:.78em;color:var(--text-muted);margin-top:6px;">El que elegiste como tercero principal no aparece acá: ya va en los campos de arriba.</div>
+        </div>`;
+    }
+
     window.__denunciaTerceros = terceros;
     window.__denunciaCampos = campos;
     window.__denunciaSiniestroId = siniestroId;
@@ -4087,6 +4116,7 @@ function mostrarRevisionDenuncia(siniestroId, campos, uso) {
         <div style="font-size:.82em;color:var(--text-muted);margin-bottom:10px;">Se aplica solo lo tildado. Lo que ya estaba cargado viene destildado para que no se pise sin querer.</div>
         ${selectorTerceros}
         <div id="tablaDenunciaCont"><table style="width:100%;border-collapse:collapse;">${filas || '<tr><td style="padding:14px;font-size:.9em;">No se pudo leer ningun dato nuevo de este PDF.</td></tr>'}</table></div>
+        ${otrosTerceros}
         ${extra}
         ${costo}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
@@ -4119,6 +4149,19 @@ function cambiarTerceroDenuncia(indice) {
         // perdia en silencio. Se respeta la regla: si pisaria algo cargado, sigue destildado.
         chk.checked = !!valor && chk.dataset.pisa !== '1';
     });
+
+    // El elegido como principal sale de la lista de "otros": ya va en los campos de arriba
+    // y ponerlo dos veces lo duplicaria en la ficha. Al que deja de ser el principal se lo
+    // vuelve a tildar; a los demas no se les toca lo que el usuario haya decidido.
+    document.querySelectorAll('#listaOtrosTerceros label').forEach(l => {
+        const chk = l.querySelector('.chk-tercero-extra');
+        if (!chk) return;
+        const esElegido = parseInt(l.dataset.idx, 10) === indice;
+        const estabaOculto = l.style.display === 'none';
+        l.style.display = esElegido ? 'none' : 'block';
+        if (esElegido) chk.checked = false;
+        else if (estabaOculto) chk.checked = true;
+    });
 }
 
 function aplicarDenuncia() {
@@ -4145,12 +4188,17 @@ function aplicarDenuncia() {
         // Se confirma con este checkbox, asi que se pisa lo que hubiera sin preguntar de nuevo.
         if (c.relato) { s.relatoHechos = String(c.relato).trim(); aplicados++; }
         if (c.danosCliente) { s.partesDanadas = String(c.danosCliente).trim(); aplicados++; }
+    }
 
-        // Los terceros que NO fueron elegidos como principal se guardan estructurados como
-        // vehiculos adicionales de la ficha (choque en cadena), no como texto suelto.
-        const elegido = document.querySelector('input[name="terceroElegido"]:checked');
-        const idxElegido = elegido ? parseInt(elegido.value, 10) : 0;
-        const otros = terceros.filter((_, i) => i !== idxElegido);
+    // Vehiculos adicionales del choque en cadena. Van SOLO los tildados en su propia lista.
+    // Antes se guardaban todos, sin fila donde verlos, colgados del checkbox del relato:
+    // no habia forma de revisarlos ni de dejar uno afuera.
+    {
+        const terceros = window.__denunciaTerceros || [];
+        const otros = [...document.querySelectorAll('.chk-tercero-extra:checked')]
+            .filter(chk => { const l = chk.closest('label'); return !l || l.style.display !== 'none'; })
+            .map(chk => terceros[parseInt(chk.dataset.idx, 10)])
+            .filter(Boolean);
         if (otros.length) {
             s.tercerosAdicionales = s.tercerosAdicionales || [];
             otros.forEach(t => {
@@ -4174,7 +4222,7 @@ function aplicarDenuncia() {
                     esUltimoDeLaCadena: !!t.esUltimoDeLaCadena
                 });
             });
-            aplicados++;
+            aplicados += otros.length;
         }
     }
 
