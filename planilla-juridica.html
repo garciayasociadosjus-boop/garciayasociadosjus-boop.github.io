@@ -5074,7 +5074,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         function renderFueroMev(client) {
             const f = fueroMevDe(client);
             const v = client.mev_civil_vinculada;
-            const necesita = (f === 'CIVIL' || f === 'PAZ') && !v;
+            // Solo CIVIL necesita vincularse a mano. Las de Justicia de Paz aparecen en el
+            // listado con autorizacion (227) y el worker las levanta solo desde la v25: yo
+            // habia puesto el aviso antes de descubrir eso, y mandaba a buscar en 109
+            // juzgados una causa que ya estaba en un listado.
+            const necesita = f === 'CIVIL' && !v;
+            const esPaz = f === 'PAZ';
             const opt = (val, txt) => '<option value="' + val + '"' + (f === val ? ' selected' : '') + '>' + txt + '</option>';
             let html = '<div style="margin-bottom:6px;">'
                 + '<select id="field-fuero-mev" onchange="saveFueroMev(\'' + client.id + '\', this.value)"'
@@ -5088,11 +5093,16 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 html += '<div style="margin-bottom:6px;padding:9px 11px;background:rgba(217,79,79,0.12);border-left:3px solid #d94f4f;border-radius:6px;">'
                     + '<div style="font-size:0.82em;font-weight:600;color:#d94f4f;margin-bottom:5px;">Falta vincular esta causa</div>'
                     + '<div style="font-size:0.78em;color:var(--text-muted);margin-bottom:7px;line-height:1.4;">'
-                    + 'Las causas civiles y de Paz no salen en ningún listado del MEV: hay que buscarlas una vez. '
+                    + 'Las causas civiles no salen en ningún listado del MEV: hay que buscarlas una vez. '
                     + 'Hasta que la vincules, <b>no se va a sincronizar sola</b>.</div>'
                     + '<button onclick="buscarCivilEnMev(\'' + client.id + '\', this)"'
                     + ' style="font-size:0.82em;padding:7px 13px;border:1px solid #d94f4f;border-radius:7px;color:#fff;background:#d94f4f;cursor:pointer;font-family:\'DM Sans\',sans-serif;font-weight:600;">'
                     + 'Buscar en el MEV y vincular</button></div>';
+            }
+            if (esPaz && !v) {
+                html += '<div style="margin-bottom:6px;padding:7px 10px;background:rgba(52,152,219,0.10);border-left:3px solid var(--info-color);border-radius:6px;font-size:.78em;color:var(--text-muted);">'
+                    + 'Las causas de <b>Justicia de Paz</b> ya salen en tu listado con autorización: '
+                    + 'el worker las levanta solo, no hay que vincular nada.</div>';
             }
             if (v) {
                 html += '<div style="margin-bottom:6px;padding:7px 10px;background:rgba(31,158,114,0.10);border-left:3px solid var(--success-color);border-radius:6px;font-size:0.78em;">'
