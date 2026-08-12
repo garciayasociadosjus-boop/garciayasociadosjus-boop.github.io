@@ -3678,14 +3678,14 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             dataFiltrada.forEach(client => {
                 const notifs = client.scba_notificaciones || [];
                 if (notifs.length === 0) return;
+                // "Visto" tiene que alcanzar por si solo. Antes se exigia ADEMAS que la ficha
+                // tuviera scba_ultima_sync, y si no lo tenia la condicion se salteaba entera
+                // y la novedad volvia a aparecer para siempre: el boton guardaba la marca y
+                // nadie la miraba. Pasaba en las fichas que nunca habian recibido una
+                // notificacion por el camino normal (12/08/2026).
                 const ultimaVista = client.scba_ultima_vista || null;
-                if (ultimaVista && client.scba_ultima_sync) {
-                    const syncTs = new Date(client.scba_ultima_sync).getTime();
-                    if (syncTs > ultimaVista) {
-                        alertas.push({ client, nuevos: notifs.slice(0, 3) });
-                    }
-                    return;
-                }
+                const syncTs = client.scba_ultima_sync ? new Date(client.scba_ultima_sync).getTime() : 0;
+                if (ultimaVista && !(syncTs > ultimaVista)) return;   // visto y sin novedades despues
                 alertas.push({ client, nuevos: notifs.slice(0, 3) });
             });
 
