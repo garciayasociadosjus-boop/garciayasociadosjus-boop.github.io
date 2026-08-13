@@ -7530,6 +7530,328 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }, 100);
         }
 
+        // ═══ ESCRITOS SIMPLES ════════════════════════════════════════════════════
+        // Se elige un modelo, se completa con los datos de la ficha y se baja en Word con
+        // el formato de juzgado. Los datos NO los redacta la IA: van por marcadores. Un
+        // modelo de lenguaje puede cambiar un dígito de un DNI y el escrito se firma igual.
+        //
+        // Formato de página, medido sobre los .docx que usa el estudio:
+        //   A4 · márgenes sup. 5 / izq. 5 / der. 1,5 / inf. 2 cm
+        //   Times New Roman 12 · interlineado 1,5 · justificado
+        const ESCRITO_ESTILO = {
+            hoja: '21cm 29.7cm',
+            margen: '5cm 1.5cm 2cm 5cm',   // top right bottom left
+            fuente: "'Times New Roman', Times, serif",
+            tamano: '12pt',
+            interlineado: '150%'
+        };
+
+        // Datos fijos del estudio. Están acá y no en cada modelo para que cambiar una
+        // matrícula o el domicilio no obligue a reescribir los escritos uno por uno.
+        const ESTUDIO = {
+            letrada: 'Dra. Camila Florencia Rodríguez García',
+            matriculas: 'Abogada inscripta al T° XII, F° 383, del C.A.Q., T° 140, F° 85 C.P.A.C.F.',
+            condicion: 'Monotributista',
+            cuit: '27-38843361-8',
+            domicilioProcesal: 'Saavedra N 151 Quilmes, Provincia de Buenos Aires',
+            telefono: '011 1568063444',
+            mail: 'garciayasociadosjus@gmail.com',
+            usuarioMev: 'CAMILADG'
+        };
+
+        const FIREBASE_KEY_ESCRITOS = 'escritos_modelos';
+        let escritosModelos = null;      // se cachea tras la primera lectura
+
+        // Los dos que ya usa el estudio. Se suben a Firebase la primera vez y desde ahí
+        // se editan sin desplegar nada.
+        function escritosSemilla() {
+            const encabezado =
+                '{{cliente}} DNI N° {{dni}} con domicilio real en {{domicilio_real}}, ' +
+                'con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, ' +
+                'denunciando domicilio electrónico con el CUIT N° {{cuit}}, constituyendo domicilio ' +
+                'procesal en {{domicilio_procesal}}, Teléfono {{telefono}}, y dirección de correo ' +
+                'electrónico {{mail}}, a V.S. me presento y respetuosamente digo:';
+            const encabezadoLetrada =
+                '{{letrada}}, {{matriculas}}, {{condicion}}, denunciando domicilio electrónico con el ' +
+                'CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, ' +
+                'Teléfono {{telefono}}, y dirección de correo electrónico {{mail}}, a V.S. me presento ' +
+                'y respetuosamente digo:';
+            return {
+                acceso_mev: {
+                    nombre: 'Se presenta. Solicita acceso MEV',
+                    materias: [],
+                    cuerpo: [
+                        '**SE PRESENTA. SOLICITA ACCESO MEV.-**',
+                        '',
+                        '**Señor Juez:**',
+                        '**' + encabezado + '**',
+                        '',
+                        '**I.  PRESENTA LETRADA PATROCINANTE – SOLICITA ACCESO MEV**',
+                        'Que vengo por el presente a informar que he designado letrada patrocinante a la {{letrada}}, solicitando se la tenga por presentada en tal carácter en autos.',
+                        '**Asimismo, vengo a solicitar se otorgue acceso al expediente digital a través del sistema MEV bajo el usuario {{usuario_mev}}, a fin de poder tomar vista del expediente.**',
+                        '',
+                        '**II. PETITORIO**',
+                        'Por todo lo expuesto, a V.S. solicito:',
+                        'Se me tenga por presentado, parte y con el patrocinio letrado indicado.',
+                        'Se tenga presente la designación de mi letrada.',
+                        '**Se otorgue acceso al expediente digital (MEV) bajo el usuario {{usuario_mev}}.**',
+                        '',
+                        '>>**Proveer de conformidad,**',
+                        '>>**SERÁ JUSTICIA.**'
+                    ].join('\n')
+                },
+                renuncia_patrocinio: {
+                    nombre: 'Renuncia al patrocinio',
+                    materias: [],
+                    cuerpo: [
+                        '**RENUNCIA AL PATROCINIO.-**',
+                        '',
+                        '**Señor Juez:**',
+                        encabezadoLetrada,
+                        '',
+                        'Que vengo a renunciar al patrocinio letrado en autos, por razones que hacen imposible mi continuidad como letrada en el proceso. Asimismo en este acto se notifica mi representado, firmando el documento, y siendo informado de los efectos de esta renuncia.-',
+                        'Solicito se agregue y se tenga presente a todos sus efectos.-',
+                        '',
+                        '>>**Proveer de conformidad,**',
+                        '>>**SERÁ JUSTICIA.**'
+                    ].join('\n')
+                }
+            };
+        }
+
+        async function cargarEscritosModelos() {
+            if (escritosModelos) return escritosModelos;
+            try {
+                const snap = await firebase.database().ref(FIREBASE_KEY_ESCRITOS).once('value');
+                const v = snap.val();
+                if (v && Object.keys(v).length) { escritosModelos = v; return v; }
+            } catch (e) { console.error('escritos_modelos:', e); }
+            // Primera vez: se siembran los dos modelos base.
+            escritosModelos = escritosSemilla();
+            try { await firebase.database().ref(FIREBASE_KEY_ESCRITOS).set(escritosModelos); } catch (e) {}
+            return escritosModelos;
+        }
+
+        // ── Marcadores ───────────────────────────────────────────────────────────
+        // Devuelve { valor, falta } por cada uno: lo que falta se avisa ANTES de bajar el
+        // escrito, no se completa con "S/D" y se firma con un hueco.
+        function escritoDatos(client) {
+            const dom = [client.domicilioCliente, client.localidadCliente, client.provinciaCliente]
+                .filter(Boolean).join(', ');
+            const juzgado = [client.juzgado, client.deptoJudicial].filter(Boolean).join(', ');
+            const exp = client.expediente
+                ? client.expediente + (client.anioExpediente ? '/' + client.anioExpediente : '')
+                : '';
+            return {
+                cliente: client.nombre || '',
+                dni: client.dni || '',
+                domicilio_real: dom,
+                caratula: client.caratula || '',
+                expediente: exp,
+                juzgado: juzgado,
+                // Del estudio: nunca faltan.
+                letrada: ESTUDIO.letrada,
+                matriculas: ESTUDIO.matriculas,
+                condicion: ESTUDIO.condicion,
+                cuit: ESTUDIO.cuit,
+                domicilio_procesal: ESTUDIO.domicilioProcesal,
+                telefono: ESTUDIO.telefono,
+                mail: ESTUDIO.mail,
+                usuario_mev: ESTUDIO.usuarioMev
+            };
+        }
+
+        const ETIQUETA_MARCADOR = {
+            cliente: 'Nombre del cliente', dni: 'DNI del cliente',
+            domicilio_real: 'Domicilio del cliente (calle, localidad y provincia)',
+            caratula: 'Carátula', expediente: 'N° de expediente', juzgado: 'Juzgado'
+        };
+
+        function escritoReemplazar(texto, datos) {
+            const faltan = [];
+            const out = texto.replace(/\{\{(\w+)\}\}/g, (m, k) => {
+                const v = datos[k];
+                if (v === undefined) return m;                 // marcador desconocido: se deja a la vista
+                if (!String(v).trim()) {
+                    if (faltan.indexOf(k) === -1) faltan.push(k);
+                    return '_______';
+                }
+                return v;
+            });
+            return { texto: out, faltan };
+        }
+
+        // ── Armado del documento ─────────────────────────────────────────────────
+        // Convenciones del cuerpo del modelo:
+        //   **texto**  → negrita        >>texto → alineado a la derecha
+        //   línea vacía → renglón en blanco
+        function escritoParrafosHTML(texto) {
+            const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return texto.split('\n').map(linea => {
+                let l = linea.trim();
+                if (!l) return '<p style="margin:0;">&nbsp;</p>';
+                let alineacion = 'justify';
+                if (l.indexOf('>>') === 0) { alineacion = 'right'; l = l.slice(2).trim(); }
+                let html = esc(l).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+                return '<p style="margin:0;text-align:' + alineacion + ';">' + html + '</p>';
+            }).join('');
+        }
+
+        function escritoDocumentoHTML(cuerpo) {
+            const e = ESCRITO_ESTILO;
+            return '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+                'xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+                '<head><meta charset="utf-8"><title>Escrito</title>' +
+                '<style>' +
+                '@page WordSection1 { size: ' + e.hoja + '; margin: ' + e.margen + '; }' +
+                'div.WordSection1 { page: WordSection1; }' +
+                'body, p { font-family: ' + e.fuente + '; font-size: ' + e.tamano + '; ' +
+                'line-height: ' + e.interlineado + '; }' +
+                '</style></head><body><div class="WordSection1">' +
+                escritoParrafosHTML(cuerpo) +
+                '</div></body></html>';
+        }
+
+        // ── Pantalla ─────────────────────────────────────────────────────────────
+        let escritoActual = { clientId: null, modeloId: null };
+
+        async function abrirEscritos(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const modelos = await cargarEscritosModelos();
+            escritoActual = { clientId: clientId, modeloId: Object.keys(modelos)[0] };
+
+            let overlay = document.getElementById('escritosOverlay');
+            if (overlay) overlay.remove();
+            overlay = document.createElement('div');
+            overlay.id = 'escritosOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,15,.6);z-index:9999;' +
+                'display:flex;align-items:center;justify-content:center;padding:20px;';
+            overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
+            overlay.innerHTML = '<div style="background:var(--bg-modal,#fff);max-width:900px;width:100%;' +
+                'max-height:90vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;' +
+                'box-shadow:0 12px 48px rgba(0,0,0,.5);">' +
+                '<div style="padding:14px 20px;border-bottom:1px solid var(--border-item,#e5e5e5);' +
+                'display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">' +
+                '<div><div style="font-weight:700;font-size:1.05em;">Escritos</div>' +
+                '<div style="font-size:.85em;color:var(--text-muted);">' +
+                (client.caratula || client.nombre || '') + '</div></div>' +
+                '<button onclick="document.getElementById(\'escritosOverlay\').remove()" ' +
+                'style="border:none;background:transparent;font-size:1.5em;cursor:pointer;color:var(--text-muted);">&times;</button>' +
+                '</div>' +
+                '<div id="escritosCuerpo" style="padding:16px 20px;overflow:auto;"></div>' +
+                '</div>';
+            document.body.appendChild(overlay);
+            renderEscritos();
+        }
+
+        function renderEscritos() {
+            const cont = document.getElementById('escritosCuerpo');
+            if (!cont) return;
+            const client = clientsData.find(c => c.id === escritoActual.clientId);
+            const modelos = escritosModelos || {};
+            const ids = Object.keys(modelos);
+            if (!ids.length) { cont.innerHTML = '<p>No hay modelos cargados.</p>'; return; }
+            if (!modelos[escritoActual.modeloId]) escritoActual.modeloId = ids[0];
+            const modelo = modelos[escritoActual.modeloId];
+
+            const datos = escritoDatos(client);
+            const r = escritoReemplazar(modelo.cuerpo || '', datos);
+
+            const avisoFaltan = r.faltan.length
+                ? '<div style="background:rgba(217,79,79,.08);border-left:3px solid var(--danger-color);' +
+                  'border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:.85em;">' +
+                  '<b>Faltan datos en la ficha</b> — donde falta quedó una raya:<br>' +
+                  r.faltan.map(k => '· ' + (ETIQUETA_MARCADOR[k] || k)).join('<br>') +
+                  '</div>'
+                : '';
+
+            cont.innerHTML =
+                '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">' +
+                '<div style="flex:1;min-width:240px;"><label style="font-size:.8em;color:var(--text-muted);">Modelo</label>' +
+                '<select id="escritoModeloSel" onchange="escritoActual.modeloId=this.value;renderEscritos();" ' +
+                'style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;">' +
+                ids.map(id => '<option value="' + id + '"' + (id === escritoActual.modeloId ? ' selected' : '') + '>' +
+                    (modelos[id].nombre || id) + '</option>').join('') +
+                '</select></div>' +
+                '<button onclick="descargarEscrito()" class="btn btn-success">Descargar Word</button>' +
+                '<button onclick="editarModeloEscrito()" class="btn btn-info btn-sm">Editar modelo</button>' +
+                '</div>' +
+                avisoFaltan +
+                '<div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;">' +
+                'Vista previa — así sale el Word (A4, márgenes 5/1,5/2/5 cm, Times New Roman 12, interlineado 1,5).</div>' +
+                '<div style="background:#fff;color:#111;border:1px solid #ddd;border-radius:6px;padding:26px 20px;' +
+                'font-family:\'Times New Roman\',Times,serif;font-size:12pt;line-height:1.5;">' +
+                escritoParrafosHTML(r.texto) + '</div>';
+        }
+
+        function descargarEscrito() {
+            const client = clientsData.find(c => c.id === escritoActual.clientId);
+            const modelo = (escritosModelos || {})[escritoActual.modeloId];
+            if (!client || !modelo) return;
+            const r = escritoReemplazar(modelo.cuerpo || '', escritoDatos(client));
+            if (r.faltan.length) {
+                const lista = r.faltan.map(k => '· ' + (ETIQUETA_MARCADOR[k] || k)).join('\n');
+                if (!confirm('Faltan datos en la ficha:\n\n' + lista +
+                             '\n\nEl escrito sale igual, con una raya en cada lugar. ¿Bajarlo así?')) return;
+            }
+            const nombre = (modelo.nombre || 'Escrito').replace(/[\\/:*?"<>|]/g, '-') + ' - ' +
+                (client.nombre || client.caratula || '').replace(/[\\/:*?"<>|]/g, '-').substring(0, 50) + '.doc';
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob(['﻿' + escritoDocumentoHTML(r.texto)],
+                { type: 'application/msword' }));
+            link.download = nombre;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+        }
+
+        // Editor mínimo: el cuerpo es texto plano y se guarda en Firebase, sin desplegar.
+        function editarModeloEscrito() {
+            const modelo = (escritosModelos || {})[escritoActual.modeloId];
+            if (!modelo) return;
+            const cont = document.getElementById('escritosCuerpo');
+            const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            cont.innerHTML =
+                '<div style="margin-bottom:10px;">' +
+                '<label style="font-size:.8em;color:var(--text-muted);">Nombre del modelo</label>' +
+                '<input id="escritoNombreEdit" value="' + String(modelo.nombre || '').replace(/"/g, '&quot;') + '" ' +
+                'style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;"></div>' +
+                '<div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;line-height:1.5;">' +
+                'Un renglón por párrafo. <b>**texto**</b> = negrita · <b>&gt;&gt;</b> al principio = alineado a la derecha · ' +
+                'renglón vacío = espacio.<br>Marcadores: ' +
+                Object.keys(ETIQUETA_MARCADOR).map(k => '{{' + k + '}}').join(' · ') +
+                ' · {{letrada}} {{matriculas}} {{condicion}} {{cuit}} {{domicilio_procesal}} {{telefono}} {{mail}} {{usuario_mev}}</div>' +
+                '<textarea id="escritoCuerpoEdit" rows="18" style="width:100%;font-family:monospace;font-size:.85em;">' +
+                esc(modelo.cuerpo) + '</textarea>' +
+                '<div style="display:flex;gap:8px;margin-top:10px;">' +
+                '<button onclick="guardarModeloEscrito()" class="btn btn-success">Guardar modelo</button>' +
+                '<button onclick="renderEscritos()" class="btn btn-sm">Cancelar</button>' +
+                '<button onclick="nuevoModeloEscrito()" class="btn btn-info btn-sm">Crear uno nuevo</button>' +
+                '</div>';
+        }
+
+        function guardarModeloEscrito() {
+            const id = escritoActual.modeloId;
+            if (!escritosModelos || !escritosModelos[id]) return;
+            escritosModelos[id].nombre = document.getElementById('escritoNombreEdit').value;
+            escritosModelos[id].cuerpo = document.getElementById('escritoCuerpoEdit').value;
+            firebase.database().ref(FIREBASE_KEY_ESCRITOS + '/' + id).set(escritosModelos[id])
+                .catch(e => alert('No se pudo guardar el modelo: ' + e.message));
+            renderEscritos();
+        }
+
+        function nuevoModeloEscrito() {
+            const nombre = prompt('Nombre del escrito nuevo:');
+            if (!nombre) return;
+            const id = nombre.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').substring(0, 40)
+                || ('escrito_' + Date.now());
+            escritosModelos[id] = { nombre: nombre, materias: [], cuerpo: '**' + nombre.toUpperCase() + '.-**\n\n**Señor Juez:**\n\n\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**' };
+            firebase.database().ref(FIREBASE_KEY_ESCRITOS + '/' + id).set(escritosModelos[id])
+                .catch(e => alert('No se pudo crear: ' + e.message));
+            escritoActual.modeloId = id;
+            editarModeloEscrito();
+        }
+
         // ── SOLAPA BIENES (divorcio) ─────────────────────────────────────────────
         // Bienes de la sociedad conyugal. Cada uno con su tipo, para que el dia de mañana
         // el escrito sepa si hay que oficiar al Registro Automotor o al de la Propiedad.
@@ -7785,6 +8107,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         Ir a Claude.ai con esta causa
                     </button>
+                    <button onclick="abrirEscritos('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--gold-dark,#8a6a10);border-radius:8px;color:var(--gold-dark,#8a6a10);background:rgba(201,169,110,0.12);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Armar un escrito con los datos de esta ficha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg> Escritos</button>
                     <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bajar dossier en Word
                     </button>
@@ -7946,7 +8269,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             Ir a Claude.ai con esta causa
                         </button>
-                        <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
+                        <button onclick="abrirEscritos('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--gold-dark,#8a6a10);border-radius:8px;color:var(--gold-dark,#8a6a10);background:rgba(201,169,110,0.12);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Armar un escrito con los datos de esta ficha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg> Escritos</button>
+                    <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bajar dossier en Word
                         </button>
                         <button onclick="exportarDossier('${client.id}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Solo copiar/ver el dossier sin abrir Claude.ai">
