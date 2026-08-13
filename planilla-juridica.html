@@ -5018,11 +5018,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         // historial, y en una ficha con muchos aportes empujaban todo hacia abajo.
         function renderTabPagos(client) {
             const resumen = renderLastPaymentSummary(client);
-            if (!resumen) {
+            const historial = renderPaymentHistoryList(client);
+            if (!resumen && !historial.trim()) {
                 return '<p style="color:#666;font-style:italic;">No hay pagos registrados. ' +
-                       'Se cargan desde "Registrar Bono / Aporte", mas abajo en la ficha.</p>';
+                       'Se cargan con el botón "Registrar pago", más abajo en la ficha.</p>';
             }
-            return resumen;
+            return resumen + '<div id="bonos-aportes-list">' + historial + '</div>';
         }
 
         function renderLastPaymentSummary(client) {
@@ -5601,48 +5602,40 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                            ['audiencia-form-fields','Agendar audiencia'],
                            ['vencimiento-form-fields','Agendar vencimiento'],
                            ['bono-aporte-form-fields','Registrar pago']]
-                          .map(([id, texto]) => `<button type="button" onclick="abrirFormFicha('${id}')"
+                          .map(([id, texto]) => `<button type="button" data-form-btn="${id}" onclick="abrirFormFicha('${id}')"
                               style="font-size:.82em;padding:8px 14px;border:1px solid var(--gold-border,#c9a96e);
                                      border-radius:8px;background:var(--gold-dim,rgba(201,169,110,.12));
                                      color:var(--gold-dark,#8a6a10);cursor:pointer;
                                      font-family:'DM Sans',sans-serif;font-weight:600;">+ ${texto}</button>`).join('')}
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                        <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4 onclick="toggleFormVisibility('tarea-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Agregar Tarea</h4>
-                            <form id="tarea-form-fields" onsubmit="addObservation(event, '${client.id}')" style="display:none; margin-top:15px;">
+                    <!-- Un solo panel para las cuatro cargas. Antes eran cuatro cajones de
+                         distinto tamaño en una grilla que los acomodaba de a uno, de a dos y de a
+                         uno: se veía desparejo y ocupaba media pantalla estando vacío. Ahora la
+                         fila de botones abre el formulario que haga falta, siempre en el mismo lugar
+                         y con el mismo ancho. -->
+                    <div id="fichaPanelCarga" style="background:var(--light-bg);border:1px solid var(--border-card,rgba(160,120,64,.28));border-radius:10px;padding:0 18px;margin-top:6px;max-height:0;overflow:hidden;transition:max-height .18s ease,padding .18s ease;">
+                        <div id="fichaPanelTitulo" style="font-family:'Cormorant Garamond',serif;font-size:1.05em;color:var(--gold-dark,#8a6a10);margin:14px 0 10px;"></div>
+                        <form id="tarea-form-fields" onsubmit="addObservation(event, '${client.id}')" style="display:none;">
                                 <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
                                 <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
                                 <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
                                 <button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Tarea</button>
                             </form>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
-                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                                <h4 onclick="toggleFormVisibility('audiencia-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Agendar Audiencia</h4>
-                                <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                        <form id="audiencia-form-fields" onsubmit="addAudience(event, '${client.id}')" style="display:none;">
                                     <div class="form-group"><label>Descripción</label><textarea id="newAudienceText" rows="2" required></textarea></div>
                                     <div class="form-group"><label>Fecha</label><input type="date" id="newAudienceDate" required></div>
                                     <div class="form-group"><label>Hora</label><input type="time" id="newAudienceTime" required></div>
                                     <div class="form-group"><label>Aviso Previo</label><select id="newAudienceAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
                                     <button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Agendar</button>
                                 </form>
-                            </div>
-                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                                <h4 onclick="toggleFormVisibility('vencimiento-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Agendar Vencimiento</h4>
-                                <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                        <form id="vencimiento-form-fields" onsubmit="addVencimiento(event, '${client.id}')" style="display:none;">
                                     <div class="form-group"><label>Descripción</label><textarea id="newVencimientoText" rows="2" required></textarea></div>
                                     <div class="form-group"><label>Fecha</label><input type="date" id="newVencimientoDate" required></div>
                                     <div class="form-group"><label>Hora</label><input type="time" id="newVencimientoTime" required></div>
                                     <div class="form-group"><label>Aviso Previo</label><select id="newVencimientoAvisoPrevio"><option value="0">Sin aviso</option><option value="1" selected>1 día antes</option><option value="2">2 días antes</option><option value="3">3 días antes</option><option value="7">1 semana antes</option></select></div>
                                     <button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Agendar</button>
                                 </form>
-                            </div>
-                            
-                            <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px; grid-column: 1 / -1;">
-                                <h4 onclick="toggleFormVisibility('bono-aporte-form-fields')" style="cursor: pointer; user-select: none;"><span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Registrar Pagos</h4>
-                                <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display: none; margin-top: 15px;">
+                        <form id="bono-aporte-form-fields" onsubmit="addBonoAporte(event, '${client.id}')" style="display:none;">
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 15px;">
                                         <div>
                                             <h5>Bono Ley</h5>
@@ -5669,10 +5662,6 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                     <div class="form-group"><label>Observación General</label><textarea id="newBAObservacion" rows="2"></textarea></div>
                                     <button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Registro</button>
                                 </form>
-                                <div id="bonos-aportes-list">${renderPaymentHistoryList(client)}</div>
-                            </div>
-                            
-                        </div>
                     </div>
 
                     <div class="action-buttons"><button class="btn" onclick="printClientSheet('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg> Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button></div>`;
@@ -5969,22 +5958,43 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             return html;
         }
 
-        // Abre un formulario de la ficha y cierra los otros tres: tenerlos todos
-        // desplegados a la vez es justo lo que hacia falta evitar.
+        // Abre uno de los cuatro formularios de carga dentro del mismo panel. Solo uno
+        // a la vez: tenerlos todos desplegados es lo que hacía que la ficha fuera un rollo.
+        const FORMS_FICHA = {
+            'tarea-form-fields': 'Agregar tarea',
+            'audiencia-form-fields': 'Agendar audiencia',
+            'vencimiento-form-fields': 'Agendar vencimiento',
+            'bono-aporte-form-fields': 'Registrar pago'
+        };
+
         function abrirFormFicha(id) {
-            const todos = ['tarea-form-fields', 'audiencia-form-fields',
-                           'vencimiento-form-fields', 'bono-aporte-form-fields'];
+            const panel = document.getElementById('fichaPanelCarga');
             const el = document.getElementById(id);
-            if (!el) return;
-            const abrir = el.style.display === 'none' || !el.style.display;
-            todos.forEach(k => {
+            if (!panel || !el) return;
+            const yaAbierto = el.style.display === 'block';
+            Object.keys(FORMS_FICHA).forEach(k => {
                 const f = document.getElementById(k);
                 if (f) f.style.display = 'none';
             });
-            if (abrir) {
-                el.style.display = 'block';
-                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            document.querySelectorAll('[data-form-btn]').forEach(b => {
+                b.style.background = 'var(--gold-dim,rgba(201,169,110,.12))';
+                b.style.color = 'var(--gold-dark,#8a6a10)';
+            });
+            if (yaAbierto) {
+                panel.style.maxHeight = '0';
+                panel.style.padding = '0 18px';
+                return;
             }
+            el.style.display = 'block';
+            document.getElementById('fichaPanelTitulo').textContent = FORMS_FICHA[id] || '';
+            panel.style.padding = '0 18px 18px';
+            panel.style.maxHeight = '2000px';
+            const btn = document.querySelector('[data-form-btn="' + id + '"]');
+            if (btn) {
+                btn.style.background = 'var(--gold-dark,#8a6a10)';
+                btn.style.color = '#fff';
+            }
+            panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
 
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
