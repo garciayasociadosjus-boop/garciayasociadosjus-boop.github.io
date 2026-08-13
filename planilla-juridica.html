@@ -5118,14 +5118,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const edadStr = h.edadMeses && parseInt(h.edadMeses) > 0
                         ? `${h.edad || 0}a ${h.edadMeses}m`
                         : (h.edad ? `${h.edad} años` : '');
-                    const partidaIcon = h.partidaSiNo === 'Si'
-                        ? `<span title="Tiene partida" style="color:var(--success-color); margin-left:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>`
-                        : `<span title="Sin partida" style="color:var(--danger-color); margin-left:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg></span>`;
                     return `
                     <div style="background:var(--bg-info-item); border:1px solid var(--gold-border); border-radius:10px; padding:10px 14px; min-width:150px; flex-shrink:0;">
                         <div style="font-weight:600; color:var(--gold-dark); font-size:0.95em; font-family:'Cormorant Garamond',serif; letter-spacing:.02em;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${h.nombre || 'S/N'}</div>
                         <div style="font-size:0.82em; color:var(--text-muted); margin-top:3px;">${edadStr ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3M12 8v3M17 8v3M7 4h.01M12 4h.01M17 4h.01"/></svg> ${edadStr}` : ''} ${h.dni ? `· DNI: ${h.dni}` : ''}</div>
-                        <div style="font-size:0.8em; margin-top:4px; color:var(--text-secondary);">Partida: ${partidaIcon}</div>
+                        ${h.tratamiento === 'Si' ? `<div style="font-size:0.8em; margin-top:4px; color:var(--warning-color);" title="${(h.tratamientoDetalle||'').replace(/"/g,'&quot;')}">Tratamiento especial</div>` : ''}
                     </div>`;
                 }).join('');
                 hijosHTML = `
@@ -5365,9 +5362,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     titulo: 'Título (Sr/Sra)',
                     socio: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Socio Asignado',
                     materia: 'Materia',
-                    nombre: 'Nombre', 
-                    dni: 'DNI', 
-                    telefono: 'Teléfono', 
+                    nombre: 'Nombre',
+                    dni: 'DNI',
+                    telefono: 'Teléfono',
+                    domicilioCliente: 'Domicilio del cliente',
+                    iniciadoPorEstudio: 'Origen del expediente',
                     caratula: 'Carátula',
                     expediente: 'N° Expediente',
                     juzgado: 'Juzgado', 
@@ -5406,6 +5405,46 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                     <div class="info-value" style="font-size:0.95em;">${client.email || 'S/D'}</div>
                                 </div>
                             </div>
+                        </div>`;
+                    }
+                    // Domicilio real del cliente. Va separado en calle / localidad / provincia
+                    // y no en un solo renglon: el escrito los pide por separado y despues no
+                    // hay forma segura de partir "Zapiola 662, Quilmes, Bs As" sin equivocarse.
+                    if (key === 'domicilioCliente') {
+                        const campo = (k, etiqueta, ph) => `<div>
+                            <div class="info-label" style="font-size:0.72em;margin-bottom:2px;">${etiqueta}</div>
+                            <div class="editable-field" id="field-${k}" onclick="editField('${client.id}', '${k}')">
+                                <div class="info-value" style="font-size:0.9em;">${client[k] || (ph || 'S/D')}</div>
+                            </div></div>`;
+                        return `<div class="info-item" style="padding:10px 15px;">
+                            <div class="info-label" style="margin-bottom:6px;">Domicilio del cliente</div>
+                            <div style="display:grid;gap:6px;">
+                                ${campo('domicilioCliente', 'Calle y número')}
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                    ${campo('localidadCliente', 'Localidad')}
+                                    ${campo('provinciaCliente', 'Provincia', 'Buenos Aires')}
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                    // Hace falta saberlo ANTES del sorteo: si la causa ya viene con expediente
+                    // de otro abogado, no hay sorteo que hacer y el escrito es otro.
+                    if (key === 'iniciadoPorEstudio') {
+                        const v = client.iniciadoPorEstudio || '';
+                        const boton = (val, texto, color) => `<button type="button"
+                            onclick="setIniciadoPorEstudio('${client.id}', '${val}')"
+                            style="flex:1;padding:7px 6px;border-radius:8px;cursor:pointer;font-size:0.78em;
+                                   font-family:'DM Sans',sans-serif;font-weight:600;line-height:1.25;
+                                   border:1px solid ${v === val ? color : 'var(--border-input)'};
+                                   background:${v === val ? color : 'transparent'};
+                                   color:${v === val ? '#fff' : 'var(--text-muted)'};">${texto}</button>`;
+                        return `<div class="info-item" style="padding:10px 15px;">
+                            <div class="info-label" style="margin-bottom:6px;">Origen del expediente</div>
+                            <div style="display:flex;gap:6px;">
+                                ${boton('ESTUDIO', 'Iniciado por<br>el estudio', 'var(--success-color)')}
+                                ${boton('OTRO', 'NO iniciado<br>por el estudio', 'var(--warning-color)')}
+                            </div>
+                            ${!v ? '<div style="font-size:0.72em;color:var(--text-muted);margin-top:5px;font-style:italic;">Sin definir — hace falta antes del sorteo</div>' : ''}
                         </div>`;
                     }
                     if (key === 'expediente') {
@@ -5461,19 +5500,23 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
                 };
 
+                const solapasVisibles = solapasDeMateria(client);
+                const tieneSolapa = (id) => solapasVisibles.includes(id);
                 let solapasHTML = `
                     <div style="margin-top: 25px;">
                         <div class="tabs-header">
-                            <button class="tab-btn" onclick="switchTab(event, 'tab-hijos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Hijos</button>
-                            <button class="tab-btn" onclick="switchTab(event, 'tab-demandado')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Demandado</button>
-                            <button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 2v20M7 2v20M11 2v8a2 2 0 0 0 4 0V2M19 2v20M19 14l-2-2"/></svg> Necesidades</button>
-                            <button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>
+                            ${tieneSolapa('general') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-general')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> General</button>` : ''}
+                            ${tieneSolapa('hijos') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-hijos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Hijos</button>` : ''}
+                            ${tieneSolapa('demandado') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-demandado')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Demandado</button>` : ''}
+                            ${tieneSolapa('necesidades') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 2v20M7 2v20M11 2v8a2 2 0 0 0 4 0V2M19 2v20M19 14l-2-2"/></svg> Necesidades</button>` : ''}
+                            ${tieneSolapa('convenio') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>` : ''}
                             <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Expediente Digital</button>
                         </div>
-                        <div id="tab-hijos" class="tab-content">${renderTabHijos(client)}</div>
-                        <div id="tab-demandado" class="tab-content">${renderTabDemandado(client)}</div>
-                        <div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>
-                        <div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>
+                        ${tieneSolapa('general') ? `<div id="tab-general" class="tab-content">${renderTabGeneral(client)}</div>` : ''}
+                        ${tieneSolapa('hijos') ? `<div id="tab-hijos" class="tab-content">${renderTabHijos(client)}</div>` : ''}
+                        ${tieneSolapa('demandado') ? `<div id="tab-demandado" class="tab-content">${renderTabDemandado(client)}</div>` : ''}
+                        ${tieneSolapa('necesidades') ? `<div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>` : ''}
+                        ${tieneSolapa('convenio') ? `<div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>` : ''}
                         <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
                     </div>`;
 
@@ -5995,6 +6038,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             client.deptoJudicialManual = inp.value;
             updateClient(client);
             editFieldJurisdiccion(clientId);
+        }
+
+        // Se puede desmarcar tocando el mismo boton: si alguien se equivoca, que pueda
+        // volver a "sin definir" en vez de quedar con un dato falso que nadie revisa.
+        function setIniciadoPorEstudio(clientId, valor) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.iniciadoPorEstudio = (client.iniciadoPorEstudio === valor) ? '' : valor;
+            updateClient(client);
+            showClientModal(clientId);
         }
 
         function saveJurisdiccionInline(clientId, valor) {
@@ -6546,14 +6599,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         edad: h.edad || '',
                         edad_meses: h.edadMeses || '',
                         domicilio: h.domicilio || '',
-                        partida: h.partidaSiNo || 'No',
-                        partida_datos: h.partidaSiNo === 'Si' ? {
-                            circunscripcion: h.circunscripcion || '',
-                            tomo: h.tomo || '',
-                            numero: h.numeroPartida || '',
-                            anio: h.anioPartida || '',
-                            lugar_nacimiento: h.lugarNac || ''
-                        } : null
+                        tratamiento_especial: h.tratamiento === 'Si' ? (h.tratamientoDetalle || 'sí') : 'no'
                     })),
                     caso: {
                         tipo: (c.materia || '').toLowerCase().replace(/ /g, '_'),
@@ -6651,11 +6697,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 clickedTab.classList.add('active');
                 event.target.classList.add('active');
             }
-        }
-
-        function togglePartidaDetails(selectElement) {
-            const detailsDiv = selectElement.parentElement.nextElementSibling;
-            detailsDiv.style.display = selectElement.value === 'Si' ? 'block' : 'none';
         }
 
         function calcularEdadHijo() {
@@ -7298,10 +7339,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     { nombre: 'Impuestos y servicios', importe: '' },
                     { nombre: 'Higiene personal', importe: '' }
                 ],
-                extras: []
+                extras: [],
+                noCubiertas: []
             };
             if (!nec.items) nec.items = [];
             if (!nec.extras) nec.extras = [];
+            // Las NO cubiertas van aparte de los extras: en el escrito no se suman igual,
+            // son las que fundan el pedido de aumento.
+            if (!nec.noCubiertas) nec.noCubiertas = [];
 
             const fmt = (v) => {
                 if (!v && v !== 0) return '';
@@ -7328,12 +7373,31 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <button class="btn btn-danger btn-sm" onclick="eliminarExtraNecesidad('${client.id}', ${i})">X</button>
                 </div>`).join('');
 
+            const noCubHtml = nec.noCubiertas.map((nc, i) => `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; background:#fff; padding:10px; border-radius:8px; border:1px solid #ffe0b2;">
+                    <input type="text" id="nec-nocub-nombre-${i}" value="${(nc.nombre || '').replace(/"/g, '&quot;')}" placeholder="Ej: tratamiento psicológico"
+                        style="flex:1; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em;">
+                    <input type="number" id="nec-nocub-importe-${i}" value="${nc.importe || ''}" placeholder="$ 0,00" step="0.01" min="0"
+                        style="width:160px; padding:8px; border:2px solid #e0e0e0; border-radius:6px; font-size:1em;">
+                    <button class="btn btn-danger btn-sm" onclick="eliminarNoCubierta('${client.id}', ${i})">X</button>
+                </div>`).join('');
+
             return `
             <div style="margin-bottom:15px;">
                 <p style="color:#666; font-size:0.9em; font-style:italic;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Registrá el importe mensual estimado de cada necesidad. Hacé clic en <strong>Guardar</strong> cuando termines.</p>
             </div>
             <div id="nec-items-container">${itemsHtml}</div>
             <div id="nec-extras-container">${extrasHtml}</div>
+
+            <div style="margin-top:18px;padding:12px;border-radius:8px;background:#fff8f0;border-left:4px solid var(--warning-color);">
+                <div style="font-weight:600;color:var(--dark-text);margin-bottom:4px;">Necesidades no cubiertas</div>
+                <div style="font-size:0.82em;color:#777;margin-bottom:10px;">
+                    Lo que el chico necesita y hoy no recibe: danza, tratamiento psicológico,
+                    apoyo escolar. Va con el importe mensual de lo que costaría.
+                </div>
+                <div id="nec-nocub-container">${noCubHtml}</div>
+                <button class="btn btn-warning btn-sm" onclick="agregarNoCubierta('${client.id}')">Agregar necesidad no cubierta</button>
+            </div>
 
             <div style="margin:15px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <button class="btn btn-info btn-sm" onclick="agregarExtraNecesidad('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar otro ítem</button>
@@ -7384,10 +7448,47 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 });
                 idx++;
             }
+            nec.noCubiertas = [];
+            let k = 0;
+            while (document.getElementById(`nec-nocub-nombre-${k}`)) {
+                nec.noCubiertas.push({
+                    nombre: document.getElementById(`nec-nocub-nombre-${k}`).value,
+                    importe: document.getElementById(`nec-nocub-importe-${k}`) ? document.getElementById(`nec-nocub-importe-${k}`).value : ''
+                });
+                k++;
+            }
             client.necesidades = nec;
             saveData();
             const msg = document.getElementById('nec-save-msg');
             if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
+        function agregarNoCubierta(clientId) {
+            saveNecesidades(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            if (!client.necesidades) client.necesidades = { items: [], extras: [], noCubiertas: [] };
+            client.necesidades.noCubiertas = client.necesidades.noCubiertas || [];
+            client.necesidades.noCubiertas.push({ nombre: '', importe: '' });
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-necesidades"]');
+                if (btn) btn.click();
+            }, 60);
+        }
+
+        function eliminarNoCubierta(clientId, i) {
+            saveNecesidades(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.necesidades || !client.necesidades.noCubiertas) return;
+            client.necesidades.noCubiertas.splice(i, 1);
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-necesidades"]');
+                if (btn) btn.click();
+            }, 60);
         }
 
         function agregarExtraNecesidad(clientId) {
@@ -7427,6 +7528,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 <div class="form-group"><label>Teléfono</label><input type="text" id="demTel" value="${d.telefono || ''}"></div>
                 <div class="form-group"><label>Mail</label><input type="email" id="demMail" value="${d.mail || ''}"></div>
                 <div class="form-group"><label>Dirección Laboral</label><input type="text" id="demLab" value="${d.direccionLaboral || ''}"></div>
+                <div class="form-group"><label>Nombre o razón social de la empresa</label><input type="text" id="demEmpresa" value="${(d.empresa || '').replace(/"/g, '&quot;')}"></div>
+                <div class="form-group"><label>CUIT de la empresa</label><input type="text" id="demCuitEmpresa" value="${d.cuitEmpresa || ''}" placeholder="30-12345678-9"></div>
+                <div class="form-group"><label>Monto que percibe</label><input type="text" id="demMonto" value="${d.monto || ''}" placeholder="$ por mes"></div>
+                <div class="form-group" style="grid-column:1/-1;"><label>Bienes que se le conocen</label><input type="text" id="demBienes" value="${(d.bienes || '').replace(/"/g, '&quot;')}" placeholder="Auto, moto, casa. Marca, modelo, dominio o partida si los sabés."></div>
             </div>
             <button class="btn btn-success" onclick="saveDemandado('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Demandado</button>
             <span id="dem-save-msg" style="display:none; color:var(--success-color); font-weight:600; margin-left:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Guardado</span>`;
@@ -7438,7 +7543,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             client.demandado = {
                 nombre: document.getElementById('demNombre').value, dni: document.getElementById('demDNI').value,
                 domicilio: document.getElementById('demDom').value, telefono: document.getElementById('demTel').value,
-                mail: document.getElementById('demMail').value, direccionLaboral: document.getElementById('demLab').value
+                mail: document.getElementById('demMail').value, direccionLaboral: document.getElementById('demLab').value,
+                empresa: document.getElementById('demEmpresa').value,
+                cuitEmpresa: document.getElementById('demCuitEmpresa').value,
+                monto: document.getElementById('demMonto').value,
+                bienes: document.getElementById('demBienes').value
             };
             saveData();
             const msg = document.getElementById('dem-save-msg');
@@ -7758,13 +7867,196 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             showClientModal(clientId); // Recarga el modal para mostrar el nuevo ingreso
         }
 
+        // ── QUÉ SOLAPAS PIDE CADA MATERIA ────────────────────────────────────────
+        // Expediente Digital va siempre, por eso no figura acá. Para corregir el reparto
+        // se toca ESTA tabla y nada más.
+        const SOLAPAS_POR_MATERIA = {
+            'ALIMENTOS':             ['general', 'hijos', 'demandado', 'necesidades', 'convenio'],
+            'COMUNICACION CON HIJOS':['hijos', 'demandado', 'convenio'],
+            'CUIDADO PERSONAL':      ['hijos', 'demandado', 'convenio'],
+            'DIVORCIOS':             ['hijos', 'demandado', 'convenio'],
+            'FILIACION':             ['hijos', 'demandado'],
+            'VIOLENCIA FAMILIAR':    ['hijos', 'demandado'],
+            'DAÑOS':                 ['demandado', 'convenio'],
+            'SUCESIONES':            ['convenio'],
+            'PENAL':                 ['demandado']
+        };
+
+        function solapasDeMateria(client) {
+            const m = (client.materia || '').toUpperCase();
+            // Sin materia cargada, o materia que no está en la tabla (OTROS): se muestran
+            // todas. Es preferible que sobre una solapa vacía a esconder datos cargados.
+            let lista = SOLAPAS_POR_MATERIA[m];
+            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'convenio'];
+            lista = lista.slice();
+            // Red de seguridad: si una ficha vieja tiene datos en una solapa que su materia
+            // ya no pide, la solapa se muestra igual. Nunca se oculta informacion cargada.
+            const hayDatos = {
+                hijos: (client.hijos || []).length > 0,
+                demandado: !!(client.demandado && Object.values(client.demandado).some(v => v)),
+                necesidades: !!(client.necesidades && (
+                    (client.necesidades.items || []).some(i => i.importe) ||
+                    (client.necesidades.extras || []).length ||
+                    (client.necesidades.noCubiertas || []).length)),
+                convenio: !!(client.convenio && Object.values(client.convenio).some(v => v)),
+                general: !!client.general
+            };
+            Object.keys(hayDatos).forEach(k => {
+                if (hayDatos[k] && !lista.includes(k)) lista.push(k);
+            });
+            return lista;
+        }
+
+        // ── SOLAPA GENERAL (por ahora, ALIMENTOS) ────────────────────────────────
+        // Junta lo que hace falta para fundar el monto: de qué vive el actor, qué cubre
+        // el demandado, y con qué pauta se reclama. Todo en client.general.
+        function renderTabGeneral(client) {
+            const g = client.general || {};
+            const esc = v => String(v == null ? '' : v).replace(/"/g, '&quot;');
+
+            const txt = (k, etiqueta, ph) => `
+                <div class="form-group">
+                    <label>${etiqueta}</label>
+                    <input type="text" id="gen-${k}" value="${esc(g[k])}" placeholder="${ph || ''}">
+                </div>`;
+
+            const sino = (k, etiqueta) => `
+                <div class="form-group">
+                    <label>${etiqueta}</label>
+                    <select id="gen-${k}">
+                        <option value="" ${!g[k] ? 'selected' : ''}>-- S/D --</option>
+                        <option value="Si" ${g[k] === 'Si' ? 'selected' : ''}>Sí</option>
+                        <option value="No" ${g[k] === 'No' ? 'selected' : ''}>No</option>
+                    </select>
+                </div>`;
+
+            // Tratamiento de cada hijo: el dato vive en el hijo, se edita desde acá.
+            const hijos = client.hijos || [];
+            const hijosHtml = hijos.length === 0
+                ? '<p style="color:#666;font-style:italic;">No hay hijos cargados. Cargalos en la solapa Hijos.</p>'
+                : hijos.map((h, i) => `
+                    <div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <strong style="color:var(--primary-color);">${esc(h.nombre) || 'Hijo ' + (i + 1)}</strong>
+                        <div class="info-grid" style="margin-top:8px;">
+                            <div class="form-group">
+                                <label>¿Recibe algún tratamiento especial?</label>
+                                <select id="gen-hijo-trat-${i}" onchange="document.getElementById('gen-hijo-det-${i}').style.display = this.value === 'Si' ? 'block' : 'none';">
+                                    <option value="No" ${h.tratamiento !== 'Si' ? 'selected' : ''}>No</option>
+                                    <option value="Si" ${h.tratamiento === 'Si' ? 'selected' : ''}>Sí</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="gen-hijo-det-${i}" style="display:${h.tratamiento === 'Si' ? 'block' : 'none'};margin-top:8px;">
+                            <div class="form-group">
+                                <label>Detalle del tratamiento</label>
+                                <textarea id="gen-hijo-detalle-${i}" rows="2" style="width:100%;" placeholder="Qué tratamiento, con qué frecuencia, dónde y cuánto cuesta por mes.">${esc(h.tratamientoDetalle)}</textarea>
+                            </div>
+                        </div>
+                    </div>`).join('');
+
+            const enNegro = g.modalidadTrabajo === 'NEGRO';
+
+            return `
+            <div style="margin-bottom:15px;">
+                <p style="color:#666;font-size:0.9em;font-style:italic;">Datos para fundar el reclamo. Tocá <strong>Guardar</strong> al terminar.</p>
+            </div>
+
+            <div style="background:#f0f4f7;padding:15px;border-radius:8px;margin-bottom:15px;">
+                <h5 style="margin-bottom:12px;color:var(--primary-color);">Del actor</h5>
+                <div class="info-grid">
+                    ${txt('actorTrabaja', '¿Dónde trabaja?', 'Tarea o puesto')}
+                    ${txt('actorRazonSocial', 'Nombre o razón social', 'Empleador')}
+                    ${txt('actorDomicilioTrabajo', 'Domicilio del trabajo', 'Calle, localidad')}
+                    ${txt('actorIngreso', '¿Cuánto gana por mes?', '$')}
+                    ${sino('actorObraSocial', '¿Usa la obra social del demandado?')}
+                    ${sino('actorAyudaFamiliares', '¿Recibe ayuda de familiares?')}
+                    ${sino('actorAsignaciones', '¿Percibe asignaciones familiares?')}
+                    ${sino('actorAlquila', '¿Alquila la vivienda?')}
+                </div>
+                <div style="font-size:0.78em;color:#888;margin-top:6px;">
+                    En obra social, <strong>No</strong> significa que hay que solicitarla en la demanda.
+                    En vivienda, <strong>No</strong> es casa propia.
+                </div>
+            </div>
+
+            <div style="background:#f0f4f7;padding:15px;border-radius:8px;margin-bottom:15px;">
+                <h5 style="margin-bottom:12px;color:var(--primary-color);">De los hijos</h5>
+                ${hijosHtml}
+            </div>
+
+            <div style="background:#fffdf5;padding:15px;border-radius:8px;border-left:4px solid var(--gold, #c9a96e);margin-bottom:15px;">
+                <h5 style="margin-bottom:12px;color:var(--primary-color);">Monto reclamado</h5>
+                <div class="form-group" style="max-width:320px;">
+                    <label>¿Cómo trabaja el demandado?</label>
+                    <select id="gen-modalidadTrabajo" onchange="cambiarModalidadTrabajo(this.value)">
+                        <option value="BLANCO" ${!enNegro ? 'selected' : ''}>En blanco (recibo de sueldo)</option>
+                        <option value="NEGRO" ${enNegro ? 'selected' : ''}>En negro / sin recibo</option>
+                    </select>
+                </div>
+
+                <div id="gen-bloque-blanco" style="display:${enNegro ? 'none' : 'block'};">
+                    <div style="font-size:0.82em;color:#666;margin:8px 0;">Porcentaje sobre los haberes del demandado.</div>
+                    <div class="info-grid">
+                        ${txt('pctProvisorio', 'Provisorio (%)', 'Ej: 30')}
+                        ${txt('pctDefinitivo', 'Definitivo (%)', 'Ej: 40')}
+                    </div>
+                </div>
+
+                <div id="gen-bloque-negro" style="display:${enNegro ? 'block' : 'none'};">
+                    <div style="font-size:0.82em;color:#666;margin:8px 0;">Sin recibo no hay haberes que porcentuar: se toma una pauta objetiva.</div>
+                    <div class="info-grid">
+                        ${txt('pctSMVM', 'Salario mínimo vital y móvil (%)', 'Ej: 50')}
+                        ${txt('canastaCrianza', 'Canasta de crianza ($)', 'Valor del mes que se invoca')}
+                    </div>
+                    <div style="font-size:0.78em;color:#888;margin-top:6px;">
+                        La canasta la publica INDEC por edad y cambia todos los meses: por eso va a mano y no calculada.
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-success" onclick="saveGeneral('${client.id}')">Guardar General</button>
+            <span id="gen-save-msg" style="display:none;color:var(--success-color);font-weight:600;margin-left:10px;">Guardado</span>`;
+        }
+
+        function cambiarModalidadTrabajo(valor) {
+            const b = document.getElementById('gen-bloque-blanco');
+            const n = document.getElementById('gen-bloque-negro');
+            if (b) b.style.display = valor === 'NEGRO' ? 'none' : 'block';
+            if (n) n.style.display = valor === 'NEGRO' ? 'block' : 'none';
+        }
+
+        function saveGeneral(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const val = (k) => { const el = document.getElementById('gen-' + k); return el ? el.value : ''; };
+            const CAMPOS = ['actorTrabaja', 'actorRazonSocial', 'actorDomicilioTrabajo', 'actorIngreso',
+                'actorObraSocial', 'actorAyudaFamiliares', 'actorAsignaciones', 'actorAlquila',
+                'modalidadTrabajo', 'pctProvisorio', 'pctDefinitivo', 'pctSMVM', 'canastaCrianza'];
+            const g = client.general || {};
+            CAMPOS.forEach(k => { g[k] = val(k); });
+            client.general = g;
+
+            // El tratamiento se guarda en cada hijo, que es donde pertenece.
+            (client.hijos || []).forEach((h, i) => {
+                const sel = document.getElementById('gen-hijo-trat-' + i);
+                if (!sel) return;
+                h.tratamiento = sel.value;
+                const det = document.getElementById('gen-hijo-detalle-' + i);
+                h.tratamientoDetalle = (sel.value === 'Si' && det) ? det.value : '';
+            });
+
+            saveData();
+            const msg = document.getElementById('gen-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
         function renderTabHijos(client) {
             const hijos = client.hijos || [];
             const hijosHtml = hijos.map((h, i) => {
                 const edadDisplay = h.edadMeses ? `${h.edad || 0} años y ${h.edadMeses} meses` : (h.edad ? `${h.edad} años` : 'S/D');
-                const partidaDisplay = h.partidaSiNo === 'Si'
-                    ? `Circ: ${h.circunscripcion || 'S/D'} | Tomo: ${h.tomo || 'S/D'} | N°: ${h.numeroPartida || 'S/D'} | Año: ${h.anioPartida || 'S/D'} | Lugar: ${h.lugarNac || 'S/D'}`
-                    : 'No';
+                // Los datos de la partida se sacaron el 13/08/2026: no se usaban para nada y
+                // ensuciaban la carga. Hay copia en Desktop/RESPALDO-partidas-nacimiento.
+                const tratam = h.tratamiento === 'Si';
                 return `
                 <div id="hijo-view-${i}" style="border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; background:#fff;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -7779,10 +8071,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <div class="info-item"><div class="info-label">Edad</div><div class="info-value">${edadDisplay}</div></div>
                         <div class="info-item"><div class="info-label">Fecha Nac.</div><div class="info-value">${formatDate(h.fechaNac)}</div></div>
                         <div class="info-item"><div class="info-label">Domicilio</div><div class="info-value">${h.domicilio || 'S/D'}</div></div>
-                        <div class="info-item" style="grid-column:1/-1; background:#fdf5e6; border-left:3px solid var(--warning-color);">
-                            <div class="info-label">Partida de Nacimiento</div>
-                            <div class="info-value">¿La tiene?: <strong>${h.partidaSiNo}</strong> ${h.partidaSiNo === 'Si' ? ' | ' + partidaDisplay : ''}</div>
-                        </div>
+                        ${tratam ? `<div class="info-item" style="grid-column:1/-1; background:#fdf5e6; border-left:3px solid var(--warning-color);">
+                            <div class="info-label">Tratamiento especial</div>
+                            <div class="info-value">${h.tratamientoDetalle || 'Sí (sin detalle cargado)'}</div>
+                        </div>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -7798,26 +8090,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="newHijoFechaNac" onchange="calcularEdadHijo()"></div>
                     <div class="form-group"><label>Años</label><input type="number" id="newHijoEdad" min="0" placeholder="0"></div>
                     <div class="form-group"><label>Meses (para bebés)</label><input type="number" id="newHijoEdadMeses" min="0" max="11" placeholder="0"></div>
-                    <div class="form-group">
-                        <label>¿Tiene Partida de Nacimiento?</label>
-                        <select id="newHijoPartida" onchange="
-                            var d=document.getElementById('partidaDetailsNew');
-                            d.style.display=this.value==='Si'?'block':'none';
-                        ">
-                            <option value="No">No</option>
-                            <option value="Si">Sí</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="partidaDetailsNew" style="display:none; background:#e8f2ff; padding:15px; border-radius:5px; margin:10px 0; border-left:4px solid var(--primary-color);">
-                    <p style="font-weight:600; color:var(--primary-color); margin-bottom:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Datos de la Partida de Nacimiento</p>
-                    <div class="info-grid">
-                        <div class="form-group"><label>Circunscripción</label><input type="text" id="newHijoCircunscripcion" placeholder="Ej: 1ra Sección"></div>
-                        <div class="form-group"><label>Tomo</label><input type="text" id="newHijoTomo" placeholder="Ej: 5"></div>
-                        <div class="form-group"><label>Número</label><input type="text" id="newHijoNumeroPartida" placeholder="Ej: 123"></div>
-                        <div class="form-group"><label>Año</label><input type="text" id="newHijoAnioPartida" placeholder="Ej: 2020"></div>
-                        <div class="form-group"><label>Lugar de Nacimiento</label><input type="text" id="newHijoLugar" placeholder="Ej: Quilmes"></div>
-                    </div>
                 </div>
                 <button class="btn btn-info" onclick="saveHijo('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Hijo</button>
             </div>`;
@@ -7838,26 +8110,6 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="editHijoFechaNac-${index}" value="${h.fechaNac || ''}"></div>
                     <div class="form-group"><label>Años</label><input type="number" id="editHijoEdad-${index}" value="${h.edad || 0}" min="0"></div>
                     <div class="form-group"><label>Meses</label><input type="number" id="editHijoEdadMeses-${index}" value="${h.edadMeses || 0}" min="0" max="11"></div>
-                    <div class="form-group">
-                        <label>¿Tiene Partida?</label>
-                        <select id="editHijoPartida-${index}" onchange="
-                            var d=document.getElementById('editPartidaDetails-${index}');
-                            d.style.display=this.value==='Si'?'block':'none';
-                        ">
-                            <option value="No" ${h.partidaSiNo !== 'Si' ? 'selected' : ''}>No</option>
-                            <option value="Si" ${h.partidaSiNo === 'Si' ? 'selected' : ''}>Sí</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="editPartidaDetails-${index}" style="display:${h.partidaSiNo === 'Si' ? 'block' : 'none'}; background:#e8f2ff; padding:15px; border-radius:5px; margin:10px 0; border-left:4px solid var(--primary-color);">
-                    <p style="font-weight:600; color:var(--primary-color); margin-bottom:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Datos de la Partida</p>
-                    <div class="info-grid">
-                        <div class="form-group"><label>Circunscripción</label><input type="text" id="editHijoCircunsc-${index}" value="${h.circunscripcion || ''}"></div>
-                        <div class="form-group"><label>Tomo</label><input type="text" id="editHijoTomo-${index}" value="${h.tomo || ''}"></div>
-                        <div class="form-group"><label>Número</label><input type="text" id="editHijoNumero-${index}" value="${h.numeroPartida || ''}"></div>
-                        <div class="form-group"><label>Año</label><input type="text" id="editHijoAnio-${index}" value="${h.anioPartida || ''}"></div>
-                        <div class="form-group"><label>Lugar Nac.</label><input type="text" id="editHijoLugar-${index}" value="${h.lugarNac || ''}"></div>
-                    </div>
                 </div>
                 <div style="margin-top:10px;">
                     <button class="btn btn-success btn-sm" onclick="saveHijoEdit('${clientId}', ${index})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar</button>
@@ -7875,12 +8127,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 fechaNac: document.getElementById(`editHijoFechaNac-${index}`).value,
                 edad: document.getElementById(`editHijoEdad-${index}`).value,
                 edadMeses: document.getElementById(`editHijoEdadMeses-${index}`).value,
-                partidaSiNo: document.getElementById(`editHijoPartida-${index}`).value,
-                circunscripcion: document.getElementById(`editHijoCircunsc-${index}`) ? document.getElementById(`editHijoCircunsc-${index}`).value : '',
-                tomo: document.getElementById(`editHijoTomo-${index}`) ? document.getElementById(`editHijoTomo-${index}`).value : '',
-                numeroPartida: document.getElementById(`editHijoNumero-${index}`) ? document.getElementById(`editHijoNumero-${index}`).value : '',
-                anioPartida: document.getElementById(`editHijoAnio-${index}`) ? document.getElementById(`editHijoAnio-${index}`).value : '',
-                lugarNac: document.getElementById(`editHijoLugar-${index}`) ? document.getElementById(`editHijoLugar-${index}`).value : ''
+                // El tratamiento especial se carga en la solapa General; se conserva acá
+                // para que editar al hijo no lo borre.
+                tratamiento: client.hijos[index].tratamiento || 'No',
+                tratamientoDetalle: client.hijos[index].tratamientoDetalle || ''
             };
             saveData();
             showClientModal(clientId);
@@ -7897,13 +8147,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 domicilio: document.getElementById('newHijoDom').value,
                 fechaNac: document.getElementById('newHijoFechaNac').value,
                 edad: document.getElementById('newHijoEdad').value,
-                edadMeses: document.getElementById('newHijoEdadMeses').value,
-                partidaSiNo: document.getElementById('newHijoPartida').value,
-                circunscripcion: document.getElementById('newHijoCircunscripcion') ? document.getElementById('newHijoCircunscripcion').value : '',
-                tomo: document.getElementById('newHijoTomo').value,
-                numeroPartida: document.getElementById('newHijoNumeroPartida') ? document.getElementById('newHijoNumeroPartida').value : '',
-                anioPartida: document.getElementById('newHijoAnioPartida') ? document.getElementById('newHijoAnioPartida').value : '',
-                lugarNac: document.getElementById('newHijoLugar').value
+                edadMeses: document.getElementById('newHijoEdadMeses').value
             });
             saveData();
             showClientModal(clientId); 
