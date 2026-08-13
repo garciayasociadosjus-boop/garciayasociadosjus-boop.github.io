@@ -26,7 +26,7 @@
     <!-- ═══ TEMA GARCÍA & ASOCIADOS — v2.1 (Día/Noche automático) ═══ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════
    GARCÍA & ASOCIADOS — SISTEMA PREMIUM v3.0
@@ -1802,14 +1802,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
 
         /* Título de cada grupo: regla fina, sin recuadro */
-        .client-info > h4 {
-            font-family: 'Cormorant Garamond', serif; font-weight: 700;
-            font-size: 1.32rem; letter-spacing: .03em;
+        /* Con id: hay otras dos reglas (.client-info h4 y .modal-content h4) que fijan
+           peso 500 con la misma especificidad, y ganaba la que estaba mas abajo. */
+        #clientInfoModal .client-info > h4 {
+            /* !important porque .modal-content h4 tambien lo usa y de otro modo gana esa. */
+            font-family: 'Cormorant Garamond', serif; font-weight: 700 !important;
+            font-size: 1.4rem !important; letter-spacing: .02em;
             color: var(--gold-dark, #8a6a10);
             padding-bottom: 6px; margin: 20px 0 2px;
             border-bottom: 1px solid var(--gold-border, rgba(201,169,110,.45));
         }
-        .client-info > h4:first-child { margin-top: 4px; }
+        #clientInfoModal .client-info > h4:first-child { margin-top: 4px; }
 
         /* ── Solapas: la misma grilla que la ficha general ────────────────────
            Antes cada solapa usaba una grilla auto-fit que acomodaba los campos de a
@@ -8363,12 +8366,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <span style="width:1px;height:22px;background:var(--border-item,#e0d8c8);margin:0 2px;"></span>
                         <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        Ir a Claude.ai con esta causa
+                        Ir a Claude
                     </button>
                         <button onclick="reanalizarCausa('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #8b6fc9;border-radius:8px;color:#8b6fc9;background:rgba(139,111,201,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Regenerar el dictamen con contexto completo (backfillea documentos)">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Re-analizar
                     </button>
-                        <span style="flex:1;"></span>
                         <button onclick="toggleFueraEstudio('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${client.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:${client.fuera_estudio ? 'rgba(31,158,114,0.08)' : 'rgba(217,79,79,0.08)'};cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${client.fuera_estudio ? 'Reactivar el análisis de esta causa' : 'Dejar de analizar esta causa (renunciaste / no la llevás más)'}">
                         ${client.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}
                     </button>
@@ -8442,7 +8444,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         </div>
                         <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-item);border-radius:8px;background:var(--bg-item);">${filas}</div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-                            <button onclick="abrirClaudeMpba('${e.clave}','${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Copia el dossier del expediente penal (trámites + textos) y abre tu Proyecto del Comité">💬 Ir a Claude.ai con esta causa</button>
+                            <button onclick="abrirClaudeMpba('${e.clave}','${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Copia el dossier del expediente penal (trámites + textos) y abre tu Proyecto del Comité">💬 Ir a Claude</button>
                             <button onclick="guardarDossierMpbaEnDrive('${e.clave}','${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #4285F4;border-radius:8px;color:#4285F4;background:rgba(66,133,244,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Guardar/sobrescribir el dossier del expediente penal en tu Google Drive (para el Proyecto del Comité)">📁 Guardar en Drive</button>
                             <button onclick="soloDossierMpba('${e.clave}')" style="font-size:0.82em;padding:9px 14px;border:1px solid var(--text-muted);border-radius:8px;color:var(--text-muted);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Ver/copiar el dossier del expediente penal sin abrir Claude.ai">⬇ Solo dossier</button>
                             <button onclick="mpbaFueraEstudio('${e.clave}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid ${e.data.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};border-radius:8px;color:${e.data.fuera_estudio ? 'var(--success-color)' : '#d94f4f'};background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="${e.data.fuera_estudio ? 'Reactivar: el comité vuelve a analizar esta causa' : 'Dejar de analizar esta causa (terminada): el script deja de correr el comité'}">${e.data.fuera_estudio ? '↩ Reactivar causa' : '✕ Fuera del estudio'}</button>
@@ -8521,7 +8523,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
                         <button onclick="abrirEnProyectoClaude('${client.id}')" style="font-size:0.82em;padding:9px 16px;border:1px solid #c9a96e;border-radius:8px;color:#fff;background:linear-gradient(135deg,#c9a96e,#a88a52);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Copia el dossier (historial + textos) y abre tu Proyecto del Comité">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            Ir a Claude.ai con esta causa
+                            Ir a Claude
                         </button>
                         <button onclick="descargarDossierCliente('${client.id}', this)" style="font-size:0.82em;padding:9px 14px;border:1px solid #2b579a;border-radius:8px;color:#2b579a;background:rgba(43,87,154,0.08);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;" title="Descargar el dossier completo en Word (actuaciones + textos de los documentos)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Bajar dossier en Word
