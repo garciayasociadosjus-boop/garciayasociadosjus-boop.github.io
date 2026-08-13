@@ -2279,6 +2279,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 <div class="cm-head-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Centro de Mando</div>
                 <div class="cm-head-time" id="cmHeadTime"></div>
               </div>
+              <!-- Las audiencias van ARRIBA de las solapas y fuera de ellas. Antes se
+                   dibujaban dentro de la solapa MEV y no se veian salvo que uno entrara
+                   ahi; ademas ahora la tarjeta junta MEV y PJN, asi que no es de nadie.
+                   Una audiencia que se pasa no se recupera: tiene que verse siempre. -->
+              <div id="audRow"></div>
               <div class="cm-tabs" id="cmTabs" role="tablist"></div>
               <script>document.documentElement.classList.add('cm-js');</script>
               <div class="cm-panels">
@@ -4001,14 +4006,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         function renderAudienciasDetectadas(dataFiltrada) {
             const items = audienciasDetectadas(dataFiltrada);
             let card = document.getElementById('audCard');
-            const row = document.getElementById('mevDashboardRow');
+            // audRow esta fuera de las solapas; mevDashboardRow queda de respaldo por si
+            // se abre una version vieja del HTML que todavia no lo tiene.
+            const row = document.getElementById('audRow') || document.getElementById('mevDashboardRow');
             if (!items.length) { if (card) card.remove(); return; }
+            if (card && row && card.parentNode !== row) { card.remove(); card = null; }
             if (!card) {
                 if (!row) return;
                 card = document.createElement('div');
                 card.id = 'audCard';
                 card.className = 'card';
-                card.style.cssText = 'border-top:3px solid #d94f4f;border-left:3px solid #d94f4f;padding:15px;background:var(--bg-card);';
+                card.style.cssText = 'border-top:3px solid #d94f4f;border-left:3px solid #d94f4f;padding:15px;margin-bottom:16px;background:var(--bg-card);';
                 row.insertBefore(card, row.firstChild);
             }
 
