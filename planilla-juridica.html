@@ -1760,6 +1760,15 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         .editable-field:hover { background: var(--gold-dim); }
         
         /* Tabs (para el modal de cliente con varias secciones) */
+        /* Fija al scrollear: en una ficha larga habia que volver arriba para cambiar
+           de solapa. El fondo opaco es imprescindible o el contenido se ve por detras. */
+        .tabs-header {
+            position: sticky; top: 0; z-index: 5;
+            background: var(--bg-modal, #fff);
+            padding: 6px 0 0; margin-bottom: 2px;
+            display: flex; flex-wrap: wrap; gap: 2px;
+            border-bottom: 1px solid var(--border-card, rgba(160,120,64,.28));
+        }
         .tab-btn {
             background: var(--bg-item);
             border: 1px solid var(--border-item);
@@ -5005,6 +5014,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             if (group) { const caret = group.querySelector('.acc-caret'); if (caret) caret.textContent = nowOpen ? '▾' : '▸'; }
         }
 
+        // Los pagos pasaron a ser solapa: antes colgaban sueltos entre las solapas y el
+        // historial, y en una ficha con muchos aportes empujaban todo hacia abajo.
+        function renderTabPagos(client) {
+            const resumen = renderLastPaymentSummary(client);
+            if (!resumen) {
+                return '<p style="color:#666;font-style:italic;">No hay pagos registrados. ' +
+                       'Se cargan desde "Registrar Bono / Aporte", mas abajo en la ficha.</p>';
+            }
+            return resumen;
+        }
+
         function renderLastPaymentSummary(client) {
             if (!client.bonos_aportes_list || client.bonos_aportes_list.length === 0) { return ''; }
             const sortedList = [...client.bonos_aportes_list].sort((a, b) => {
@@ -5422,7 +5442,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 ${campo('domicilioCliente', 'Calle y número')}
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                                     ${campo('localidadCliente', 'Localidad')}
-                                    ${campo('provinciaCliente', 'Provincia', 'Buenos Aires')}
+                                    ${campo('provinciaCliente', 'Provincia')}
                                 </div>
                             </div>
                         </div>`;
@@ -5502,6 +5522,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
                 const solapasVisibles = solapasDeMateria(client);
                 const tieneSolapa = (id) => solapasVisibles.includes(id);
+                // Los campos ya no salen todos en una grilla plana de 14: se piden por grupo,
+                // para poder titularlos Cliente / Causa / Juzgado sin duplicar getFieldHTML.
+                const grupo = (claves) => claves
+                    .map(k => getFieldHTML(k, fieldsToShow[k] || k)).join('');
+
                 let solapasHTML = `
                     <div style="margin-top: 25px;">
                         <div class="tabs-header">
@@ -5511,6 +5536,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                             ${tieneSolapa('necesidades') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 2v20M7 2v20M11 2v8a2 2 0 0 0 4 0V2M19 2v20M19 14l-2-2"/></svg> Necesidades</button>` : ''}
                             ${tieneSolapa('bienes') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-bienes')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Bienes</button>` : ''}
                             ${tieneSolapa('convenio') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>` : ''}
+                            ${tieneSolapa('pagos') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-pagos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagos</button>` : ''}
                             <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Expediente Digital</button>
                         </div>
                         ${tieneSolapa('general') ? `<div id="tab-general" class="tab-content">${renderTabGeneral(client)}</div>` : ''}
@@ -5519,6 +5545,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         ${tieneSolapa('necesidades') ? `<div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>` : ''}
                         ${tieneSolapa('bienes') ? `<div id="tab-bienes" class="tab-content">${renderTabBienes(client)}</div>` : ''}
                         ${tieneSolapa('convenio') ? `<div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>` : ''}
+                        ${tieneSolapa('pagos') ? `<div id="tab-pagos" class="tab-content">${renderTabPagos(client)}</div>` : ''}
                         <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
                     </div>`;
 
@@ -5537,9 +5564,13 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     </div>
                     ${renderFichaResumenSuperior(client)}
 
-                    <div class="client-info"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Información del Caso</h4><div class="info-grid">
-                        ${Object.entries(fieldsToShow).map(([key, label]) => getFieldHTML(key, label)).join('')}
-                        <div class="info-item" style="border-left:3px solid var(--success-color); background:rgba(31,158,114,0.08);">
+                    <div class="client-info">
+                        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Cliente</h4>
+                        <div class="info-grid">${grupo(['titulo','nombre','dni','telefono','domicilioCliente'])}</div>
+
+                        <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Causa</h4>
+                        <div class="info-grid">${grupo(['materia','caratula','expediente','iniciadoPorEstudio','estado','socio'])}
+<div class="info-item" style="border-left:3px solid var(--success-color); background:rgba(31,158,114,0.08);">
                             <div class="info-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Fecha de Creación</div>
                             <div class="editable-field" id="field-fechaCreacion" onclick="editField('${client.id}', 'fechaCreacion')">
                                 <div class="info-value" style="color:var(--success-color);font-weight:600;">${client.fechaCreacion ? formatDate(client.fechaCreacion) : '<span style=\'color:var(--danger-color);font-style:italic;\'>(click para agregar)</span>'}</div>
@@ -5551,15 +5582,35 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 ${isPastDue(client.proximaRevision) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> VENCIDA — ' : isToday(client.proximaRevision) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> HOY — ' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> '}${formatDate(client.proximaRevision)}
                             </div>
                         </div>
-                    </div></div>
+                    </div>
+
+                        <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Juzgado</h4>
+                        <div class="info-grid">${grupo(['juzgado','direccionJuzgado','telJuzgado'])}</div>
+
+                        <h4 style="margin-top:16px;">Notas</h4>
+                        <div class="info-grid">${grupo(['notas'])}</div>
+                    </div>
                     ${solapasHTML}
-                    ${renderLastPaymentSummary(client)}
                     <div class="history-section"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
                     
+                    <!-- Los cuatro formularios estaban abiertos uno abajo del otro: eran cuatro
+                         cajones grandes que empujaban el historial fuera de la pantalla. Ahora se
+                         abre el que hace falta. -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 10px;">
+                        ${[['tarea-form-fields','Agregar tarea'],
+                           ['audiencia-form-fields','Agendar audiencia'],
+                           ['vencimiento-form-fields','Agendar vencimiento'],
+                           ['bono-aporte-form-fields','Registrar pago']]
+                          .map(([id, texto]) => `<button type="button" onclick="abrirFormFicha('${id}')"
+                              style="font-size:.82em;padding:8px 14px;border:1px solid var(--gold-border,#c9a96e);
+                                     border-radius:8px;background:var(--gold-dim,rgba(201,169,110,.12));
+                                     color:var(--gold-dark,#8a6a10);cursor:pointer;
+                                     font-family:'DM Sans',sans-serif;font-weight:600;">+ ${texto}</button>`).join('')}
+                    </div>
                     <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
                         <div class="form-group" style="background: var(--light-bg); padding: 20px; border-radius: 8px;">
-                            <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Agregar Tarea</h4>
-                            <form onsubmit="addObservation(event, '${client.id}')">
+                            <h4 onclick="toggleFormVisibility('tarea-form-fields')" style="cursor:pointer;user-select:none;"><span class="toggle-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Agregar Tarea</h4>
+                            <form id="tarea-form-fields" onsubmit="addObservation(event, '${client.id}')" style="display:none; margin-top:15px;">
                                 <div class="form-group"><label>Texto Público</label><textarea id="newObsText" rows="2"></textarea></div>
                                 <div class="form-group"><label>Notas Privadas</label><textarea id="newObsTextPrivate" rows="2"></textarea></div>
                                 <div class="form-group"><label>Fecha de Revisión</label><input type="date" id="newRevisionDate" required></div>
@@ -5624,7 +5675,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         </div>
                     </div>
 
-                    <div class="action-buttons"><button class="btn btn-info" onclick="showDocumentModal('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Documentos</button><button class="btn btn-warning" onclick="startConvenioGeneration('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Generar Convenio</button><button class="btn" onclick="printClientSheet('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg> Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button></div>`;
+                    <div class="action-buttons"><button class="btn" onclick="printClientSheet('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Ficha</button><button class="btn" onclick="printClientHistory('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg> Historial</button><button class="btn btn-danger" onclick="deleteClient('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button></div>`;
                 document.getElementById('clientInfoModal').querySelector('.modal-content').innerHTML = content;
                 document.getElementById('clientInfoModal').classList.add('active');
             } catch (err) {
@@ -5860,8 +5911,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const vencimientos = (client.vencimientos_list || []).map(venc => ({ ...venc, date: venc.fecha, type: 'vencimiento' }));
             
             const combinedHistory = [...tasks, ...audiencias, ...vencimientos].sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00'));
-            
-            return combinedHistory.length === 0 ? '<p>No hay historial registrado.</p>' : combinedHistory.map(item => {
+
+            // Lo trabajado se guarda pero no se muestra de entrada: en una causa vieja son
+            // 40 renglones que hay que scrollear para llegar a lo que falta hacer.
+            const pendientes = combinedHistory.filter(i => !i.completed);
+            const trabajadas = combinedHistory.filter(i => i.completed);
+            const pintar = (item) => {
                 let itemDate = '', workedDate = '', tagType, tagText, itemContent, editButton = '';
                 switch(item.type) {
                     case 'task': 
@@ -5897,9 +5952,41 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                                 <button class="btn btn-danger btn-sm" onclick="deleteItem('${client.id}', '${item.id}', '${item.type}')">Eliminar</button>
                             </div>
                         </div>`;
-            }).join('');
+            };
+
+            if (!combinedHistory.length) return '<p>No hay historial registrado.</p>';
+            let html = pendientes.length
+                ? pendientes.map(pintar).join('')
+                : '<p style="color:var(--text-muted);font-style:italic;margin:0 0 10px;">No queda nada pendiente.</p>';
+            if (trabajadas.length) {
+                html += '<details style="margin-top:10px;">' +
+                    '<summary style="cursor:pointer;user-select:none;font-size:.85em;color:var(--text-muted);' +
+                    'padding:7px 10px;background:var(--bg-info-item,#f6f4ef);border-radius:8px;">' +
+                    'Ver ' + trabajadas.length + ' ya trabajada(s)</summary>' +
+                    '<div style="margin-top:10px;opacity:.75;">' + trabajadas.map(pintar).join('') + '</div>' +
+                    '</details>';
+            }
+            return html;
         }
-        
+
+        // Abre un formulario de la ficha y cierra los otros tres: tenerlos todos
+        // desplegados a la vez es justo lo que hacia falta evitar.
+        function abrirFormFicha(id) {
+            const todos = ['tarea-form-fields', 'audiencia-form-fields',
+                           'vencimiento-form-fields', 'bono-aporte-form-fields'];
+            const el = document.getElementById(id);
+            if (!el) return;
+            const abrir = el.style.display === 'none' || !el.style.display;
+            todos.forEach(k => {
+                const f = document.getElementById(k);
+                if (f) f.style.display = 'none';
+            });
+            if (abrir) {
+                el.style.display = 'block';
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        }
+
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
         function showClientSelectorModal() {
             const selector = document.getElementById('clientSelector');
@@ -7645,8 +7732,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         // Devuelve { valor, falta } por cada uno: lo que falta se avisa ANTES de bajar el
         // escrito, no se completa con "S/D" y se firma con un hueco.
         function escritoDatos(client) {
-            const dom = [client.domicilioCliente, client.localidadCliente, client.provinciaCliente]
-                .filter(Boolean).join(', ');
+            // El domicilio se arma con las tres partes. Si falta una, el marcador queda
+            // incompleto a proposito y se avisa: antes la ficha MOSTRABA "Buenos Aires"
+            // como texto de ayuda aunque el campo estuviera vacio, y el escrito salia sin
+            // provincia sin que nadie se enterara.
+            const partes = [client.domicilioCliente, client.localidadCliente, client.provinciaCliente];
+            const dom = partes.every(Boolean) ? partes.join(', ') : '';
             const juzgado = [client.juzgado, client.deptoJudicial].filter(Boolean).join(', ');
             const exp = client.expediente
                 ? client.expediente + (client.anioExpediente ? '/' + client.anioExpediente : '')
@@ -7786,6 +7877,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 '<button onclick="descargarEscrito()" class="btn btn-success">Descargar Word</button>' +
                 '<button onclick="editarModeloEscrito()" class="btn btn-info btn-sm">Editar modelo</button>' +
                 '</div>' +
+                // El convenio de honorarios no es un modelo con marcadores: lo arma su
+                // propia rutina. Pero para el uso diario es "un escrito mas", asi que el
+                // boton vive acá y no suelto al pie de la ficha.
+                '<div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;' +
+                'background:var(--bg-info-item,#f6f4ef);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+                '<span style="font-size:.85em;color:var(--text-muted);flex:1;min-width:200px;">' +
+                'Convenio de honorarios — se arma aparte, con su propio formulario.</span>' +
+                '<button onclick="document.getElementById(\'escritosOverlay\').remove();' +
+                'startConvenioGeneration(\'' + escritoActual.clientId + '\')" class="btn btn-info btn-sm">' +
+                'Generar convenio</button></div>' +
                 avisoFaltan +
                 '<div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;">' +
                 'Vista previa — así sale el Word (A4, márgenes 5/1,5/2/5 cm, Times New Roman 12, interlineado 1,5).</div>' +
@@ -8328,15 +8429,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         // Expediente Digital va siempre, por eso no figura acá. Para corregir el reparto
         // se toca ESTA tabla y nada más.
         const SOLAPAS_POR_MATERIA = {
-            'ALIMENTOS':             ['general', 'hijos', 'demandado', 'necesidades', 'convenio'],
-            'COMUNICACION CON HIJOS':['hijos', 'demandado', 'convenio'],
-            'CUIDADO PERSONAL':      ['hijos', 'demandado', 'convenio'],
-            'DIVORCIOS':             ['hijos', 'demandado', 'bienes', 'convenio'],
-            'FILIACION':             ['hijos', 'demandado'],
-            'VIOLENCIA FAMILIAR':    ['hijos', 'demandado'],
-            'DAÑOS':                 ['demandado', 'convenio'],
-            'SUCESIONES':            ['convenio'],
-            'PENAL':                 ['demandado']
+            'ALIMENTOS':             ['general', 'hijos', 'demandado', 'necesidades', 'convenio', 'pagos'],
+            'COMUNICACION CON HIJOS':['hijos', 'demandado', 'convenio', 'pagos'],
+            'CUIDADO PERSONAL':      ['hijos', 'demandado', 'convenio', 'pagos'],
+            'DIVORCIOS':             ['hijos', 'demandado', 'bienes', 'convenio', 'pagos'],
+            'FILIACION':             ['hijos', 'demandado', 'pagos'],
+            'VIOLENCIA FAMILIAR':    ['hijos', 'demandado', 'pagos'],
+            'DAÑOS':                 ['demandado', 'convenio', 'pagos'],
+            'SUCESIONES':            ['convenio', 'pagos'],
+            'PENAL':                 ['demandado', 'pagos']
         };
 
         function solapasDeMateria(client) {
@@ -8344,7 +8445,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // Sin materia cargada, o materia que no está en la tabla (OTROS): se muestran
             // todas. Es preferible que sobre una solapa vacía a esconder datos cargados.
             let lista = SOLAPAS_POR_MATERIA[m];
-            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'bienes', 'convenio'];
+            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'bienes', 'convenio', 'pagos'];
             lista = lista.slice();
             // Red de seguridad: si una ficha vieja tiene datos en una solapa que su materia
             // ya no pide, la solapa se muestra igual. Nunca se oculta informacion cargada.
@@ -8357,6 +8458,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     (client.necesidades.noCubiertas || []).length)),
                 convenio: !!(client.convenio && Object.values(client.convenio).some(v => v)),
                 bienes: (client.bienes || []).length > 0,
+                pagos: (client.bonos_aportes_list || []).length > 0,
                 general: !!client.general
             };
             Object.keys(hayDatos).forEach(k => {
@@ -8718,7 +8820,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     }
                 }
                 
-                const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), anioExpediente: document.getElementById('newAnioExpediente').value.trim(), jurisdiccion: document.getElementById('newJurisdiccion').value, deptoJudicial: document.getElementById('newDeptoJudicial') ? document.getElementById('newDeptoJudicial').value : '', deptoJudicialManual: document.getElementById('newDeptoManual') ? document.getElementById('newDeptoManual').value : '', juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] }; 
+                const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), anioExpediente: document.getElementById('newAnioExpediente').value.trim(), jurisdiccion: document.getElementById('newJurisdiccion').value, deptoJudicial: document.getElementById('newDeptoJudicial') ? document.getElementById('newDeptoJudicial').value : '', deptoJudicialManual: document.getElementById('newDeptoManual') ? document.getElementById('newDeptoManual').value : '', juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', provinciaCliente: 'Provincia de Buenos Aires', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] };
                 const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             renderAll();
