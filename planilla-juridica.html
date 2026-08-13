@@ -3337,8 +3337,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         // desde la planilla borraria el contador y el vigia dejaria de avisar
                         // sin que nadie se entere; y calculandolo, tocar "Ya esta agendada"
                         // apaga la alerta del mail en el acto y no en la proxima corrida.
-                        aud_pend: (Array.isArray(c.mev_movimientos) ? c.mev_movimientos : [])
-                            .filter(m => m && m.audiencia && !m.audiencia.agendada).length,
+                        // Cuenta MEV y PJN: el vigia avisa por las dos, con el mismo criterio
+                        // que usa la tarjeta de "Audiencias por agendar".
+                        aud_pend: audienciasDetectadas([c]).length,
                         // De los workers: se copian tal cual, nunca se calculan acá.
                         ...(antes.mev_huellas !== undefined ? { mev_huellas: antes.mev_huellas } : {}),
                         ...(antes.docs_pend   !== undefined ? { docs_pend:   antes.docs_pend }   : {}),
@@ -3891,13 +3892,68 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         //
         // La alerta NO se apaga sola ni con el tiempo: sigue hasta que se marque como
         // agendada. Una audiencia que se pasa no se recupera, asi que insiste.
+        // ── PJN ──────────────────────────────────────────────────────────────────
+        // En el PJN no hay que adivinar leyendo el proveido: la actuacion ya viene
+        // clasificada (tipo_documento 'audiencia', tipo_accion 'asistir_audiencia') y el
+        // dictamen dice la fecha. Se saca de ahi, no del titulo, que casi nunca la trae.
+        const AUD_PJN_DESDE = '2026-08-12';   // igual que la MEV: de acá en adelante
+
+        function pjnFechaISO(f) {              // "13/08/2026" -> "2026-08-13"
+            const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(f || '').trim());
+            if (!m) return '';
+            return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+        }
+
+        function pjnLeerAudiencia(a) {
+            const d = a.dictamen || {};
+            const txt = [d.resumen, d.accion_requerida, a.desc].filter(Boolean).join(' ');
+            // La fecha tiene que estar cerca de la palabra audiencia: el resumen menciona
+            // otras fechas (cedulas, oficios) y agarrar la primera lleva al dia equivocado.
+            const m = /audiencia[^]{0,140}?(?:fijad[ao] para el|para el)(?:\s*d[íi]a)?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i.exec(txt);
+            let fecha = '';
+            if (m) {
+                let anio = m[3].length === 2 ? '20' + m[3] : m[3];
+                fecha = anio + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+            }
+            let hora = '';
+            if (m) {
+                const resto = txt.slice(m.index + m[0].length, m.index + m[0].length + 40);
+                const h = /^\s*(?:,?\s*a las\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:hs|h\b)/i.exec(resto);
+                if (h) hora = h[1] + ':' + (h[2] || '00');
+            }
+            return { fecha: fecha, hora: hora, cita: d.resumen || a.desc || '' };
+        }
+
         function audienciasDetectadas(dataFiltrada) {
             const out = [];
             (dataFiltrada || []).forEach(client => {
                 if (client.fuera_estudio) return;
                 (client.mev_movimientos || []).forEach((m, i) => {
                     if (m && m.audiencia && !m.audiencia.agendada) {
-                        out.push({ client: client, mov: m, idx: i, a: m.audiencia });
+                        out.push({ client: client, mov: m, idx: i, a: m.audiencia, fuente: 'mev' });
+                    }
+                });
+                // Una misma audiencia aparece en varias actuaciones: la que la fija, la
+                // que la repite por otra oficina, y los escritos que la mencionan. Se
+                // agrupan por la FECHA de la audiencia, no por el titulo del proveido,
+                // que es distinto en cada una. Si no, la misma audiencia sale 3 veces.
+                const vistos = {};
+                (client.pjn_actuaciones || []).forEach((a, i) => {
+                    if (!a || a.audiencia_agendada) return;
+                    const esAud = a.tipo_documento === 'audiencia' ||
+                        (a.dictamen && a.dictamen.tipo_accion === 'asistir_audiencia');
+                    if (!esAud) return;
+                    const fProv = pjnFechaISO(a.fecha);
+                    if (!fProv || fProv < AUD_PJN_DESDE) return;
+                    const leida = pjnLeerAudiencia(a);
+                    const clave = leida.fecha ? 'F' + leida.fecha : 'D' + fProv + '|' + (a.desc || '');
+                    const item = { client: client, mov: { fecha: a.fecha }, idx: i,
+                                   a: leida, fuente: 'pjn' };
+                    if (vistos[clave] === undefined) {
+                        vistos[clave] = out.length;
+                        out.push(item);
+                    } else if (leida.hora && !out[vistos[clave]].a.hora) {
+                        out[vistos[clave]] = item;   // se queda la version que trae la hora
                     }
                 });
             });
@@ -3911,14 +3967,33 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             return out;
         }
 
-        function marcarAudienciaAgendada(clientId, movIdx) {
+        function marcarAudienciaAgendada(clientId, movIdx, fuente) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            const m = (client.mev_movimientos || [])[movIdx];
-            if (!m || !m.audiencia) return;
             if (!confirm('¿Dar por agendada esta audiencia?\n\nLa alerta se saca y no vuelve a aparecer para este proveído.')) return;
-            m.audiencia.agendada = true;
-            m.audiencia.agendada_el = new Date().toISOString();
+            const ahora = new Date().toISOString();
+            if (fuente === 'pjn') {
+                const a = (client.pjn_actuaciones || [])[movIdx];
+                if (!a) return;
+                a.audiencia_agendada = true;
+                a.audiencia_agendada_el = ahora;
+                // Se apagan todas las actuaciones que hablan de la misma audiencia, no
+                // solo la que se toco: si no, la alerta vuelve con la de al lado.
+                const fAud = pjnLeerAudiencia(a).fecha;
+                (client.pjn_actuaciones || []).forEach(o => {
+                    if (!o) return;
+                    const mismaFecha = fAud && pjnLeerAudiencia(o).fecha === fAud;
+                    const mismoProv = o.desc === a.desc && o.fecha === a.fecha;
+                    if (mismaFecha || mismoProv) {
+                        o.audiencia_agendada = true; o.audiencia_agendada_el = ahora;
+                    }
+                });
+            } else {
+                const m = (client.mev_movimientos || [])[movIdx];
+                if (!m || !m.audiencia) return;
+                m.audiencia.agendada = true;
+                m.audiencia.agendada_el = ahora;
+            }
             saveData();
             renderAll();
         }
@@ -3954,12 +4029,15 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     + (pasada ? ' <span style="color:#c0392b;font-size:.78em;font-weight:600;">YA PASÓ</span>' : '')
                     + (!a.fecha ? ' <span style="color:var(--text-muted);font-size:.78em;">revisar el proveído</span>' : '')
                     + '</div>'
-                    + '<div style="font-size:.8em;color:var(--text-muted);">proveído del ' + esc(it.mov.fecha || '') + '</div></div>'
+                    + '<div style="font-size:.8em;color:var(--text-muted);">'
+                    + '<span style="border:1px solid var(--border-item);border-radius:4px;padding:0 5px;margin-right:6px;font-size:.9em;letter-spacing:.04em;">'
+                    + (it.fuente === 'pjn' ? 'PJN' : 'MEV') + '</span>'
+                    + 'proveído del ' + esc(it.mov.fecha || '') + '</div></div>'
                     + '<div style="font-size:.85em;margin-top:3px;">' + esc(it.client.caratula || it.client.nombre || '') + '</div>'
                     + '<div style="font-size:.78em;color:var(--text-muted);margin-top:3px;line-height:1.35;">"' + esc(a.cita || '') + '"</div>'
                     + '<div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap;">'
                     + '<button onclick="showClientModal(\'' + it.client.id + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--info-color);border-radius:6px;color:var(--info-color);background:transparent;cursor:pointer;font-weight:600;">Abrir la ficha y agendar</button>'
-                    + '<button onclick="marcarAudienciaAgendada(\'' + it.client.id + '\',' + it.idx + ')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--success-color);border-radius:6px;color:#fff;background:var(--success-color);cursor:pointer;font-weight:600;">Ya está agendada</button>'
+                    + '<button onclick="marcarAudienciaAgendada(\'' + it.client.id + '\',' + it.idx + ',\'' + it.fuente + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--success-color);border-radius:6px;color:#fff;background:var(--success-color);cursor:pointer;font-weight:600;">Ya está agendada</button>'
                     + '</div></div>';
             }).join('');
 
@@ -4083,16 +4161,23 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             dataFiltrada.forEach(client => {
                 const acts = client.pjn_actuaciones || [];
                 if (acts.length === 0) return;
-                const ultimaVista = client.pjn_ultima_vista || null;
-                if (ultimaVista && client.pjn_ultima_sync) {
-                    const syncTs = new Date(client.pjn_ultima_sync).getTime();
-                    console.log(`PJN DEBUG [${client.caratula?.substring(0,30)}]: syncTs=${syncTs}, ultimaVista=${ultimaVista}, diff=${syncTs - ultimaVista}, mostrar=${syncTs > ultimaVista}`);
-                    if (syncTs > ultimaVista) {
-                        alertas.push({ client, nuevos: acts.slice(0, 3) });
+                // NO comparar contra pjn_ultima_sync: en PJN ese campo es "la ultima vez
+                // que el worker miro", no "la ultima vez que entro algo". Como mira cada
+                // media hora, comparar contra el reloj hacia reaparecer el aviso siempre,
+                // aunque la ultima actuacion fuera del año pasado. Se compara el contenido.
+                const huella = pjnHuella(acts);
+                if (client.pjn_visto_huella === huella) return;
+
+                // Migracion: ficha ya marcada como vista con el criterio viejo. Se adopta
+                // la huella actual en silencio; de ahi en mas avisa solo si entra algo.
+                if (client.pjn_ultima_vista && !client.pjn_visto_huella) {
+                    client.pjn_visto_huella = huella;
+                    const i = clientsData.indexOf(client);
+                    if (i > -1 && firebaseDB) {
+                        firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + i + '/pjn_visto_huella').set(huella);
                     }
                     return;
                 }
-                console.log(`PJN DEBUG [${client.caratula?.substring(0,30)}]: sin ultimaVista o sin sync — MOSTRANDO`);
                 alertas.push({ client, nuevos: acts.slice(0, 3) });
             });
             const total = alertas.length;
@@ -4130,14 +4215,24 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 </tr>`).join('')}
             </table>`;
         }
+        // Firma de lo que hay ahora en el expediente. Si no cambia, no hay nada nuevo
+        // que mostrar por mas veces que el worker vuelva a mirar.
+        function pjnHuella(acts) {
+            const a = (acts && acts[0]) || {};
+            return (acts || []).length + '|' + (a.fecha || '') + '|' + (a.desc || a.tipo || '');
+        }
+
         function marcarPjnVisto(clientId) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
             const ahora = Date.now();
+            const huella = pjnHuella(client.pjn_actuaciones || []);
             client.pjn_ultima_vista = ahora;
+            client.pjn_visto_huella = huella;
             const idx = clientsData.indexOf(client);
             if (idx > -1 && firebaseDB) {
-                firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx + '/pjn_ultima_vista').set(ahora);
+                firebaseDB.ref(FIREBASE_KEY_JURIDICA + '/' + idx).update({
+                    pjn_ultima_vista: ahora, pjn_visto_huella: huella });
             }
             guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
@@ -4145,7 +4240,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         }
         function resetearVistasPJN() {
             const updates = {};
-            clientsData.forEach((c, idx) => { c.pjn_ultima_vista = null; updates[idx + '/pjn_ultima_vista'] = null; });
+            clientsData.forEach((c, idx) => {
+                c.pjn_ultima_vista = null; updates[idx + '/pjn_ultima_vista'] = null;
+                c.pjn_visto_huella = null; updates[idx + '/pjn_visto_huella'] = null;
+            });
             if (firebaseDB) firebaseDB.ref(FIREBASE_KEY_JURIDICA).update(updates);
             guardarCacheLocal();
             const dataFiltrada = filtrarPorSesion(clientsData);
