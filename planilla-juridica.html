@@ -1762,6 +1762,55 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         /* Tabs (para el modal de cliente con varias secciones) */
         /* Fija al scrollear: en una ficha larga habia que volver arriba para cambiar
            de solapa. El fondo opaco es imprescindible o el contenido se ve por detras. */
+        /* ── Datos de la ficha ────────────────────────────────────────────────
+           Filas alineadas, no tarjetas. Una tarjeta por dato obliga a que todas midan
+           lo mismo para que no se vea dentado, y eso es imposible: un domicilio ocupa
+           tres renglones y un DNI uno. Con dos columnas de ancho fijo la alineación
+           sale sola y la ficha se lee de un vistazo. */
+        .datos-lista {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 0 38px;
+            margin-bottom: 4px;
+        }
+        @media (max-width: 900px) { .datos-lista { grid-template-columns: 1fr; } }
+        .datos-lista .dato {
+            display: grid; grid-template-columns: 118px 1fr;
+            gap: 16px; align-items: baseline;
+            padding: 10px 2px;
+            border-bottom: 1px solid var(--border-item, rgba(160,120,64,.16));
+            min-height: 42px;
+        }
+        .datos-lista .dato.ancho { grid-column: 1 / -1; }
+        .datos-lista .dato > .k {
+            font-family: 'DM Sans', sans-serif; font-size: .68rem; font-weight: 500;
+            letter-spacing: .09em; text-transform: uppercase;
+            color: var(--text-label, #8a8580); line-height: 1.5;
+        }
+        .datos-lista .dato > .v { font-size: .93rem; line-height: 1.45; min-width: 0; word-wrap: break-word; }
+        .datos-lista .dato > .v .editable-field { border: none; padding: 0; background: none; }
+        .datos-lista .dato > .v .editable-field:hover { background: var(--gold-dim, rgba(201,169,110,.10)); border-radius: 5px; }
+        .datos-lista .sd { color: var(--text-muted, #a8a29a); font-style: italic; font-size: .88em; }
+
+        /* Botones de "Origen": dos opciones, la elegida en oro */
+        .datos-lista .chip {
+            font-family: 'DM Sans', sans-serif; font-size: .74rem; font-weight: 600;
+            padding: 5px 11px; margin-right: 6px; border-radius: 999px; cursor: pointer;
+            border: 1px solid var(--border-input, rgba(160,120,64,.35));
+            background: transparent; color: var(--text-muted, #8a8580);
+        }
+        .datos-lista .chip.on {
+            background: var(--gold-dark, #8a6a10); border-color: var(--gold-dark, #8a6a10); color: #fff;
+        }
+
+        /* Título de cada grupo: regla fina, sin recuadro */
+        .client-info > h4 {
+            font-family: 'Cormorant Garamond', serif; font-weight: 500;
+            font-size: 1.02rem; letter-spacing: .04em;
+            color: var(--gold-dark, #8a6a10);
+            padding-bottom: 6px; margin: 20px 0 2px;
+            border-bottom: 1px solid var(--gold-border, rgba(201,169,110,.45));
+        }
+        .client-info > h4:first-child { margin-top: 4px; }
+
         .tabs-header {
             position: sticky; top: 0; z-index: 5;
             background: var(--bg-modal, #fff);
@@ -5397,136 +5446,134 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     notas: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> Notas'
                 };
                 
-                const getFieldHTML = (key, label) => {
-                    if (key === 'socio') {
-                        const displayVal = getSocioLabel(client[key]);
-                        return `<div class="info-item" style="border-left: 3px solid var(--info-color); background: rgba(139,110,199,0.08);"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', getSocioKeysArray())"><div class="info-value" style="color:var(--info-color); font-weight:600;">${displayVal}</div></div></div>`;
-                    }
-                    if (key === 'materia') {
-                        const materiaDisplay = client[key] === 'OTROS' ? (client.materiaOtros || 'OTROS') : (client[key] || 'S/D');
-                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldMateria('${client.id}')"><div class="info-value">${materiaDisplay}</div></div></div>`;
-                    }
-                    if (key === 'titulo') {
-                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['SR/SRA', 'SR', 'SRA', 'DR', 'DRA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
-                    }
-                    if (key === 'estado') {
-                        return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editFieldSelect('${client.id}', '${key}', ['EJECUCION', 'FINALIZADA', 'FINALIZADA PARCIAL', 'DEMORADA'])"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
-                    }
-                    if (key === 'telefono') {
-                        return `<div class="info-item" style="padding:10px 15px;">
-                            <div style="margin-bottom:6px;">
-                                <div class="info-label" style="font-size:0.75em;margin-bottom:2px;">Teléfono</div>
-                                <div class="editable-field" id="field-telefono" onclick="editField('${client.id}', 'telefono')">
-                                    <div class="info-value" style="font-size:0.95em;">${client.telefono || 'S/D'}</div>
-                                </div>
-                            </div>
-                            <div style="border-top:1px solid #e0e0e0;padding-top:6px;">
-                                <div class="info-label" style="font-size:0.75em;margin-bottom:2px;">Mail</div>
-                                <div class="editable-field" id="field-email" onclick="editField('${client.id}', 'email')">
-                                    <div class="info-value" style="font-size:0.95em;">${client.email || 'S/D'}</div>
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                    // Domicilio real del cliente. Va separado en calle / localidad / provincia
-                    // y no en un solo renglon: el escrito los pide por separado y despues no
-                    // hay forma segura de partir "Zapiola 662, Quilmes, Bs As" sin equivocarse.
-                    if (key === 'domicilioCliente') {
-                        const campo = (k, etiqueta, ph) => `<div>
-                            <div class="info-label" style="font-size:0.72em;margin-bottom:2px;">${etiqueta}</div>
-                            <div class="editable-field" id="field-${k}" onclick="editField('${client.id}', '${k}')">
-                                <div class="info-value" style="font-size:0.9em;">${client[k] || (ph || 'S/D')}</div>
-                            </div></div>`;
-                        return `<div class="info-item" style="padding:10px 15px;">
-                            <div class="info-label" style="margin-bottom:6px;">Domicilio del cliente</div>
-                            <div style="display:grid;gap:6px;">
-                                ${campo('domicilioCliente', 'Calle y número')}
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                                    ${campo('localidadCliente', 'Localidad')}
-                                    ${campo('provinciaCliente', 'Provincia')}
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                    // Hace falta saberlo ANTES del sorteo: si la causa ya viene con expediente
-                    // de otro abogado, no hay sorteo que hacer y el escrito es otro.
-                    if (key === 'iniciadoPorEstudio') {
-                        const v = client.iniciadoPorEstudio || '';
-                        const boton = (val, texto, color) => `<button type="button"
-                            onclick="setIniciadoPorEstudio('${client.id}', '${val}')"
-                            style="flex:1;padding:7px 6px;border-radius:8px;cursor:pointer;font-size:0.78em;
-                                   font-family:'DM Sans',sans-serif;font-weight:600;line-height:1.25;
-                                   border:1px solid ${v === val ? color : 'var(--border-input)'};
-                                   background:${v === val ? color : 'transparent'};
-                                   color:${v === val ? '#fff' : 'var(--text-muted)'};">${texto}</button>`;
-                        return `<div class="info-item" style="padding:10px 15px;">
-                            <div class="info-label" style="margin-bottom:6px;">Origen del expediente</div>
-                            <div style="display:flex;gap:6px;">
-                                ${boton('ESTUDIO', 'Iniciado por<br>el estudio', 'var(--success-color)')}
-                                ${boton('OTRO', 'NO iniciado<br>por el estudio', 'var(--warning-color)')}
-                            </div>
-                            ${!v ? '<div style="font-size:0.72em;color:var(--text-muted);margin-top:5px;font-style:italic;">Sin definir — hace falta antes del sorteo</div>' : ''}
-                        </div>`;
-                    }
-                    if (key === 'expediente') {
-                        return `<div class="info-item">
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%;">
-                                <div>
-                                    <div class="info-label">N° Expediente</div>
-                                    <div class="editable-field" id="field-expediente" onclick="editField('${client.id}', 'expediente')">
-                                        <div class="info-value">${client.expediente || 'S/D'}</div>
-                                    </div>
-                                </div>
-                                <div style="border-left:1px solid #e0e0e0;padding-left:8px;">
-                                    <div class="info-label">Año</div>
-                                    <div class="editable-field" id="field-anioExpediente" onclick="editField('${client.id}', 'anioExpediente')">
-                                        <div class="info-value">${client.anioExpediente || 'S/D'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                    if (key === 'juzgado') {
-                        return `<div class="info-item">
-                            <div class="info-label">Juzgado</div>
-                            <div style="margin-bottom:6px;">
-                                <select id="field-jurisdiccion-sel" onchange="saveJurisdiccionInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
-                                    <option value="">-- Jurisdicción --</option>
-                                    <option value="PROVINCIA" ${client.jurisdiccion==='PROVINCIA'?'selected':''}>Provincia de Buenos Aires</option>
-                                    <option value="CABA" ${client.jurisdiccion==='CABA'?'selected':''}>CABA</option>
-                                    <option value="FEDERAL" ${client.jurisdiccion==='FEDERAL'?'selected':''}>Federal</option>
-                                </select>
-                            </div>
-                            ${client.jurisdiccion === 'PROVINCIA' ? `<div style="margin-bottom:6px;">
-                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
-                                    <option value="">-- Departamento Judicial --</option>
-                                    ${['Avellaneda-Lanús','Azul','Bahía Blanca','Dolores','Junín','La Matanza','La Plata','Lomas de Zamora','Mar del Plata','Mercedes','Moreno-Gral. Rodríguez','Morón','Necochea','Olavarría','Pergamino','Quilmes','San Isidro','San Martín','San Nicolás','Tandil','Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
-                                </select>
-                                ${client.deptoJudicial ? `<div style="margin-top:4px;padding:5px 10px;background:rgba(52,152,219,0.1);border-left:3px solid #3498db;border-radius:6px;font-size:0.85em;color:#3498db;font-weight:500;">${client.deptoJudicial}</div>` : ''}
-                            </div>
-                            ${client.deptoJudicial === 'Otro (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir departamento..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;"></div>` : ''}` : (client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? `<div style="margin-bottom:6px;">
-                                <select id="field-depto-sel" onchange="saveDeptoInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid rgba(139,110,199,0.4);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
-                                    <option value="">-- Jurisdicción --</option>
-                                    ${['CIV - Cámara Nac. de Apelaciones en lo Civil','CAF - Cámara Nac. de Apelaciones en lo Contencioso Administrativo Federal','CCF - Cámara Nac. de Apelaciones en lo Civil y Comercial Federal','CNE - Cámara Nacional Electoral','CSS - Cámara Federal de la Seguridad Social','CPE - Cámara Nac. de Apelaciones en lo Penal Económico','CNT - Cámara Nac. de Apelaciones del Trabajo','CFP - Cámara Criminal y Correccional Federal','CCC - Cámara Nac. de Apelaciones en lo Criminal y Correccional','COM - Cámara Nac. de Apelaciones en lo Comercial','CPF - Cámara Federal de Casación Penal','CPN - Cámara Nacional de Casación Penal','FBB - Justicia Federal de Bahía Blanca','FCR - Justicia Federal de Comodoro Rivadavia','FCB - Justicia Federal de Córdoba','FCT - Justicia Federal de Corrientes','FGR - Justicia Federal de General Roca','FLP - Justicia Federal de La Plata','FMP - Justicia Federal de Mar del Plata','FMZ - Justicia Federal de Mendoza','FPO - Justicia Federal de Posadas','FPA - Justicia Federal de Paraná','FRE - Justicia Federal de Resistencia','FSA - Justicia Federal de Salta','FRO - Justicia Federal de Rosario','FSM - Justicia Federal de San Martín','FTU - Justicia Federal de Tucumán','CSJ - Corte Suprema de Justicia de la Nación','Otras (manual)'].map(d => `<option value="${d}" ${client.deptoJudicial===d?'selected':''}>${d}</option>`).join('')}
-                                </select>
-                                ${client.deptoJudicial ? `<div style="margin-top:4px;padding:5px 10px;background:rgba(139,110,199,0.1);border-left:3px solid var(--info-color);border-radius:6px;font-size:0.85em;color:var(--info-color);font-weight:500;">${client.deptoJudicial}</div>` : ''}
-                            </div>
-                            ${client.deptoJudicial === 'Otras (manual)' ? `<div style="margin-bottom:6px;"><input type="text" id="field-depto-manual" value="${client.deptoJudicialManual||''}" placeholder="Escribir jurisdicción..." onblur="saveDeptoManualInline('${client.id}', this.value)" style="width:100%;padding:6px 10px;border:1px solid rgba(139,110,199,0.4);border-radius:8px;font-size:0.85em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;"></div>` : ''}` : ''}
-                            ${renderFueroMev(client)}
-                            <div class="editable-field" id="field-juzgado" onclick="editField('${client.id}', 'juzgado')">
-                                <div class="info-value">${client.juzgado || 'S/D'}</div>
-                            </div>
-                        </div>`;
-                    }
-                    return `<div class="info-item"><div class="info-label">${label}</div><div class="editable-field" id="field-${key}" onclick="editField('${client.id}', '${key}')"><div class="info-value">${client[key] || 'S/D'}</div></div></div>`;
+                // Cada dato es una FILA (etiqueta a la izquierda, valor a la derecha), no una
+                // tarjeta. Las tarjetas nunca miden lo mismo —un domicilio ocupa tres renglones
+                // y un DNI uno— y la grilla queda dentada. Con filas, la alineación es
+                // consecuencia de la estructura y no hay nada que pueda quedar desparejo.
+                const fila = (k, etiqueta, valor, opts) => {
+                    const o = opts || {};
+                    return '<div class="dato' + (o.ancho ? ' ancho' : '') + '">' +
+                        '<div class="k">' + etiqueta + '</div>' +
+                        '<div class="v"' + (o.estilo ? ' style="' + o.estilo + '"' : '') + '>' +
+                        (o.crudo ? valor :
+                            '<div class="editable-field" id="field-' + k + '" onclick="' + (o.click ||
+                                ("editField('" + client.id + "', '" + k + "')")) + '">' +
+                            '<span class="info-value">' + valor + '</span></div>') +
+                        '</div></div>';
                 };
+                const sd = (v) => (v === 0 || v) && String(v).trim() ? v : '<span class="sd">S/D</span>';
+
+                const getFieldHTML = (key, label) => {
+                    const v = client[key];
+                    switch (key) {
+                        case 'socio':
+                            return fila(key, 'Socio asignado', sd(getSocioLabel(v)),
+                                { click: "editFieldSelect('" + client.id + "', 'socio', getSocioKeysArray())",
+                                  estilo: 'color:var(--info-color);font-weight:600;' });
+                        case 'materia':
+                            return fila(key, 'Materia', sd(v === 'OTROS' ? (client.materiaOtros || 'OTROS') : v),
+                                { click: "editFieldMateria('" + client.id + "')" });
+                        case 'titulo':
+                            return fila(key, 'Título', sd(v),
+                                { click: "editFieldSelect('" + client.id + "', 'titulo', ['SR/SRA','SR','SRA','DR','DRA'])" });
+                        case 'estado':
+                            return fila(key, 'Estado', sd(v),
+                                { click: "editFieldSelect('" + client.id + "', 'estado', ['EJECUCION','FINALIZADA','FINALIZADA PARCIAL','DEMORADA'])" });
+                        case 'nombre':   return fila(key, 'Nombre', sd(v));
+                        case 'dni':      return fila(key, 'DNI', sd(v));
+                        case 'telefono': return fila(key, 'Teléfono', sd(v)) + fila('email', 'Mail', sd(client.email));
+                        case 'caratula': return fila(key, 'Carátula', sd(v), { ancho: true });
+
+                        // Domicilio: tres filas y no un bloque apilado, para que cada renglón
+                        // tenga la misma altura que los demás.
+                        case 'domicilioCliente':
+                            return fila('domicilioCliente', 'Domicilio', sd(v)) +
+                                   fila('localidadCliente', 'Localidad', sd(client.localidadCliente)) +
+                                   fila('provinciaCliente', 'Provincia', sd(client.provinciaCliente));
+
+                        case 'expediente':
+                            return fila('expediente', 'N° de expediente', sd(v)) +
+                                   fila('anioExpediente', 'Año', sd(client.anioExpediente));
+
+                        case 'iniciadoPorEstudio': {
+                            const boton = (val, txt) => '<button type="button" onclick="setIniciadoPorEstudio(\'' +
+                                client.id + '\', \'' + val + '\')" class="chip' + (v === val ? ' on' : '') + '">' + txt + '</button>';
+                            return fila(key, 'Origen', boton('ESTUDIO', 'Iniciado por el estudio') +
+                                boton('OTRO', 'De otro abogado') +
+                                (!v ? '<span class="sd" style="margin-left:8px;">definir antes del sorteo</span>' : ''),
+                                { crudo: true });
+                        }
+
+                        case 'juzgado':  return filaJuzgado();
+                        case 'direccionJuzgado': return fila(key, 'Dirección', sd(v));
+                        case 'telJuzgado':       return fila(key, 'Teléfono', sd(v));
+
+                        case 'fechaCreacion':
+                            return fila(key, 'Fecha de creación',
+                                v ? formatDate(v) : '<span class="sd">agregar</span>');
+
+                        case 'proximaRevision': {
+                            const vencida = isPastDue(client.proximaRevision);
+                            const hoyes = isToday(client.proximaRevision);
+                            const color = vencida ? 'var(--danger-color)' : hoyes ? 'var(--warning-color)' : 'var(--success-color)';
+                            const txt = client.proximaRevision
+                                ? (vencida ? 'VENCIDA · ' : hoyes ? 'HOY · ' : '') + formatDate(client.proximaRevision)
+                                : 'sin tareas pendientes';
+                            return fila(key, 'Próxima tarea',
+                                '<span style="color:' + color + ';font-weight:600;">' + txt + '</span>',
+                                { crudo: true });
+                        }
+
+                        case 'notas':
+                            return fila(key, 'Notas',
+                                (v && String(v).trim()) ? String(v).replace(/</g, '&lt;').replace(/\n/g, '<br>')
+                                                        : '<span class="sd">S/D</span>',
+                                { ancho: true });
+
+                        default: return fila(key, label, sd(v));
+                    }
+                };
+
+                // El juzgado arrastra jurisdicción, departamento y el vínculo con la MEV:
+                // es el único dato que no entra en una fila simple, así que va a lo ancho.
+                function filaJuzgado() {
+                    const estilo = 'width:100%;padding:6px 10px;border:1px solid var(--border-input);' +
+                        'border-radius:8px;font-size:0.85em;background:var(--bg-input);' +
+                        'color:var(--text-primary);font-family:\'DM Sans\',sans-serif;margin-bottom:6px;';
+                    let h = '<select onchange="saveJurisdiccionInline(\'' + client.id + '\', this.value)" style="' + estilo + '">' +
+                        '<option value="">-- Jurisdicción --</option>' +
+                        ['PROVINCIA', 'CABA', 'FEDERAL'].map(j => '<option value="' + j + '"' +
+                            (client.jurisdiccion === j ? ' selected' : '') + '>' +
+                            (j === 'PROVINCIA' ? 'Provincia de Buenos Aires' : j) + '</option>').join('') +
+                        '</select>';
+
+                    const deptosPBA = ['Avellaneda-Lanús','Azul','Bahía Blanca','Dolores','Junín','La Matanza','La Plata','Lomas de Zamora','Mar del Plata','Mercedes','Moreno-Gral. Rodríguez','Morón','Necochea','Olavarría','Pergamino','Quilmes','San Isidro','San Martín','San Nicolás','Tandil','Trenque Lauquen','Tres Arroyos','Zárate/Campana','Otro (manual)'];
+                    const camaras = ['CIV - Cámara Nac. de Apelaciones en lo Civil','CAF - Cámara Nac. de Apelaciones en lo Contencioso Administrativo Federal','CCF - Cámara Nac. de Apelaciones en lo Civil y Comercial Federal','CNE - Cámara Nacional Electoral','CSS - Cámara Federal de la Seguridad Social','CPE - Cámara Nac. de Apelaciones en lo Penal Económico','CNT - Cámara Nac. de Apelaciones del Trabajo','CFP - Cámara Criminal y Correccional Federal','CCC - Cámara Nac. de Apelaciones en lo Criminal y Correccional','COM - Cámara Nac. de Apelaciones en lo Comercial','CPF - Cámara Federal de Casación Penal','CPN - Cámara Nacional de Casación Penal','FBB - Justicia Federal de Bahía Blanca','FCR - Justicia Federal de Comodoro Rivadavia','FCB - Justicia Federal de Córdoba','FCT - Justicia Federal de Corrientes','FGR - Justicia Federal de General Roca','FLP - Justicia Federal de La Plata','FMP - Justicia Federal de Mar del Plata','FMZ - Justicia Federal de Mendoza','FPO - Justicia Federal de Posadas','FPA - Justicia Federal de Paraná','FRE - Justicia Federal de Resistencia','FSA - Justicia Federal de Salta','FRO - Justicia Federal de Rosario','FSM - Justicia Federal de San Martín','FTU - Justicia Federal de Tucumán','CSJ - Corte Suprema de Justicia de la Nación','Otras (manual)'];
+                    const lista = client.jurisdiccion === 'PROVINCIA' ? deptosPBA
+                                : (client.jurisdiccion === 'CABA' || client.jurisdiccion === 'FEDERAL') ? camaras : null;
+                    if (lista) {
+                        h += '<select onchange="saveDeptoInline(\'' + client.id + '\', this.value)" style="' + estilo + '">' +
+                            '<option value="">-- ' + (client.jurisdiccion === 'PROVINCIA' ? 'Departamento judicial' : 'Fuero') + ' --</option>' +
+                            lista.map(d => '<option value="' + d + '"' + (client.deptoJudicial === d ? ' selected' : '') + '>' + d + '</option>').join('') +
+                            '</select>';
+                        if (client.deptoJudicial === 'Otro (manual)' || client.deptoJudicial === 'Otras (manual)') {
+                            h += '<input type="text" value="' + (client.deptoJudicialManual || '').replace(/"/g, '&quot;') +
+                                '" placeholder="Escribir a mano..." onblur="saveDeptoManualInline(\'' + client.id +
+                                '\', this.value)" style="' + estilo + '">';
+                        }
+                    }
+                    h += renderFueroMev(client);
+                    h += '<div class="editable-field" id="field-juzgado" onclick="editField(\'' + client.id + '\', \'juzgado\')">' +
+                        '<span class="info-value">' + (client.juzgado || '<span class="sd">S/D</span>') + '</span></div>';
+                    return '<div class="dato ancho"><div class="k">Juzgado</div><div class="v">' + h + '</div></div>';
+                }
+
 
                 const solapasVisibles = solapasDeMateria(client);
                 const tieneSolapa = (id) => solapasVisibles.includes(id);
                 // Los campos ya no salen todos en una grilla plana de 14: se piden por grupo,
                 // para poder titularlos Cliente / Causa / Juzgado sin duplicar getFieldHTML.
-                const grupo = (claves) => claves
-                    .map(k => getFieldHTML(k, fieldsToShow[k] || k)).join('');
+                const grupo = (claves) => claves.map(k => getFieldHTML(k, fieldsToShow[k] || k)).join('');
 
                 let solapasHTML = `
                     <div style="margin-top: 25px;">
@@ -5567,29 +5614,16 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
                     <div class="client-info">
                         <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Cliente</h4>
-                        <div class="info-grid">${grupo(['titulo','nombre','dni','telefono','domicilioCliente'])}</div>
+                        <div class="datos-lista">${grupo(['titulo','nombre','dni','telefono','domicilioCliente'])}</div>
 
                         <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Causa</h4>
-                        <div class="info-grid">${grupo(['materia','caratula','expediente','iniciadoPorEstudio','estado','socio'])}
-<div class="info-item" style="border-left:3px solid var(--success-color); background:rgba(31,158,114,0.08);">
-                            <div class="info-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Fecha de Creación</div>
-                            <div class="editable-field" id="field-fechaCreacion" onclick="editField('${client.id}', 'fechaCreacion')">
-                                <div class="info-value" style="color:var(--success-color);font-weight:600;">${client.fechaCreacion ? formatDate(client.fechaCreacion) : '<span style=\'color:var(--danger-color);font-style:italic;\'>(click para agregar)</span>'}</div>
-                            </div>
-                        </div>
-                        <div class="info-item" style="border-left: 3px solid ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? 'var(--warning-color)' : 'var(--success-color)'}; background: ${isPastDue(client.proximaRevision) ? 'rgba(217,79,79,0.08)' : isToday(client.proximaRevision) ? 'rgba(212,144,26,0.08)' : 'rgba(31,158,114,0.08)'};">
-                            <div class="info-label">Próxima Tarea</div>
-                            <div class="info-value" style="color: ${isPastDue(client.proximaRevision) ? 'var(--danger-color)' : isToday(client.proximaRevision) ? 'var(--warning-color)' : 'var(--success-color)'}; font-weight: 600; font-size:1.05em;">
-                                ${isPastDue(client.proximaRevision) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> VENCIDA — ' : isToday(client.proximaRevision) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> HOY — ' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> '}${formatDate(client.proximaRevision)}
-                            </div>
-                        </div>
-                    </div>
+                        <div class="datos-lista">${grupo(['materia','caratula','expediente','iniciadoPorEstudio','estado','socio','fechaCreacion','proximaRevision'])}</div>
 
                         <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Juzgado</h4>
-                        <div class="info-grid">${grupo(['juzgado','direccionJuzgado','telJuzgado'])}</div>
+                        <div class="datos-lista">${grupo(['juzgado','direccionJuzgado','telJuzgado'])}</div>
 
                         <h4 style="margin-top:16px;">Notas</h4>
-                        <div class="info-grid">${grupo(['notas'])}</div>
+                        <div class="datos-lista">${grupo(['notas'])}</div>
                     </div>
                     ${solapasHTML}
                     <div class="history-section"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Historial Cronológico</h4><div id="history-list-${client.id}" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px;">${renderHistoryList(client)}</div></div>
