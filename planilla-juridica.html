@@ -5509,6 +5509,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                             ${tieneSolapa('hijos') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-hijos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Hijos</button>` : ''}
                             ${tieneSolapa('demandado') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-demandado')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Demandado</button>` : ''}
                             ${tieneSolapa('necesidades') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 2v20M7 2v20M11 2v8a2 2 0 0 0 4 0V2M19 2v20M19 14l-2-2"/></svg> Necesidades</button>` : ''}
+                            ${tieneSolapa('bienes') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-bienes')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Bienes</button>` : ''}
                             ${tieneSolapa('convenio') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>` : ''}
                             <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Expediente Digital</button>
                         </div>
@@ -5516,6 +5517,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         ${tieneSolapa('hijos') ? `<div id="tab-hijos" class="tab-content">${renderTabHijos(client)}</div>` : ''}
                         ${tieneSolapa('demandado') ? `<div id="tab-demandado" class="tab-content">${renderTabDemandado(client)}</div>` : ''}
                         ${tieneSolapa('necesidades') ? `<div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>` : ''}
+                        ${tieneSolapa('bienes') ? `<div id="tab-bienes" class="tab-content">${renderTabBienes(client)}</div>` : ''}
                         ${tieneSolapa('convenio') ? `<div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>` : ''}
                         <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
                     </div>`;
@@ -6038,6 +6040,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             client.deptoJudicialManual = inp.value;
             updateClient(client);
             editFieldJurisdiccion(clientId);
+        }
+
+        // Faltaba. Se la llamaba desde jurisdiccion, departamento judicial y origen del
+        // expediente, y como no existia tiraba ReferenceError: el dato quedaba en memoria,
+        // la pantalla no se refrescaba (parecia trabada) y recien subia a Firebase cuando
+        // otra cosa disparaba un guardado. Por eso "se selecciona y cambia mal".
+        function updateClient(client) {
+            if (!client) return;
+            updateClientNextRevision(client);
+            saveData();
         }
 
         // Se puede desmarcar tocando el mismo boton: si alguien se equivoca, que pueda
@@ -7518,8 +7530,113 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }, 100);
         }
 
+        // ── SOLAPA BIENES (divorcio) ─────────────────────────────────────────────
+        // Bienes de la sociedad conyugal. Cada uno con su tipo, para que el dia de mañana
+        // el escrito sepa si hay que oficiar al Registro Automotor o al de la Propiedad.
+        const TIPOS_BIEN = ['Inmueble', 'Automotor', 'Moto', 'Cuenta bancaria',
+                            'Sociedad o acciones', 'Muebles del hogar', 'Otro'];
+
+        function renderTabBienes(client) {
+            const bienes = client.bienes || [];
+            const esc = v => String(v == null ? '' : v).replace(/"/g, '&quot;');
+
+            const filas = bienes.map((b, i) => `
+                <div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:10px;">
+                    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+                        <div class="form-group" style="min-width:180px;margin:0;">
+                            <label>Tipo de bien</label>
+                            <select id="bien-tipo-${i}">
+                                ${TIPOS_BIEN.map(t => `<option value="${t}" ${b.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:220px;margin:0;">
+                            <label>Descripción</label>
+                            <input type="text" id="bien-desc-${i}" value="${esc(b.descripcion)}"
+                                placeholder="Marca, modelo y dominio · calle y número · partida">
+                        </div>
+                        <div class="form-group" style="min-width:150px;margin:0;">
+                            <label>Valor estimado</label>
+                            <input type="text" id="bien-valor-${i}" value="${esc(b.valor)}" placeholder="$">
+                        </div>
+                        <button class="btn btn-danger btn-sm" style="margin-top:22px;" onclick="eliminarBien('${client.id}', ${i})">X</button>
+                    </div>
+                    <div class="form-group" style="margin:10px 0 0;">
+                        <label>¿A nombre de quién está?</label>
+                        <input type="text" id="bien-titular-${i}" value="${esc(b.titular)}"
+                            placeholder="Nuestro cliente, el cónyuge, ambos, un tercero.">
+                    </div>
+                </div>`).join('');
+
+            return `
+            <div style="margin-bottom:15px;">
+                <p style="color:#666;font-size:0.9em;font-style:italic;">
+                    Bienes de la sociedad conyugal. Cargá todo lo que sepas, aunque sea aproximado:
+                    de acá salen los oficios y el escrito de liquidación.
+                </p>
+            </div>
+            <div id="bienes-container">${bienes.length === 0 ? '<p style="color:#666;font-style:italic;">No hay bienes cargados.</p>' : filas}</div>
+            <div style="margin:15px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-info btn-sm" onclick="agregarBien('${client.id}')">Agregar bien</button>
+                <button class="btn btn-success" onclick="saveBienes('${client.id}')">Guardar Bienes</button>
+                <span id="bienes-save-msg" style="display:none;color:var(--success-color);font-weight:600;">Guardado</span>
+            </div>`;
+        }
+
+        function saveBienes(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const lista = [];
+            let i = 0;
+            while (document.getElementById('bien-tipo-' + i)) {
+                lista.push({
+                    tipo: document.getElementById('bien-tipo-' + i).value,
+                    descripcion: document.getElementById('bien-desc-' + i).value,
+                    valor: document.getElementById('bien-valor-' + i).value,
+                    titular: document.getElementById('bien-titular-' + i).value
+                });
+                i++;
+            }
+            client.bienes = lista;
+            saveData();
+            const msg = document.getElementById('bienes-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
+        function agregarBien(clientId) {
+            saveBienes(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.bienes = client.bienes || [];
+            client.bienes.push({ tipo: 'Inmueble', descripcion: '', valor: '', titular: '' });
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-bienes"]');
+                if (btn) btn.click();
+            }, 60);
+        }
+
+        function eliminarBien(clientId, i) {
+            saveBienes(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.bienes) return;
+            client.bienes.splice(i, 1);
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-bienes"]');
+                if (btn) btn.click();
+            }, 60);
+        }
+
         function renderTabDemandado(client) {
             const d = client.demandado || {};
+            // La parte economica (empresa, CUIT, monto, bienes) sirve para pedir alimentos.
+            // En comunicacion, cuidado personal, filiacion o violencia no se usa y solo
+            // ensucia la carga. Si una ficha ya la tiene cargada se muestra igual, para no
+            // esconder datos.
+            const hayEconomicos = !!(d.empresa || d.cuitEmpresa || d.monto || d.bienes);
+            const verEconomicos = (client.materia || '').toUpperCase() === 'ALIMENTOS' || hayEconomicos;
             return `
             <div class="info-grid">
                 <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="demNombre" value="${d.nombre || ''}"></div>
@@ -7528,13 +7645,20 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 <div class="form-group"><label>Teléfono</label><input type="text" id="demTel" value="${d.telefono || ''}"></div>
                 <div class="form-group"><label>Mail</label><input type="email" id="demMail" value="${d.mail || ''}"></div>
                 <div class="form-group"><label>Dirección Laboral</label><input type="text" id="demLab" value="${d.direccionLaboral || ''}"></div>
+                ${verEconomicos ? `
                 <div class="form-group"><label>Nombre o razón social de la empresa</label><input type="text" id="demEmpresa" value="${(d.empresa || '').replace(/"/g, '&quot;')}"></div>
                 <div class="form-group"><label>CUIT de la empresa</label><input type="text" id="demCuitEmpresa" value="${d.cuitEmpresa || ''}" placeholder="30-12345678-9"></div>
                 <div class="form-group"><label>Monto que percibe</label><input type="text" id="demMonto" value="${d.monto || ''}" placeholder="$ por mes"></div>
-                <div class="form-group" style="grid-column:1/-1;"><label>Bienes que se le conocen</label><input type="text" id="demBienes" value="${(d.bienes || '').replace(/"/g, '&quot;')}" placeholder="Auto, moto, casa. Marca, modelo, dominio o partida si los sabés."></div>
+                <div class="form-group" style="grid-column:1/-1;"><label>Bienes que se le conocen</label><input type="text" id="demBienes" value="${(d.bienes || '').replace(/"/g, '&quot;')}" placeholder="Auto, moto, casa. Marca, modelo, dominio o partida si los sabés."></div>` : ''}
             </div>
             <button class="btn btn-success" onclick="saveDemandado('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Demandado</button>
             <span id="dem-save-msg" style="display:none; color:var(--success-color); font-weight:600; margin-left:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Guardado</span>`;
+        }
+
+        // Devuelve lo que hay en pantalla; si el campo no esta renderizado, lo anterior.
+        function leerODejar(id, anterior) {
+            const el = document.getElementById(id);
+            return el ? el.value : (anterior || '');
         }
 
         function saveDemandado(clientId) {
@@ -7544,10 +7668,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 nombre: document.getElementById('demNombre').value, dni: document.getElementById('demDNI').value,
                 domicilio: document.getElementById('demDom').value, telefono: document.getElementById('demTel').value,
                 mail: document.getElementById('demMail').value, direccionLaboral: document.getElementById('demLab').value,
-                empresa: document.getElementById('demEmpresa').value,
-                cuitEmpresa: document.getElementById('demCuitEmpresa').value,
-                monto: document.getElementById('demMonto').value,
-                bienes: document.getElementById('demBienes').value
+                // Si la materia no los muestra, se conserva lo que ya estaba en vez de
+                // pisarlo con vacio: cambiar de materia no puede borrar datos cargados.
+                empresa: leerODejar('demEmpresa', (client.demandado || {}).empresa),
+                cuitEmpresa: leerODejar('demCuitEmpresa', (client.demandado || {}).cuitEmpresa),
+                monto: leerODejar('demMonto', (client.demandado || {}).monto),
+                bienes: leerODejar('demBienes', (client.demandado || {}).bienes)
             };
             saveData();
             const msg = document.getElementById('dem-save-msg');
@@ -7874,7 +8000,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             'ALIMENTOS':             ['general', 'hijos', 'demandado', 'necesidades', 'convenio'],
             'COMUNICACION CON HIJOS':['hijos', 'demandado', 'convenio'],
             'CUIDADO PERSONAL':      ['hijos', 'demandado', 'convenio'],
-            'DIVORCIOS':             ['hijos', 'demandado', 'convenio'],
+            'DIVORCIOS':             ['hijos', 'demandado', 'bienes', 'convenio'],
             'FILIACION':             ['hijos', 'demandado'],
             'VIOLENCIA FAMILIAR':    ['hijos', 'demandado'],
             'DAÑOS':                 ['demandado', 'convenio'],
@@ -7887,7 +8013,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // Sin materia cargada, o materia que no está en la tabla (OTROS): se muestran
             // todas. Es preferible que sobre una solapa vacía a esconder datos cargados.
             let lista = SOLAPAS_POR_MATERIA[m];
-            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'convenio'];
+            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'bienes', 'convenio'];
             lista = lista.slice();
             // Red de seguridad: si una ficha vieja tiene datos en una solapa que su materia
             // ya no pide, la solapa se muestra igual. Nunca se oculta informacion cargada.
@@ -7899,6 +8025,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     (client.necesidades.extras || []).length ||
                     (client.necesidades.noCubiertas || []).length)),
                 convenio: !!(client.convenio && Object.values(client.convenio).some(v => v)),
+                bienes: (client.bienes || []).length > 0,
                 general: !!client.general
             };
             Object.keys(hayDatos).forEach(k => {
@@ -8050,8 +8177,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
         }
 
+        // Materias donde interesa contar QUE pasa con los chicos, no cuanto cuestan.
+        const MATERIAS_SITUACION = ['COMUNICACION CON HIJOS', 'CUIDADO PERSONAL',
+                                    'FILIACION', 'VIOLENCIA FAMILIAR'];
+
         function renderTabHijos(client) {
             const hijos = client.hijos || [];
+            const mat = (client.materia || '').toUpperCase();
+            const verSituacion = MATERIAS_SITUACION.includes(mat) || !!client.situacionHijos;
+            const verContacto = mat === 'COMUNICACION CON HIJOS' ||
+                                hijos.some(h => h && h.sinContacto);
             const hijosHtml = hijos.map((h, i) => {
                 const edadDisplay = h.edadMeses ? `${h.edad || 0} años y ${h.edadMeses} meses` : (h.edad ? `${h.edad} años` : 'S/D');
                 // Los datos de la partida se sacaron el 13/08/2026: no se usaban para nada y
@@ -8071,6 +8206,13 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         <div class="info-item"><div class="info-label">Edad</div><div class="info-value">${edadDisplay}</div></div>
                         <div class="info-item"><div class="info-label">Fecha Nac.</div><div class="info-value">${formatDate(h.fechaNac)}</div></div>
                         <div class="info-item"><div class="info-label">Domicilio</div><div class="info-value">${h.domicilio || 'S/D'}</div></div>
+                        ${verContacto ? `<div class="info-item" style="grid-column:1/-1; background:#f3f0fa; border-left:3px solid var(--info-color);">
+                            <div class="info-label">Hace cuánto no tiene contacto</div>
+                            <input type="text" id="hijo-sincontacto-${i}" value="${(h.sinContacto || '').replace(/"/g, '&quot;')}"
+                                placeholder="Ej: 8 meses · desde marzo de 2026 · nunca tuvo contacto"
+                                onchange="guardarSinContacto('${client.id}', ${i}, this.value)"
+                                style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:6px;font-size:0.9em;">
+                        </div>` : ''}
                         ${tratam ? `<div class="info-item" style="grid-column:1/-1; background:#fdf5e6; border-left:3px solid var(--warning-color);">
                             <div class="info-label">Tratamiento especial</div>
                             <div class="info-value">${h.tratamientoDetalle || 'Sí (sin detalle cargado)'}</div>
@@ -8079,7 +8221,21 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>`;
             }).join('');
 
+            const situacionHtml = !verSituacion ? '' : `
+            <div style="background:#f3f0fa;padding:15px;border-radius:8px;margin-bottom:18px;border-left:4px solid var(--info-color);">
+                <h5 style="margin-bottom:6px;color:var(--primary-color);">¿Qué se pide en esta causa?</h5>
+                <div style="font-size:0.82em;color:#777;margin-bottom:10px;">
+                    Un régimen que se modifica, uno que se quiere ampliar, pasar el cuidado de
+                    un padre al otro. Lo que el día de mañana hay que contar en la demanda.
+                </div>
+                <textarea id="hijos-situacion" rows="4" style="width:100%;"
+                    placeholder="Contá qué pasa hoy y qué se busca."
+                    onchange="guardarSituacionHijos('${client.id}', this.value)">${(client.situacionHijos || '').replace(/</g, '&lt;')}</textarea>
+                <div style="font-size:0.75em;color:#999;margin-top:4px;">Se guarda solo al salir del campo.</div>
+            </div>`;
+
             return `
+            ${situacionHtml}
             <div style="margin-bottom: 20px;">${hijos.length === 0 ? '<p style="color:#666;font-style:italic;">No hay hijos cargados.</p>' : hijosHtml}</div>
             <div style="background: #f0f4f7; padding: 15px; border-radius: 8px;">
                 <h5 style="margin-bottom:12px; color:var(--primary-color);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar Hijo</h5>
@@ -8093,6 +8249,20 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>
                 <button class="btn btn-info" onclick="saveHijo('${client.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Hijo</button>
             </div>`;
+        }
+
+        function guardarSituacionHijos(clientId, texto) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.situacionHijos = texto;
+            saveData();
+        }
+
+        function guardarSinContacto(clientId, i, texto) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client || !client.hijos || !client.hijos[i]) return;
+            client.hijos[i].sinContacto = texto;
+            saveData();
         }
 
         function editHijo(clientId, index) {
@@ -8130,7 +8300,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 // El tratamiento especial se carga en la solapa General; se conserva acá
                 // para que editar al hijo no lo borre.
                 tratamiento: client.hijos[index].tratamiento || 'No',
-                tratamientoDetalle: client.hijos[index].tratamientoDetalle || ''
+                tratamientoDetalle: client.hijos[index].tratamientoDetalle || '',
+                sinContacto: client.hijos[index].sinContacto || ''
             };
             saveData();
             showClientModal(clientId);
