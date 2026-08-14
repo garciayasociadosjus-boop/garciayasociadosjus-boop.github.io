@@ -6274,14 +6274,50 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const cont = document.getElementById('zonaConsultaWeb');
             if (!cont) return;
             cont.innerHTML =
-                '<textarea id="txtConsultaWeb" rows="8" placeholder="Pegá acá el contenido del archivo DATOS — GA-2026-XXXX.txt" ' +
+                '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">' +
+                '<button type="button" class="btn btn-info btn-sm" onclick="document.getElementById(\'fileConsultaWeb\').click()">' +
+                'Elegir el archivo .txt</button>' +
+                '<input type="file" id="fileConsultaWeb" accept=".txt,text/plain" style="display:none" ' +
+                'onchange="cargarArchivoConsulta(this)">' +
+                '<span style="font-size:.8em;color:var(--text-muted);">o pegá el texto acá abajo</span>' +
+                '</div>' +
+                '<textarea id="txtConsultaWeb" rows="7" placeholder="DATOS — GA-2026-XXXX.txt" ' +
                 'style="width:100%;font-family:monospace;font-size:.82em;"></textarea>' +
                 '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">' +
                 '<button type="button" class="btn btn-success btn-sm" onclick="aplicarConsultaWeb()">Completar el alta</button>' +
                 '<button type="button" class="btn btn-sm" onclick="document.getElementById(\'zonaConsultaWeb\').innerHTML=\'\'">Cancelar</button>' +
                 '<span id="avisoConsultaWeb" style="font-size:.82em;color:var(--success-color,#1f9e72);"></span>' +
                 '</div>';
-            document.getElementById('txtConsultaWeb').focus();
+        }
+
+        // Lee el .txt y completa el alta de una. Se soporta igual el pegado, porque a veces
+        // el archivo se ve desde el mail o desde el Drive sin bajarlo.
+        function cargarArchivoConsulta(input) {
+            const f = input.files && input.files[0];
+            if (!f) return;
+            const fr = new FileReader();
+            fr.onload = () => {
+                let t = String(fr.result || '');
+                // El caracter de reemplazo delata que el archivo no era UTF-8. Pasa cuando
+                // se guarda desde Windows: sin este reintento, "Coronación" llega roto y
+                // el domicilio del cliente queda mal escrito en el escrito.
+                if (t.indexOf('�') >= 0) {
+                    const fr2 = new FileReader();
+                    fr2.onload = () => { volcarConsulta(String(fr2.result || '')); };
+                    fr2.readAsText(f, 'windows-1252');
+                    return;
+                }
+                volcarConsulta(t);
+            };
+            fr.onerror = () => alert('No se pudo leer el archivo.');
+            fr.readAsText(f, 'utf-8');
+        }
+
+        function volcarConsulta(texto) {
+            const ta = document.getElementById('txtConsultaWeb');
+            if (!ta) return;
+            ta.value = texto;
+            aplicarConsultaWeb();
         }
 
         function aplicarConsultaWeb() {
