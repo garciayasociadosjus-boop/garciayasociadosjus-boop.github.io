@@ -6123,6 +6123,26 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             });
         }
 
+        // ── CUANDO SE REVISO EL SCBA ─────────────────────────────────────────────
+        // OJO: scba_ultima_revision de cada caso NO sirve para esto. El script solo la
+        // toca cuando esa causa aparece en el listado del portal; si hace meses que no
+        // tiene novedades, queda congelada y parece que el sincronizador no corre. La
+        // fecha real de la corrida la deja en salud/scba, que es una sola para todas.
+        let scbaUltimaCorrida = null;
+
+        function leerSaludScba() {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) {
+                setTimeout(leerSaludScba, 1500);
+                return;
+            }
+            firebase.database().ref('salud/scba').once('value')
+                .then(snap => {
+                    const v = snap.val() || {};
+                    scbaUltimaCorrida = v.ultima_ok || v.ultima_corrida || null;
+                })
+                .catch(() => {});
+        }
+
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
         function showClientSelectorModal() {
             const selector = document.getElementById('clientSelector');
@@ -8390,15 +8410,20 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             <!-- SECCIÓN SCBA -->
             ${client.scba_notificaciones?.length > 0 ? (() => {
                 const scba = client.scba_notificaciones || [];
-                const scbaRevision = client.scba_ultima_revision
-                    ? new Date(client.scba_ultima_revision).toLocaleString('es-AR')
-                    : (client.scba_ultima_sync ? new Date(client.scba_ultima_sync).toLocaleString('es-AR') : null);
+                // Dos fechas distintas y hay que decir cuál es cuál: cuándo se revisó el
+                // SCBA (global) y cuándo entró la última novedad en ESTA causa.
+                const scbaRevision = scbaUltimaCorrida
+                    ? new Date(scbaUltimaCorrida).toLocaleString('es-AR')
+                    : null;
+                const scbaNovedad = client.scba_ultima_sync
+                    ? new Date(client.scba_ultima_sync).toLocaleDateString('es-AR')
+                    : null;
                 // Plegado: en una causa con veinte notificaciones ocupaba media pantalla
                 // y casi nunca hace falta abrirlas.
                 return `<details style="margin-top:24px; border-top:1px solid var(--border-item); padding-top:16px;">
                     <summary style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:10px;">
                         <h5 style="margin:0; display:inline; color:var(--danger-color); font-family:'Cormorant Garamond',serif; font-weight:500; letter-spacing:.04em;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22,6 12,13 2,6"/><path d="M19 16v6M16 19h6"/></svg> Notificaciones SCBA <span style="background:var(--danger-color);color:#fff;border-radius:999px;padding:1px 8px;font-family:'DM Sans',sans-serif;font-size:.72em;font-weight:600;vertical-align:1px;">${scba.length}</span></h5>
-                        ${scbaRevision ? `<span style="font-size:0.78em; color:var(--text-muted);">Última revisión: ${scbaRevision}</span>` : ''}
+                        ${scbaRevision ? `<span style="font-size:0.78em; color:var(--text-muted);">SCBA revisado: ${scbaRevision}</span>` : ''}${scbaNovedad ? `<span style="font-size:0.78em; color:var(--text-muted);"> · última novedad: ${scbaNovedad}</span>` : ''}
                     </summary>
                     ${renderScbaNotifs(client)}
                 </details>`;
@@ -8963,6 +8988,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), anioExpediente: document.getElementById('newAnioExpediente').value.trim(), jurisdiccion: document.getElementById('newJurisdiccion').value, deptoJudicial: document.getElementById('newDeptoJudicial') ? document.getElementById('newDeptoJudicial').value : '', deptoJudicialManual: document.getElementById('newDeptoManual') ? document.getElementById('newDeptoManual').value : '', juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', provinciaCliente: 'Provincia de Buenos Aires', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] };
                 const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
+            leerSaludScba();
             renderAll();
             iniciarVigilanteDeAlertas();
             initFirebase(); // Iniciar Firebase en tiempo real
