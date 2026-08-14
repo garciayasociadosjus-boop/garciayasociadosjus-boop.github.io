@@ -5637,6 +5637,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                             ${tieneSolapa('demandado') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-demandado')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Demandado</button>` : ''}
                             ${tieneSolapa('necesidades') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-necesidades')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 2v20M7 2v20M11 2v8a2 2 0 0 0 4 0V2M19 2v20M19 14l-2-2"/></svg> Necesidades</button>` : ''}
                             ${tieneSolapa('bienes') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-bienes')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Bienes</button>` : ''}
+                            ${tieneSolapa('sucesion') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-sucesion')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Sucesión</button>` : ''}
                             ${tieneSolapa('convenio') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>` : ''}
                             ${tieneSolapa('pagos') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-pagos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagos</button>` : ''}
                             <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Expediente Digital</button>
@@ -5646,6 +5647,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         ${tieneSolapa('demandado') ? `<div id="tab-demandado" class="tab-content">${renderTabDemandado(client)}</div>` : ''}
                         ${tieneSolapa('necesidades') ? `<div id="tab-necesidades" class="tab-content">${renderTabNecesidades(client)}</div>` : ''}
                         ${tieneSolapa('bienes') ? `<div id="tab-bienes" class="tab-content">${renderTabBienes(client)}</div>` : ''}
+                        ${tieneSolapa('sucesion') ? `<div id="tab-sucesion" class="tab-content">${renderTabSucesion(client)}</div>` : ''}
                         ${tieneSolapa('convenio') ? `<div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>` : ''}
                         ${tieneSolapa('pagos') ? `<div id="tab-pagos" class="tab-content">${renderTabPagos(client)}</div>` : ''}
                         <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
@@ -8099,6 +8101,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             usuarioMev: 'CAMILADG'
         };
 
+        // Los escritos se agrupan por materia para no mirar un listado de treinta. Los
+        // GENERALES son los que sirven en cualquier causa —presentarse, renunciar,
+        // acreditar una notificacion— y por eso se muestran SIEMPRE, ademas de los de la
+        // materia de la ficha.
+        const MATERIAS_ESCRITOS = ['GENERALES', 'ALIMENTOS', 'COMUNICACION CON HIJOS',
+            'CUIDADO PERSONAL', 'DIVORCIOS', 'FILIACION', 'VIOLENCIA FAMILIAR',
+            'SUCESIONES', 'DAÑOS', 'PENAL', 'OTROS'];
+
         const FIREBASE_KEY_ESCRITOS = 'escritos_modelos';
         let escritosModelos = null;      // se cachea tras la primera lectura
 
@@ -8119,7 +8129,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             return {
                 acceso_mev: {
                     nombre: 'Se presenta. Solicita acceso MEV',
-                    materias: [],
+                    materia: 'GENERALES',
                     cuerpo: [
                         '**SE PRESENTA. SOLICITA ACCESO MEV.-**',
                         '',
@@ -8140,9 +8150,22 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         '>>**SERÁ JUSTICIA.**'
                     ].join('\n')
                 },
+                retencion_haberes: {
+                    nombre: 'Solicita retención directa de haberes',
+                    materia: 'ALIMENTOS',
+                    cuerpo: '**SOLICITA RETENCIÓN DIRECTA DE HABERES**\n\n**Señor Juez:**\n**{{encabezado_cliente}}**\n\n**I. OBJETO**\nVengo a solicitar se ordene la RETENCIÓN DIRECTA POR OFICIO AL EMPLEADOR del demandado {{demandado}}, DNI N° {{demandado_dni}}, por el porcentaje fijado por V.S. en concepto de cuota alimentaria {{cuota_tipo}} en favor de {{hijos_nombres}}, atento las razones de hecho y de derecho que a continuación expongo.\n\n**II. HECHOS**\nQue por resolución de fecha {{cuota_fecha}} dictada en autos, V.S. fijó en concepto de cuota alimentaria {{cuota_tipo}} a favor de {{hijos_nombres}} la suma equivalente al {{cuota_porcentaje}}% de los ingresos que el demandado percibe por todo concepto, previa deducción de los descuentos obligatorios de ley, disponiendo asimismo que dicho importe debía ser depositado por el alimentante {{cuota_vencimiento}} en la cuenta judicial abierta a tal efecto en {{cuota_banco}}.\nQue el demandado fue debidamente notificado de la referida resolución bajo responsabilidad de la suscripta, conforme lo establecido por V.S., sin que hasta la fecha haya comparecido en autos ni acreditado el cumplimiento de la obligación alimentaria a su cargo.\nQue dicha incomparecencia y falta de cumplimiento voluntario resultan a todas luces demostrativas de la reticencia del alimentante a hacerse cargo de sus obligaciones legales, conducta que solo contribuye a dilatar innecesariamente la percepción de un derecho de carácter urgente e impostergable como lo es el alimentario, en franco perjuicio de los alimentados.\nQue dicha dilación resulta absolutamente evitable, toda vez que consta en autos que el demandado se desempeña en relación de dependencia y en forma registrada en {{empleador}}, circunstancia que permite hacer efectiva la cuota fijada de manera inmediata y sin necesidad de aguardar el cumplimiento espontáneo de quien ya ha demostrado su falta de voluntad de pago, mediante el simple libramiento de un oficio de retención directa a su empleador.\n\n**III. PETITORIO**\nPor lo expuesto, a V.S. solicito:\n1. Se tenga por formulada la presente petición.\n2. Se ordene librar oficio de RETENCIÓN DIRECTA al empleador del demandado {{demandado}}, DNI N° {{demandado_dni}}, {{empleador}}, CUIT N° {{empleador_cuit}}, con domicilio en {{empleador_domicilio}}, por el porcentaje fijado en concepto de cuota alimentaria {{cuota_tipo}} ({{cuota_porcentaje}}% de sus ingresos), debiendo el empleador depositar mensualmente las sumas retenidas en la cuenta judicial abierta en autos en {{cuota_banco}}, a la orden del Juzgado y como perteneciente a los presentes actuados.\n3. Se tenga presente la falta de comparecencia del demandado pese a su notificación bajo responsabilidad de parte, a los fines que hubiere lugar.\n\n>>**PROVEER DE CONFORMIDAD,**\n>>**SERÁ JUSTICIA.**'
+                },
+                acredita_wsp: {
+                    nombre: 'Acredita notificación por WhatsApp',
+                    materia: 'GENERALES',
+                    // Los dos datos que no estan en la ficha —fecha y numero del
+                    // envio— quedan como [COMPLETAR: ...] a la vista. Es preferible
+                    // un hueco evidente en el Word a un dato inventado.
+                    cuerpo: '**ACREDITA NOTIFICACIÓN POR WHATSAPP**\n\n**Señor Juez:**\n**{{encabezado_cliente}}**\n\n**I.- OBJETO**\nQue vengo por el presente a acreditar la notificación cursada al demandado {{demandado}} mediante la aplicación de mensajería instantánea WhatsApp, conforme surge de las capturas de pantalla que se acompañan.\n\n**II.- HECHOS**\nQue con fecha [COMPLETAR: fecha del envío] esta parte procedió a enviar notificación al demandado {{demandado}} al número de WhatsApp [COMPLETAR: número], adjuntándole en dicha oportunidad la cédula de notificación, la demanda y la documental de autos, todo ello conforme consta en las capturas de pantalla que se acompañan.\nQue, como surge de las referidas capturas de pantalla, el requerido no sólo recibió y visualizó la notificación enviada, sino que además respondió mediante un mensaje de texto solicitando que se le explicara el contenido de lo enviado, ante lo cual esta parte procedió a brindarle las aclaraciones pertinentes.\nQue, en consecuencia, resulta manifiesto que el demandado tuvo efectivo y fehaciente conocimiento de la notificación cursada, habiendo tomado contacto con el contenido de la misma en tanto requirió explicaciones al respecto.\n\n**III.- DERECHO**\nQue la notificación por medios electrónicos, entre ellos la mensajería instantánea, ha sido receptada por la práctica y reconocida por la doctrina como mecanismo idóneo para hacer conocer actos procesales, máxime cuando de las constancias de autos surge que el destinatario recibió, visualizó y contestó los mensajes enviados, configurándose así una notificación con plenos efectos jurídicos.\n\n**IV.- PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1) Se tenga por acreditada la notificación cursada al demandado {{demandado}} por WhatsApp al número [COMPLETAR: número] con fecha [COMPLETAR: fecha del envío], adjuntándosele cédula de notificación, demanda y documental.\n2) En mérito a que el demandado no sólo visualizó la notificación sino que además respondió un mensaje al respecto, se lo tenga por notificado en legal forma.\n3) Se ordene la continuación de los autos según su estado.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
                 renuncia_patrocinio: {
                     nombre: 'Renuncia al patrocinio',
-                    materias: [],
+                    materia: 'GENERALES',
                     cuerpo: [
                         '**RENUNCIA AL PATROCINIO.-**',
                         '',
@@ -8201,12 +8224,84 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 domicilio_procesal: ESTUDIO.domicilioProcesal,
                 telefono: ESTUDIO.telefono,
                 mail: ESTUDIO.mail,
-                usuario_mev: ESTUDIO.usuarioMev
+                usuario_mev: ESTUDIO.usuarioMev,
+                demandado: (client.demandado && client.demandado.nombre) || '',
+                demandado_dni: (client.demandado && client.demandado.dni) || '',
+                demandado_domicilio: (client.demandado && client.demandado.domicilio) || '',
+                // ── Hijos ──
+                // En lista porque los escritos los nombran de las dos formas: "en
+                // representación de mis hijos A y B" y después el detalle con DNI.
+                hijos_nombres: (client.hijos || []).map(h => h.nombre).filter(Boolean).join(' y '),
+                hijos_lista: (client.hijos || []).map(h =>
+                    [h.nombre, h.dni ? 'DNI N° ' + h.dni : '', h.fechaNac ? 'nacido/a el ' + formatDate(h.fechaNac) : '']
+                        .filter(Boolean).join(', ')).join('; '),
+                hijos_cantidad: String((client.hijos || []).length),
+
+                // ── Alimentos: la cuota YA FIJADA ──
+                cuota_porcentaje: (client.general && client.general.cuotaPorcentaje) || '',
+                cuota_monto: (client.general && client.general.cuotaMonto) || '',
+                cuota_fecha: (client.general && client.general.cuotaFechaResolucion) || '',
+                cuota_tipo: (client.general && client.general.cuotaTipo) || '',
+                cuota_banco: (client.general && client.general.cuotaBanco) || '',
+                cuota_vencimiento: (client.general && client.general.cuotaVencimiento) || '',
+
+                // ── Empleador del demandado ──
+                empleador: (client.demandado && client.demandado.empresa) || '',
+                empleador_cuit: (client.demandado && client.demandado.cuitEmpresa) || '',
+                empleador_domicilio: (client.demandado && client.demandado.direccionLaboral) || '',
+
+                // ── Necesidades ──
+                necesidades_total: (() => {
+                    const n = client.necesidades || {};
+                    const suma = (a) => (a || []).reduce((t, x) => t + (parseFloat(x.importe) || 0), 0);
+                    const total = suma(n.items) + suma(n.extras);
+                    return total ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(total) : '';
+                })(),
+                necesidades_detalle: (() => {
+                    const n = client.necesidades || {};
+                    const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+                        .format(parseFloat(v) || 0);
+                    return [].concat(n.items || [], n.extras || [])
+                        .filter(x => x.importe).map(x => x.nombre + ': ' + fmt(x.importe)).join('; ');
+                })(),
+
+                // ── Sucesión ──
+                causante: ((client.sucesion || {}).causante || {}).nombre || '',
+                causante_dni: ((client.sucesion || {}).causante || {}).dni || '',
+                causante_fallecimiento: (() => {
+                    const f = ((client.sucesion || {}).causante || {}).fechaFallecimiento;
+                    return f ? formatDate(f) : '';
+                })(),
+                causante_domicilio: ((client.sucesion || {}).causante || {}).ultimoDomicilio || '',
+                causante_estado_civil: ((client.sucesion || {}).causante || {}).estadoCivil || '',
+                herederos_lista: ((client.sucesion || {}).herederos || [])
+                    .filter(h => h.nombre)
+                    .map(h => h.nombre + (h.dni ? ', DNI N° ' + h.dni : '') + (h.vinculo ? ', en carácter de ' + h.vinculo.toLowerCase() : ''))
+                    .join('; '),
+                acervo_lista: ((client.sucesion || {}).acervo || [])
+                    .filter(b => b.descripcion)
+                    .map(b => b.tipo + ': ' + b.descripcion).join('; '),
+
+                matrimonio_fecha: client.matrimonioFecha || '',
+                matrimonio_lugar: client.matrimonioLugar || '',
+                matrimonio_registro: client.matrimonioRegistro || '',
+                // El encabezado de comparecencia es el mismo en todos los escritos. Como
+                // marcador se escribe una sola vez: si cambia una matrícula o el domicilio
+                // procesal, se corrige acá y no en los treinta modelos.
+                encabezado_cliente: (client.nombre || '') +
+                    (client.dni ? ', DNI N° ' + client.dni : '') +
+                    (dom ? ', con domicilio real en ' + dom : '') +
+                    ', con el patrocinio letrado de la ' + ESTUDIO.letrada + ', ' + ESTUDIO.matriculas +
+                    ', ' + ESTUDIO.condicion + ', denunciando domicilio electrónico con el CUIT N° ' +
+                    ESTUDIO.cuit + ', constituyendo domicilio procesal en ' + ESTUDIO.domicilioProcesal +
+                    ', Teléfono ' + ESTUDIO.telefono + ', y dirección de correo electrónico ' +
+                    ESTUDIO.mail + ', a V.S. me presento y respetuosamente digo:'
             };
         }
 
         const ETIQUETA_MARCADOR = {
             cliente: 'Nombre del cliente', dni: 'DNI del cliente',
+            demandado: 'Nombre del demandado (solapa Demandado)',
             domicilio_real: 'Domicilio del cliente (calle, localidad y provincia)',
             caratula: 'Carátula', expediente: 'N° de expediente', juzgado: 'Juzgado'
         };
@@ -8289,14 +8384,59 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             renderEscritos();
         }
 
+        // Fila de materias, con el número de escritos de cada una. Sin el número hay que
+        // entrar a cada una para descubrir que está vacía.
+        function renderSelectorMateria(modelos) {
+            const cuenta = {};
+            Object.keys(modelos).forEach(id => {
+                const m = (modelos[id].materia || 'GENERALES').toUpperCase();
+                cuenta[m] = (cuenta[m] || 0) + 1;
+            });
+            // La materia elegida se muestra siempre, aunque todavía no tenga escritos: si
+            // no, se ve "Generales" resaltado y parece que no se puede cambiar.
+            const chips = MATERIAS_ESCRITOS
+                .filter(m => cuenta[m] || m === 'GENERALES' || m === escritoActual.materia)
+                .map(m => {
+                const sel = m === escritoActual.materia;
+                return '<button type="button" onclick="escritoActual.materia=\'' + m + '\';' +
+                    'escritoActual.modeloId=null;renderEscritos();" ' +
+                    'style="font-family:\'DM Sans\',sans-serif;font-size:.75rem;font-weight:600;padding:5px 11px;' +
+                    'border-radius:999px;cursor:pointer;white-space:nowrap;' +
+                    'border:1px solid ' + (sel ? 'var(--gold-dark,#8a6a10)' : 'var(--border-input,rgba(160,120,64,.35))') + ';' +
+                    'background:' + (sel ? 'var(--gold-dark,#8a6a10)' : 'transparent') + ';' +
+                    'color:' + (sel ? '#fff' : 'var(--text-muted,#8a8580)') + ';">' +
+                    m.charAt(0) + m.slice(1).toLowerCase() +
+                    (cuenta[m] ? ' <span style="opacity:.75;">' + cuenta[m] + '</span>' : '') +
+                    '</button>';
+            }).join('');
+            return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">' + chips + '</div>';
+        }
+
         function renderEscritos() {
             const cont = document.getElementById('escritosCuerpo');
             if (!cont) return;
             const client = clientsData.find(c => c.id === escritoActual.clientId);
             const modelos = escritosModelos || {};
-            const ids = Object.keys(modelos);
-            if (!ids.length) { cont.innerHTML = '<p>No hay modelos cargados.</p>'; return; }
-            if (!modelos[escritoActual.modeloId]) escritoActual.modeloId = ids[0];
+            const todos = Object.keys(modelos);
+            if (!todos.length) { cont.innerHTML = '<p>No hay modelos cargados.</p>'; return; }
+
+            // Arranca en la materia de la ficha: en una causa de alimentos lo que se busca
+            // casi siempre es un escrito de alimentos.
+            if (!escritoActual.materia) {
+                const m = (client && client.materia || '').toUpperCase();
+                escritoActual.materia = MATERIAS_ESCRITOS.includes(m) ? m : 'GENERALES';
+            }
+            const matDe = (id) => (modelos[id].materia || 'GENERALES').toUpperCase();
+            // Los generales acompañan siempre: sirven en cualquier causa.
+            const ids = todos.filter(id => matDe(id) === escritoActual.materia ||
+                                           (escritoActual.materia !== 'GENERALES' && matDe(id) === 'GENERALES'));
+            if (!ids.length) {
+                cont.innerHTML = renderSelectorMateria(modelos) +
+                    '<p style="color:var(--text-muted);font-style:italic;">No hay escritos cargados para esta materia.</p>' +
+                    '<button onclick="nuevoModeloEscrito()" class="btn btn-info btn-sm">Crear uno</button>';
+                return;
+            }
+            if (!ids.includes(escritoActual.modeloId)) escritoActual.modeloId = ids[0];
             const modelo = modelos[escritoActual.modeloId];
 
             const datos = escritoDatos(client);
@@ -8311,12 +8451,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 : '';
 
             cont.innerHTML =
+                renderSelectorMateria(modelos) +
                 '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">' +
                 '<div style="flex:1;min-width:240px;"><label style="font-size:.8em;color:var(--text-muted);">Modelo</label>' +
                 '<select id="escritoModeloSel" onchange="escritoActual.modeloId=this.value;renderEscritos();" ' +
                 'style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;">' +
                 ids.map(id => '<option value="' + id + '"' + (id === escritoActual.modeloId ? ' selected' : '') + '>' +
-                    (modelos[id].nombre || id) + '</option>').join('') +
+                    (modelos[id].nombre || id) +
+                    (matDe(id) === 'GENERALES' && escritoActual.materia !== 'GENERALES' ? '  (general)' : '') +
+                    '</option>').join('') +
                 '</select></div>' +
                 '<button onclick="descargarEscrito()" class="btn btn-success">Descargar Word</button>' +
                 '<button onclick="editarModeloEscrito()" class="btn btn-info btn-sm">Editar modelo</button>' +
@@ -8370,6 +8513,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 '<label style="font-size:.8em;color:var(--text-muted);">Nombre del modelo</label>' +
                 '<input id="escritoNombreEdit" value="' + String(modelo.nombre || '').replace(/"/g, '&quot;') + '" ' +
                 'style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;"></div>' +
+                '<div style="margin-bottom:10px;max-width:320px;">' +
+                '<label style="font-size:.8em;color:var(--text-muted);">Materia</label>' +
+                '<select id="escritoMateriaEdit" style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;">' +
+                MATERIAS_ESCRITOS.map(m => '<option value="' + m + '"' +
+                    ((modelo.materia || 'GENERALES').toUpperCase() === m ? ' selected' : '') + '>' + m + '</option>').join('') +
+                '</select></div>' +
                 '<div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;line-height:1.5;">' +
                 'Un renglón por párrafo. <b>**texto**</b> = negrita · <b>&gt;&gt;</b> al principio = alineado a la derecha · ' +
                 'renglón vacío = espacio.<br>Marcadores: ' +
@@ -8388,6 +8537,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const id = escritoActual.modeloId;
             if (!escritosModelos || !escritosModelos[id]) return;
             escritosModelos[id].nombre = document.getElementById('escritoNombreEdit').value;
+            const selMat = document.getElementById('escritoMateriaEdit');
+            if (selMat) escritosModelos[id].materia = selMat.value;
             escritosModelos[id].cuerpo = document.getElementById('escritoCuerpoEdit').value;
             firebase.database().ref(FIREBASE_KEY_ESCRITOS + '/' + id).set(escritosModelos[id])
                 .catch(e => alert('No se pudo guardar el modelo: ' + e.message));
@@ -8399,11 +8550,152 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (!nombre) return;
             const id = nombre.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').substring(0, 40)
                 || ('escrito_' + Date.now());
-            escritosModelos[id] = { nombre: nombre, materias: [], cuerpo: '**' + nombre.toUpperCase() + '.-**\n\n**Señor Juez:**\n\n\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**' };
+            escritosModelos[id] = { nombre: nombre, materia: escritoActual.materia || 'GENERALES', cuerpo: '**' + nombre.toUpperCase() + '.-**\n\n**Señor Juez:**\n\n\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**' };
             firebase.database().ref(FIREBASE_KEY_ESCRITOS + '/' + id).set(escritosModelos[id])
                 .catch(e => alert('No se pudo crear: ' + e.message));
             escritoActual.modeloId = id;
             editarModeloEscrito();
+        }
+
+        // ── SOLAPA SUCESIÓN ──────────────────────────────────────────────────────
+        // Lo que pide el escrito de sucesión ab intestato: quién falleció y cuándo, dónde
+        // tenía su último domicilio (de eso depende la competencia), quiénes son los
+        // herederos y qué bienes quedaron.
+        const VINCULOS_HEREDERO = ['Cónyuge', 'Conviviente', 'Hijo/a', 'Nieto/a', 'Padre/Madre',
+                                   'Hermano/a', 'Sobrino/a', 'Otro'];
+
+        function renderTabSucesion(client) {
+            const su = client.sucesion || {};
+            const ca = su.causante || {};
+            const her = su.herederos || [];
+            const ace = su.acervo || [];
+            const esc = v => String(v == null ? '' : v).replace(/"/g, '&quot;');
+
+            const campo = (id, etiqueta, valor, ph, tipo) =>
+                '<div class="form-group"><label>' + etiqueta + '</label>' +
+                '<input type="' + (tipo || 'text') + '" id="' + id + '" value="' + esc(valor) + '"' +
+                (ph ? ' placeholder="' + ph + '"' : '') + '></div>';
+
+            const herederosHtml = her.length === 0
+                ? '<p style="color:#666;font-style:italic;">No hay herederos cargados.</p>'
+                : her.map((h, i) => `
+                    <div class="dato ancho"><div class="k">Heredero ${i + 1}</div>
+                    <div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="text" id="suc-her-nombre-${i}" value="${esc(h.nombre)}" placeholder="Nombre y apellido"
+                            style="flex:1;min-width:170px;padding:8px 12px;border:1px solid var(--border-input);border-radius:8px;font-size:.87em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
+                        <input type="text" id="suc-her-dni-${i}" value="${esc(h.dni)}" placeholder="DNI"
+                            style="width:120px;padding:8px 12px;border:1px solid var(--border-input);border-radius:8px;font-size:.87em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
+                        <select id="suc-her-vinculo-${i}" style="width:140px;padding:8px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:.87em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
+                            ${VINCULOS_HEREDERO.map(v => `<option value="${v}" ${h.vinculo === v ? 'selected' : ''}>${v}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-danger btn-sm" onclick="eliminarHeredero('${client.id}', ${i})">X</button>
+                    </div></div>`).join('');
+
+            const acervoHtml = ace.length === 0
+                ? '<p style="color:#666;font-style:italic;">No hay bienes cargados.</p>'
+                : ace.map((b, i) => `
+                    <div class="dato ancho"><div class="k">Bien ${i + 1}</div>
+                    <div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select id="suc-ace-tipo-${i}" style="width:150px;padding:8px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:.87em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
+                            ${TIPOS_BIEN.map(t => `<option value="${t}" ${b.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+                        </select>
+                        <input type="text" id="suc-ace-desc-${i}" value="${esc(b.descripcion)}" placeholder="Calle y número · dominio · partida"
+                            style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-input);border-radius:8px;font-size:.87em;background:var(--bg-input);color:var(--text-primary);font-family:'DM Sans',sans-serif;">
+                        <button class="btn btn-danger btn-sm" onclick="eliminarBienSucesion('${client.id}', ${i})">X</button>
+                    </div></div>`).join('');
+
+            return `
+            <div style="margin-bottom:15px;">
+                <p style="color:#666;font-size:0.9em;font-style:italic;">
+                    Datos para el escrito de sucesión. El último domicilio del causante define
+                    la competencia, así que conviene cargarlo completo.
+                </p>
+            </div>
+
+            <h5>El causante</h5>
+            <div class="info-grid">
+                ${campo('suc-nombre', 'Nombre y apellido', ca.nombre)}
+                ${campo('suc-dni', 'DNI', ca.dni)}
+                ${campo('suc-fallecimiento', 'Fecha de fallecimiento', ca.fechaFallecimiento, '', 'date')}
+                ${campo('suc-acta', 'Acta de defunción', ca.acta, 'Tomo, número, año')}
+            </div>
+            <div class="info-grid">
+                ${campo('suc-domicilio', 'Último domicilio', ca.ultimoDomicilio, 'Calle, número, localidad, partido, provincia')}
+                ${campo('suc-estado', 'Estado civil al fallecer', ca.estadoCivil, 'Casado/a, viudo/a, soltero/a')}
+            </div>
+
+            <h5 style="margin-top:18px;">Herederos</h5>
+            <div class="datos-lista">${herederosHtml}</div>
+            <button class="btn btn-info btn-sm" onclick="agregarHeredero('${client.id}')">Agregar heredero</button>
+
+            <h5 style="margin-top:18px;">Acervo hereditario</h5>
+            <div class="datos-lista">${acervoHtml}</div>
+            <button class="btn btn-info btn-sm" onclick="agregarBienSucesion('${client.id}')">Agregar bien</button>
+
+            <div style="margin-top:18px;">
+                <button class="btn btn-success" onclick="saveSucesion('${client.id}')">Guardar Sucesión</button>
+                <span id="suc-save-msg" style="display:none;color:var(--success-color);font-weight:600;margin-left:10px;">Guardado</span>
+            </div>`;
+        }
+
+        function saveSucesion(clientId) {
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            const v = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
+            const su = client.sucesion || {};
+            su.causante = {
+                nombre: v('suc-nombre'), dni: v('suc-dni'),
+                fechaFallecimiento: v('suc-fallecimiento'), acta: v('suc-acta'),
+                ultimoDomicilio: v('suc-domicilio'), estadoCivil: v('suc-estado')
+            };
+            su.herederos = [];
+            let i = 0;
+            while (document.getElementById('suc-her-nombre-' + i)) {
+                su.herederos.push({
+                    nombre: v('suc-her-nombre-' + i), dni: v('suc-her-dni-' + i),
+                    vinculo: v('suc-her-vinculo-' + i)
+                });
+                i++;
+            }
+            su.acervo = [];
+            let k = 0;
+            while (document.getElementById('suc-ace-tipo-' + k)) {
+                su.acervo.push({ tipo: v('suc-ace-tipo-' + k), descripcion: v('suc-ace-desc-' + k) });
+                k++;
+            }
+            client.sucesion = su;
+            saveData();
+            const msg = document.getElementById('suc-save-msg');
+            if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+        }
+
+        // Se guarda antes de agregar o quitar: si no, lo que estaba escrito en pantalla y
+        // todavia no se habia guardado se pierde al redibujar.
+        function tocarSucesion(clientId, fn) {
+            saveSucesion(clientId);
+            const client = clientsData.find(c => c.id === clientId);
+            if (!client) return;
+            client.sucesion = client.sucesion || {};
+            fn(client.sucesion);
+            saveData();
+            showClientModal(clientId);
+            setTimeout(() => {
+                const btn = document.querySelector('.tab-btn[onclick*="tab-sucesion"]');
+                if (btn) btn.click();
+            }, 60);
+        }
+
+        function agregarHeredero(id) {
+            tocarSucesion(id, su => { su.herederos = su.herederos || []; su.herederos.push({ nombre: '', dni: '', vinculo: 'Hijo/a' }); });
+        }
+        function eliminarHeredero(id, i) {
+            tocarSucesion(id, su => { (su.herederos || []).splice(i, 1); });
+        }
+        function agregarBienSucesion(id) {
+            tocarSucesion(id, su => { su.acervo = su.acervo || []; su.acervo.push({ tipo: 'Inmueble', descripcion: '' }); });
+        }
+        function eliminarBienSucesion(id, i) {
+            tocarSucesion(id, su => { (su.acervo || []).splice(i, 1); });
         }
 
         // ── SOLAPA BIENES (divorcio) ─────────────────────────────────────────────
@@ -8884,7 +9176,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             'FILIACION':             ['hijos', 'demandado', 'pagos'],
             'VIOLENCIA FAMILIAR':    ['hijos', 'demandado', 'pagos'],
             'DAÑOS':                 ['demandado', 'convenio', 'pagos'],
-            'SUCESIONES':            ['convenio', 'pagos'],
+            'SUCESIONES':            ['sucesion', 'convenio', 'pagos'],
             'PENAL':                 ['demandado', 'pagos']
         };
 
@@ -8893,7 +9185,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // Sin materia cargada, o materia que no está en la tabla (OTROS): se muestran
             // todas. Es preferible que sobre una solapa vacía a esconder datos cargados.
             let lista = SOLAPAS_POR_MATERIA[m];
-            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'bienes', 'convenio', 'pagos'];
+            if (!lista) return ['general', 'hijos', 'demandado', 'necesidades', 'bienes', 'sucesion', 'convenio', 'pagos'];
             lista = lista.slice();
             // Red de seguridad: si una ficha vieja tiene datos en una solapa que su materia
             // ya no pide, la solapa se muestra igual. Nunca se oculta informacion cargada.
@@ -8906,6 +9198,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     (client.necesidades.noCubiertas || []).length)),
                 convenio: !!(client.convenio && Object.values(client.convenio).some(v => v)),
                 bienes: (client.bienes || []).length > 0,
+                sucesion: !!(client.sucesion && ((client.sucesion.causante || {}).nombre ||
+                            (client.sucesion.herederos || []).length)),
                 pagos: (client.bonos_aportes_list || []).length > 0,
                 general: !!client.general
             };
@@ -9022,6 +9316,24 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 </div>
             </div>
 
+            <div style="background:#f0f4f7;padding:15px;border-radius:8px;margin-bottom:15px;">
+                <h5 style="margin-bottom:6px;color:var(--primary-color);">Cuota ya fijada</h5>
+                <div style="font-size:0.82em;color:#666;margin-bottom:10px;">
+                    Lo que el juzgado ya resolvió, no lo que se pide. De acá salen el escrito de
+                    retención directa de haberes y el incidente de aumento.
+                </div>
+                <div class="info-grid">
+                    ${txt('cuotaPorcentaje', 'Porcentaje fijado (%)', 'Ej: 20')}
+                    ${txt('cuotaMonto', 'O monto fijo ($)', 'Si se fijó en pesos')}
+                    ${txt('cuotaFechaResolucion', 'Fecha de la resolución', 'dd/mm/aaaa')}
+                    ${txt('cuotaTipo', '¿Provisoria o definitiva?', 'Provisoria / Definitiva')}
+                </div>
+                <div class="info-grid">
+                    ${txt('cuotaBanco', 'Banco y sucursal de la cuenta judicial', 'Ej: Banco Provincia, sucursal Quilmes centro')}
+                    ${txt('cuotaVencimiento', 'Días de pago', 'Ej: del 1 al 10 de cada mes')}
+                </div>
+            </div>
+
             <button class="btn btn-success" onclick="saveGeneral('${client.id}')">Guardar General</button>
             <span id="gen-save-msg" style="display:none;color:var(--success-color);font-weight:600;margin-left:10px;">Guardado</span>`;
         }
@@ -9039,7 +9351,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const val = (k) => { const el = document.getElementById('gen-' + k); return el ? el.value : ''; };
             const CAMPOS = ['actorTrabaja', 'actorRazonSocial', 'actorDomicilioTrabajo', 'actorIngreso',
                 'actorObraSocial', 'actorAyudaFamiliares', 'actorAsignaciones', 'actorAlquila',
-                'modalidadTrabajo', 'pctProvisorio', 'pctDefinitivo', 'pctSMVM', 'canastaCrianza'];
+                'modalidadTrabajo', 'pctProvisorio', 'pctDefinitivo', 'pctSMVM', 'canastaCrianza',
+                'cuotaPorcentaje', 'cuotaMonto', 'cuotaFechaResolucion', 'cuotaTipo',
+                'cuotaBanco', 'cuotaVencimiento'];
             const g = client.general || {};
             CAMPOS.forEach(k => { g[k] = val(k); });
             client.general = g;
