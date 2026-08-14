@@ -8150,6 +8150,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         '>>**SERÁ JUSTICIA.**'
                     ].join('\n')
                 },
+                sucesion_ab_intestato: {
+                    nombre: 'Inicia sucesión ab intestato',
+                    materia: 'SUCESIONES',
+                    cuerpo: '**INICIA SUCESIÓN AB INTESTATO**\n\n**Señor Juez:**\n**{{encabezado_cliente}}**\n\n**I. OBJETO**\nQue vengo a iniciar el juicio sucesorio de {{causante}}, DNI N° {{causante_dni}}, cuyo último domicilio legal fuera en {{causante_domicilio}}, fallecido/a el día {{causante_fallecimiento}}, según surge de la partida de defunción que se adjunta.\n\n**II. HECHOS**\nTal como lo acredito con la documentación que se agrega al presente, soy {{vinculo_cliente}} del causante.\n[COMPLETAR: si hay algo particular que contar —matrimonio del causante, bienes propios o gananciales, existencia o no de otros herederos y acreedores— va acá.]\n\n**III. DERECHO**\nFundo la presente acción en los arts. 2277 y ss. del Código Civil y Comercial de la Nación.\n\n**IV. ACERVO HEREDITARIO**\nEl acervo sucesorio está integrado por los siguientes bienes: {{acervo_lista}}.\n\n**V. PRUEBA**\nSe adjuntan al presente:\nPartida de defunción del causante.\nPartida de nacimiento del/la presentante (original y copia).\nCopia del DNI del/la presentante.\n[COMPLETAR: acta de matrimonio, escritura u otra documental que corresponda.]\n\n**VI. COMPETENCIA**\nSe deja constancia de que V.S. es competente para entender en las presentes actuaciones toda vez que el último domicilio real del causante ha sido en {{causante_domicilio}}.\n\n**VII. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\na) Me tenga por presentado, por parte y por constituido el domicilio procesal indicado;\nb) Se ordene diligenciar el formulario 3003/56;\nc) Se agreguen la partida de defunción del causante y la partida de nacimiento del/la presentante, en original y copia (frente y dorso), y copia del DNI;\nd) Con su resultado se declare abierto el sucesorio de {{causante}};\ne) Se ordene la publicación de edictos citando a acreedores y herederos del causante por el plazo de ley, solamente en el Boletín Oficial, conforme art. 699.2 del CPCCN;\nf) Vencido el plazo edictal, certificado por el actuario, previa vista al Señor agente fiscal, se dicte la pertinente declaratoria de herederos.\n\n>>**Proveer de conformidad, que**\n>>**SERÁ JUSTICIA.**'
+                },
                 retencion_haberes: {
                     nombre: 'Solicita retención directa de haberes',
                     materia: 'ALIMENTOS',
@@ -8303,6 +8308,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     .filter(h => h.nombre)
                     .map(h => h.nombre + (h.dni ? ', DNI N° ' + h.dni : '') + (h.vinculo ? ', en carácter de ' + h.vinculo.toLowerCase() : ''))
                     .join('; '),
+                // El escrito dice "soy hija del causante". El vinculo sale de la lista de
+                // herederos, buscando al propio cliente por DNI y, si no, por nombre.
+                vinculo_cliente: (() => {
+                    const her = (client.sucesion || {}).herederos || [];
+                    const dni = String(client.dni || '').replace(/\D/g, '');
+                    const nom = String(client.nombre || '').toUpperCase().trim();
+                    const yo = her.find(h => dni && String(h.dni || '').replace(/\D/g, '') === dni) ||
+                               her.find(h => nom && String(h.nombre || '').toUpperCase().trim() === nom);
+                    return yo ? (yo.vinculo || '').toLowerCase() : '';
+                })(),
                 acervo_lista: ((client.sucesion || {}).acervo || [])
                     .filter(b => b.descripcion)
                     .map(b => b.tipo + ': ' + b.descripcion).join('; '),
@@ -8330,6 +8345,210 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             domicilio_real: 'Domicilio del cliente (calle, localidad y provincia)',
             caratula: 'Carátula', expediente: 'N° de expediente', juzgado: 'Juzgado'
         };
+
+        // ── Bloques condicionales ────────────────────────────────────────────────
+        // Sintaxis en el cuerpo del modelo:
+        //     {{#si blanco}}  … texto …  {{/si}}
+        //     {{#no hijos}}   … texto …  {{/no}}
+        //
+        // Sirve para que UN modelo cubra las variantes. Las cuatro demandas de alimentos
+        // —blanco/negro × CABA/PBA— eran cuatro archivos con el 80% del texto repetido: si
+        // cambiaba una formula habia que corregirla en los cuatro y era cuestion de tiempo
+        // que uno quedara viejo. Con esto es un solo modelo y una sola correccion.
+        function escritoCondiciones(client) {
+            const g = client.general || {};
+            const jur = (client.jurisdiccion || '').toUpperCase();
+            const hijos = client.hijos || [];
+            const nec = client.necesidades || {};
+            return {
+                blanco: g.modalidadTrabajo !== 'NEGRO',
+                negro: g.modalidadTrabajo === 'NEGRO',
+                caba: jur === 'CABA' || jur === 'FEDERAL',
+                pba: jur === 'PROVINCIA',
+                hijos: hijos.length > 0,
+                un_hijo: hijos.length === 1,
+                varios_hijos: hijos.length > 1,
+                discapacidad: hijos.some(h => h && h.tratamiento === 'Si'),
+                obra_social: g.actorObraSocial === 'No',      // hay que solicitarla
+                alquila: g.actorAlquila === 'Si',
+                cuota_fijada: !!(g.cuotaPorcentaje || g.cuotaMonto),
+                no_cubiertas: (nec.noCubiertas || []).some(x => x && x.nombre),
+                bienes: (client.bienes || []).length > 0
+            };
+        }
+
+        function escritoCondicionales(texto, cond) {
+            const desconocidas = [];
+            const evaluar = (t) => {
+                // [^] en vez de [\s\S]: dentro de una cadena de JS el \s se pierde y el
+                // patron queda en [sS]. Ya paso una vez con las audiencias del MEV.
+                return t.replace(/\{\{#(si|no)\s+(\w+)\}\}([^]*?)\{\{\/\1\}\}/g, (m, tipo, clave, cuerpo) => {
+                    if (!(clave in cond)) {
+                        if (desconocidas.indexOf(clave) === -1) desconocidas.push(clave);
+                        return cuerpo;   // condicion que no existe: se deja el texto, no se borra
+                    }
+                    const vale = tipo === 'si' ? cond[clave] : !cond[clave];
+                    return vale ? cuerpo : '';
+                });
+            };
+            // Dos pasadas para que un bloque adentro de otro también se resuelva.
+            let out = evaluar(evaluar(texto));
+            // Los bloques dejan renglones vacíos donde se quitó texto.
+            out = out.replace(/\n{3,}/g, '\n\n');
+            return { texto: out, desconocidas };
+        }
+
+        // ── SECCIONES QUE REDACTA EL COMITÉ ──────────────────────────────────────
+        // Sintaxis en el cuerpo del modelo:
+        //     {{ia:hechos|Relatá cómo se llegó a esta situación, sin inventar fechas}}
+        //
+        // La clave ("hechos") identifica la sección; lo que va después de la barra es la
+        // instrucción para quien redacta. Todo lo demás del escrito —nombres, DNI,
+        // expediente, importes— se sigue completando con marcadores. La IA nunca escribe
+        // un dato: escribe prosa.
+        const IA_URL = 'https://garcia-ia.garciayasociadosjus.workers.dev';
+        let _iaRedactado = {};      // clave → texto, para esta sesión de escritura
+
+        function escritoSeccionesIA(cuerpo) {
+            const out = [];
+            String(cuerpo || '').replace(/\{\{ia:(\w+)\|([^}]*)\}\}/g, (m, clave, instruccion) => {
+                out.push({ clave: clave, instruccion: instruccion.trim(), titulo: clave.toUpperCase() });
+                return m;
+            });
+            return out;
+        }
+
+        // Reemplaza los {{ia:...}} por lo redactado. Si todavía no se redactó, deja un
+        // aviso visible: nunca un hueco silencioso.
+        function escritoAplicarIA(texto) {
+            return String(texto || '').replace(/\{\{ia:(\w+)\|[^}]*\}\}/g, (m, clave) =>
+                _iaRedactado[clave] || '[FALTA REDACTAR: ' + clave + ']');
+        }
+
+        // Lo que se le manda al comité: los datos de la ficha ya ordenados y con nombre.
+        // Mandar la ficha cruda seria mandarle tambien el DNI y el expediente, que no
+        // necesita y que no queremos que escriba.
+        function escritoContextoIA(client) {
+            const g = client.general || {};
+            const n = client.necesidades || {};
+            const d = client.demandado || {};
+            const fmt = v => v ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+                .format(parseFloat(v) || 0) : '';
+            const sino = v => v === 'Si' ? 'sí' : v === 'No' ? 'no' : '';
+            return {
+                jurisdiccion: client.jurisdiccion === 'PROVINCIA' ? 'Provincia de Buenos Aires' : (client.jurisdiccion || ''),
+                hijos: (client.hijos || []).map(h =>
+                    (h.edad ? h.edad + ' años' : 'edad no cargada') +
+                    (h.conviveCon ? ', vive con ' + h.conviveCon : '') +
+                    (h.tratamiento === 'Si' ? ', con tratamiento especial: ' + (h.tratamientoDetalle || 'sin detalle') : '') +
+                    (h.sinContacto ? ', sin contacto hace ' + h.sinContacto : '')).join(' | '),
+                actorTrabaja: [g.actorTrabaja, g.actorRazonSocial].filter(Boolean).join(' en '),
+                actorIngreso: fmt(g.actorIngreso),
+                obraSocial: g.actorObraSocial === 'No' ? 'no tiene, hay que solicitarla en la demanda' :
+                            g.actorObraSocial === 'Si' ? 'usa la del demandado' : '',
+                vivienda: g.actorAlquila === 'Si' ? 'alquila' : g.actorAlquila === 'No' ? 'vivienda propia' : '',
+                ayudaFamiliar: sino(g.actorAyudaFamiliares),
+                asignaciones: sino(g.actorAsignaciones),
+                demandadoTrabajo: [d.empresa, d.direccionLaboral].filter(Boolean).join(', '),
+                demandadoIngreso: fmt(d.monto),
+                demandadoBienes: d.bienes || '',
+                necesidades: [].concat(n.items || [], n.extras || [])
+                    .filter(x => x.importe).map(x => x.nombre + ' ' + fmt(x.importe)).join(', '),
+                noCubiertas: (n.noCubiertas || []).filter(x => x.nombre)
+                    .map(x => x.nombre + (x.importe ? ' ' + fmt(x.importe) : '')).join(', '),
+                tratamientos: (client.hijos || []).filter(h => h.tratamiento === 'Si')
+                    .map(h => h.tratamientoDetalle || 'tratamiento sin detalle').join('; '),
+                pauta: g.modalidadTrabajo === 'NEGRO'
+                    ? ['trabajo no registrado',
+                       g.pctSMVM ? g.pctSMVM + '% del SMVM' : '',
+                       g.canastaCrianza ? 'canasta de crianza ' + fmt(g.canastaCrianza) : ''].filter(Boolean).join(', ')
+                    : ['trabajo registrado',
+                       g.pctProvisorio ? 'provisoria ' + g.pctProvisorio + '%' : '',
+                       g.pctDefinitivo ? 'definitiva ' + g.pctDefinitivo + '%' : ''].filter(Boolean).join(', '),
+                situacion: client.situacionHijos || '',
+                notas: client.notas || ''
+            };
+        }
+
+        async function redactarConComite(btn) {
+            const client = clientsData.find(c => c.id === escritoActual.clientId);
+            const modelo = (escritosModelos || {})[escritoActual.modeloId];
+            if (!client || !modelo) return;
+            const secciones = escritoSeccionesIA(modelo.cuerpo);
+            if (!secciones.length) return;
+
+            const textoOrig = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Redactando…'; }
+            try {
+                const r = await fetch(IA_URL + '/api/redactar-escrito', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        materia: client.materia || '',
+                        escrito: modelo.nombre || '',
+                        rolCliente: 'la parte actora',
+                        secciones: secciones,
+                        ficha: escritoContextoIA(client)
+                    })
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error || 'no se pudo redactar');
+                Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
+                renderEscritos();
+            } catch (e) {
+                alert('No se pudo redactar: ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = textoOrig || 'Redactar con el comité'; }
+            }
+        }
+
+        // Lo redactado se muestra aparte y editable ANTES de bajar el Word. Es lo único
+        // del escrito que no salió de un dato cargado, así que es lo único que hay que
+        // leer con atención.
+        function renderBloqueIA(secciones) {
+            if (!secciones.length) return '';
+            const hay = secciones.some(s => _iaRedactado[s.clave]);
+            let h = '<div style="border:1px solid var(--info-color);border-radius:10px;padding:12px;margin-bottom:14px;' +
+                'background:rgba(139,110,199,0.06);">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                '<b style="font-size:.9em;color:var(--info-color);">Este escrito tiene ' + secciones.length +
+                ' sección(es) que redacta el comité</b>' +
+                '<button onclick="redactarConComite(this)" class="btn btn-sm" ' +
+                'style="background:var(--info-color);color:#fff;border:none;">' +
+                (hay ? 'Volver a redactar' : 'Redactar con el comité') + '</button></div>';
+            if (!hay) {
+                h += '<div style="font-size:.82em;color:var(--text-muted);margin-top:8px;">' +
+                     'Los datos ya están puestos. Falta la parte que hay que escribir: ' +
+                     secciones.map(s => s.clave).join(', ') + '.</div>';
+            } else {
+                h += '<div style="font-size:.8em;color:var(--text-muted);margin-top:8px;margin-bottom:8px;">' +
+                     'Leelo y corregilo acá antes de bajar el Word. Es lo único que no salió de la ficha.</div>';
+                secciones.forEach(s => {
+                    if (!_iaRedactado[s.clave]) return;
+                    h += '<div style="margin-bottom:10px;">' +
+                        '<label style="font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-label);">' +
+                        s.clave + '</label>' +
+                        '<textarea id="ia-' + s.clave + '" rows="6" style="width:100%;font-size:.88em;" ' +
+                        'onchange="_iaRedactado[\'' + s.clave + '\']=this.value;renderEscritos();">' +
+                        String(_iaRedactado[s.clave]).replace(/</g, '&lt;') + '</textarea></div>';
+                });
+            }
+            return h + '</div>';
+        }
+
+        // Punto unico de armado: primero se resuelven los bloques condicionales y recien
+        // despues los marcadores. Al reves no funciona: un marcador dentro de un bloque que
+        // se descarta se contaria como "falta un dato" cuando en realidad ese texto no va.
+        function escritoArmar(modelo, client) {
+            const cond = escritoCondiciones(client);
+            const c = escritoCondicionales(String(modelo && modelo.cuerpo || ''), cond);
+            // Las secciones del comite se pegan ANTES de los marcadores: lo redactado puede
+            // contener {{cliente}} u otro marcador y tiene que resolverse igual que el resto.
+            const conIA = escritoAplicarIA(c.texto);
+            const r = escritoReemplazar(conIA, escritoDatos(client));
+            return { texto: r.texto, faltan: r.faltan, condicionesDesconocidas: c.desconocidas,
+                     seccionesIA: escritoSeccionesIA(modelo && modelo.cuerpo) };
+        }
 
         function escritoReemplazar(texto, datos) {
             const faltan = [];
@@ -8424,7 +8643,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 .map(m => {
                 const sel = m === escritoActual.materia;
                 return '<button type="button" onclick="escritoActual.materia=\'' + m + '\';' +
-                    'escritoActual.modeloId=null;renderEscritos();" ' +
+                    'escritoActual.modeloId=null;_iaRedactado={};renderEscritos();" ' +
                     'style="font-family:\'DM Sans\',sans-serif;font-size:.75rem;font-weight:600;padding:5px 11px;' +
                     'border-radius:999px;cursor:pointer;white-space:nowrap;' +
                     'border:1px solid ' + (sel ? 'var(--gold-dark,#8a6a10)' : 'var(--border-input,rgba(160,120,64,.35))') + ';' +
@@ -8464,8 +8683,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (!ids.includes(escritoActual.modeloId)) escritoActual.modeloId = ids[0];
             const modelo = modelos[escritoActual.modeloId];
 
-            const datos = escritoDatos(client);
-            const r = escritoReemplazar(modelo.cuerpo || '', datos);
+            const r = escritoArmar(modelo, client);
 
             const avisoFaltan = r.faltan.length
                 ? '<div style="background:rgba(217,79,79,.08);border-left:3px solid var(--danger-color);' +
@@ -8479,7 +8697,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 renderSelectorMateria(modelos) +
                 '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">' +
                 '<div style="flex:1;min-width:240px;"><label style="font-size:.8em;color:var(--text-muted);">Modelo</label>' +
-                '<select id="escritoModeloSel" onchange="escritoActual.modeloId=this.value;renderEscritos();" ' +
+                '<select id="escritoModeloSel" onchange="escritoActual.modeloId=this.value;_iaRedactado={};renderEscritos();" ' +
                 'style="width:100%;padding:7px 10px;border:1px solid var(--border-input);border-radius:8px;">' +
                 ids.map(id => '<option value="' + id + '"' + (id === escritoActual.modeloId ? ' selected' : '') + '>' +
                     (modelos[id].nombre || id) +
@@ -8511,7 +8729,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const client = clientsData.find(c => c.id === escritoActual.clientId);
             const modelo = (escritosModelos || {})[escritoActual.modeloId];
             if (!client || !modelo) return;
-            const r = escritoReemplazar(modelo.cuerpo || '', escritoDatos(client));
+            const r = escritoArmar(modelo, client);
+            // Primero lo que no tiene arreglo automático: una sección del comité sin
+            // redactar deja un "[FALTA REDACTAR: ...]" en el medio del escrito firmado.
+            const sinRedactar = (r.seccionesIA || []).filter(x => !_iaRedactado[x.clave]);
+            if (sinRedactar.length) {
+                alert('Faltan redactar ' + sinRedactar.length + ' sección(es): ' +
+                      sinRedactar.map(x => x.clave).join(', ') +
+                      '.\n\nTocá "Redactar con el comité" antes de bajar el escrito.');
+                return;
+            }
             if (r.faltan.length) {
                 const lista = r.faltan.map(k => '· ' + (ETIQUETA_MARCADOR[k] || k)).join('\n');
                 if (!confirm('Faltan datos en la ficha:\n\n' + lista +
