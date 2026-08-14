@@ -8184,14 +8184,39 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         async function cargarEscritosModelos() {
             if (escritosModelos) return escritosModelos;
+            let guardados = null;
             try {
                 const snap = await firebase.database().ref(FIREBASE_KEY_ESCRITOS).once('value');
-                const v = snap.val();
-                if (v && Object.keys(v).length) { escritosModelos = v; return v; }
+                guardados = snap.val();
             } catch (e) { console.error('escritos_modelos:', e); }
-            // Primera vez: se siembran los dos modelos base.
-            escritosModelos = escritosSemilla();
-            try { await firebase.database().ref(FIREBASE_KEY_ESCRITOS).set(escritosModelos); } catch (e) {}
+
+            const semilla = escritosSemilla();
+            if (!guardados || !Object.keys(guardados).length) {
+                escritosModelos = semilla;
+                try { await firebase.database().ref(FIREBASE_KEY_ESCRITOS).set(semilla); } catch (e) {}
+                return escritosModelos;
+            }
+
+            // Se COMPLETAN los que falten en vez de sembrar todo o nada. Antes, con el nodo
+            // ya creado, cualquier modelo nuevo que se agregara al codigo no aparecia nunca:
+            // la condicion era "si esta vacio, sembrar", y nunca volvia a estarlo.
+            // Lo que ya esta guardado no se toca: son los que el estudio edito.
+            const faltan = {};
+            Object.keys(semilla).forEach(id => {
+                if (!guardados[id]) faltan[id] = semilla[id];
+            });
+            // Los primeros modelos se guardaron sin materia y caian todos en Generales.
+            Object.keys(guardados).forEach(id => {
+                if (!guardados[id].materia && semilla[id] && semilla[id].materia) {
+                    guardados[id].materia = semilla[id].materia;
+                    faltan[id] = guardados[id];
+                }
+            });
+            escritosModelos = Object.assign({}, guardados, faltan);
+            if (Object.keys(faltan).length) {
+                try { await firebase.database().ref(FIREBASE_KEY_ESCRITOS).update(faltan); } catch (e) {}
+                console.log('escritos: se agregaron', Object.keys(faltan).join(', '));
+            }
             return escritosModelos;
         }
 
