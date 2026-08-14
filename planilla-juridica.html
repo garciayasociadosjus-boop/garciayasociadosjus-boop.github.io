@@ -5488,6 +5488,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     telefono: 'Teléfono',
                     domicilioCliente: 'Domicilio del cliente',
                     iniciadoPorEstudio: 'Origen del expediente',
+                    matrimonioFecha: 'Fecha del matrimonio',
+                    matrimonioLugar: 'Lugar del matrimonio',
+                    matrimonioRegistro: 'Registro civil',
                     caratula: 'Carátula',
                     expediente: 'N° Expediente',
                     juzgado: 'Juzgado', 
@@ -5659,6 +5662,17 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
                         <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Causa</h4>
                         <div class="datos-lista">${grupo(['materia','caratula','expediente','iniciadoPorEstudio','estado','socio','fechaCreacion','proximaRevision'])}</div>
+
+                        ${(() => {
+                            // Solo en divorcio: en el resto de las materias es un dato que no
+                            // existe y tres renglones vacios ensucian la ficha. Si una ficha
+                            // vieja ya los tiene cargados se muestran igual, para no esconderlos.
+                            const esDivorcio = (client.materia || '').toUpperCase() === 'DIVORCIOS';
+                            const hayDatos = !!(client.matrimonioFecha || client.matrimonioLugar || client.matrimonioRegistro);
+                            if (!esDivorcio && !hayDatos) return '';
+                            return `<h4 style="margin-top:16px;">Matrimonio</h4>
+                        <div class="datos-lista">${grupo(['matrimonioFecha','matrimonioLugar','matrimonioRegistro'])}</div>`;
+                        })()}
 
                         <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Juzgado</h4>
                         <div class="datos-lista">${grupo(['juzgado','direccionJuzgado','telJuzgado'])}</div>
@@ -6141,6 +6155,235 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     scbaUltimaCorrida = v.ultima_ok || v.ultima_corrida || null;
                 })
                 .catch(() => {});
+        }
+
+        // ═══ PRECARGA DESDE LA CONSULTA WEB ══════════════════════════════════════
+        // El cliente completa el formulario de bienvenido/documentacion y el Apps Script
+        // deja un "DATOS — GA-2026-XXXX.txt" en la carpeta del Drive. Esto lo lee y llena
+        // el alta.
+        //
+        // A diferencia de la denuncia de siniestros, acá NO interviene la IA: ese .txt lo
+        // genera nuestro propio script, con un formato fijo que conocemos. Un parser exacto
+        // es gratis, instantáneo y —lo que importa— no puede equivocarse en un dígito del
+        // DNI. La IA se usa cuando hay que interpretar; acá no hay nada que interpretar.
+        let _consultaPendiente = null;   // lo que no entra en el alta y se aplica al crear
+
+        const MATERIA_DESDE_CONSULTA = {
+            'divorcio': 'DIVORCIOS',
+            'alimentos': 'ALIMENTOS',
+            'cese de cuota alimentaria': 'ALIMENTOS',
+            'comunicación con los hijos': 'COMUNICACION CON HIJOS',
+            'comunicacion con los hijos': 'COMUNICACION CON HIJOS',
+            'cuidado personal de hijos': 'CUIDADO PERSONAL',
+            'filiación': 'FILIACION',
+            'filiacion': 'FILIACION',
+            'violencia familiar': 'VIOLENCIA FAMILIAR',
+            'cambio de nombre': 'OTROS',
+            'otros': 'OTROS'
+        };
+
+        // "Isla Coronación, 271, Monte grande, Esteban Echeverría, Buenos Aires"
+        //   → calle · número · localidad · partido · provincia
+        // Si vienen menos partes se llena de atrás para adelante: la provincia es lo que
+        // nunca falta y la calle lo que siempre viene primero.
+        function partirDomicilio(txt) {
+            const p = String(txt || '').split(',').map(x => x.trim()).filter(Boolean);
+            if (!p.length) return {};
+            if (p.length >= 5) {
+                return { calle: p[0], numero: p[1], localidad: p[2], partido: p[3], provincia: p.slice(4).join(', ') };
+            }
+            if (p.length === 4) return { calle: p[0], numero: p[1], localidad: p[2], provincia: p[3] };
+            if (p.length === 3) return { calle: p[0], numero: p[1], localidad: p[2] };
+            if (p.length === 2) return { calle: p[0], numero: p[1] };
+            return { calle: p[0] };
+        }
+
+        function leerConsultaWeb(texto) {
+            const lineas = String(texto || '').replace(/\r/g, '').split('\n');
+            const out = { cliente: {}, otraParte: {}, matrimonio: {}, hijos: [], meta: {} };
+            let seccion = 'meta';
+            let hijoActual = null;
+
+            for (const cruda of lineas) {
+                const l = cruda.trim();
+                if (!l) continue;
+
+                // Encabezados: ── CLIENTE ──, ── HIJO/A 1 [CON DISCAPACIDAD ACREDITADA] ──
+                const enc = /^─+\s*(.+?)\s*─+$/.exec(l);
+                if (enc) {
+                    const t = enc[1].toUpperCase();
+                    if (t.startsWith('CLIENTE')) seccion = 'cliente';
+                    else if (t.startsWith('OTRA PARTE')) seccion = 'otraParte';
+                    else if (t.startsWith('MATRIMONIO')) seccion = 'matrimonio';
+                    else if (t.startsWith('HIJO')) {
+                        seccion = 'hijo';
+                        hijoActual = { discapacidad: /DISCAPACIDAD/.test(t) };
+                        out.hijos.push(hijoActual);
+                    } else seccion = 'otra';
+                    continue;
+                }
+
+                const i = l.indexOf(':');
+                if (i < 1) continue;
+                const clave = l.slice(0, i).trim().toUpperCase()
+                    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+                const valor = l.slice(i + 1).trim();
+                if (!valor) continue;
+
+                if (seccion === 'meta') {
+                    if (clave === 'CONSULTA') out.meta.materia = valor;
+                    if (clave === 'CODIGO') out.meta.codigo = valor;
+                    if (clave === 'FECHA') out.meta.fecha = valor;
+                    continue;
+                }
+                const destino = seccion === 'hijo' ? hijoActual : out[seccion];
+                if (!destino) continue;
+
+                switch (clave) {
+                    case 'NOMBRE':               destino.nombre = valor; break;
+                    case 'DNI':                  destino.dni = valor; break;
+                    case 'CUIL':                 destino.cuil = valor; break;
+                    case 'TELEFONO':             destino.telefono = valor; break;
+                    case 'MAIL':                 destino.mail = valor; break;
+                    case 'DOMICILIO':            destino.domicilio = valor; break;
+                    case 'FECHA':                destino.fecha = valor; break;
+                    case 'LUGAR':                destino.lugar = valor; break;
+                    case 'REGISTRO':             destino.registro = valor; break;
+                    case 'FECHA DE NACIMIENTO':  destino.fechaNac = valor; break;
+                    case 'LUGAR DE NACIMIENTO':  destino.lugarNac = valor; break;
+                    case 'HOSPITAL':             destino.hospital = valor; break;
+                    case 'VIVE CON':             destino.conviveCon = valor; break;
+                }
+            }
+            return out;
+        }
+
+        // Edad a partir de la fecha de nacimiento, para no cargarla a mano.
+        function edadDesdeFecha(iso) {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return { anios: '', meses: '' };
+            const hoy = new Date();
+            let a = hoy.getFullYear() - d.getFullYear();
+            let m = hoy.getMonth() - d.getMonth();
+            if (hoy.getDate() < d.getDate()) m--;
+            if (m < 0) { a--; m += 12; }
+            return { anios: a >= 0 ? String(a) : '', meses: String(m) };
+        }
+
+        function abrirPegarConsulta() {
+            const cont = document.getElementById('zonaConsultaWeb');
+            if (!cont) return;
+            cont.innerHTML =
+                '<textarea id="txtConsultaWeb" rows="8" placeholder="Pegá acá el contenido del archivo DATOS — GA-2026-XXXX.txt" ' +
+                'style="width:100%;font-family:monospace;font-size:.82em;"></textarea>' +
+                '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">' +
+                '<button type="button" class="btn btn-success btn-sm" onclick="aplicarConsultaWeb()">Completar el alta</button>' +
+                '<button type="button" class="btn btn-sm" onclick="document.getElementById(\'zonaConsultaWeb\').innerHTML=\'\'">Cancelar</button>' +
+                '<span id="avisoConsultaWeb" style="font-size:.82em;color:var(--success-color,#1f9e72);"></span>' +
+                '</div>';
+            document.getElementById('txtConsultaWeb').focus();
+        }
+
+        function aplicarConsultaWeb() {
+            const ta = document.getElementById('txtConsultaWeb');
+            if (!ta || !ta.value.trim()) { alert('Pegá primero el texto del archivo.'); return; }
+            let d;
+            try { d = leerConsultaWeb(ta.value); }
+            catch (e) { alert('No se pudo leer el texto: ' + e.message); return; }
+
+            if (!d.cliente.nombre) {
+                alert('No encontré el nombre del cliente. ¿Pegaste el archivo completo, con la línea "── CLIENTE ──"?');
+                return;
+            }
+
+            const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+            set('newNombre', (d.cliente.nombre || '').toUpperCase());
+            set('newDni', d.cliente.dni);
+            set('newTelefono', d.cliente.telefono);
+
+            const mat = MATERIA_DESDE_CONSULTA[(d.meta.materia || '').toLowerCase().trim()];
+            if (mat) {
+                set('newMateria', mat);
+                const sel = document.getElementById('newMateria');
+                if (sel) sel.dispatchEvent(new Event('change'));
+            }
+
+            // La carátula todavía no existe —la causa no está iniciada— pero con los dos
+            // apellidos ya queda armada la referencia con la que se la va a buscar.
+            const ape = (n) => String(n || '').trim().toUpperCase();
+            if (d.otraParte.nombre) {
+                set('newCaratula', ape(d.cliente.nombre) + ' C/ ' + ape(d.otraParte.nombre));
+            }
+
+            // Lo que no tiene lugar en el alta viaja acá y se aplica al crear la ficha.
+            const domCli = partirDomicilio(d.cliente.domicilio);
+            _consultaPendiente = {
+                codigo: d.meta.codigo || '',
+                email: d.cliente.mail || '',
+                cuil: d.cliente.cuil || '',
+                domicilioCliente: [domCli.calle, domCli.numero].filter(Boolean).join(' '),
+                localidadCliente: domCli.localidad || '',
+                provinciaCliente: domCli.provincia || 'Provincia de Buenos Aires',
+                demandado: d.otraParte.nombre ? {
+                    nombre: (d.otraParte.nombre || '').toUpperCase(),
+                    dni: d.otraParte.dni || '',
+                    cuil: d.otraParte.cuil || '',
+                    domicilio: d.otraParte.domicilio || ''
+                } : null,
+                matrimonio: (d.matrimonio.fecha || d.matrimonio.lugar) ? d.matrimonio : null,
+                hijos: d.hijos.map(h => {
+                    const e = edadDesdeFecha(h.fechaNac);
+                    return {
+                        nombre: (h.nombre || '').toUpperCase(),
+                        dni: h.dni || '',
+                        fechaNac: h.fechaNac || '',
+                        edad: e.anios, edadMeses: e.meses,
+                        domicilio: h.domicilio || '',
+                        conviveCon: h.conviveCon || '',
+                        lugarNac: h.lugarNac || '',
+                        hospital: h.hospital || '',
+                        // El formulario marca la discapacidad acreditada; se traduce al
+                        // tratamiento especial, que es el campo que usa la solapa General.
+                        tratamiento: h.discapacidad ? 'Si' : 'No',
+                        tratamientoDetalle: h.discapacidad ? 'Discapacidad acreditada (CUD) — declarada en la consulta web' : ''
+                    };
+                })
+            };
+
+            const aviso = document.getElementById('avisoConsultaWeb');
+            if (aviso) {
+                const partes = [];
+                partes.push('cliente y contacto');
+                if (_consultaPendiente.demandado) partes.push('otra parte');
+                if (_consultaPendiente.hijos.length) partes.push(_consultaPendiente.hijos.length + ' hijo(s)');
+                if (_consultaPendiente.matrimonio) partes.push('matrimonio');
+                aviso.textContent = 'Listo: ' + partes.join(', ') + '. Revisá y guardá.';
+            }
+            const ta2 = document.getElementById('txtConsultaWeb');
+            if (ta2) ta2.style.display = 'none';
+        }
+
+        // Se llama justo después de crear la ficha: vuelca lo que no entraba en el alta.
+        function aplicarConsultaPendiente(cliente) {
+            if (!_consultaPendiente || !cliente) return;
+            const c = _consultaPendiente;
+            cliente.email = c.email || cliente.email || '';
+            cliente.cuil = c.cuil || '';
+            cliente.domicilioCliente = c.domicilioCliente || '';
+            cliente.localidadCliente = c.localidadCliente || '';
+            cliente.provinciaCliente = c.provinciaCliente || cliente.provinciaCliente || '';
+            cliente.consulta_web = c.codigo || '';
+            if (c.demandado) cliente.demandado = c.demandado;
+            if (c.hijos && c.hijos.length) cliente.hijos = c.hijos;
+            if (c.matrimonio) {
+                // A sus campos propios, no a las notas: de acá los toma el escrito de
+                // divorcio y con ellos se pide la partida de matrimonio.
+                const m = c.matrimonio;
+                cliente.matrimonioFecha = m.fecha || '';
+                cliente.matrimonioLugar = m.lugar || '';
+                cliente.matrimonioRegistro = m.registro || '';
+            }
+            _consultaPendiente = null;
         }
 
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
@@ -8959,7 +9202,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }
             updateClock(); setInterval(updateClock, 1000);
 
-            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar Nuevo Caso</h2><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required onchange="toggleNewMateriaOtros()"><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select><input type="text" id="newMateriaOtros" placeholder="Especificar materia..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Socio Asignado *</label><select id="newSocio" required>${getSocioOptionsHTML()}</select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Año de la Causa</label><input type="text" id="newAnioExpediente" placeholder="ej: 2024" maxlength="4"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg> Jurisdicción</label><select id="newJurisdiccion" onchange="toggleNewDepto()"><option value="">Sin definir</option><option value="PROVINCIA">PROVINCIA</option><option value="CABA">CABA</option><option value="FEDERAL">FEDERAL</option></select></div><div class="form-group" id="newDeptoGroup" style="display:none;"><label>Departamento Judicial</label><select id="newDeptoJudicial" onchange="toggleNewDeptoManual()"><option value="">-- Seleccionar --</option><option>Avellaneda-Lanús</option><option>Azul</option><option>Bahía Blanca</option><option>Dolores</option><option>Junín</option><option>La Matanza</option><option>La Plata</option><option>Lomas de Zamora</option><option>Mar del Plata</option><option>Mercedes</option><option>Moreno-Gral. Rodríguez</option><option>Morón</option><option>Necochea</option><option>Olavarría</option><option>Pergamino</option><option>Quilmes</option><option>San Isidro</option><option>San Martín</option><option>San Nicolás</option><option>Tandil</option><option>Trenque Lauquen</option><option>Tres Arroyos</option><option>Zárate/Campana</option><option>Otro (manual)</option></select><input type="text" id="newDeptoManual" placeholder="Escribir departamento..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Caso</button></div></form>`;
+            document.getElementById('newClientModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('newClientModal')">&times;</span><h2><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Agregar Nuevo Caso</h2><div style="margin-bottom:16px;padding:12px;background:var(--bg-info-item,rgba(160,120,64,.05));border:1px solid var(--border-item);border-radius:10px;"><button type="button" class="btn btn-info btn-sm" onclick="abrirPegarConsulta()">Pegar datos de la consulta web</button><span style="font-size:.8em;color:var(--text-muted);margin-left:10px;">Del archivo DATOS — GA-…. txt que deja el formulario. Se completa solo.</span><div id="zonaConsultaWeb" style="margin-top:10px;"></div></div><form id="newClientForm"><div class="info-grid" style="grid-template-columns: 1fr 1fr;"><div class="form-group"><label>Título (Sr/Sra)</label><select id="newTitulo"><option value="SR/SRA">SR/SRA</option><option value="SR">SR</option><option value="SRA">SRA</option><option value="DR">DR</option><option value="DRA">DRA</option></select></div><div class="form-group"><label>Materia *</label><select id="newMateria" required onchange="toggleNewMateriaOtros()"><option value="ALIMENTOS">ALIMENTOS</option><option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option><option value="FILIACION">FILIACION</option><option value="VIOLENCIA FAMILIAR">VIOLENCIA FAMILIAR</option><option value="SUCESIONES">SUCESIONES</option><option value="DIVORCIOS">DIVORCIOS</option><option value="COMUNICACION CON HIJOS">COMUNICACION CON HIJOS</option><option value="PENAL">PENAL</option><option value="OTROS">OTROS</option></select><input type="text" id="newMateriaOtros" placeholder="Especificar materia..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Socio Asignado *</label><select id="newSocio" required>${getSocioOptionsHTML()}</select></div><div class="form-group"><label>Nombre *</label><input type="text" id="newNombre" required></div><div class="form-group"><label>DNI</label><input type="text" id="newDni"></div><div class="form-group"><label>Teléfono</label><input type="text" id="newTelefono"></div><div class="form-group"><label>Carátula</label><input type="text" id="newCaratula"></div><div class="form-group"><label>N° Expediente</label><input type="text" id="newExpediente"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Año de la Causa</label><input type="text" id="newAnioExpediente" placeholder="ej: 2024" maxlength="4"></div><div class="form-group"><label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg> Jurisdicción</label><select id="newJurisdiccion" onchange="toggleNewDepto()"><option value="">Sin definir</option><option value="PROVINCIA">PROVINCIA</option><option value="CABA">CABA</option><option value="FEDERAL">FEDERAL</option></select></div><div class="form-group" id="newDeptoGroup" style="display:none;"><label>Departamento Judicial</label><select id="newDeptoJudicial" onchange="toggleNewDeptoManual()"><option value="">-- Seleccionar --</option><option>Avellaneda-Lanús</option><option>Azul</option><option>Bahía Blanca</option><option>Dolores</option><option>Junín</option><option>La Matanza</option><option>La Plata</option><option>Lomas de Zamora</option><option>Mar del Plata</option><option>Mercedes</option><option>Moreno-Gral. Rodríguez</option><option>Morón</option><option>Necochea</option><option>Olavarría</option><option>Pergamino</option><option>Quilmes</option><option>San Isidro</option><option>San Martín</option><option>San Nicolás</option><option>Tandil</option><option>Trenque Lauquen</option><option>Tres Arroyos</option><option>Zárate/Campana</option><option>Otro (manual)</option></select><input type="text" id="newDeptoManual" placeholder="Escribir departamento..." style="display:none;margin-top:8px;width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;"></div><div class="form-group"><label>Juzgado</label><input type="text" id="newJuzgado"></div><div class="form-group"><label>Dirección Juzgado</label><input type="text" id="newDireccionJuzgado"></div><div class="form-group"><label>Tel. Juzgado</label><input type="text" id="newTelJuzgado"></div><div class="form-group"><label>Estado *</label><select id="newEstado" required><option value="EJECUCION">Ejecución</option><option value="FINALIZADA">Finalizada</option><option value="FINALIZADA PARCIAL">Finalizada Parcial</option><option value="DEMORADA">Demorada</option></select></div></div><div class="form-group" style="margin-top:20px;"><label>Tarea Inicial (Opcional)</label><textarea id="newObservacion" rows="3"></textarea></div><div class="form-group"><label>Fecha de Revisión para Tarea Inicial</label><input type="date" id="newFechaRevision"></div><div style="text-align:center;"><button type="submit" class="btn btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Caso</button></div></form>`;
             document.getElementById('clientSelectorModal').querySelector('.modal-content').innerHTML = `<span class="close" onclick="closeModal('clientSelectorModal')">&times;</span><h2><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Seleccionar Caso</h2><div class="form-group"><select id="clientSelector" onchange="loadClientInfo()"></select></div>`;
             document.getElementById('newClientForm').addEventListener('submit', function(e) { e.preventDefault(); const caratulaValue = document.getElementById('newCaratula').value.trim();
                 const expedienteValue = document.getElementById('newExpediente').value.trim();
@@ -8986,7 +9229,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 }
                 
                 const newClient = { id: generateId({}), fechaCreacion: getTodayYMD(), titulo: document.getElementById('newTitulo').value, materia: document.getElementById('newMateria').value, materiaOtros: document.getElementById('newMateria').value === 'OTROS' ? (document.getElementById('newMateriaOtros').value || '') : '', socio: document.getElementById('newSocio').value, nombre: document.getElementById('newNombre').value.toUpperCase(), dni: document.getElementById('newDni').value, telefono: document.getElementById('newTelefono').value, caratula: caratulaValue, expediente: document.getElementById('newExpediente').value.trim(), anioExpediente: document.getElementById('newAnioExpediente').value.trim(), jurisdiccion: document.getElementById('newJurisdiccion').value, deptoJudicial: document.getElementById('newDeptoJudicial') ? document.getElementById('newDeptoJudicial').value : '', deptoJudicialManual: document.getElementById('newDeptoManual') ? document.getElementById('newDeptoManual').value : '', juzgado: document.getElementById('newJuzgado').value, direccionJuzgado: document.getElementById('newDireccionJuzgado').value, telJuzgado: document.getElementById('newTelJuzgado').value, estado: document.getElementById('newEstado').value, audiencias: '', notas: '', provinciaCliente: 'Provincia de Buenos Aires', observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: [] };
-                const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
+                const obsText = document.getElementById('newObservacion').value; const revDate = document.getElementById('newFechaRevision').value; if (obsText && revDate) { newClient.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: obsText, proximaRevision: revDate, completed: false }); } aplicarConsultaPendiente(newClient); updateClientNextRevision(newClient); clientsData.push(newClient); saveData(); enviarJuridicaAAbonos(newClient); renderAll(); closeModal('newClientModal'); e.target.reset(); });
             loadData();
             leerSaludScba();
             renderAll();
