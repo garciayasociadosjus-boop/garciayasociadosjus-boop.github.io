@@ -8885,12 +8885,26 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 (j.mensaje || '') + '</div>' +
                 '<button id="btnConectarFallos" class="btn btn-sm" ' +
                 'style="background:var(--warning-color);color:#fff;border:none;">Conectar ' +
-                (j.servicio || '') + '</button>' +
+                (j.servicio || '') + '</button> ' +
+                // Sin esta salida el escrito queda trabado: si FalloBot no anda, o si el
+                // caso no da para buscar precedentes, igual tiene que poder redactarse.
+                '<button class="btn btn-sm" onclick="redactarSinFallos(this)" ' +
+                'title="Redacta igual, fundando con normativa y criterio doctrinal, sin citar fallos">' +
+                'Redactar sin jurisprudencia</button>' +
                 '</div>';
             // El handler se engancha acá y no como onclick: la URL viene del worker y así
             // no se mete dentro de una cadena de HTML.
             const b = document.getElementById('btnConectarFallos');
             if (b) b.onclick = function () { abrirConexionFallos(j.url, b); };
+        }
+
+        // Cuando está en true, el escrito se redacta sin pasar por FalloBot aunque el
+        // modelo esté marcado como "se funda en jurisprudencia".
+        let _sinFallos = false;
+
+        function redactarSinFallos(btn) {
+            _sinFallos = true;
+            redactarConComite(btn);
         }
 
         function abrirConexionFallos(url, btn) {
@@ -8924,7 +8938,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         rolCliente: 'la parte actora',
                         secciones: secciones,
                         // Las demandas se fundan en jurisprudencia; un escrito de trámite no.
-                        conJurisprudencia: modelo.jurisprudencia === true,
+                        conJurisprudencia: modelo.jurisprudencia === true && !_sinFallos,
                         documentos: documentos,
                         ficha: escritoContextoIA(client)
                     })
@@ -8936,11 +8950,38 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 if (!j.ok) throw new Error(j.error || 'no se pudo redactar');
                 Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
                 renderEscritos();
+                avisarRedaccion(secciones, documentos, _sinFallos);
             } catch (e) {
                 alert('No se pudo redactar: ' + e.message);
             } finally {
+                _sinFallos = false;
                 if (btn) { btn.disabled = false; btn.textContent = textoOrig || 'Redactar con el comité'; }
             }
+        }
+
+        // Sin esto no hay forma de saber qué pasó: el contador cambia arriba, pero si la
+        // vista previa quedó scrolleada no se ve nada y parece que no hizo nada.
+        function avisarRedaccion(secciones, documentos, sinFallos) {
+            const z = document.getElementById('zonaComite');
+            if (!z) return;
+            const escritas = secciones.filter(s => _iaRedactado[s.clave]);
+            const faltan = secciones.filter(s => !_iaRedactado[s.clave]);
+            const fuentes = (documentos || []).length
+                ? 'Miró en la biblioteca: ' + documentos.map(d => d.titulo).join('; ') + '.'
+                : 'No usó ningún modelo de la biblioteca para este escrito.';
+            z.innerHTML =
+                '<div style="border:1px solid var(--success-color);border-radius:10px;padding:12px;' +
+                'margin-top:10px;background:rgba(31,158,114,.07);font-size:.85em;line-height:1.5;">' +
+                '<b>Redactó ' + escritas.length + ' de ' + secciones.length + ': ' +
+                escritas.map(s => s.clave).join(', ') + '</b>' +
+                (faltan.length ? '<br><span style="color:var(--danger-color)">Quedaron sin redactar: ' +
+                    faltan.map(s => s.clave).join(', ') + '</span>' : '') +
+                '<br><span style="color:var(--text-muted)">' + fuentes + '</span>' +
+                (sinFallos ? '<br><span style="color:var(--warning-color)">Sin jurisprudencia: ' +
+                    'está fundado con normativa y criterio doctrinal, sin citar fallos.</span>' : '') +
+                '<br><span style="color:var(--text-muted)">Leelo en la vista previa de acá abajo antes de bajar el Word.</span>' +
+                '</div>';
+            z.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         // ── LOS DOS CAMINOS PARA REDACTAR ────────────────────────────────────────
