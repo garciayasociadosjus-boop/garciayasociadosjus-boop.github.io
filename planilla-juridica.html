@@ -8351,6 +8351,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     guardados[id].materia = semilla[id].materia;
                     faltan[id] = guardados[id];
                 }
+                // "jurisprudencia" no es contenido que el estudio edite: dice si ese TIPO de
+                // escrito se funda en fallos. Los modelos guardados antes de que existiera la
+                // marca no la tienen, y sin ella el Comité redactaba sin buscar jurisprudencia
+                // aunque FalloBot estuviera conectado. Se toma siempre de la semilla.
+                const j = semilla[id] && semilla[id].jurisprudencia === true;
+                if (j && guardados[id].jurisprudencia !== true) {
+                    guardados[id].jurisprudencia = true;
+                    faltan[id] = guardados[id];
+                }
             });
             escritosModelos = Object.assign({}, guardados, faltan);
             if (Object.keys(faltan).length) {
