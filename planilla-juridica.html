@@ -4051,6 +4051,18 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 // que la repite por otra oficina, y los escritos que la mencionan. Se
                 // agrupan por la FECHA de la audiencia, no por el titulo del proveido,
                 // que es distinto en cada una. Si no, la misma audiencia sale 3 veces.
+                // Lo agendado se rastrea por FECHA DE AUDIENCIA, no por actuación. Marcar la
+                // actuación no alcanza: el expediente sigue vivo y cada escrito posterior que
+                // mencione esa misma audiencia entra como una actuación nueva, sin la marca, y
+                // la alerta vuelve. Le pasó a FOLCO con la audiencia del 2/9: se dio por
+                // agendada y volvió a reclamarse dos veces.
+                const yaAgendadas = {};
+                (client.pjn_actuaciones || []).forEach(a => {
+                    if (!a || !a.audiencia_agendada) return;
+                    const f = pjnLeerAudiencia(a).fecha;
+                    if (f) yaAgendadas[f] = true;
+                });
+
                 const vistos = {};
                 (client.pjn_actuaciones || []).forEach((a, i) => {
                     if (!a || a.audiencia_agendada) return;
@@ -4060,6 +4072,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const fProv = pjnFechaISO(a.fecha);
                     if (!fProv || fProv < AUD_PJN_DESDE) return;
                     const leida = pjnLeerAudiencia(a);
+                    if (leida.fecha && yaAgendadas[leida.fecha]) return;   // esa audiencia ya está agendada
                     const clave = leida.fecha ? 'F' + leida.fecha : 'D' + fProv + '|' + (a.desc || '');
                     const item = { client: client, mov: { fecha: a.fecha }, idx: i,
                                    a: leida, fuente: 'pjn' };
@@ -4081,10 +4094,22 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             return out;
         }
 
-        function marcarAudienciaAgendada(clientId, movIdx, fuente) {
+        async function marcarAudienciaAgendada(clientId, movIdx, fuente, fechaAud, horaAud) {
             const client = clientsData.find(c => c.id === clientId);
             if (!client) return;
-            if (!confirm('¿Dar por agendada esta audiencia?\n\nLa alerta se saca y no vuelve a aparecer para este proveído.')) return;
+
+            // El control de superposición vivía solo en el alta manual, y por acá entran hoy
+            // casi todas: las que se detectan en los proveídos del MEV y del PJN. Se avisa
+            // ANTES de dar por agendada, que es cuando todavía se puede pedir otra fecha.
+            if (fechaAud) {
+                const choques = findOverlappingAudiencias(fechaAud, horaAud || '');
+                if (choques.length) {
+                    const seguir = await showOverlapWarning(choques, fechaAud);
+                    if (!seguir) return;
+                }
+            }
+
+            if (!confirm('¿Dar por agendada esta audiencia?\n\nLa alerta se saca y no vuelve a aparecer para esta audiencia.')) return;
             const ahora = new Date().toISOString();
             if (fuente === 'pjn') {
                 const a = (client.pjn_actuaciones || [])[movIdx];
@@ -4154,7 +4179,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     + '<div style="font-size:.78em;color:var(--text-muted);margin-top:3px;line-height:1.35;">"' + esc(a.cita || '') + '"</div>'
                     + '<div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap;">'
                     + '<button onclick="showClientModal(\'' + it.client.id + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--info-color);border-radius:6px;color:var(--info-color);background:transparent;cursor:pointer;font-weight:600;">Abrir la ficha y agendar</button>'
-                    + '<button onclick="marcarAudienciaAgendada(\'' + it.client.id + '\',' + it.idx + ',\'' + it.fuente + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--success-color);border-radius:6px;color:#fff;background:var(--success-color);cursor:pointer;font-weight:600;">Ya está agendada</button>'
+                    + '<button onclick="marcarAudienciaAgendada(\'' + it.client.id + '\',' + it.idx + ',\'' + it.fuente + '\',\'' + (a.fecha || '') + '\',\'' + (a.hora || '') + '\')" style="font-size:.78em;padding:5px 11px;border:1px solid var(--success-color);border-radius:6px;color:#fff;background:var(--success-color);cursor:pointer;font-weight:600;">Ya está agendada</button>'
                     + '</div></div>';
             }).join('');
 
@@ -6687,16 +6712,35 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         async function addObservation(event, clientId) { event.preventDefault(); const client = clientsData.find(c => c.id === clientId); if (!client) return; client.observaciones.push({ id: generateId({}), fecha: getTodayYMD(), texto: document.getElementById('newObsText').value, textoPrivado: document.getElementById('newObsTextPrivate').value, proximaRevision: document.getElementById('newRevisionDate').value, completed: false }); await updateClientNextRevision(client); saveData(); renderAll(); showClientModal(clientId); }
         
         // ── DETECCIÓN DE SUPERPOSICIÓN DE AUDIENCIAS ──
-        function findOverlappingAudiencias(fecha) {
+        // Dos audiencias el mismo día no son lo mismo que dos a la misma hora: a las 9 y a
+        // las 15 se cumplen las dos, a las 9 y a las 9 hay que pedir una reprogramación. El
+        // aviso los trataba igual, así que o se ignoraba siempre o se cancelaba de más.
+        // Se considera choque si se pisan dentro de una hora: una audiencia rara vez dura
+        // menos, y de un juzgado a otro hay que viajar.
+        const MINUTOS_CHOQUE = 60;
+
+        function minutosDeHora(h) {
+            const m = /^(\d{1,2}):(\d{2})/.exec(String(h || ''));
+            return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+        }
+
+        function findOverlappingAudiencias(fecha, hora, excluirId) {
             const overlaps = [];
+            const min = minutosDeHora(hora);
             clientsData.forEach(client => {
                 (client.audiencias_list || []).forEach(aud => {
                     if (aud.completed || !aud.fecha) return;
-                    if (aud.fecha === fecha) {
-                        overlaps.push({ client, audiencia: aud });
-                    }
+                    if (excluirId && aud.id === excluirId) return;
+                    if (aud.fecha !== fecha) return;
+                    const otro = minutosDeHora(aud.hora);
+                    // Sin hora en alguna de las dos no se puede afirmar que choquen.
+                    const choca = (min !== null && otro !== null) &&
+                                  Math.abs(min - otro) < MINUTOS_CHOQUE;
+                    overlaps.push({ client, audiencia: aud, choca });
                 });
             });
+            // Los choques primero: es lo que hay que mirar.
+            overlaps.sort((a, b) => (b.choca ? 1 : 0) - (a.choca ? 1 : 0));
             return overlaps;
         }
 
@@ -6707,7 +6751,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     const clientName = o.client.nombre || 'Sin Nombre';
                     const caratula = o.client.caratula || '';
                     const exp = o.client.expediente || 'S/N';
-                    return `<div class="overlap-card">
+                    return `<div class="overlap-card" style="${o.choca ? 'border-left:3px solid var(--danger-color);' : ''}">${o.choca ? '<div style="font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--danger-color);'
+                        + 'text-transform:uppercase;margin-bottom:3px;">Se pisa con esta</div>' : ''}
                         <div class="overlap-client">${clientName}${caratula ? ' — ' + caratula : ''} (Exp: ${exp})</div>
                         <div class="overlap-detail">
                             <span class="overlap-time"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatTime(o.audiencia.hora)} hs</span><br>${o.audiencia.texto}
@@ -6715,6 +6760,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     </div>`;
                 }).join('');
 
+                const hayChoque = overlaps.some(o => o.choca);
                 const plural = overlaps.length > 1;
                 modal.querySelector('.modal-content').innerHTML = `
                     <div class="overlap-icon">
@@ -6723,7 +6769,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
                     </div>
-                    <h2>Audiencia superpuesta</h2>
+                    <h2>${hayChoque ? 'Se superpone con otra audiencia' : 'Otra audiencia el mismo día'}</h2>
                     <p class="overlap-subtitle">Ya tenés ${plural ? overlaps.length + ' audiencias' : 'una audiencia'} agendada${plural ? 's' : ''} para el <strong>${formatDate(nuevaFecha)}</strong>:</p>
                     ${cardsHtml}
                     <div class="overlap-actions">
@@ -6744,7 +6790,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const client = clientsData.find(c => c.id === clientId); if (!client) return;
             const fecha = document.getElementById('newAudienceDate').value;
             const hora = document.getElementById('newAudienceTime').value;
-            const overlaps = findOverlappingAudiencias(fecha);
+            const overlaps = findOverlappingAudiencias(fecha, hora);
             if (overlaps.length > 0) {
                 const proceed = await showOverlapWarning(overlaps, fecha);
                 if (!proceed) return;
