@@ -8924,35 +8924,56 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
             const textoOrig = btn ? btn.textContent : '';
             if (btn) { btn.disabled = true; btn.textContent = 'Buscando en la biblioteca…'; }
+            const sinFallos = _sinFallos;
+            let documentos = [];
+            const fallaron = [];
             try {
                 // Primero la biblioteca: el Comité redacta mirando los modelos del
                 // Estudio, igual que en el Proyecto.
-                const documentos = await bibDocumentosPara(client, modelo);
-                if (btn) btn.textContent = 'Redactando…';
-                const r = await fetch(IA_URL + '/api/redactar-escrito', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        materia: client.materia || '',
-                        escrito: modelo.nombre || '',
-                        rolCliente: 'la parte actora',
-                        secciones: secciones,
-                        // Las demandas se fundan en jurisprudencia; un escrito de trámite no.
-                        conJurisprudencia: modelo.jurisprudencia === true && !_sinFallos,
-                        documentos: documentos,
-                        ficha: escritoContextoIA(client)
-                    })
-                });
-                const j = await r.json();
-                // El Dr. Iura Novit pide la conexión cuando la necesita: no se redacta un
-                // escrito que debe fundarse en jurisprudencia sin tener las fuentes.
-                if (j.necesita_conexion) { pedirConexionFallos(j); return; }
-                if (!j.ok) throw new Error(j.error || 'no se pudo redactar');
-                Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
+                documentos = await bibDocumentosPara(client, modelo);
+
+                // UNA LLAMADA POR SECCIÓN, no todas juntas. Pedir las tres de un saque con
+                // la búsqueda de jurisprudencia encima pasaba los 100 segundos que aguanta
+                // Cloudflare y volvía un error 524 sin nada redactado. Paso el 18/08/2026.
+                // De paso se ve avanzar el contador en vez de una espera muda.
+                for (let i = 0; i < secciones.length; i++) {
+                    if (btn) btn.textContent = 'Redactando ' + (i + 1) + ' de ' + secciones.length + '…';
+                    const r = await fetch(IA_URL + '/api/redactar-escrito', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            materia: client.materia || '',
+                            escrito: modelo.nombre || '',
+                            rolCliente: 'la parte actora',
+                            secciones: [secciones[i]],
+                            // Las demandas se fundan en jurisprudencia; un escrito de trámite no.
+                            conJurisprudencia: modelo.jurisprudencia === true && !sinFallos,
+                            documentos: documentos,
+                            ficha: escritoContextoIA(client)
+                        })
+                    });
+                    // Un 524 de Cloudflare no viene en JSON: sin esto el error que se ve es
+                    // "Unexpected token e", que no le dice nada a nadie.
+                    const crudo = await r.text();
+                    let j;
+                    try { j = JSON.parse(crudo); }
+                    catch (e) {
+                        throw new Error(r.status === 524 || /error code: 524/.test(crudo)
+                            ? 'la redacción tardó demasiado y Cloudflare cortó la conexión'
+                            : 'el servidor respondió algo que no es JSON (HTTP ' + r.status + ')');
+                    }
+                    // El Dr. Iura Novit pide la conexión cuando la necesita: no se redacta un
+                    // escrito que debe fundarse en jurisprudencia sin tener las fuentes.
+                    if (j.necesita_conexion) { pedirConexionFallos(j); return; }
+                    if (!j.ok || !j.secciones) { fallaron.push(secciones[i].clave + ': ' + (j.error || 'sin respuesta')); continue; }
+                    Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
+                }
                 renderEscritos();
-                avisarRedaccion(secciones, documentos, _sinFallos);
+                avisarRedaccion(secciones, documentos, sinFallos, fallaron);
             } catch (e) {
-                alert('No se pudo redactar: ' + e.message);
+                // Lo que ya se redactó antes del error no se pierde.
+                renderEscritos();
+                avisarRedaccion(secciones, documentos, sinFallos, fallaron.concat([e.message]));
             } finally {
                 _sinFallos = false;
                 if (btn) { btn.disabled = false; btn.textContent = textoOrig || 'Redactar con el comité'; }
@@ -8961,7 +8982,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         // Sin esto no hay forma de saber qué pasó: el contador cambia arriba, pero si la
         // vista previa quedó scrolleada no se ve nada y parece que no hizo nada.
-        function avisarRedaccion(secciones, documentos, sinFallos) {
+        function avisarRedaccion(secciones, documentos, sinFallos, errores) {
             const z = document.getElementById('zonaComite');
             if (!z) return;
             const escritas = secciones.filter(s => _iaRedactado[s.clave]);
@@ -8969,13 +8990,18 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const fuentes = (documentos || []).length
                 ? 'Miró en la biblioteca: ' + documentos.map(d => d.titulo).join('; ') + '.'
                 : 'No usó ningún modelo de la biblioteca para este escrito.';
+            const hayLio = faltan.length || (errores || []).length;
             z.innerHTML =
-                '<div style="border:1px solid var(--success-color);border-radius:10px;padding:12px;' +
-                'margin-top:10px;background:rgba(31,158,114,.07);font-size:.85em;line-height:1.5;">' +
-                '<b>Redactó ' + escritas.length + ' de ' + secciones.length + ': ' +
-                escritas.map(s => s.clave).join(', ') + '</b>' +
+                '<div style="border:1px solid var(--' + (hayLio ? 'warning' : 'success') + '-color);' +
+                'border-radius:10px;padding:12px;margin-top:10px;font-size:.85em;line-height:1.5;' +
+                'background:rgba(' + (hayLio ? '212,144,26' : '31,158,114') + ',.07);">' +
+                '<b>Redactó ' + escritas.length + ' de ' + secciones.length +
+                (escritas.length ? ': ' + escritas.map(s => s.clave).join(', ') : '') + '</b>' +
                 (faltan.length ? '<br><span style="color:var(--danger-color)">Quedaron sin redactar: ' +
-                    faltan.map(s => s.clave).join(', ') + '</span>' : '') +
+                    faltan.map(s => s.clave).join(', ') +
+                    '. Volvé a tocar el botón: lo ya redactado no se pierde.</span>' : '') +
+                ((errores || []).length ? '<br><span style="color:var(--danger-color)">' +
+                    errores.join('<br>') + '</span>' : '') +
                 '<br><span style="color:var(--text-muted)">' + fuentes + '</span>' +
                 (sinFallos ? '<br><span style="color:var(--warning-color)">Sin jurisprudencia: ' +
                     'está fundado con normativa y criterio doctrinal, sin citar fallos.</span>' : '') +
