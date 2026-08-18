@@ -3274,12 +3274,18 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
             document.getElementById('adminUsersBtn').style.display = (sesionActual === USUARIOS[ADMIN_KEY]) ? 'inline-flex' : 'none';
             renderSocioFilter();
+            // Acá adentro, que es donde todavía vale el clic del usuario: si se pidiera
+            // más tarde el navegador tomaría la ventana de Google por un pop-up y la bloquearía.
+            conectarBibliotecaAlEntrar();
             initApp();
         }
 
         function doLogout() {
             if (!confirm('¿Querés cerrar sesión?')) return;
             sesionActual = null;
+            // El permiso de la biblioteca dura lo que dura la sesión, no más.
+            bibToken = ''; bibTokenVence = 0; bibConectada = false;
+            pintarEstadoBiblioteca();
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
             document.getElementById('loginPassword').value = '';
@@ -5513,6 +5519,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     telefono: 'Teléfono',
                     domicilioCliente: 'Domicilio del cliente',
                     iniciadoPorEstudio: 'Origen del expediente',
+                    relatoCaso: 'Relato del caso',
+                    padreBiologicoNombre: 'Padre biológico',
+                    padreBiologicoDni: 'DNI del padre biológico',
+                    padreBiologicoDomicilio: 'Domicilio del padre biológico',
                     matrimonioFecha: 'Fecha del matrimonio',
                     matrimonioLugar: 'Lugar del matrimonio',
                     matrimonioRegistro: 'Registro civil',
@@ -5602,6 +5612,16 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                                 '<span style="color:' + color + ';font-weight:600;">' + txt + '</span>',
                                 { crudo: true });
                         }
+
+                        // Lo que el cliente contó y no entra en ningún campo: de acá saca el
+                        // comité el relato de los hechos. Sin esto solo ve datos sueltos —edades,
+                        // ingresos, importes— y tiene que deducir la historia, que es justamente
+                        // lo que no debe inventar.
+                        case 'relatoCaso':
+                            return fila(key, 'Relato del caso',
+                                (v && String(v).trim()) ? String(v).replace(/</g, '&lt;').replace(/\n/g, '<br>')
+                                                        : '<span class="sd">contá acá lo que pasó, con tus palabras</span>',
+                                { ancho: true });
 
                         case 'notas':
                             return fila(key, 'Notas',
@@ -5703,6 +5723,20 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
                         <h4 style="margin-top:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 3v18M5 6l7-3 7 3M5 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8zM19 6l-3 8c0 2 1.5 3 3 3s3-1 3-3l-3-8z"/></svg> Juzgado</h4>
                         <div class="datos-lista">${grupo(['juzgado','direccionJuzgado','telJuzgado'])}</div>
+
+                        ${(() => {
+                            // El padre biológico es una SEGUNDA parte demandada, propia de la
+                            // impugnación de filiación: la ficha tiene un solo demandado y esa
+                            // demanda va contra dos. Antes quedaba como [COMPLETAR] en el escrito.
+                            const esFiliacion = (client.materia || '').toUpperCase() === 'FILIACION';
+                            const hay = !!(client.padreBiologicoNombre || client.padreBiologicoDni);
+                            if (!esFiliacion && !hay) return '';
+                            return `<h4 style="margin-top:16px;">Padre biológico</h4>
+                        <div class="datos-lista">${grupo(['padreBiologicoNombre','padreBiologicoDni','padreBiologicoDomicilio'])}</div>`;
+                        })()}
+
+                        <h4 style="margin-top:16px;">Relato del caso</h4>
+                        <div class="datos-lista">${grupo(['relatoCaso'])}</div>
 
                         <h4 style="margin-top:16px;">Notas</h4>
                         <div class="datos-lista">${grupo(['notas'])}</div>
@@ -8196,6 +8230,61 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         '>>**SERÁ JUSTICIA.**'
                     ].join('\n')
                 },
+                cambio_de_nombre: {
+                    jurisprudencia: true,
+                    nombre: 'Solicita autorización para cambio de nombre',
+                    materia: 'OTROS',
+                    cuerpo: '**SOLICITA AUTORIZACIÓN JUDICIAL PARA EL CAMBIO DE NOMBRE**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, por derecho propio y en representación de {{hijos_con_edad}}, conforme lo acredito con la partida de nacimiento que se acompaña, con domicilio real en {{domicilio_real}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, correo electrónico {{mail}}, teléfono {{telefono}}, a V.S. me presento y respetuosamente digo:**\n\n**I. OBJETO**\nQue vengo a promover demanda judicial solicitando autorización para el cambio de nombre de {{hijos_nombres}}, en los términos de los artículos 69 y 70 del Código Civil y Comercial de la Nación, en virtud de los justos motivos que se detallan a continuación.\n{{ia:pretension|Indicá en una o dos oraciones qué se pide concretamente: qué apellido o nombre se suprime, se agrega o se modifica, y cómo debe quedar inscripto en lo sucesivo. Tomalo del relato del estudio; si no está claro, decí que se detallará y dejalo señalado.}}\n\n**II. HECHOS**\n{{ia:hechos|Relatá los justos motivos que fundan el pedido, siguiendo estrictamente el relato del estudio: el origen de la situación, la inexistencia o el carácter del vínculo con la persona cuyo apellido se cuestiona, el uso social y escolar del nombre que efectivamente lleva, y el perjuicio que le genera la situación registral actual. Tratá el asunto con la gravedad y la sobriedad que corresponde. No inventes hechos, causas penales, pericias ni fechas: usá solo lo que surja del relato.}}\n\n**III. DERECHO**\nEl artículo 69 del Código Civil y Comercial permite el cambio o supresión de apellido por justos motivos, los cuales se acreditan en el presente caso.\nLa Convención sobre los Derechos del Niño, con jerarquía constitucional, la Ley 26.061 de Protección Integral de los Derechos de las Niñas, Niños y Adolescentes y la doctrina judicial aplicable imponen al Estado el deber de velar por la integridad psíquica y el desarrollo armónico de los niños, así como por su derecho a la identidad, comprensivo del nombre con el que efectivamente son identificados en su entorno familiar, escolar y social.\n\n**IV. PRUEBA**\n**DOCUMENTAL:**\nPartida de nacimiento y copia del DNI de los alimentados.\nCopia del DNI de la parte actora.\n{{ia:documental|Enumerá en renglones cortos la documental adicional que corresponda según el relato: sentencias, pericias, certificados escolares, informes psicológicos, actuaciones judiciales previas. Solo lo que surja del relato; si no hay nada más, no agregues nada.}}\n\n**TESTIMONIAL:**\nSe ofrecerá la declaración de testigos del entorno familiar, escolar y social, a individualizarse en la oportunidad procesal correspondiente.\n\n**INFORMATIVA:**\nOficio al establecimiento educativo a fin de constatar el nombre con el que es identificado.\nOficio al Registro del Estado Civil y Capacidad de las Personas a fin de acreditar la partida y verificar la inscripción.\n\n**V. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1. Me tenga por presentada, por parte y por constituido el domicilio legal.\n2. Se tenga por iniciada la presente acción de cambio de nombre.\n3. Se agregue la documental y se provea el resto de la prueba ofrecida.\n4. Se dé intervención al Ministerio Público en resguardo del interés superior de los niños.\n5. Se ordenen las publicaciones de ley conforme el art. 70 del CCyCN.\n6. Oportunamente, se haga lugar a la demanda y se autorice el cambio de nombre solicitado, librándose oficio al Registro del Estado Civil y Capacidad de las Personas para su inscripción.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                divorcio_conjunto: {
+                    jurisprudencia: true,
+                    nombre: 'Divorcio por presentación conjunta',
+                    materia: 'DIVORCIOS',
+                    cuerpo: '**INICIAN DIVORCIO POR PRESENTACIÓN CONJUNTA**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, con domicilio real en {{domicilio_real}}, y {{demandado}}, DNI N° {{demandado_dni}}, con domicilio real en {{demandado_domicilio}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, denunciando domicilio electrónico con el CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, teléfono {{telefono}}, y dirección de correo electrónico {{mail}}, a V.S. nos presentamos y respetuosamente decimos:**\n\n**I. OBJETO**\nQue venimos en los términos de los arts. 435, 437 y concordantes del Código Civil y Comercial de la Nación a solicitar se decrete nuestro divorcio.\n\n**II. COMPETENCIA**\nLa misma resulta en razón de que el último domicilio conyugal fue el sito en {{domicilio_real}} (arts. 5 inc. 3 y 827 inc. a del CPCC).\n\n**III. HECHOS**\nQue las partes contrajeron enlace matrimonial {{#si matrimonio}}el día {{matrimonio_fecha}} en {{matrimonio_lugar}}, ante el {{matrimonio_registro}}, {{/si}}como se acredita con la partida de matrimonio que se adjunta al presente escrito.\n{{#si hijos}}De dicha unión nacieron {{hijos_con_edad}}.{{/si}}\n{{#no hijos}}De dicha unión no nacieron hijos.{{/no}}\nQue debido a diferentes circunstancias se hizo imposible la convivencia, existiendo causas que tornaron imposible la vida en común. En virtud de que la ley vigente exime a las partes de exponer dichas causales, se torna innecesaria su exposición, quedando dentro del ámbito privado y haciéndose expresa reserva de las mismas.\n{{#no bienes}}Denunciamos que no poseemos bienes en común.{{/no}}\n{{#si bienes}}Denunciamos como bienes en común los siguientes: {{bienes_lista}}.{{/si}}\nEn razón de lo expuesto, solicitamos se decrete nuestro divorcio por la voluntad conjunta de quienes suscriben, conforme lo faculta el art. 437 del Código Civil y Comercial de la Nación, con los efectos de los arts. 439 a 445 del mismo cuerpo legal.\n\n**IV. PROPUESTA DE CONVENIO REGULADOR**\n{{#si convenio_necesario}}En orden a lo establecido por los arts. 438 y 439 del CCyCN, se formula la siguiente propuesta:\n{{ia:convenio|Redactá la propuesta de convenio regulador según lo que corresponda al caso: cuidado personal y régimen de comunicación de los hijos menores si los hay, alimentos, y atribución o liquidación de los bienes en común. Si algún punto no surge de los datos, proponé que se determine de común acuerdo o judicialmente. No inventes montos ni regímenes concretos que no surjan del relato.}}{{/si}}\n{{#no convenio_necesario}}En orden a lo establecido por los arts. 438 y 439 del CCyCN, hacemos saber a V.S. que en el caso que nos ocupa no se encuentran reunidos los presupuestos fácticos contemplados en la Sección 3ra, en consonancia con lo establecido en el Título I y en el Título VII del Libro Segundo, Relaciones de Familia, del Código citado, razón por la cual no se acompaña propuesta alguna.{{/no}}\n\n**V. PRUEBA**\nSe acompaña la siguiente prueba documental:\nPartida de matrimonio timbrada.\nCopia del DNI de ambas partes.\n{{#si hijos}}Partidas de nacimiento de los hijos.{{/si}}\n\n**VI. DERECHO**\nSe funda el derecho en los arts. 423, 431, 435, 436 a 438, 439, 441, 442, 443, 444 a 446 y concordantes del Código Civil y Comercial de la Nación, arts. 5 inc. 3 y 827 inc. a y concordantes del CPCC, doctrina y jurisprudencia aplicables.\n\n**VII. PETITORIO**\nPor lo expuesto, se solicita:\n1. Se nos tenga por presentados, por parte y por constituidos los domicilios procesal y electrónico indicados.\n2. Se tenga por presentada la solicitud de divorcio por voluntad conjunta y oportunamente se dicte sentencia de divorcio (art. 435 y concordantes del Código Civil y Comercial de la Nación).\n3. Una vez dictada sentencia, se libre oficio para la inscripción del divorcio en el Registro Civil que corresponda y se expidan testimonios de la sentencia a las partes con constancia de la inscripción efectuada.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                demanda_cuidado_personal: {
+                    jurisprudencia: true,
+                    nombre: 'Inicia demanda de cuidado personal unilateral',
+                    materia: 'CUIDADO PERSONAL',
+                    cuerpo: '**SUMARIO**\nACTOR: {{cliente}}, DNI N° {{dni}}\nDEMANDADO: {{demandado}}, DNI N° {{demandado_dni}}\nMATERIA: CUIDADO PERSONAL\nDOCUMENTAL: DNI de la parte actora, DNI y partida de nacimiento de los niños.\n\n**INICIA DEMANDA DE CUIDADO PERSONAL UNILATERAL**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, con domicilio real en {{domicilio_real}}, por derecho propio y en representación de {{hijos_con_edad}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, CUIT N° {{cuit}}, constituyendo domicilio legal en {{domicilio_procesal}}, a V.S. me presento y respetuosamente digo:**\n\n**I. OBJETO**\nQue vengo por el presente a iniciar demanda de cuidado personal unilateral a favor de quien suscribe, respecto de {{hijos_nombres}}, en los términos del artículo 653 del Código Civil y Comercial de la Nación, y con el fin de garantizar el interés superior de los niños, en razón de los hechos que a continuación se exponen.\n\n**II. HECHOS**\n{{ia:hechos|Relatá los hechos siguiendo el relato del estudio: cómo fue la relación con el otro progenitor, cuándo nacieron los hijos, qué circunstancias justifican que el cuidado personal sea unilateral —violencia, abandono, desprotección, incumplimiento alimentario, riesgos concretos— y por qué el entorno de la parte actora garantiza estabilidad, educación, salud y contención. Cerrá señalando que el cuidado personal unilateral es excepcional y que en este caso es el único compatible con el interés superior de los niños. No inventes episodios, fechas ni denuncias: usá solo lo que surja del relato.}}\n\n**III. DERECHO**\nFundo mi petición en lo normado por los artículos 653 y concordantes del Código Civil y Comercial de la Nación, la Convención sobre los Derechos del Niño, así como en la doctrina y jurisprudencia vigentes que tutelan el interés superior de los niños.\n\n**IV. PRUEBA**\n**Documental:**\nDNI de la parte actora.\nDNI y partida de nacimiento de los niños.\n{{ia:documental|Enumerá en renglones cortos la documental adicional que corresponda según el relato: denuncias policiales, medidas cautelares, informes escolares o médicos, actuaciones de otras causas. Solo lo que surja del relato.}}\n\n**Informativa:**\nOficio al establecimiento educativo al que concurren los niños, a efectos de que informe sobre asistencia, comportamiento y evolución académica.\n\n**Pericial socioambiental:**\nSe designe Perito Asistente Social para que se constituya en el domicilio de esta parte a fin de evaluar las condiciones de habitabilidad, higiene, afecto y contención del entorno.\n\n**Pericial psicológica:**\nSe designe perito psicólogo de oficio para evaluar a ambas partes y determinar condiciones emocionales, aptitudes parentales y posibles indicadores de violencia o manipulación.\n\n**Testimonial:**\nSe ofrecerán testigos en su oportunidad.\n\n**V. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1. Me tenga por presentada, parte y con el patrocinio letrado indicado.\n2. Se corra traslado de la demanda a {{demandado}}.\n3. Se provea la prueba ofrecida.\n4. Se otorgue el cuidado personal unilateral de {{hijos_nombres}} a favor de esta parte, en los términos del art. 653 del CCyCN.\n5. Se impongan las costas a la parte demandada.\n6. Se tenga presente la reserva del derecho de ampliar la demanda.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                demanda_comunicacion: {
+                    jurisprudencia: true,
+                    nombre: 'Solicita fijación de régimen de comunicación',
+                    materia: 'COMUNICACION CON HIJOS',
+                    cuerpo: '**SUMARIO**\nActor: {{cliente}}\nDemandada: {{demandado}}\nObjeto: Derecho de comunicación\nDocumentación acompañada: partida de nacimiento, DNI de los niños, DNI de la parte actora.\n\n**SOLICITA FIJACIÓN DE RÉGIMEN DE COMUNICACIÓN**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, con domicilio real en {{domicilio_real}}, en representación de {{hijos_con_edad}}, por derecho propio, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, denunciando domicilio electrónico con el CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, teléfono {{telefono}}, y dirección de correo electrónico {{mail}}, a V.S. me presento y respetuosamente digo:**\n\n**I. OBJETO**\nQue vengo a promover formal demanda por fijación de régimen de comunicación con {{hijos_nombres}}, quien/es actualmente se encuentra/n bajo el cuidado personal de {{demandado}}, DNI N° {{demandado_dni}}, con domicilio en {{demandado_domicilio}}, por las consideraciones de hecho y de derecho que a continuación se detallan.\n\n**II. HECHOS**\n{{ia:hechos|Relatá los hechos del caso siguiendo el relato del estudio: cómo fue la relación, cuándo nacieron los hijos, qué régimen regía hasta ahora, desde cuándo y de qué modo se interrumpió el contacto, qué gestiones hizo la parte actora para restablecerlo y con qué resultado, y qué consecuencias tuvo la interrupción sobre la salud, la escolaridad o los tratamientos de los niños. No inventes fechas, nombres de terceros ni episodios: usá únicamente lo que surja del relato y de los datos.}}\n{{#si discapacidad}}Cabe destacar que el niño requiere tratamientos especiales, cuya continuidad depende de la colaboración de ambos progenitores.{{/si}}\n\n**III. PRUEBA**\n**A) DOCUMENTAL**\nSe acompañan:\nCertificado de nacimiento y copia del DNI de los niños.\nDNI de la parte actora.\n{{ia:documental|Enumerá, en renglones cortos, la documental adicional que corresponda según el relato: denuncias previas por impedimento de contacto, actas escolares, informes de terapeutas, capturas de mensajes, fotografías. Solo lo que surja del relato; si no hay nada más, no agregues nada.}}\n\n**B) TESTIMONIAL**\nSe ofrecerán testigos a individualizarse en la oportunidad procesal correspondiente.\n\n**C) INFORMATIVA**\nINFORME SOCIO-AMBIENTAL: solicito se realice un informe socioambiental en el domicilio de la parte demandada y en el de esta parte, a fin de determinar las condiciones en las que viven, la individualización de los integrantes de cada grupo familiar, las condiciones de higiene y todo otro dato que V.S. considere relevante.\nINFORME PSICOLÓGICO: solicito se realice un informe psicológico por el equipo técnico del Juzgado respecto de ambos progenitores, con la finalidad de elaborar un perfil psicológico de cada uno.\n\n**IV. RÉGIMEN DE COMUNICACIÓN**\nTeniendo en cuenta la edad de los niños y los horarios laborales de esta parte, se solicita la fijación de un régimen de comunicación en los siguientes términos:\n{{ia:regimen|Proponé el régimen: fines de semana con día y hora de retiro y restitución y lugar de entrega; Día del Padre o de la Madre según quién sea la parte actora; cumpleaños del niño y de familiares; fiestas de fin de año alternadas; y semanas de vacaciones de verano e invierno. Ajustalo a la edad de los niños y a lo que surja del relato.}}\n\n**V. DERECHO**\nFundo la presente acción en lo dispuesto en los arts. 555, 650 y concordantes del Código Civil y Comercial de la Nación, como así también en los arts. 9 inc. 3 y concordantes de la Convención sobre los Derechos del Niño, Ley 24.270, doctrina y jurisprudencia aplicable al caso.\n\n**VI. PETITORIO**\nA) Se me tenga por presentado, por parte, por válido el domicilio electrónico indicado en el encabezamiento y por constituido el domicilio procesal, así como la dirección de correo electrónico.\nB) Se agregue y tenga presente la documentación acompañada.\nC) Se corra traslado a la parte demandada por el término y bajo apercibimiento de ley.\nD) Se provean las pruebas ofrecidas.\nE) Oportunamente, se dicte sentencia haciendo lugar a la demanda y fijando el régimen de comunicación propuesto, o el que V.S. estime más adecuado al interés superior de los niños.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                acuerdo_regimen: {
+                    nombre: 'Acuerdo de régimen de comunicación',
+                    materia: 'COMUNICACION CON HIJOS',
+                    cuerpo: '**ACUERDO DE RÉGIMEN DE COMUNICACIÓN**\n\nEntre {{cliente}}, DNI N° {{dni}}, con domicilio real en {{domicilio_real}}, en su carácter de progenitor/a de {{hijos_nombres}}, por una parte, en adelante "UNA PARTE"; y por la otra, {{demandado}}, DNI N° {{demandado_dni}}, con domicilio real en {{demandado_domicilio}}, en su carácter de progenitor/a de los mismos, en adelante "LA OTRA PARTE"; convienen celebrar el presente ACUERDO DE RÉGIMEN DE COMUNICACIÓN, sujeto a homologación judicial, conforme las siguientes cláusulas:\n\n**PRIMERA: OBJETO**\nEl presente acuerdo tiene por objeto establecer un régimen de comunicación estable y adecuado a la edad de {{hijos_nombres}}, priorizando su interés superior, su bienestar psicofísico y su derecho a mantener un vínculo fluido con ambos progenitores.\n\n**SEGUNDA: RÉGIMEN DE COMUNICACIÓN**\n{{ia:regimen|Redactá las cláusulas del régimen de comunicación: días de semana, fines de semana, con o sin pernocte, horarios de retiro y restitución, y —si la edad de los niños lo justifica— una fase inicial de adaptación seguida de una ampliación. Usá lo que surja de la descripción del caso; si no hay detalle suficiente, proponé un régimen razonable para la edad y aclará que queda sujeto a lo que las partes coordinen.}}\n\n**TERCERA: DÍAS ESPECIALES**\nSe acuerda expresamente que:\na) El Día del Padre y el Día de la Madre, cada progenitor/a compartirá el día con los niños, con independencia del régimen vigente.\nb) Cumpleaños de cada progenitor/a y de familiares directos: se garantiza el derecho de comunicación.\nc) Cumpleaños de los niños: ambos progenitores podrán compartir el festejo, en horario a convenir.\nd) Feriados y fechas significativas: se alternarán anualmente entre ambos progenitores.\ne) Fiestas de fin de año: se alternarán Navidad y Año Nuevo entre ambos progenitores, invirtiéndose el esquema año a año.\n\n**CUARTA: VACACIONES**\n{{ia:vacaciones|Redactá la cláusula de vacaciones: cuántos días o semanas de la temporada estival y de las vacaciones de invierno corresponden a cada progenitor, con la obligación de informar previamente el lugar de estadía y los datos de contacto. Ajustalo a la edad de los niños.}}\n\n**QUINTA: BUENA FE Y COMUNICACIÓN**\nAmbas partes se comprometen a actuar con buena fe, flexibilidad y respeto mutuo, evitando conductas que obstaculicen el vínculo de los niños con el otro progenitor, y a comunicarse de manera directa todo lo relativo a su salud, educación y bienestar.\n\n**SEXTA: HOMOLOGACIÓN**\nEl presente acuerdo será presentado para su homologación judicial, adquiriendo plena validez una vez aprobado por el Juzgado interviniente.\n\n**SÉPTIMA: DOMICILIOS**\nA los efectos legales, las partes constituyen los domicilios indicados en el encabezado del presente, donde serán válidas todas las notificaciones.\n\nEn prueba de conformidad, se firman dos ejemplares de un mismo tenor y a un solo efecto, en la ciudad de [COMPLETAR: ciudad], a los [COMPLETAR: día] días del mes de [COMPLETAR: mes] de [COMPLETAR: año].\n\n\n____________________________          ____________________________\n{{cliente}}                           {{demandado}}'
+                },
+                impugnacion_filiacion: {
+                    jurisprudencia: true,
+                    nombre: 'Impugnación de paternidad y reclamación de filiación',
+                    materia: 'FILIACION',
+                    cuerpo: '**INICIA DEMANDA DE IMPUGNACIÓN DE PATERNIDAD Y RECLAMACIÓN DE FILIACIÓN PATERNA EXTRAMATRIMONIAL**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, en representación de {{hijos_con_edad}}, con domicilio real en {{domicilio_real}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, teléfono {{telefono}}, correo electrónico {{mail}}, a V.S. me presento y respetuosamente digo:**\n\n**I. OBJETO**\nQue vengo a interponer formal demanda de IMPUGNACIÓN DE PATERNIDAD contra {{demandado}}, DNI N° {{demandado_dni}}, con domicilio en {{demandado_domicilio}}, y RECLAMACIÓN DE FILIACIÓN PATERNA EXTRAMATRIMONIAL contra {{padre_biologico}}, DNI N° {{padre_biologico_dni}}, con domicilio en {{padre_biologico_domicilio}}, en relación a {{hijos_nombres}}, solicitando se desplace del carácter de padre al primero y se atribuya la paternidad al segundo, todo ello en virtud de las consideraciones de hecho y derecho que expondré a continuación, peticionando asimismo que oportunamente se libre la documentación pertinente para su correcta inscripción en el Registro del Estado Civil y Capacidad de las Personas.\n\n**II. COMPETENCIA DEL TRIBUNAL**\nQue V.S. resulta competente para entender en la presente acción, atento los domicilios denunciados y conforme lo dispuesto en el art. 720 del CCyCN.\n\n**III. HECHOS**\n{{ia:hechos|Relatá el orden de las relaciones de la actora, cuándo nació la niña o el niño, bajo qué filiación fue inscripto, por qué la actora entiende que el padre biológico es otro, y las gestiones extrajudiciales que hizo para obtener una prueba de ADN y su resultado. No inventes fechas ni nombres: usá solo lo que surja de los datos, y si falta un dato dejá claro que corresponde completarlo.}}\nDe los acontecimientos narrados surge que nos encontramos ante el supuesto previsto por el art. 558 del Código Civil y Comercial, que establece que ninguna persona puede tener más de dos vínculos filiales, cualquiera sea la naturaleza de la filiación.\nEn consecuencia, en primer lugar se presenta la acción de impugnación, que es la acción de desplazamiento por la cual se niega que el reconociente sea el padre del reconocido y que, de prosperar, deja sin efecto el título de estado obtenido mediante el reconocimiento; y simultáneamente se insta la acción de reclamación de estado, tendiente a obtener el reconocimiento del verdadero nexo biológico.\n"El art. 579 del Código Civil y Comercial admite las pruebas biológicas en los juicios de filiación. Ello implica que el legislador da preponderancia a este tipo de pruebas en esta clase de procesos debido al alto grado de precisión que arrojan los estudios de ADN en la determinación de la paternidad o la maternidad. Es, precisamente, en virtud de la certeza que otorgan, más del 99%, que algún autor ha sostenido que los juicios de filiación se han transformado en procesos eminentemente periciales" (SCBA, C 98100, 30/06/2009, Juez GENOUD; SCBA, C 97651, 16/12/2009; SCBA, C 97491, 23/12/2009).\n"El derecho a la identidad debe ser reconocido como uno de los pilares de nuestra organización social y como tal, integrante de aquella noción. Razones de interés general y solidaridad social son las que enaltecen la función estatal dirigida a la identificación y determinación del origen filiatorio de las personas. Tanto el orden social como el familiar así lo exigen; derivándose consecuentemente el deber de los poderes públicos, de investigar la paternidad cuando esta es desconocida, facilitando y colaborando en la búsqueda, localización u obtención de información de los padres u otros familiares, posibilitando el encuentro o reencuentro familiar" (SCBA, C 94663, 18/02/2009, Juez PETTIGIANI).\n\n**IV. DERECHO**\nFundo mi pretensión en lo normado por los arts. 570 y concordantes del Código Civil y Comercial de la Nación, y art. 838 y siguientes del CPCC.\n\n**V. PRUEBA**\n**DOCUMENTAL:**\nDNI de la actora y de los alimentados.\nCertificado de nacimiento.\nFotografías que se acompañan.\n**PERICIAL GENÉTICA:** Solicito se realicen a los demandados las pruebas de histocompatibilidad (HLA) y tipificación del Ácido Desoxirribonucleico (ADN).\n**CONFESIONAL:** De los demandados, a tenor del pliego de absolución de posiciones que se agregará en su oportunidad.\n\n**VI. MEDIACIÓN PREVIA**\nDe conformidad con lo establecido por el art. 5 inc. b de la ley 26.589, la presente se encuentra exenta de transitar por dicha vía.\n\n**VII. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1. Se me tenga por presentada, parte, con el domicilio real denunciado y constituido el procesal.\n2. Se provean las pruebas ofrecidas.\n3. Se corra el traslado de ley.\n4. Oportunamente, se dicte sentencia haciendo lugar a la pretensión, desplazándose la paternidad de {{demandado}}, atribuyéndose la de {{padre_biologico}}, y ordenándose la inscripción en el Registro del Estado Civil y Capacidad de las Personas conforme la realidad biológica y el derecho a la identidad, con costas por su orden.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                divorcio_unilateral: {
+                    jurisprudencia: true,
+                    nombre: 'Divorcio vincular por voluntad unilateral',
+                    materia: 'DIVORCIOS',
+                    cuerpo: '**INICIA DEMANDA DE DIVORCIO VINCULAR POR VOLUNTAD UNILATERAL**\n\n**Señor Juez:**\n**{{encabezado_cliente}}**\n\n**I. OBJETO**\nQue vengo en los términos de los arts. 437, 438, 439, 442, 443, 488, 496, 648, 650, 666, 717 y 721 y concordantes del Código Civil y Comercial de la Nación, a solicitar se decrete mi divorcio vincular respecto de mi cónyuge {{demandado}}, DNI N° {{demandado_dni}}, con domicilio en {{demandado_domicilio}}.\n\n**II. COMPETENCIA**\nLa competencia de V.S. resulta en razón de que el último domicilio conyugal fue el sito en {{domicilio_real}}.\n\n**III. HECHOS**\nQue las partes contrajeron matrimonio {{#si matrimonio}}el día {{matrimonio_fecha}} en {{matrimonio_lugar}}, ante el {{matrimonio_registro}}{{/si}}.\n{{#si hijos}}Que de dicha unión nacieron {{hijos_con_edad}}.{{/si}}\n{{ia:hechos|Contá, sin exponer causales, que la vida en común se tornó imposible y que la ley vigente exime de expresarlas, haciendo reserva. Indicá quién se retiró del hogar conyugal y con quién conviven hoy los hijos, si los hay. No inventes fechas ni domicilios.}}\n\n**IV. PROPUESTA DE CONVENIO REGULADOR**\nEn orden a lo establecido por los arts. 438 y 439 del CCyCN, se formula la siguiente propuesta:\n{{#si hijos}}**A) Cuidado personal de los hijos**\n{{ia:cuidado|Redactá la propuesta de cuidado personal: dónde tendrán su residencia habitual los hijos y a cargo de quién queda el cuidado personal, dejando a salvo la responsabilidad parental compartida de ambos progenitores. Usá solo lo que surja de los datos.}}\n\n**B) Régimen de comunicación**\n{{ia:comunicacion|Redactá el régimen de comunicación propuesto con el progenitor no conviviente, previendo que toda modificación deberá acordarse entre ambos priorizando el interés superior de los niños.}}\n\n**C) Alimentos**\n{{ia:alimentos_convenio|Redactá la propuesta en materia de alimentos para los hijos, conforme la capacidad económica de cada progenitor que surja de los datos. Si no hay datos suficientes, proponé que se determine judicialmente.}}\n{{/si}}\n{{#si bienes}}**D) Bienes en común**\nLos bienes de la sociedad conyugal son los siguientes: {{bienes_lista}}.\n{{ia:bienes|Redactá la propuesta de liquidación o atribución de esos bienes, según a nombre de quién figuran. Si algo no surge de los datos, proponé que se determine por tasación o acuerdo posterior.}}{{/si}}\n{{#no bienes}}**D) Bienes en común**\nLas partes manifiestan que no existen bienes en común a liquidar.{{/no}}\n\n**V. PRUEBA**\nSe ofrece y acompaña la siguiente prueba documental:\nDocumento Nacional de Identidad del actor.\nCertificado de matrimonio.\n{{#si hijos}}Actas de nacimiento y DNI de los hijos.{{/si}}\n\n**VI. DERECHO**\nSe funda la presente en los arts. 437, 438, 439, 440, 441, 442, 443, 488, 496, 641, 648, 650, 652, 659, 660 y 666 del Código Civil y Comercial de la Nación, doctrina y jurisprudencia aplicables.\n\n**VII. AUTORIZA**\nQue vengo por el presente a autorizar a las siguientes personas a examinar estas actuaciones, presentar escritos, oficios, mandamientos y cualquier otra pieza procesal que haga al trámite del proceso, como así también retirar copias, oficios, mandamientos y cualquier otra documentación destinada a esta parte, a saber: Sebastián Rodrigo García, DNI N° 27.703.815.\n\n**VIII. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1. Se me tenga por presentado, por parte y por constituidos los domicilios procesal y electrónico indicados.\n2. Se tenga por presentada la presente demanda de divorcio vincular por voluntad unilateral y se corra traslado a {{demandado}} en el domicilio denunciado.\n3. Oportunamente, se dicte sentencia decretando el divorcio vincular entre las partes con los efectos legales correspondientes.\n4. Dictada la sentencia, se libre oficio de inscripción al Registro del Estado Civil y Capacidad de las Personas que corresponda y se expidan testimonios con constancia de inscripción.\n5. Se tenga presente la propuesta de convenio regulador ofrecida en el Punto IV del presente escrito.\n\n>>**PROVEER DE CONFORMIDAD,**\n>>**SERÁ JUSTICIA.**'
+                },
+                incidente_aumento: {
+                    jurisprudencia: true,
+                    nombre: 'Promueve incidente de aumento de cuota',
+                    materia: 'ALIMENTOS',
+                    cuerpo: '**PROMUEVE INCIDENTE DE AUMENTO DE CUOTA ALIMENTARIA.-**\n\n**SEÑOR JUEZ:**\n**{{cliente}}, DNI N° {{dni}}, en representación de {{hijos_con_edad}}, con domicilio real en {{domicilio_real}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, CUIT N° {{cuit}}, con domicilio procesal constituido en {{domicilio_procesal}}, y correo electrónico {{mail}}, Tel. {{telefono}}, a V.S. respetuosamente se presenta y dice:**\n\n**I. OBJETO**\nQue vengo por el presente a promover formal incidente de aumento de cuota alimentaria contra {{demandado}}, DNI N° {{demandado_dni}}, con domicilio en {{demandado_domicilio}} y/o el que surja del RENAPER, en atención a las consideraciones de hecho y de derecho que a continuación se exponen.\n\n**ANTECEDENTES. EL ACUERDO DESACTUALIZADO**\nQue mediante acuerdo oportunamente homologado se fijó una cuota alimentaria equivalente al {{cuota_porcentaje}}% de los ingresos del alimentante, en el marco del expediente "{{caratula}}", N° {{expediente}}, en trámite ante el {{juzgado}}.\n{{ia:desactualizacion|Explicá por qué esa cuota quedó desactualizada: el aumento del costo de vida desde que se fijó, y que la suma actual no alcanza a cubrir alimentación, vestimenta, educación, salud y esparcimiento. No inventes porcentajes de inflación ni fechas concretas.}}\n{{#si canasta}}Que a fin de dimensionar la brecha existente entre la cuota vigente y las necesidades reales, corresponde tener en cuenta la Canasta de Crianza que publica el INDEC, la cual refleja el costo mensual estimado para la crianza según el rango etario. Conforme los valores actualizados, dicha canasta asciende a {{canasta_crianza}}, monto considerablemente superior al que representa el porcentaje actualmente percibido. Ello evidencia que la cuota vigente no alcanza siquiera a cubrir la proporción mínima que corresponde al alimentante.{{/si}}\n\n**II. FUNDAMENTOS DEL AUMENTO**\n{{ia:fundamentos|Desarrollá los fundamentos del aumento: la mayor edad de los alimentados y el consiguiente incremento de sus gastos; la pérdida de poder adquisitivo de la cuota; y, si corresponde, la conducta de incumplimiento del alimentante. Cerrá con que la cuota debe comprender alimentación, vestimenta, educación, salud, esparcimiento, habitación y asistencia médica.}}\n{{#si blanco}}Actualmente el demandado se encuentra prestando servicios registrado en {{empleador}}.{{/si}}\n{{#si no_cubiertas}}Asimismo, existen necesidades que hoy no se encuentran cubiertas: {{necesidades_no_cubiertas_texto}}.{{/si}}\n\n**III. PRUEBA**\nA fin de acreditar los extremos invocados, se ofrece la siguiente prueba:\n**Documental:**\nDNI de la actora.\nDNI y partida de nacimiento de los alimentados.\n{{#si discapacidad}}Certificado Único de Discapacidad y constancias de los tratamientos.{{/si}}\n**Informativa:**\n{{#si blanco}}Se libre oficio a {{empleador}} a fin de que informe remuneraciones, recibos de sueldo y demás ingresos percibidos por el demandado.{{/si}}\n{{#si negro}}Se libren oficios a ARCA, ANSES y SINTyS a fin de que informen la situación económica y financiera del demandado, así como todo beneficio social o previsional que perciba.{{/si}}\n**Testimonial:**\nSe ofrecerán testigos en el momento procesal oportuno.\n\n**IV. SOLICITA FIJACIÓN DE AUDIENCIA — CUOTA PROVISORIA. RETENCIÓN DIRECTA**\nAtento a la urgencia y el carácter asistencial de la prestación, solicito a V.S.:\nSe fije una cuota alimentaria provisoria mientras dure la sustanciación del incidente, a fin de no postergar el derecho alimentario{{#si blanco}}, y se ordene la retención directa por oficio al empleador atento la urgencia que revisten los alimentos{{/si}}.\nSe fije a la mayor brevedad audiencia a fin de intentar arribar a un nuevo acuerdo.\n\n**V. PETITORIO**\nPor todo lo expuesto, a V.S. solicito:\n1. Se me tenga por presentada, por parte y por constituido el domicilio procesal.\n2. Se fije cuota alimentaria provisoria durante la sustanciación del presente incidente.\n3. Se corra traslado de la presente demanda incidental al demandado por el plazo de ley.\n4. Oportunamente, se dicte resolución elevando la cuota alimentaria al {{pct_definitivo}}%, o el porcentaje que V.S. estime justo y equitativo, conforme las constancias de autos, los valores actualizados de la Canasta de Crianza y la capacidad económica del alimentante.\n\n>>**Proveer de conformidad,**\n>>**SERÁ JUSTICIA.**'
+                },
+                demanda_alimentos: {
+                    jurisprudencia: true,
+                    nombre: 'Inicia demanda de alimentos',
+                    materia: 'ALIMENTOS',
+                    // UN modelo para las cuatro variantes: blanco/negro y PBA/CABA se
+                    // resuelven con bloques condicionales desde los datos de la ficha.
+                    cuerpo: '**INICIA DEMANDA DE ALIMENTOS**\n\n**Señor Juez:**\n**{{cliente}}, DNI N° {{dni}}, por derecho propio y en representación de {{hijos_con_edad}}, con domicilio real en {{domicilio_real}}, con el patrocinio letrado de la {{letrada}}, {{matriculas}}, {{condicion}}, denunciando domicilio electrónico con el CUIT N° {{cuit}}, constituyendo domicilio procesal en {{domicilio_procesal}}, Teléfono {{telefono}}, y dirección de correo electrónico {{mail}}, a V.S. me presento y respetuosamente digo:**\n\n**I. OBJETO**\nPor el presente acto vengo a iniciar formal DEMANDA DE ALIMENTOS contra {{demandado}}, DNI N° {{demandado_dni}}, con domicilio real en {{demandado_domicilio}} y/o el que surja del RENAPER, en favor de {{hijos_nombres}}, atento las razones de hecho y derecho que paso a exponer.\n{{#si pba}}De acuerdo a lo normado por el art. 14 de la Ley 15.513, solicito se aborden las actuaciones dentro de la etapa previa.\nAsimismo, solicito se habilite la Mesa de Entradas Virtual (MEV) bajo el usuario {{usuario_mev}}.\nAnte el fracaso de las notificaciones que oportunamente ordenará V.S., solicito que se ordene la notificación de la demanda de acuerdo a lo establecido por el art. 6 de la Ley 15.513 y art. 635 del CPCC. Dicha notificación será realizada por teléfono móvil a cargo de la suscripta.{{/si}}\n\n**II. HECHOS**\n{{ia:hechos|Relatá: cómo fue la relación entre las partes y cuándo cesó la convivencia; con quién quedó viviendo cada hijo y quién ejerce el cuidado personal; de qué vive la actora y por qué sus ingresos no alcanzan; a qué se dedica el demandado y por qué tiene capacidad para pagar; y que el demandado incumple su deber alimentario. No inventes fechas, montos ni domicilios: usá solo lo que figura en los datos. No escribas nombres propios ni DNI.}}\n\n**III. NECESIDADES DEL ALIMENTADO**\nLas necesidades mínimas mensuales ascienden aproximadamente a:\n{{necesidades_lineas}}\nTOTAL MENSUAL APROXIMADO: {{necesidades_total}}\n{{#si no_cubiertas}}A ello deben adicionarse las necesidades que hoy no se encuentran cubiertas:\n{{no_cubiertas_lineas}}{{/si}}\n{{ia:necesidades|Explicá por qué esos importes son los mínimos indispensables para la edad de los alimentados, sin volver a listarlos uno por uno porque ya están detallados arriba. Si hay necesidades no cubiertas o tratamientos, destacá por qué son indispensables.}}\nConforme el principio de coparentalidad establecido en el art. 660 del CCyCN, ambos progenitores deben contribuir al sostenimiento de los hijos en proporción a sus recursos. Sin embargo, en el presente caso, la totalidad de los gastos recae exclusivamente sobre la parte actora, en flagrante violación del deber alimentario del progenitor.\nResulta aplicable la jurisprudencia constante de nuestros tribunales: "Para estimar las necesidades de un niño, deberá tenerse en cuenta el nivel socioeconómico y cultural que éste gozaba hasta el momento del conflicto entre sus progenitores, o, en su caso, hasta el cese de la atención voluntaria del conjunto de sus necesidades por parte del demandado. La cuota se determinará, no en proporción al patrimonio o ingresos del padre, sino en orden a cubrir todas las necesidades materiales y espirituales del hijo." (CC0001 LM LM 30413 2011 RSD-88-19 S 29/05/2019 Juez POSCA (SD) - A. S. S. C/ A. P. S. S/ ALIMENTOS).\n\n**IV. CAPACIDAD ECONÓMICA DEL DEMANDADO**\n{{#si blanco}}El demandado trabaja en relación de dependencia, en forma registrada, en {{empleador}}, percibiendo un salario aproximado de {{demandado_monto}} mensuales.\nSu capacidad contributiva es ampliamente suficiente para afrontar una cuota acorde a las necesidades de los alimentados.{{/si}}\n{{#si negro}}El demandado no se encuentra registrado como trabajador en relación de dependencia, lo que impide conocer con exactitud sus ingresos y obliga a estimar su capacidad contributiva por otros medios. Ello no lo exime de su obligación alimentaria: la falta de registración no puede volverse en perjuicio de los alimentados.\n{{ia:capacidad|Fundá cómo se acredita la capacidad económica de quien trabaja sin registrar: nivel de vida, actividad que desarrolla, bienes que posee, y la prueba informativa que se ofrece. Sin inventar datos.}}{{/si}}\n{{#si bienes_demandado}}Asimismo, se le conocen los siguientes bienes: {{demandado_bienes}}.{{/si}}\n\n**V. CUOTA PROVISORIA**\n{{#si blanco}}Solicito se fije cuota alimentaria provisoria equivalente al {{pct_provisorio}}% de los ingresos mensuales del demandado, hasta el dictado de sentencia definitiva.{{/si}}\n{{#si negro}}Solicito se fije cuota alimentaria provisoria equivalente al {{pct_smvm}}% del Salario Mínimo Vital y Móvil vigente al momento de cada pago, monto que deberá actualizarse automáticamente con cada incremento que disponga el Consejo Nacional del Empleo, la Productividad y el Salario Mínimo, Vital y Móvil.\n{{#si canasta}}Se toma asimismo como pauta objetiva la Canasta de Crianza que publica el INDEC, cuyo valor asciende a {{canasta_crianza}} para la edad de los alimentados.{{/si}}{{/si}}\n{{#si blanco}}A fin de garantizar la tutela judicial efectiva del derecho alimentario, solicito expresamente que V.S. ordene la RETENCIÓN DIRECTA POR OFICIO AL EMPLEADOR del porcentaje fijado en concepto de alimentos provisorios, debiendo depositarse las sumas retenidas en la cuenta judicial que oportunamente se abra en autos.{{/si}}\n{{#si pba}}Peticiono, de acuerdo a lo normado por el art. 7 de la Ley 15.513, que ante el incumplimiento de los alimentos provisorios se le aplique la multa prevista en el inciso 1 del artículo 637 del CPCC por un valor equivalente entre 10 (diez) y 200 (doscientos) JUS, y se informe al Registro de Deudores Alimentarios Morosos.{{/si}}\nLa medida cautelar que dispone el art. 550 del Código Civil y Comercial se encuadra en el principio constitucional procesal del derecho a la tutela judicial efectiva, que requiere que la sentencia dictada en el juicio de alimentos se cumpla en tiempo oportuno, pues los alimentos son siempre urgentes (cfr. art. 706 del CCyCN).\n\n**VI. PRUEBA**\n**1. DOCUMENTAL**\nPartida de nacimiento de los alimentados.\nDNI de la actora y de los alimentados.\n{{#si discapacidad}}Certificado Único de Discapacidad y constancias de los tratamientos que se realizan.{{/si}}\n\n**2. INFORMATIVA**\na) Respecto del demandado:\nLíbrese oficio a ANSES a fin de que informe si el requerido percibe jubilación, pensión, o cualquier otro beneficio social o previsional, denunciando montos y condiciones.\nLíbrese oficio al Sistema de Identificación Nacional Tributario y Social (SINTyS) a fin de que informe la situación económica-financiera del accionado, así como si el mismo posee algún beneficio social y/o previsional.\nLíbrese oficio al Ministerio de Desarrollo Social de la Provincia de Buenos Aires y/o de la Nación a fin de que informe si el accionado se encuentra prestando servicios en alguna cooperativa dependiente de dicho organismo o percibiendo algún beneficio social y/o previsional, denunciando monto de ingresos y beneficios.\nLíbrese oficio al Banco Central de la República Argentina a fin de que informe si el accionado posee cuenta corriente y/o caja de ahorro a su nombre, y en caso afirmativo denuncie en qué entidad bancaria, monto depositado y movimientos de los últimos 6 meses.\nLíbrese oficio a la ARCA a fin de que informe si el accionado se encuentra registrado bajo el régimen de monotributo y/o autónomos, y en caso afirmativo, denunciar en qué categoría, monto de ingresos y cualquier otro dato de interés para la presente causa.\nLíbrese oficio al Registro Nacional de la Propiedad del Automotor y Créditos Prendarios a fin de que informe si el demandado posee vehículos registrados a su nombre, modelo, año, dominio y valuación fiscal.\nLíbrese oficio al Registro de la Propiedad Inmueble a fin de que informe si el demandado posee bienes inmuebles registrados a su nombre.\n{{#si blanco}}Líbrese oficio a {{empleador}} a fin de que informe si {{demandado}}, DNI N° {{demandado_dni}}, se encuentra prestando servicios para dicha empresa; asimismo indique monto percibido, categoría laboral y todo otro dato de interés.{{/si}}\nLíbrese oficio al RENAPER a fin de que informe el domicilio actualizado del demandado {{demandado}}, DNI N° {{demandado_dni}}.\nb) Respecto de la actora:\nLíbrese oficio a ANSES a fin de que informe si la suscripta percibe Asignación Universal por Hijo, Tarjeta Alimentar u otros beneficios, denunciando montos.\n\n**3. CONFESIONAL**\nSe cite al demandado a absolver posiciones a tenor del pliego que se adjuntará oportunamente.\n\n**4. TESTIMONIAL**\nSe ofrecerán testimoniales en su respectiva oportunidad.\n\n**5. INFORME SOCIO-AMBIENTAL**\nSolicito que el equipo técnico del juzgado se presente en el domicilio del demandado a fin de realizar un amplio informe socio-económico que permita determinar su real capacidad contributiva, nivel de vida, y bienes que posee.\nAsimismo, solicito se realice informe ambiental en el domicilio de la suscripta a fin de evaluar las condiciones de vida de los alimentados y la situación de vulnerabilidad económica en la que se encuentran.\n\n**VII. DERECHO**\nLa presente acción se funda en los artículos 537 inc. 1°, 541, 542, 658 a 661 del Código Civil y Comercial de la Nación.\nEl artículo 659 del CCyCN establece que la obligación de alimentos comprende la satisfacción de las necesidades de los hijos de manutención, educación, esparcimiento, vestimenta, habitación, asistencia, gastos por enfermedad y los gastos necesarios para adquirir una profesión u oficio.\nEl artículo 658 del CCyCN establece que ambos progenitores tienen la obligación y el derecho de criar a sus hijos, alimentarlos y educarlos conforme a su condición y fortuna, aunque el cuidado personal esté a cargo de uno de ellos.\nEl artículo 660 del CCyCN consagra el principio de coparentalidad, estableciendo que las tareas de cuidado personal que realiza el progenitor que ha asumido el cuidado personal del hijo tienen un valor económico y constituyen un aporte a su manutención.\nRespecto al incumplimiento de las obligaciones alimentarias, nuestra doctrina y jurisprudencia sostiene de manera uniforme que: "El incumplimiento de las obligaciones alimentarias es una vulneración del derecho de las infancias y juventudes a ser cuidadas. La falta de pago genera pobreza, restringe la autonomía y sobrecarga de tareas de cuidado a las mujeres, que suelen ser las principales garantes del cuidado." (Cartabia Groba, Sabrina y Herrera, Marisa; "Reformas que sí: modificación de los procesos de alimentos en la Provincia de Buenos Aires", LA LEY 30/12/2024).\n\n**PETITORIO**\nPor lo expuesto, a V.S. solicito:\n1. Se me tenga por presentada, por parte, y por constituido el domicilio legal indicado.\n{{#si pba}}2. Se habilite la Mesa de Entradas Virtual (MEV) bajo el usuario {{usuario_mev}}.\n3. Se aborden las actuaciones dentro de la etapa previa conforme art. 14 de la Ley 15.513.{{/si}}\n4. Se libre oficio al RENAPER a fin de obtener el domicilio actualizado del demandado.\n{{#si blanco}}5. Se fije cuota alimentaria provisoria equivalente al {{pct_provisorio}}% de los ingresos del demandado.\n6. Se ordene la retención directa por oficio al empleador del porcentaje fijado en concepto de alimentos provisorios.{{/si}}\n{{#si negro}}5. Se fije cuota alimentaria provisoria equivalente al {{pct_smvm}}% del Salario Mínimo Vital y Móvil, con actualización automática.{{/si}}\n{{#si pba}}7. Se establezca que ante el incumplimiento de la cuota provisoria, se aplique multa conforme art. 637 inc. 1 del CPCC y se informe al Registro de Deudores Alimentarios Morosos.{{/si}}\n8. Se corra traslado de la presente al demandado.\n9. Se tenga por ofrecida la totalidad de la prueba acompañada y oportunamente se provea la misma.\n{{#si blanco}}10. Oportunamente, se haga lugar a la demanda, estableciendo una cuota alimentaria definitiva no inferior al {{pct_definitivo}}% de los ingresos totales del demandado, o el porcentaje que V.S. estime justo y equitativo conforme la prueba a producirse.{{/si}}\n{{#si negro}}10. Oportunamente, se haga lugar a la demanda, estableciendo la cuota alimentaria definitiva que V.S. estime justa y equitativa conforme la prueba a producirse.{{/si}}\n\n>>**PROVEER DE CONFORMIDAD,**\n>>**SERÁ JUSTICIA.**'
+                },
                 sucesion_ab_intestato: {
                     nombre: 'Inicia sucesión ab intestato',
                     materia: 'SUCESIONES',
@@ -8314,6 +8403,21 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 hijos_cantidad: String((client.hijos || []).length),
 
                 // ── Alimentos: la cuota YA FIJADA ──
+                // La pauta que se RECLAMA (distinta de la cuota ya fijada, arriba).
+                pct_provisorio: (client.general && client.general.pctProvisorio) || '',
+                pct_definitivo: (client.general && client.general.pctDefinitivo) || '',
+                pct_smvm: (client.general && client.general.pctSMVM) || '',
+                canasta_crianza: (() => {
+                    const v = client.general && client.general.canastaCrianza;
+                    return v ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+                        .format(parseFloat(v) || 0) : '';
+                })(),
+                demandado_monto: (() => {
+                    const v = client.demandado && client.demandado.monto;
+                    return v ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+                        .format(parseFloat(v) || 0) : '';
+                })(),
+                demandado_bienes: (client.demandado && client.demandado.bienes) || '',
                 cuota_porcentaje: (client.general && client.general.cuotaPorcentaje) || '',
                 cuota_monto: (client.general && client.general.cuotaMonto) || '',
                 cuota_fecha: (client.general && client.general.cuotaFechaResolucion) || '',
@@ -8333,6 +8437,35 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     const total = suma(n.items) + suma(n.extras);
                     return total ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(total) : '';
                 })(),
+                // Un renglón por rubro, como en el modelo en papel. necesidades_detalle los
+                // pone seguidos en una línea; para el cuerpo de la demanda hace falta la lista.
+                necesidades_lineas: (() => {
+                    const n = client.necesidades || {};
+                    const fmt = v => '$' + new Intl.NumberFormat('es-AR').format(parseFloat(v) || 0);
+                    return [].concat(n.items || [], n.extras || [])
+                        .filter(x => x.importe).map(x => x.nombre + ': ' + fmt(x.importe)).join('\n');
+                })(),
+                // Version en linea, para meterla dentro de un parrafo.
+                necesidades_no_cubiertas_texto: (() => {
+                    const n = client.necesidades || {};
+                    const fmt = v => '$' + new Intl.NumberFormat('es-AR').format(parseFloat(v) || 0);
+                    return (n.noCubiertas || []).filter(x => x.nombre)
+                        .map(x => x.nombre + (x.importe ? ' (' + fmt(x.importe) + ')' : '')).join(', ');
+                })(),
+                no_cubiertas_lineas: (() => {
+                    const n = client.necesidades || {};
+                    const fmt = v => '$' + new Intl.NumberFormat('es-AR').format(parseFloat(v) || 0);
+                    return (n.noCubiertas || []).filter(x => x.nombre)
+                        .map(x => x.nombre + (x.importe ? ': ' + fmt(x.importe) : '')).join('\n');
+                })(),
+                hijos_con_edad: (client.hijos || []).map(h => {
+                    const e = h.edadMeses && parseInt(h.edadMeses) > 0
+                        ? (h.edad || 0) + ' años y ' + h.edadMeses + ' meses'
+                        : (h.edad ? h.edad + ' años' : '');
+                    return h.nombre + (h.dni ? ' (DNI N° ' + h.dni : '') +
+                           (e ? (h.dni ? ', de ' : ' (') + e + ' de edad' : '') +
+                           (h.dni || e ? ')' : '');
+                }).join(', '),
                 necesidades_detalle: (() => {
                     const n = client.necesidades || {};
                     const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
@@ -8364,10 +8497,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                                her.find(h => nom && String(h.nombre || '').toUpperCase().trim() === nom);
                     return yo ? (yo.vinculo || '').toLowerCase() : '';
                 })(),
+                bienes_lista: (client.bienes || []).filter(b => b.descripcion)
+                    .map(b => b.tipo + ': ' + b.descripcion +
+                        (b.titular ? ', a nombre de ' + b.titular : '')).join('; '),
                 acervo_lista: ((client.sucesion || {}).acervo || [])
                     .filter(b => b.descripcion)
                     .map(b => b.tipo + ': ' + b.descripcion).join('; '),
 
+                padre_biologico: client.padreBiologicoNombre || '',
+                padre_biologico_dni: client.padreBiologicoDni || '',
+                padre_biologico_domicilio: client.padreBiologicoDomicilio || '',
                 matrimonio_fecha: client.matrimonioFecha || '',
                 matrimonio_lugar: client.matrimonioLugar || '',
                 matrimonio_registro: client.matrimonioRegistro || '',
@@ -8388,6 +8527,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         const ETIQUETA_MARCADOR = {
             cliente: 'Nombre del cliente', dni: 'DNI del cliente',
             demandado: 'Nombre del demandado (solapa Demandado)',
+            padre_biologico: 'Nombre del padre biológico (bloque Padre biológico)',
             domicilio_real: 'Domicilio del cliente (calle, localidad y provincia)',
             caratula: 'Carátula', expediente: 'N° de expediente', juzgado: 'Juzgado'
         };
@@ -8419,7 +8559,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 alquila: g.actorAlquila === 'Si',
                 cuota_fijada: !!(g.cuotaPorcentaje || g.cuotaMonto),
                 no_cubiertas: (nec.noCubiertas || []).some(x => x && x.nombre),
-                bienes: (client.bienes || []).length > 0
+                bienes: (client.bienes || []).length > 0,
+                bienes_demandado: !!(client.demandado && client.demandado.bienes),
+                canasta: !!(g.canastaCrianza),
+                matrimonio: !!(client.matrimonioFecha || client.matrimonioLugar),
+                // El convenio regulador solo corresponde si hay algo que regular:
+                // hijos menores o bienes en comun. Sin eso, se dice expresamente que no.
+                convenio_necesario: hijos.some(h => h && parseInt(h.edad || '99', 10) < 18) ||
+                                    (client.bienes || []).length > 0
             };
         }
 
@@ -8511,9 +8658,247 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     : ['trabajo registrado',
                        g.pctProvisorio ? 'provisoria ' + g.pctProvisorio + '%' : '',
                        g.pctDefinitivo ? 'definitiva ' + g.pctDefinitivo + '%' : ''].filter(Boolean).join(', '),
+                relato: client.relatoCaso || '',
                 situacion: client.situacionHijos || '',
                 notas: client.notas || ''
             };
+        }
+
+        // El Proyecto recibe el mismo contexto ordenado que la API, en texto plano.
+        function escritoContextoComite(client) {
+            const d = escritoContextoIA(client);
+            const etiquetas = {
+                jurisdiccion: 'Jurisdicción', hijos: 'Hijos',
+                actorTrabaja: 'Trabajo del actor', actorIngreso: 'Ingreso del actor',
+                obraSocial: 'Obra social', vivienda: 'Vivienda',
+                ayudaFamiliar: 'Ayuda de familiares', asignaciones: 'Asignaciones familiares',
+                demandadoTrabajo: 'Trabajo del demandado', demandadoIngreso: 'Ingreso del demandado',
+                demandadoBienes: 'Bienes del demandado', necesidades: 'Necesidades acreditadas',
+                noCubiertas: 'Necesidades NO cubiertas', tratamientos: 'Tratamientos especiales',
+                pauta: 'Pauta que se reclama',
+                relato: 'RELATO DEL ESTUDIO (esto es lo que efectivamente pasó)',
+                situacion: 'Qué se pide en la causa', notas: 'Notas del expediente'
+            };
+            return Object.keys(etiquetas).filter(k => d[k])
+                .map(k => etiquetas[k] + ': ' + d[k]).join('\n');
+        }
+
+        // ── BIBLIOTECA DEL ESTUDIO EN DRIVE ──────────────────────────────────────
+        // En Drive hay una carpeta "doctrina y jurisprudencia <materia>" por cada materia,
+        // y adentro MODELOS, DOCTRINA, JURISPRUDENCIA y MANUALES. Eso es lo que el Comité
+        // usa como referencia cuando redacta: los modelos del Estudio, no modelos genéricos.
+        //
+        // El permiso se pide UNA vez al entrar y el token vive en memoria mientras la
+        // planilla esté abierta. Al cerrar la pestaña se va solo: no queda nada guardado.
+        // Es de solo lectura: la planilla no puede tocar ni borrar nada de la biblioteca.
+        const BIB_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+        let bibTokenClient = null, bibToken = '', bibTokenVence = 0, bibConectada = false;
+        let bibRaicesCache = null;
+        const bibCatalogoCache = {};
+
+        function tokenBibliotecaEnMano() {
+            return (bibToken && Date.now() < bibTokenVence - 60000) ? bibToken : '';
+        }
+
+        // 'silencioso' se usa al entrar: si ya dio el permiso alguna vez, Google lo renueva
+        // sin mostrar nada. La primera vez sí aparece la pantalla de consentimiento.
+        function pedirTokenBiblioteca() {
+            return new Promise((resolve, reject) => {
+                const yaTengo = tokenBibliotecaEnMano();
+                if (yaTengo) { resolve(yaTengo); return; }
+                if (!(window.google && google.accounts && google.accounts.oauth2)) {
+                    reject(new Error('Google todavía no terminó de cargar.'));
+                    return;
+                }
+                if (!bibTokenClient) {
+                    bibTokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: GD_CLIENT_ID, scope: BIB_SCOPE, callback: function () {}
+                    });
+                }
+                bibTokenClient.callback = function (resp) {
+                    if (resp.error) { bibConectada = false; pintarEstadoBiblioteca();
+                        reject(new Error(resp.error_description || resp.error)); return; }
+                    bibToken = resp.access_token;
+                    bibTokenVence = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000);
+                    bibConectada = true;
+                    pintarEstadoBiblioteca();
+                    resolve(bibToken);
+                };
+                bibTokenClient.requestAccessToken({ prompt: '' });
+            });
+        }
+
+        // Se llama apenas entra, dentro del clic de "Ingresar" para que el navegador no
+        // bloquee la ventana de Google por considerarla un pop-up no pedido.
+        function conectarBibliotecaAlEntrar() {
+            pedirTokenBiblioteca()
+                .then(() => bibRaices())
+                .catch(e => { console.warn('Biblioteca no conectada:', e.message); });
+        }
+
+        function pintarEstadoBiblioteca() {
+            const el = document.getElementById('estadoBiblioteca');
+            if (!el) return;
+            el.innerHTML = bibConectada
+                ? '<span style="color:var(--success-color)">●</span> Biblioteca conectada'
+                : '<a href="#" onclick="pedirTokenBiblioteca().then(bibRaices).catch(e=>alert(e.message));return false;" ' +
+                  'style="color:var(--warning-color)">● Conectar biblioteca</a>';
+        }
+
+        async function bibDrive(params) {
+            const t = await pedirTokenBiblioteca();
+            const u = new URL('https://www.googleapis.com/drive/v3/files');
+            Object.keys(params).forEach(k => u.searchParams.set(k, params[k]));
+            u.searchParams.set('supportsAllDrives', 'true');
+            u.searchParams.set('includeItemsFromAllDrives', 'true');
+            const r = await fetch(u.toString(), { headers: { Authorization: 'Bearer ' + t } });
+            if (!r.ok) throw new Error('Drive respondió HTTP ' + r.status);
+            return await r.json();
+        }
+
+        function bibHijos(carpetaId, soloCarpetas) {
+            let q = "'" + carpetaId + "' in parents and trashed=false";
+            if (soloCarpetas) q += " and mimeType='application/vnd.google-apps.folder'";
+            return bibDrive({ q: q, fields: 'files(id,name,mimeType)', pageSize: '200',
+                orderBy: 'name' }).then(j => j.files || []);
+        }
+
+        // Las carpetas madre de la biblioteca, una por materia.
+        async function bibRaices() {
+            if (bibRaicesCache) return bibRaicesCache;
+            const j = await bibDrive({
+                q: "mimeType='application/vnd.google-apps.folder' and trashed=false and " +
+                   "name contains 'doctrina y jurisprudencia'",
+                fields: 'files(id,name)', pageSize: '50'
+            });
+            bibRaicesCache = j.files || [];
+            return bibRaicesCache;
+        }
+
+        // De la materia de la ficha a la carpeta de la biblioteca.
+        function bibMateriaDe(materia) {
+            const m = (materia || '').toLowerCase();
+            if (/penal/.test(m)) return 'penal';
+            if (/siniestro|daño|dano|accidente|laboral/.test(m)) return 'daños';
+            return 'alimentos'; // familia y todo lo demás
+        }
+
+        // El catálogo son los TÍTULOS, no el contenido: la biblioteca tiene cientos de PDF
+        // y bajarlos todos sería absurdo. Se baja después solo lo que el Comité pide.
+        async function bibCatalogo(materia) {
+            const clave = bibMateriaDe(materia);
+            if (bibCatalogoCache[clave]) return bibCatalogoCache[clave];
+            const raices = await bibRaices();
+            const raiz = raices.find(f => (f.name || '').toLowerCase().indexOf(clave) >= 0);
+            if (!raiz) return [];
+            const catalogo = [];
+            const secciones = await bibHijos(raiz.id, true);
+            for (const sec of secciones) {
+                const dentro = await bibHijos(sec.id, false);
+                for (const f of dentro) {
+                    if (f.mimeType === 'application/vnd.google-apps.folder') {
+                        // Un nivel más: MODELOS está dividido en temas numerados.
+                        const hojas = await bibHijos(f.id, false);
+                        hojas.forEach(h => {
+                            if (h.mimeType !== 'application/vnd.google-apps.folder') {
+                                catalogo.push({ id: h.id, titulo: h.name, mime: h.mimeType,
+                                    carpeta: sec.name + ' / ' + f.name });
+                            }
+                        });
+                    } else {
+                        catalogo.push({ id: f.id, titulo: f.name, mime: f.mimeType,
+                            carpeta: sec.name });
+                    }
+                }
+            }
+            bibCatalogoCache[clave] = catalogo;
+            return catalogo;
+        }
+
+        function bibABase64(buf) {
+            // De a pedazos: un PDF de medio mega en una sola llamada revienta la pila.
+            const bytes = new Uint8Array(buf);
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 8192) {
+                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            }
+            return btoa(bin);
+        }
+
+        async function bibBajar(doc) {
+            const t = await pedirTokenBiblioteca();
+            const esDoc = doc.mime === 'application/vnd.google-apps.document';
+            const url = esDoc
+                ? 'https://www.googleapis.com/drive/v3/files/' + doc.id + '/export?mimeType=text/plain'
+                : 'https://www.googleapis.com/drive/v3/files/' + doc.id + '?alt=media&supportsAllDrives=true';
+            const r = await fetch(url, { headers: { Authorization: 'Bearer ' + t } });
+            if (!r.ok) throw new Error('No se pudo bajar "' + doc.titulo + '" (HTTP ' + r.status + ')');
+            if (esDoc) return { titulo: doc.titulo, mime: 'text/plain', datos: (await r.text()).slice(0, 60000) };
+            if (doc.mime !== 'application/pdf') return null; // .doc viejos: no se pueden leer así
+            return { titulo: doc.titulo, mime: 'application/pdf', datos: bibABase64(await r.arrayBuffer()) };
+        }
+
+        // Devuelve los documentos de la biblioteca que conviene tener a la vista para este
+        // escrito. Si la biblioteca no está conectada o falla, devuelve vacío: el escrito
+        // se redacta igual, sin modelo de referencia.
+        async function bibDocumentosPara(client, modelo) {
+            if (!tokenBibliotecaEnMano()) return [];
+            try {
+                const catalogo = await bibCatalogo(client.materia);
+                if (!catalogo.length) return [];
+                const r = await fetch(IA_URL + '/api/elegir-modelo', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        materia: client.materia || '', escrito: modelo.nombre || '',
+                        resumen: (client.relatoCaso || client.situacion || '').slice(0, 1200),
+                        catalogo: catalogo.map(c => ({ titulo: c.titulo, carpeta: c.carpeta }))
+                    })
+                });
+                const j = await r.json();
+                const elegidos = (j.elegidos || [])
+                    .map(e => catalogo.find(c => c.titulo === e.titulo && c.carpeta === e.carpeta))
+                    .filter(Boolean);
+                const docs = [];
+                for (const e of elegidos) {
+                    try { const d = await bibBajar(e); if (d) docs.push(d); }
+                    catch (err) { console.warn(err.message); }
+                }
+                return docs;
+            } catch (e) {
+                console.warn('Biblioteca:', e.message);
+                return [];
+            }
+        }
+
+        // Se abre el login de FalloBot en una ventana aparte. La contraseña se escribe en
+        // la página de ellos: ni la planilla ni el worker la ven. Vuelve un token que queda
+        // guardado del lado del worker, y no hay que repetirlo nunca más.
+        function pedirConexionFallos(j) {
+            const cont = document.getElementById('escritosCuerpo');
+            if (!cont) { alert(j.mensaje); return; }
+            const zona = document.getElementById('zonaComite') || cont;
+            zona.innerHTML =
+                '<div style="border:1px solid var(--warning-color);border-radius:10px;padding:12px;' +
+                'margin-top:10px;background:rgba(212,144,26,.07);">' +
+                '<b style="font-size:.9em;">El Dr. Iura Novit necesita ' + (j.servicio || 'la fuente') + '</b>' +
+                '<div style="font-size:.83em;color:var(--text-muted);margin:6px 0 10px;line-height:1.45;">' +
+                (j.mensaje || '') + '</div>' +
+                '<button id="btnConectarFallos" class="btn btn-sm" ' +
+                'style="background:var(--warning-color);color:#fff;border:none;">Conectar ' +
+                (j.servicio || '') + '</button>' +
+                '</div>';
+            // El handler se engancha acá y no como onclick: la URL viene del worker y así
+            // no se mete dentro de una cadena de HTML.
+            const b = document.getElementById('btnConectarFallos');
+            if (b) b.onclick = function () { abrirConexionFallos(j.url, b); };
+        }
+
+        function abrirConexionFallos(url, btn) {
+            window.open(url, 'conectar_fallos', 'width=520,height=680');
+            if (btn) {
+                btn.outerHTML = '<button class="btn btn-success btn-sm" onclick="redactarConComite(this)">' +
+                    'Ya autoricé — redactar</button>';
+            }
         }
 
         async function redactarConComite(btn) {
@@ -8524,8 +8909,12 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (!secciones.length) return;
 
             const textoOrig = btn ? btn.textContent : '';
-            if (btn) { btn.disabled = true; btn.textContent = 'Redactando…'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Buscando en la biblioteca…'; }
             try {
+                // Primero la biblioteca: el Comité redacta mirando los modelos del
+                // Estudio, igual que en el Proyecto.
+                const documentos = await bibDocumentosPara(client, modelo);
+                if (btn) btn.textContent = 'Redactando…';
                 const r = await fetch(IA_URL + '/api/redactar-escrito', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -8534,10 +8923,16 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         escrito: modelo.nombre || '',
                         rolCliente: 'la parte actora',
                         secciones: secciones,
+                        // Las demandas se fundan en jurisprudencia; un escrito de trámite no.
+                        conJurisprudencia: modelo.jurisprudencia === true,
+                        documentos: documentos,
                         ficha: escritoContextoIA(client)
                     })
                 });
                 const j = await r.json();
+                // El Dr. Iura Novit pide la conexión cuando la necesita: no se redacta un
+                // escrito que debe fundarse en jurisprudencia sin tener las fuentes.
+                if (j.necesita_conexion) { pedirConexionFallos(j); return; }
                 if (!j.ok) throw new Error(j.error || 'no se pudo redactar');
                 Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
                 renderEscritos();
@@ -8548,27 +8943,188 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }
         }
 
-        // Lo redactado se muestra aparte y editable ANTES de bajar el Word. Es lo único
-        // del escrito que no salió de un dato cargado, así que es lo único que hay que
-        // leer con atención.
+        // ── LOS DOS CAMINOS PARA REDACTAR ────────────────────────────────────────
+        // Un escrito puede necesitar dos cosas muy distintas:
+        //
+        //   REDACCIÓN — poner en lenguaje forense datos que ya están en la ficha. Eso lo
+        //   resuelve la API en 20 segundos, sin salir de la planilla y sin jurisprudencia.
+        //
+        //   COMITÉ — teoría del caso, semáforo probatorio, riesgos, jurisprudencia
+        //   verificada y elección del mejor modelo. Eso SOLO lo hace el Proyecto de Claude,
+        //   porque ahí están el conector de Drive (biblioteca del Estudio), FalloBot vía MCP
+        //   (CSJN, SAIJ, JUBA, SCBA) y los archivos del proyecto.
+        //
+        // Copiar el prompt del comité al worker sería un engaño peligroso: le pediríamos
+        // citar fallos "con carátula, tribunal, fecha y link verificables" a un modelo que
+        // no tiene con qué verificarlos. El propio prompt lo prohíbe. Por eso cada modelo
+        // declara su camino y las demandas van al Proyecto.
+        const REDACCION_PROYECTO = 'proyecto';   // pasa por el Comité (jurisprudencia, estrategia)
+        const REDACCION_API = 'api';             // redacción directa, sin salir de la planilla
+
+        function caminoDeRedaccion(modelo) {
+            return (modelo && modelo.redaccion) === REDACCION_PROYECTO
+                ? REDACCION_PROYECTO : REDACCION_API;
+        }
+
+        // Al Proyecto se le manda además la ESTRUCTURA del escrito: el comité elige el mejor
+        // modelo, pero tiene que devolver las secciones que esta plantilla espera.
+        function armarPedidoComite(client, modelo, secciones) {
+            return [
+                'Analizá este caso y redactá las secciones que se indican al final.',
+                'Ejecutá el protocolo completo del Comité (Pasos 1 a 9).',
+                '',
+                'ESCRITO: ' + (modelo.nombre || ''),
+                'MATERIA: ' + (client.materia || ''),
+                '',
+                '--- DATOS DE LA CAUSA ---',
+                escritoContextoComite(client),
+                '',
+                '--- SECCIONES QUE NECESITO ---',
+                secciones.map(s => '### ' + s.clave + '\n' + s.instruccion).join('\n\n'),
+                '',
+                '--- CÓMO DEVOLVERLO ---',
+                'Después del análisis, cerrá con las secciones pedidas, cada una precedida por',
+                'una línea "### clave" y nada más. Claves exactas: ' + secciones.map(s => s.clave).join(', ') + '.',
+                '',
+                'REGLAS PARA ESAS SECCIONES:',
+                '- Español rioplatense forense, tercera persona, con el "Que" inicial de estilo.',
+                '- NO escribas nombres propios ni números de DNI: decí "la actora", "el demandado",',
+                '  "los alimentados". Esos datos los completa la planilla y si los escribís se duplican.',
+                '- Sin encabezado, sin petitorio, sin "SERÁ JUSTICIA", sin markdown ni viñetas:',
+                '  la plantilla ya los tiene.',
+                '- Si citás jurisprudencia, que esté verificada según tu protocolo.'
+            ].join('\n');
+        }
+
+        async function llevarEscritoAlComite(btn) {
+            const client = clientsData.find(c => c.id === escritoActual.clientId);
+            const modelo = (escritosModelos || {})[escritoActual.modeloId];
+            if (!client || !modelo) return;
+            const secciones = escritoSeccionesIA(modelo.cuerpo);
+            if (!secciones.length) return;
+
+            const pedido = armarPedidoComite(client, modelo, secciones);
+            try {
+                await navigator.clipboard.writeText(pedido);
+            } catch (e) {
+                mostrarPedidoComite(pedido);
+                return;
+            }
+            const seguir = confirm(
+                'Pedido copiado al portapapeles.\n\n' +
+                'Cuando se abra tu Proyecto ' + nombreProyectoMateria(client) + ':\n' +
+                '   1) hacé clic en el cuadro de texto\n' +
+                '   2) pegá con Ctrl+V y enviá\n' +
+                '   3) cuando termine, copiá las secciones ### y volvé acá, a "Pegar lo del comité"\n\n' +
+                '¿Abrir el proyecto?'
+            );
+            if (!seguir) return;
+            window.open(proyectoParaCliente(client), '_blank');
+        }
+
+        function mostrarPedidoComite(texto) {
+            const z = document.getElementById('zonaComite');
+            if (!z) return;
+            z.innerHTML =
+                '<div style="font-size:.82em;margin-top:8px;"><b>No se pudo copiar solo. Copiá esto a mano:</b></div>' +
+                '<textarea rows="8" style="width:100%;font-family:monospace;font-size:.78em;margin-top:6px;">' +
+                String(texto).replace(/</g, '&lt;') + '</textarea>';
+        }
+
+        // Lo que devuelve el comité vuelve acá. Se parte por "### clave".
+        function pegarDelComite() {
+            const ta = document.getElementById('txtComite');
+            if (!ta || !ta.value.trim()) { alert('Pegá primero lo que devolvió el comité.'); return; }
+            // Solo se aceptan las claves que ESTE modelo declara. El comité devuelve antes
+            // los nueve pasos de su protocolo, y sin este filtro el análisis previo entraba
+            // como si fuera una sección más del escrito.
+            const modeloAct = (escritosModelos || {})[escritoActual.modeloId] || {};
+            const validas = escritoSeccionesIA(modeloAct.cuerpo).map(x => x.clave);
+            const bloques = ta.value.split(/^###\s*/m).filter(b => b.trim());
+            let n = 0;
+            bloques.forEach(b => {
+                const i = b.indexOf('\n');
+                if (i < 1) return;
+                const clave = b.slice(0, i).trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+                const texto = b.slice(i + 1).trim();
+                if (!clave || !texto) return;
+                if (validas.indexOf(clave) === -1) return;
+                _iaRedactado[clave] = texto; n++;
+            });
+            if (!n) {
+                alert('No encontré ninguna de las secciones que este escrito necesita (' +
+                      validas.join(', ') + ').\n\nEl texto tiene que traer una línea "### clave" ' +
+                      'antes de cada parte.');
+                return;
+            }
+            const faltantes = validas.filter(k => !_iaRedactado[k]);
+            if (faltantes.length) {
+                alert('Se tomaron ' + n + ' sección(es). Todavía falta: ' + faltantes.join(', ') + '.');
+            }
+            renderEscritos();
+        }
+
+        function abrirPegarComite() {
+            const z = document.getElementById('zonaComite');
+            if (!z) return;
+            z.innerHTML =
+                '<textarea id="txtComite" rows="8" placeholder="Pegá acá lo que devolvió el comité, con sus líneas ###" ' +
+                'style="width:100%;font-family:monospace;font-size:.82em;margin-top:8px;"></textarea>' +
+                '<div style="display:flex;gap:8px;margin-top:8px;">' +
+                '<button onclick="pegarDelComite()" class="btn btn-success btn-sm">Usar este texto</button>' +
+                '<button onclick="document.getElementById(\'zonaComite\').innerHTML=\'\'" class="btn btn-sm">Cancelar</button>' +
+                '</div>';
+            document.getElementById('txtComite').focus();
+        }
+
+        // Lo redactado se muestra aparte y editable ANTES de bajar el Word: es lo único del
+        // escrito que no salió de un dato cargado, así que es lo único que hay que leer con
+        // atención. El encabezado cambia según el camino que declare el modelo.
         function renderBloqueIA(secciones) {
             if (!secciones.length) return '';
-            const hay = secciones.some(s => _iaRedactado[s.clave]);
+            const modelo = (escritosModelos || {})[escritoActual.modeloId] || {};
+            const camino = caminoDeRedaccion(modelo);
+            const listas = secciones.filter(s => _iaRedactado[s.clave]).length;
+
+            const botones = camino === REDACCION_PROYECTO
+                ? '<button onclick="llevarEscritoAlComite(this)" class="btn btn-sm" ' +
+                  'style="background:var(--info-color);color:#fff;border:none;">Llevar al Comité</button>' +
+                  '<button onclick="abrirPegarComite()" class="btn btn-sm">Pegar lo del Comité</button>' +
+                  '<button onclick="redactarConComite(this)" class="btn btn-sm" title="Redacción rápida, sin jurisprudencia ni análisis del Comité">Redacción rápida</button>'
+                : '<button onclick="redactarConComite(this)" class="btn btn-sm" ' +
+                  'style="background:var(--info-color);color:#fff;border:none;">' +
+                  (listas ? 'Volver a redactar' : 'Redactar con el Comité') + '</button>' +
+                  // Segundo camino, para cuando el caso amerite jurisprudencia verificada:
+                  // ahi si hay que ir al Proyecto, que es el unico que tiene Drive y FalloBot.
+                  '<button onclick="llevarEscritoAlComite(this)" class="btn btn-sm" title="Solo si necesitás que el Dr. Iura Novit busque jurisprudencia en la biblioteca y en FalloBot">Llevarlo al Proyecto</button>' +
+                  '<button onclick="abrirPegarComite()" class="btn btn-sm">Pegar del Proyecto</button>';
+
             let h = '<div style="border:1px solid var(--info-color);border-radius:10px;padding:12px;margin-bottom:14px;' +
                 'background:rgba(139,110,199,0.06);">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
-                '<b style="font-size:.9em;color:var(--info-color);">Este escrito tiene ' + secciones.length +
-                ' sección(es) que redacta el comité</b>' +
-                '<button onclick="redactarConComite(this)" class="btn btn-sm" ' +
-                'style="background:var(--info-color);color:#fff;border:none;">' +
-                (hay ? 'Volver a redactar' : 'Redactar con el comité') + '</button></div>';
-            if (!hay) {
+                '<b style="font-size:.9em;color:var(--info-color);">' +
+                listas + ' de ' + secciones.length + ' secciones redactadas</b>' +
+                '<span style="display:flex;gap:6px;flex-wrap:wrap;">' + botones + '</span></div>' +
+                '<div id="zonaComite"></div>';
+
+            if (camino === REDACCION_PROYECTO) {
+                h += '<div style="font-size:.8em;color:var(--text-muted);margin-top:8px;line-height:1.45;">' +
+                     'Este escrito pasa por el <b>Comité del Proyecto</b>: ahí interviene el Dr. Iura Novit, ' +
+                     'que busca jurisprudencia en la biblioteca del Estudio y en FalloBot, y el Dr. Redactor, ' +
+                     'que compara con los modelos de Drive. Eso no se puede hacer desde acá.<br>' +
+                     'La <i>redacción rápida</i> escribe la prosa en 20 segundos pero <b>sin jurisprudencia ' +
+                     'ni análisis</b>: sirve para un borrador, no para presentar.</div>';
+            }
+
+            if (!listas) {
                 h += '<div style="font-size:.82em;color:var(--text-muted);margin-top:8px;">' +
-                     'Los datos ya están puestos. Falta la parte que hay que escribir: ' +
-                     secciones.map(s => s.clave).join(', ') + '.</div>';
+                     'Los datos ya están puestos. Falta lo que hay que escribir: ' +
+                     secciones.map(s => s.clave).join(', ') + '.<br>' +
+                     '<b>Redactar con el Comité</b> lo hace acá mismo, con los criterios del Estudio. ' +
+                     'Si el caso necesita jurisprudencia buscada y verificada, usá <b>Llevarlo al Proyecto</b>.</div>';
             } else {
-                h += '<div style="font-size:.8em;color:var(--text-muted);margin-top:8px;margin-bottom:8px;">' +
-                     'Leelo y corregilo acá antes de bajar el Word. Es lo único que no salió de la ficha.</div>';
+                h += '<div style="font-size:.8em;color:var(--text-muted);margin:8px 0;">' +
+                     'Leelo y corregilo acá antes de bajar el Word.</div>';
                 secciones.forEach(s => {
                     if (!_iaRedactado[s.clave]) return;
                     h += '<div style="margin-bottom:10px;">' +
@@ -8665,12 +9221,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 '<div><div style="font-weight:700;font-size:1.05em;">Escritos</div>' +
                 '<div style="font-size:.85em;color:var(--text-muted);">' +
                 (client.caratula || client.nombre || '') + '</div></div>' +
+                '<div id="estadoBiblioteca" style="font-size:.78em;color:var(--text-muted);"></div>' +
                 '<button onclick="document.getElementById(\'escritosOverlay\').remove()" ' +
                 'style="border:none;background:transparent;font-size:1.5em;cursor:pointer;color:var(--text-muted);">&times;</button>' +
                 '</div>' +
                 '<div id="escritosCuerpo" style="padding:16px 20px;overflow:auto;"></div>' +
                 '</div>';
             document.body.appendChild(overlay);
+            pintarEstadoBiblioteca();
             renderEscritos();
         }
 
