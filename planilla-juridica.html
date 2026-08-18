@@ -9094,9 +9094,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 : '<button onclick="redactarConComite(this)" class="btn btn-sm" ' +
                   'style="background:var(--info-color);color:#fff;border:none;">' +
                   (listas ? 'Volver a redactar' : 'Redactar con el Comité') + '</button>' +
-                  // Segundo camino, para cuando el caso amerite jurisprudencia verificada:
-                  // ahi si hay que ir al Proyecto, que es el unico que tiene Drive y FalloBot.
-                  '<button onclick="llevarEscritoAlComite(this)" class="btn btn-sm" title="Solo si necesitás que el Dr. Iura Novit busque jurisprudencia en la biblioteca y en FalloBot">Llevarlo al Proyecto</button>' +
+                  // Salida de emergencia. Ya no hace falta para la jurisprudencia ni para la
+                  // biblioteca —el Comité de acá tiene las dos—, pero queda por si algún caso
+                  // pide el ida y vuelta conversado con el Proyecto.
+                  '<button onclick="llevarEscritoAlComite(this)" class="btn btn-sm" title="Salida de emergencia: abre el Proyecto en otra pestaña. No hace falta para jurisprudencia ni para la biblioteca, el Comité de acá ya las consulta.">Llevarlo al Proyecto</button>' +
                   '<button onclick="abrirPegarComite()" class="btn btn-sm">Pegar del Proyecto</button>';
 
             let h = '<div style="border:1px solid var(--info-color);border-radius:10px;padding:12px;margin-bottom:14px;' +
@@ -9322,6 +9323,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 'startConvenioGeneration(\'' + escritoActual.clientId + '\')" class="btn btn-info btn-sm">' +
                 'Generar convenio</button></div>' +
                 avisoFaltan +
+                // Los botones del Comité, arriba de la vista previa: es lo que hay que
+                // tocar ANTES de bajar el Word, así que tiene que verse sin scrollear.
+                renderBloqueIA(r.seccionesIA || []) +
                 '<div style="font-size:.78em;color:var(--text-muted);margin-bottom:6px;">' +
                 'Vista previa — así sale el Word (A4, márgenes 5/1,5/2/5 cm, Times New Roman 12, interlineado 1,5).</div>' +
                 '<div style="background:#fff;color:#111;border:1px solid #ddd;border-radius:6px;padding:26px 20px;' +
