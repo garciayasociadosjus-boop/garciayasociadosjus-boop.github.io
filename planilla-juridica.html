@@ -8581,20 +8581,46 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         function escritoCondicionales(texto, cond) {
             const desconocidas = [];
-            const evaluar = (t) => {
-                // [^] en vez de [\s\S]: dentro de una cadena de JS el \s se pierde y el
-                // patron queda en [sS]. Ya paso una vez con las audiencias del MEV.
-                return t.replace(/\{\{#(si|no)\s+(\w+)\}\}([^]*?)\{\{\/\1\}\}/g, (m, tipo, clave, cuerpo) => {
-                    if (!(clave in cond)) {
-                        if (desconocidas.indexOf(clave) === -1) desconocidas.push(clave);
-                        return cuerpo;   // condicion que no existe: se deja el texto, no se borra
-                    }
-                    const vale = tipo === 'si' ? cond[clave] : !cond[clave];
-                    return vale ? cuerpo : '';
-                });
-            };
-            // Dos pasadas para que un bloque adentro de otro también se resuelva.
-            let out = evaluar(evaluar(texto));
+            let out = String(texto || '');
+
+            // SIEMPRE DE ADENTRO HACIA AFUERA. Antes esto era un replace con una expresión
+            // no ávida, y con un bloque adentro de otro —el de la canasta dentro del de
+            // "negro"— se comía la apertura del de adentro y dejaba su {{/si}} suelto en el
+            // medio del escrito. Salió impreso en un Word el 18/08/2026.
+            // Tomando siempre la ÚLTIMA apertura, esa nunca tiene otra adentro, así que su
+            // primer cierre es el que le corresponde.
+            const apertura = /\{\{#(si|no)\s+(\w+)\}\}/g;
+            for (let vuelta = 0; vuelta < 500; vuelta++) {
+                let m, ultima = null;
+                apertura.lastIndex = 0;
+                while ((m = apertura.exec(out)) !== null) ultima = m;
+                if (!ultima) break;
+
+                const tipo = ultima[1], clave = ultima[2];
+                const desde = ultima.index + ultima[0].length;
+                const cierre = '{{/' + tipo + '}}';
+                const fin = out.indexOf(cierre, desde);
+                if (fin === -1) {
+                    // Apertura sin cierre: se saca la marca y se deja el texto, que es lo
+                    // menos dañino. Un escrito con una etiqueta impresa no se puede presentar.
+                    if (desconocidas.indexOf(clave + ' (sin cierre)') === -1) desconocidas.push(clave + ' (sin cierre)');
+                    out = out.slice(0, ultima.index) + out.slice(desde);
+                    continue;
+                }
+
+                const cuerpo = out.slice(desde, fin);
+                let reemplazo;
+                if (!(clave in cond)) {
+                    if (desconocidas.indexOf(clave) === -1) desconocidas.push(clave);
+                    reemplazo = cuerpo;   // condición que no existe: se deja el texto, no se borra
+                } else {
+                    reemplazo = (tipo === 'si' ? cond[clave] : !cond[clave]) ? cuerpo : '';
+                }
+                out = out.slice(0, ultima.index) + reemplazo + out.slice(fin + cierre.length);
+            }
+
+            // Red de seguridad: cualquier cierre huérfano que haya quedado no se imprime.
+            out = out.replace(/\{\{\/(si|no)\}\}/g, '');
             // Los bloques dejan renglones vacíos donde se quitó texto.
             out = out.replace(/\n{3,}/g, '\n\n');
             return { texto: out, desconocidas };
