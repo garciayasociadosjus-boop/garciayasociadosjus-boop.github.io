@@ -8950,43 +8950,25 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }
         }
 
-        // EL PEDIDO NO SE ESPERA CON LA CONEXIÓN ABIERTA. Buscar jurisprudencia tarda entre
-        // 45 y 100 segundos, y Cloudflare corta a los 100 con un error 524 —ya pasó—. Así
-        // que el worker encola el trabajo, contesta un id enseguida, y acá se le pregunta
-        // cada tres segundos si terminó. El reloj de Cloudflare deja de importar.
+        // Se pide y se espera, con el límite de 100 segundos de Cloudflare encima. Probamos
+        // sacarle ese techo haciendo que el worker trabajara en segundo plano, y el plan
+        // gratuito no lo permite: mata el trabajo apenas se cierra la conexión. Así que la
+        // salida fue al revés —achicar la tarea para que entre— pidiendo UNA sección por
+        // vez, con techo de 3000 tokens y como mucho dos búsquedas de jurisprudencia.
+        // Si aun así se corta, se avisa cuál falló y se reintenta sin perder lo hecho.
         async function pedirSeccionAlComite(cuerpo) {
-            const leer = async (r) => {
-                const crudo = await r.text();
-                try { return JSON.parse(crudo); }
-                catch (e) {
-                    return { error: (r.status === 524 || /error code: 52\d/.test(crudo))
-                        ? 'se cortó la conexión con el servidor'
-                        : 'el servidor respondió algo que no es JSON (HTTP ' + r.status + ')' };
-                }
-            };
-
             const r = await fetch(IA_URL + '/api/redactar-escrito', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(Object.assign({ trabajo: true }, cuerpo))
+                body: JSON.stringify(cuerpo)
             });
-            const enc = await leer(r);
-            // Si el worker todavía no tiene el modo en segundo plano, contesta el resultado
-            // directo. Se usa igual en vez de romper.
-            if (!enc.trabajo) return enc;
-
-            const HASTA = 8 * 60 * 1000, DESDE = Date.now();
-            while (Date.now() - DESDE < HASTA) {
-                await new Promise(res => setTimeout(res, 3000));
-                let t;
-                try {
-                    t = await leer(await fetch(IA_URL + '/api/escrito-trabajo?id=' + encodeURIComponent(enc.trabajo)));
-                } catch (e) { continue; }   // un corte de red no tira abajo la espera
-                if (!t || t.estado === 'trabajando') continue;
-                if (t.estado === 'listo') return { ok: true, secciones: t.secciones, diagnostico: t.diagnostico };
-                if (t.estado === 'conexion') return t;
-                return { error: t.error || 'el trabajo terminó mal' };
+            // Un 524 no viene en JSON: sin esto el error que se ve es "Unexpected token e".
+            const crudo = await r.text();
+            try { return JSON.parse(crudo); }
+            catch (e) {
+                return { error: (r.status === 524 || /error code: 52\d/.test(crudo))
+                    ? 'tardó más de los 100 segundos que aguanta la conexión'
+                    : 'el servidor respondió algo que no es JSON (HTTP ' + r.status + ')' };
             }
-            return { error: 'pasaron ocho minutos y el Comité no contestó' };
         }
 
         async function redactarConComite(btn) {
