@@ -9053,7 +9053,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     if (!j.ok || !j.secciones) { fallaron.push(secciones[i].clave + ': ' + (j.error || 'sin respuesta')); continue; }
                     Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
                     // El worker avisa si se colo una cita que no salio de su busqueda.
-                    (j.citas_sin_verificar || []).forEach(c => dudosas.push(c));
+                    // Sin dedup, la misma cita aparece una vez por seccion redactada.
+                    (j.citas_sin_verificar || []).forEach(c => {
+                        if (dudosas.indexOf(c) === -1) dudosas.push(c);
+                    });
                 }
                 renderEscritos();
                 avisarRedaccion(secciones, documentos, sinFallos, fallaron, dudosas);
