@@ -8669,18 +8669,24 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             };
             agregar(client.nombre, 'la parte actora');
             agregar((client.demandado || {}).nombre, 'la parte demandada');
-            // Cada hijo se distingue por la edad. Si todos quedaran como "el hijo", el
-            // relato pasaría a decir "el hijo y el hijo", y el Comité no sabría de cuál
-            // habla en cada tramo.
+            // Cada hijo se distingue por la edad: si todos quedaran como "el hijo", el relato
+            // diría "el hijo y el hijo". Van entre corchetes y sin género porque la ficha no
+            // dice si es nena o nene: "su hija ANA" no puede terminar en "su hija el hijo".
             (client.hijos || []).forEach((h, i) => agregar(h.nombre,
-                h.edad ? 'el hijo de ' + h.edad + ' años' : 'el hijo n° ' + (i + 1)));
-            agregar((client.padreBiologico || {}).nombre, 'el presunto padre biologico');
-            if (client.padreBiologicoNombre) agregar(client.padreBiologicoNombre, 'el presunto padre biologico');
+                h.edad ? '[hijo/a de ' + h.edad + ' años]' : '[hijo/a n° ' + (i + 1) + ']'));
+            agregar((client.padreBiologico || {}).nombre, '[el presunto padre biológico]');
+            if (client.padreBiologicoNombre) agregar(client.padreBiologicoNombre, '[el presunto padre biológico]');
 
-            // Primero los nombres largos, para que "JUAN PEREZ" no quede como "el hijo PEREZ".
+            // Los nombres largos primero, para que "JUAN PEREZ" no quede como "el hijo PEREZ".
             cambios.sort((a, b) => b.n.length - a.n.length).forEach(c => {
                 const escapado = c.n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                t = t.replace(new RegExp(escapado, 'gi'), c.rol);
+                // Con letra pegada antes o después NO se reemplaza. Sin esto, una actora
+                // llamada ROSA convertía "Rosario" en "la parte actorario" y "rosarosa" en
+                // un engendro. El borde no puede ser \b porque en JS las vocales acentuadas
+                // no cuentan como letra y "José" cortaría mal.
+                const letra = 'A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9';
+                const patron = new RegExp('(^|[^' + letra + '])' + escapado + '(?![' + letra + '])', 'gi');
+                t = t.replace(patron, (m, antes) => antes + c.rol);
             });
             return t;
         }
@@ -9005,7 +9011,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const client = clientsData.find(c => c.id === escritoActual.clientId);
             const modelo = (escritosModelos || {})[escritoActual.modeloId];
             if (!client || !modelo) return;
-            const secciones = escritoSeccionesIA(modelo.cuerpo);
+            // Las secciones salen de escritoArmar, que ya resolvio los condicionales: no
+            // se le pide al Comite un tramo que este escrito no va a llevar.
+            const secciones = escritoArmar(modelo, client).seccionesIA;
             if (!secciones.length) return;
 
             const textoOrig = btn ? btn.textContent : '';
@@ -9137,7 +9145,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const client = clientsData.find(c => c.id === escritoActual.clientId);
             const modelo = (escritosModelos || {})[escritoActual.modeloId];
             if (!client || !modelo) return;
-            const secciones = escritoSeccionesIA(modelo.cuerpo);
+            // Las secciones salen de escritoArmar, que ya resolvio los condicionales: no
+            // se le pide al Comite un tramo que este escrito no va a llevar.
+            const secciones = escritoArmar(modelo, client).seccionesIA;
             if (!secciones.length) return;
 
             const pedido = armarPedidoComite(client, modelo, secciones);
@@ -9176,7 +9186,8 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // los nueve pasos de su protocolo, y sin este filtro el análisis previo entraba
             // como si fuera una sección más del escrito.
             const modeloAct = (escritosModelos || {})[escritoActual.modeloId] || {};
-            const validas = escritoSeccionesIA(modeloAct.cuerpo).map(x => x.clave);
+            const clienteAct = clientsData.find(c => c.id === escritoActual.clientId);
+            const validas = escritoArmar(modeloAct, clienteAct || {}).seccionesIA.map(x => x.clave);
             const bloques = ta.value.split(/^###\s*/m).filter(b => b.trim());
             let n = 0;
             bloques.forEach(b => {
@@ -9286,8 +9297,13 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             // contener {{cliente}} u otro marcador y tiene que resolverse igual que el resto.
             const conIA = escritoAplicarIA(c.texto);
             const r = escritoReemplazar(conIA, escritoDatos(client));
+            // Las secciones se cuentan sobre el cuerpo YA RESUELTO, no sobre el modelo crudo.
+            // Varias viven adentro de un condicional —"capacidad" solo si trabaja en negro,
+            // "bienes" solo si hay bienes— y sobre el crudo aparecían siempre: se le pedía al
+            // Comité que redactara un tramo que después no se imprime, con su llamada, su
+            // búsqueda de jurisprudencia y sus cuarenta segundos tirados a la basura.
             return { texto: r.texto, faltan: r.faltan, condicionesDesconocidas: c.desconocidas,
-                     seccionesIA: escritoSeccionesIA(modelo && modelo.cuerpo) };
+                     seccionesIA: escritoSeccionesIA(c.texto) };
         }
 
         function escritoReemplazar(texto, datos) {
