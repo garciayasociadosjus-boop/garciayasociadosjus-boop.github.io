@@ -8656,6 +8656,35 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         // Lo que se le manda al comité: los datos de la ficha ya ordenados y con nombre.
         // Mandar la ficha cruda seria mandarle tambien el DNI y el expediente, que no
         // necesita y que no queremos que escriba.
+        // Cambia los nombres propios del expediente por el rol que cumplen. Sin esto el
+        // Comite repite el nombre que ve en el relato, y despues la plantilla lo vuelve a
+        // poner con {{cliente}}: en el Word sale duplicado.
+        function taparNombres(texto, client) {
+            let t = String(texto || '');
+            if (!t) return t;
+            const cambios = [];
+            const agregar = (nombre, rol) => {
+                const n = String(nombre || '').trim();
+                if (n.length > 2) cambios.push({ n: n, rol: rol });
+            };
+            agregar(client.nombre, 'la parte actora');
+            agregar((client.demandado || {}).nombre, 'la parte demandada');
+            // Cada hijo se distingue por la edad. Si todos quedaran como "el hijo", el
+            // relato pasaría a decir "el hijo y el hijo", y el Comité no sabría de cuál
+            // habla en cada tramo.
+            (client.hijos || []).forEach((h, i) => agregar(h.nombre,
+                h.edad ? 'el hijo de ' + h.edad + ' años' : 'el hijo n° ' + (i + 1)));
+            agregar((client.padreBiologico || {}).nombre, 'el presunto padre biologico');
+            if (client.padreBiologicoNombre) agregar(client.padreBiologicoNombre, 'el presunto padre biologico');
+
+            // Primero los nombres largos, para que "JUAN PEREZ" no quede como "el hijo PEREZ".
+            cambios.sort((a, b) => b.n.length - a.n.length).forEach(c => {
+                const escapado = c.n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                t = t.replace(new RegExp(escapado, 'gi'), c.rol);
+            });
+            return t;
+        }
+
         function escritoContextoIA(client) {
             const g = client.general || {};
             const n = client.necesidades || {};
@@ -8693,9 +8722,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     : ['trabajo registrado',
                        g.pctProvisorio ? 'provisoria ' + g.pctProvisorio + '%' : '',
                        g.pctDefinitivo ? 'definitiva ' + g.pctDefinitivo + '%' : ''].filter(Boolean).join(', '),
-                relato: client.relatoCaso || '',
-                situacion: client.situacionHijos || '',
-                notas: client.notas || ''
+                // Los tres campos de texto libre pasan por el tapado de nombres.
+                relato: taparNombres(client.relatoCaso, client),
+                situacion: taparNombres(client.situacionHijos, client),
+                notas: taparNombres(client.notas, client)
             };
         }
 
