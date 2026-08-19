@@ -8863,7 +8863,14 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const raiz = raices.find(f => (f.name || '').toLowerCase().indexOf(clave) >= 0);
             if (!raiz) return [];
             const catalogo = [];
-            const secciones = await bibHijos(raiz.id, true);
+            // LA BIBLIOTECA APORTA FORMA; FALLOBOT APORTA AUTORIDAD.
+            // Solo entran MODELOS y MANUALES. Las carpetas JURISPRUDENCIA y DOCTRINA quedan
+            // afuera a propósito: son PDF de fallos, y el Comité —teniendo uno adelante— lo
+            // cita, salteándose el filtro de jurisdicción. Pasó el 19/08/2026: metió un fallo
+            // de Río Negro en un escrito de Quilmes, sacado de un PDF de la biblioteca. Los
+            // fallos que se citan tienen que venir de la búsqueda, que es la que filtra.
+            const CARPETAS_OK = /modelo|manual/i;
+            const secciones = (await bibHijos(raiz.id, true)).filter(x => CARPETAS_OK.test(x.name || ''));
             for (const sec of secciones) {
                 const dentro = await bibHijos(sec.id, false);
                 for (const f of dentro) {
@@ -9020,7 +9027,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             if (btn) { btn.disabled = true; btn.textContent = 'Buscando en la biblioteca…'; }
             const sinFallos = _sinFallos;
             let documentos = [];
-            const fallaron = [];
+            const fallaron = [], dudosas = [];
             try {
                 // Primero la biblioteca: el Comité redacta mirando los modelos del
                 // Estudio, igual que en el Proyecto.
@@ -9045,13 +9052,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     if (j.necesita_conexion) { pedirConexionFallos(j); return; }
                     if (!j.ok || !j.secciones) { fallaron.push(secciones[i].clave + ': ' + (j.error || 'sin respuesta')); continue; }
                     Object.keys(j.secciones).forEach(k => { _iaRedactado[k] = j.secciones[k]; });
+                    // El worker avisa si se colo una cita que no salio de su busqueda.
+                    (j.citas_sin_verificar || []).forEach(c => dudosas.push(c));
                 }
                 renderEscritos();
-                avisarRedaccion(secciones, documentos, sinFallos, fallaron);
+                avisarRedaccion(secciones, documentos, sinFallos, fallaron, dudosas);
             } catch (e) {
                 // Lo que ya se redactó antes del error no se pierde.
                 renderEscritos();
-                avisarRedaccion(secciones, documentos, sinFallos, fallaron.concat([e.message]));
+                avisarRedaccion(secciones, documentos, sinFallos, fallaron.concat([e.message]), dudosas);
             } finally {
                 _sinFallos = false;
                 if (btn) { btn.disabled = false; btn.textContent = textoOrig || 'Redactar con el comité'; }
@@ -9060,7 +9069,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         // Sin esto no hay forma de saber qué pasó: el contador cambia arriba, pero si la
         // vista previa quedó scrolleada no se ve nada y parece que no hizo nada.
-        function avisarRedaccion(secciones, documentos, sinFallos, errores) {
+        function avisarRedaccion(secciones, documentos, sinFallos, errores, dudosas) {
             const z = document.getElementById('zonaComite');
             if (!z) return;
             const escritas = secciones.filter(s => _iaRedactado[s.clave]);
@@ -9078,6 +9087,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 (faltan.length ? '<br><span style="color:var(--danger-color)">Quedaron sin redactar: ' +
                     faltan.map(s => s.clave).join(', ') +
                     '. Volvé a tocar el botón: lo ya redactado no se pierde.</span>' : '') +
+                ((dudosas || []).length ? '<br><b style="color:var(--danger-color)">CITAS SIN VERIFICAR: ' +
+                    dudosas.join(' | ') + '</b><br><span style="color:var(--danger-color)">' +
+                    'No salieron de la búsqueda del Estudio. Comprobalas antes de presentar o borralas.</span>' : '') +
                 ((errores || []).length ? '<br><span style="color:var(--danger-color)">' +
                     errores.join('<br>') + '</span>' : '') +
                 '<br><span style="color:var(--text-muted)">' + fuentes + '</span>' +
