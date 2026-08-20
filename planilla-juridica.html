@@ -3448,6 +3448,11 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         caratula:   c.caratula || '',
                         nombre:     c.nombre || '',
                         materia:    c.materia || '',   // lo usa esPenalCaso() en mpba-sync.js
+                        // Se calcula acá igual que en el worker y del mismo campo: si
+                        // solo lo escribiera el worker, este .set() lo borraría en el
+                        // primer guardado, como pasó con fuera_estudio y mev_huellas.
+                        // No se muestra en ninguna parte de la ficha: es para el vigía.
+                        fuero:      c.mev_fuero || '',
                         movs:  Array.isArray(c.mev_movimientos) ? c.mev_movimientos.length : 0,
                         pjn:   Array.isArray(c.pjn_actuaciones) ? c.pjn_actuaciones.length : 0,
                         mev_ultima_sync: syncLocal > syncPrevio ? syncLocal : syncPrevio,
