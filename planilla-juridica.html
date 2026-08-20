@@ -9895,6 +9895,26 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             const mevUltimaSync = client.mev_ultima_sync 
                 ? new Date(client.mev_ultima_sync).toLocaleString('es-AR') 
                 : null;
+            // La fecha la pone el juzgado y puede venir antedatada: pueden subir hoy algo
+            // fechado la semana pasada. "Visto" es cuando lo vimos NOSOTROS. Con los dos
+            // datos a la vista se distingue "el juzgado lo subió tarde" de "se nos pasó",
+            // que es lo único que permite confiar en lo que muestra la planilla.
+            const sellitoVisto = (m) => {
+                if (!m.visto) return '';
+                const v = new Date(m.visto);
+                const f = String(m.fecha || '').split('/');
+                if (f.length !== 3) return '';
+                const delJuzgado = new Date(+f[2], +f[1] - 1, +f[0]);
+                const dias = Math.floor((v - delJuzgado) / 86400000);
+                // Hasta dos días de diferencia es lo normal y no se muestra: sería ruido en
+                // todas las filas. Se avisa solo cuando la brecha llama la atención.
+                if (!(dias >= 2)) return '';
+                const cuando = v.toLocaleString('es-AR');
+                return '<div style="font-size:.72em;font-weight:400;color:#b0873a;margin-top:2px;" ' +
+                       'title="El juzgado lo fechó el ' + m.fecha + ' pero recién apareció en la MEV el ' +
+                       cuando + '">visto ' + dias + ' d después</div>';
+            };
+
             const renderMovItem = (m) => {
                 const nivel = m.nivel_relevancia || 0;
                 const nivelColor = nivel >= 4 ? '#d94f4f' : nivel >= 3 ? '#e67e22' : nivel >= 2 ? '#3498db' : 'var(--text-muted)';
@@ -9920,7 +9940,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 return `
                 <div style="padding:8px 10px; border-bottom:1px solid var(--border-item);">
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <div style="min-width:100px; font-size:0.85em; color:var(--text-muted); font-weight:600;">${m.fecha}</div>
+                        <div style="min-width:100px; font-size:0.85em; color:var(--text-muted); font-weight:600;">${m.fecha}${sellitoVisto(m)}</div>
                         <span style="color:${nivelColor}; font-size:0.8em;" title="Nivel ${nivel}">${nivelLabel}</span>
                         <div style="font-size:0.9em; color:var(--text-primary); flex:1;">${m.descripcion || ''}</div>
                         <div style="display:flex; gap:4px; flex-shrink:0;">
