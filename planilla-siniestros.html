@@ -3845,6 +3845,24 @@ const MAP_ESTADO_ABONO = {
     'RECHAZADO':      'Terminado',
 };
 
+// El mes en que se cobro, sacado de la ficha. FINALIZADA significa cobrado, y la fecha
+// vive en `fechaCobro` -el campo "Fecha de Cobro — Estudio", al lado del Si/No de
+// "Cobrado por Estudio"-. Devuelve null si no esta cargada, y cada quien decide que hacer
+// con eso: la sincronizacion en vivo usa hoy, la reconciliacion en lote no inventa nada.
+function mesDeCobro(s) {
+    if (!s || !s.fechaCobro) return null;
+    // La fecha viene 'YYYY-MM-DD' de un input date. Se parte a mano en vez de usar
+    // new Date('2026-09-01'), que se interpreta en UTC y en Argentina cae un dia antes
+    // -y un cobro del 1 de septiembre terminaria contado en agosto-.
+    const m = String(s.fechaCobro).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    return { month: parseInt(m[2], 10) - 1, year: parseInt(m[1], 10) };
+}
+
+function mismoMes(a, b) {
+    return !!a && !!b && a.month === b.month && a.year === b.year;
+}
+
 // El formato del abono que nace de un siniestro, en un solo lugar. Lo usan la
 // sincronizacion de a uno y la reconciliacion en lote: si viviera duplicado, cambiar el
 // formato en un lado dejaria dos clases de registro en la planilla de cobros.
@@ -3876,7 +3894,9 @@ function construirAbonoDesdeSiniestro(s) {
         estado: MAP_ESTADO_ABONO[s.estado] || 'Pendiente',
         observaciones: 'Generado desde Siniestros. Reclamo: ' + (s.numeroReclamo || 'S/N') + '. Aseguradora: ' + (s.contra || 'S/N') + '.',
         observacionesAuto: '',
-        mesServicio: { month: hoy.getMonth(), year: hoy.getFullYear() },
+        // Si ya se cobro, el abono nace en el mes del cobro y no en el actual. Un
+        // honorario cobrado en junio no puede aparecer como cobro de septiembre.
+        mesServicio: mesDeCobro(s) || { month: hoy.getMonth(), year: hoy.getFullYear() },
         origenSiniestro: true
     };
 }
@@ -3919,7 +3939,7 @@ function reconciliarAbonosConSiniestros() {
             }, -1) + 1;
 
             const updates = {};
-            let corregidos = 0, creados = 0;
+            let corregidos = 0, creados = 0, movidos = 0, borrados = 0, sinFecha = 0;
 
             siniestrosData.forEach(s => {
                 if (!s || !s.id) return;
@@ -3928,16 +3948,56 @@ function reconciliarAbonosConSiniestros() {
                 const estadoDebido = MAP_ESTADO_ABONO[s.estado];
                 const mios = porSiniestro[s.id] || [];
 
+                // Un siniestro ya cobrado necesita la fecha del cobro para saber en que
+                // mes va. Aca NO se usa "hoy" como respaldo: son casos viejos, y ponerlos
+                // en el mes actual es justamente el error que esto viene a reparar.
+                const yaCobrado = estadoDebido === 'Terminado';
+                const mesCobro = mesDeCobro(s);
+
                 if (!mios.length) {
                     // Sin abono. Solo se crea si hay honorario: un siniestro recien abierto
                     // sin importe todavia no es plata a cobrar, y crearlo llenaria la
                     // planilla de cobros de filas en cero.
+                    // Y si ya se cobro pero no hay fecha, tampoco: no sabriamos en que mes
+                    // ponerlo. Queda contado aparte para que el estudio cargue la fecha.
                     if (tieneHonorarios) {
+                        if (yaCobrado && !mesCobro) { sinFecha++; return; }
                         updates['planilla_abonos/' + proxima] = construirAbonoDesdeSiniestro(s);
                         proxima++;
                         creados++;
                     }
                     return;
+                }
+
+                // Cobrado y sin fecha: los abonos que yo cree hoy en el mes equivocado se
+                // borran. No se pierde nada -cuando se cargue la fecha del cobro, esta
+                // misma reconciliacion los vuelve a crear en el mes correcto-. Solo se
+                // borran los que nacieron de un siniestro y no tienen pago registrado.
+                if (yaCobrado && !mesCobro) {
+                    mios.forEach(k => {
+                        const a = abonos[k];
+                        if (a.origenSiniestro && a.estado === 'Terminado' && !a.montoPagado) {
+                            updates['planilla_abonos/' + k] = null;
+                            borrados++;
+                        }
+                    });
+                    sinFecha++;
+                    return;
+                }
+
+                // Cobrado y con fecha: Terminado va en la copia de ese mes, y en una sola.
+                let claveDelCobro = null;
+                if (yaCobrado) {
+                    claveDelCobro = mios.find(k => mismoMes(abonos[k].mesServicio, mesCobro));
+                    if (!claveDelCobro) {
+                        claveDelCobro = mios.slice().sort((a, b) => {
+                            const ma = abonos[a].mesServicio || { year: 0, month: 0 };
+                            const mb = abonos[b].mesServicio || { year: 0, month: 0 };
+                            return (ma.year - mb.year) || (ma.month - mb.month);
+                        }).pop();
+                        updates['planilla_abonos/' + claveDelCobro + '/mesServicio'] = mesCobro;
+                        movidos++;
+                    }
                 }
 
                 mios.forEach(k => {
@@ -3948,8 +4008,13 @@ function reconciliarAbonosConSiniestros() {
                         updates['planilla_abonos/' + k + '/montoBase'] = honorarios;
                         cambio = true;
                     }
-                    if (estadoDebido && a.estado !== estadoDebido) {
-                        updates['planilla_abonos/' + k + '/estado'] = estadoDebido;
+                    // El estado se corrige donde corresponde: en todas si sigue pendiente,
+                    // y solo en la del cobro si ya se cobro. Las anteriores son historial.
+                    const debeQuedar = yaCobrado
+                        ? (k === claveDelCobro ? 'Terminado' : 'Pendiente')
+                        : estadoDebido;
+                    if (debeQuedar && a.estado !== debeQuedar) {
+                        updates['planilla_abonos/' + k + '/estado'] = debeQuedar;
                         cambio = true;
                     }
                     if (cambio) corregidos++;
@@ -3958,14 +4023,23 @@ function reconciliarAbonosConSiniestros() {
 
             // Si no hay nada que corregir no se escribe ni se avisa. Un cartel que aparece
             // siempre se deja de leer, y el dia que diga algo tampoco se va a leer.
-            if (!corregidos && !creados) return;
+            if (!corregidos && !creados && !movidos && !borrados) {
+                // Nada que tocar. Igual conviene avisar si hay cobros sin fecha: son los
+                // que no pueden ubicarse en ningun mes hasta que alguien la cargue.
+                if (sinFecha) updateDataStatus('ℹ️ ' + sinFecha + ' siniestro(s) cobrado(s) sin "Fecha de Cobro" cargada. Cargala y el abono se ubica solo.');
+                return;
+            }
 
             db.ref().update(updates)
                 .then(() => {
                     const partes = [];
                     if (corregidos) partes.push(corregidos + ' corregido' + (corregidos > 1 ? 's' : ''));
                     if (creados) partes.push(creados + ' creado' + (creados > 1 ? 's' : ''));
-                    updateDataStatus('✅ Abonos alineados con siniestros: ' + partes.join(' y ') + '.');
+                    if (movidos) partes.push(movidos + ' movido' + (movidos > 1 ? 's' : '') + ' al mes del cobro');
+                    if (borrados) partes.push(borrados + ' borrado' + (borrados > 1 ? 's' : '') + ' por falta de fecha de cobro');
+                    let msg = '✅ Abonos alineados con siniestros: ' + partes.join(', ') + '.';
+                    if (sinFecha) msg += ' Hay ' + sinFecha + ' cobro(s) sin fecha cargada.';
+                    updateDataStatus(msg);
                 })
                 .catch(err => {
                     updateDataStatus('⚠️ No se pudieron alinear los abonos. Avisá para revisarlo.');
@@ -4013,8 +4087,37 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
 
             if (mios.length) {
                 const updates = {};
+                const estadoDebido = MAP_ESTADO_ABONO[s.estado];
+
+                // Terminado va en UNA sola copia: la del mes en que se cobro. Las de los
+                // meses anteriores son el historial de lo que estuvo impago y conservan su
+                // estado. Antes se marcaban todas, y el mismo cobro figuraba cobrado en
+                // julio, agosto y septiembre a la vez.
+                let claveDelCobro = null;
+                if (estadoDebido === 'Terminado') {
+                    const hoy = new Date();
+                    // Sin fecha cargada se usa hoy: el usuario acaba de marcar FINALIZADA,
+                    // o sea que acaba de cobrar.
+                    const mesCobro = mesDeCobro(s) || { month: hoy.getMonth(), year: hoy.getFullYear() };
+                    claveDelCobro = mios.find(k => mismoMes(abonos[k].mesServicio, mesCobro));
+                    if (!claveDelCobro) {
+                        // No hay copia en el mes del cobro. Se mueve la mas nueva en vez de
+                        // crear otra: crear duplicaria el honorario en la planilla de cobros.
+                        claveDelCobro = mios.slice().sort((a, b) => {
+                            const ma = abonos[a].mesServicio || { year: 0, month: 0 };
+                            const mb = abonos[b].mesServicio || { year: 0, month: 0 };
+                            return (ma.year - mb.year) || (ma.month - mb.month);
+                        }).pop();
+                        updates['planilla_abonos/' + claveDelCobro + '/mesServicio'] = mesCobro;
+                    }
+                }
+
                 mios.forEach(k => {
-                    updates['planilla_abonos/' + k + '/estado'] = MAP_ESTADO_ABONO[s.estado] || abonos[k].estado;
+                    // El estado solo se toca donde corresponde: en todas si sigue pendiente,
+                    // y solo en la del cobro si ya se cobro.
+                    if (estadoDebido && (estadoDebido !== 'Terminado' || k === claveDelCobro)) {
+                        updates['planilla_abonos/' + k + '/estado'] = estadoDebido;
+                    }
                     if (tieneHonorarios) {
                         updates['planilla_abonos/' + k + '/monto'] = honorarios;
                         updates['planilla_abonos/' + k + '/montoBase'] = honorarios;
