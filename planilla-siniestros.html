@@ -3940,19 +3940,51 @@ function reconciliarAbonosConSiniestros() {
 
             const updates = {};
             let corregidos = 0, creados = 0, movidos = 0, borrados = 0, sinFecha = 0;
+            let duplicados = 0, posteriores = 0;
 
             siniestrosData.forEach(s => {
                 if (!s || !s.id) return;
                 const honorarios = parseFloat(s.honorarios);
                 const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
                 const estadoDebido = MAP_ESTADO_ABONO[s.estado];
-                const mios = porSiniestro[s.id] || [];
+                let mios = porSiniestro[s.id] || [];
+                const muertos = {};   // claves que este siniestro manda a borrar
 
                 // Un siniestro ya cobrado necesita la fecha del cobro para saber en que
                 // mes va. Aca NO se usa "hoy" como respaldo: son casos viejos, y ponerlos
                 // en el mes actual es justamente el error que esto viene a reparar.
                 const yaCobrado = estadoDebido === 'Terminado';
                 const mesCobro = mesDeCobro(s);
+
+                // Una sola copia por mes. Dos filas del mismo siniestro en el mismo mes no
+                // solo muestran al cliente repetido: suman el honorario dos veces en el
+                // total del mes, que es el problema serio. Se conserva la que tenga pago
+                // registrado y, si ninguna lo tiene, la de clave mas baja -la original-.
+                if (mios.length > 1) {
+                    const porMes = {};
+                    mios.forEach(k => {
+                        const m = abonos[k].mesServicio;
+                        const etiqueta = (m && typeof m.year === 'number') ? (m.year + '-' + m.month) : 'sin-mes';
+                        (porMes[etiqueta] = porMes[etiqueta] || []).push(k);
+                    });
+                    Object.keys(porMes).forEach(etiqueta => {
+                        const grupo = porMes[etiqueta];
+                        if (grupo.length < 2) return;
+                        const conPago = grupo.filter(k => abonos[k].montoPagado);
+                        const sobrevive = conPago.length
+                            ? conPago[0]
+                            : grupo.slice().sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0))[0];
+                        grupo.forEach(k => {
+                            if (k === sobrevive) return;
+                            // Cargado a mano o con un pago anotado: no se toca.
+                            if (!abonos[k].origenSiniestro || abonos[k].montoPagado) return;
+                            updates['planilla_abonos/' + k] = null;
+                            muertos[k] = true;
+                            duplicados++;
+                        });
+                    });
+                    mios = mios.filter(k => !muertos[k]);
+                }
 
                 if (!mios.length) {
                     // Sin abono. Solo se crea si hay honorario: un siniestro recien abierto
@@ -4000,6 +4032,26 @@ function reconciliarAbonosConSiniestros() {
                     }
                 }
 
+                // Cobrado: en los meses POSTERIORES ya no se debia nada, asi que esas
+                // copias no van. Es lo que pidio el estudio: "pasa a terminado y no se
+                // arrastra mas". Las anteriores se quedan: son los meses en que estuvo
+                // impago, y ese historial sirve.
+                if (yaCobrado && mesCobro) {
+                    mios.forEach(k => {
+                        if (k === claveDelCobro) return;
+                        const m = abonos[k].mesServicio;
+                        if (!m || typeof m.year !== 'number') return;
+                        const esPosterior = (m.year > mesCobro.year) ||
+                            (m.year === mesCobro.year && m.month > mesCobro.month);
+                        if (!esPosterior) return;
+                        if (!abonos[k].origenSiniestro || abonos[k].montoPagado) return;
+                        updates['planilla_abonos/' + k] = null;
+                        muertos[k] = true;
+                        posteriores++;
+                    });
+                    mios = mios.filter(k => !muertos[k]);
+                }
+
                 mios.forEach(k => {
                     const a = abonos[k];
                     let cambio = false;
@@ -4023,7 +4075,7 @@ function reconciliarAbonosConSiniestros() {
 
             // Si no hay nada que corregir no se escribe ni se avisa. Un cartel que aparece
             // siempre se deja de leer, y el dia que diga algo tampoco se va a leer.
-            if (!corregidos && !creados && !movidos && !borrados) {
+            if (!corregidos && !creados && !movidos && !borrados && !duplicados && !posteriores) {
                 // Nada que tocar. Igual conviene avisar si hay cobros sin fecha: son los
                 // que no pueden ubicarse en ningun mes hasta que alguien la cargue.
                 if (sinFecha) updateDataStatus('ℹ️ ' + sinFecha + ' siniestro(s) cobrado(s) sin "Fecha de Cobro" cargada. Cargala y el abono se ubica solo.');
@@ -4037,6 +4089,8 @@ function reconciliarAbonosConSiniestros() {
                     if (creados) partes.push(creados + ' creado' + (creados > 1 ? 's' : ''));
                     if (movidos) partes.push(movidos + ' movido' + (movidos > 1 ? 's' : '') + ' al mes del cobro');
                     if (borrados) partes.push(borrados + ' borrado' + (borrados > 1 ? 's' : '') + ' por falta de fecha de cobro');
+                    if (duplicados) partes.push(duplicados + ' duplicado' + (duplicados > 1 ? 's' : '') + ' borrado' + (duplicados > 1 ? 's' : ''));
+                    if (posteriores) partes.push(posteriores + ' arrastre' + (posteriores > 1 ? 's' : '') + ' posterior' + (posteriores > 1 ? 'es' : '') + ' al cobro borrado' + (posteriores > 1 ? 's' : ''));
                     let msg = '✅ Abonos alineados con siniestros: ' + partes.join(', ') + '.';
                     if (sinFecha) msg += ' Hay ' + sinFecha + ' cobro(s) sin fecha cargada.';
                     updateDataStatus(msg);
