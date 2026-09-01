@@ -2361,6 +2361,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
                     safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
                     renderAll();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    // Al abrir la planilla, alinear lo que haya quedado desfasado. La
+                    // funcion se protege sola para correr una unica vez, aunque este
+                    // listener se dispare muchas veces en la sesion.
+                    reconciliarAbonosConSiniestros();
                 }
             }).catch(() => {});
         }
@@ -3841,6 +3845,138 @@ const MAP_ESTADO_ABONO = {
     'RECHAZADO':      'Terminado',
 };
 
+// El formato del abono que nace de un siniestro, en un solo lugar. Lo usan la
+// sincronizacion de a uno y la reconciliacion en lote: si viviera duplicado, cambiar el
+// formato en un lado dejaria dos clases de registro en la planilla de cobros.
+//
+// El mes de servicio es el ACTUAL y no el de creacion del siniestro, porque la planilla
+// de abonos filtra por mes: un honorario que se devenga hoy, puesto en el mes en que se
+// abrio la causa, quedaria invisible.
+function construirAbonoDesdeSiniestro(s) {
+    const honorarios = parseFloat(s.honorarios);
+    const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
+    const hoy = new Date();
+    return {
+        id: 'SIN_' + s.id,
+        siniestroId: s.id,
+        cliente: s.cliente || '',
+        expediente: 'SINIESTROS',
+        telefono: s.celular || '',
+        dniCliente: s.dni || '',
+        autorizaWhatsapp: false,
+        ultimoContactoAgente: '',
+        respuestaCliente: '',
+        escalarACamila: false,
+        tipo: 'Honorarios Siniestro',
+        monto: tieneHonorarios ? honorarios : 0,
+        montoBase: tieneHonorarios ? honorarios : 0,
+        deudaAcumulada: 0,
+        montoPagado: '',
+        fechaPago: '',
+        estado: MAP_ESTADO_ABONO[s.estado] || 'Pendiente',
+        observaciones: 'Generado desde Siniestros. Reclamo: ' + (s.numeroReclamo || 'S/N') + '. Aseguradora: ' + (s.contra || 'S/N') + '.',
+        observacionesAuto: '',
+        mesServicio: { month: hoy.getMonth(), year: hoy.getFullYear() },
+        origenSiniestro: true
+    };
+}
+
+// Alinea de una sola pasada los abonos que quedaron desfasados. Existe porque el arreglo
+// del 01/09/2026 evita que el importe se pierda de ahora en adelante, pero no repara los
+// que ya estaban mal, y corregirlos abriendo ficha por ficha no es trabajo para nadie.
+//
+// Siniestros manda: ahi se decide el honorario, abonos es donde se cobra. Si alguien
+// edita un importe del lado de abonos, esto lo devuelve al valor del siniestro. Es lo
+// acordado con el estudio y por eso NO se toca ningun abono sin `siniestroId`: los que
+// se cargan a mano en la planilla de cobros quedan intactos.
+let yaReconcilieAbonos = false;
+function reconciliarAbonosConSiniestros() {
+    if (yaReconcilieAbonos) return;
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    if (!Array.isArray(siniestrosData) || !siniestrosData.length) return;
+    yaReconcilieAbonos = true;   // una sola vez por sesion, pase lo que pase abajo
+
+    try {
+        const db = firebase.database();
+        db.ref('planilla_abonos').once('value', snapshot => {
+            const abonos = snapshot.val();
+            if (!abonos || typeof abonos !== 'object') return;
+
+            const claves = Object.keys(abonos).filter(k => abonos[k] && typeof abonos[k] === 'object');
+
+            // Un indice por siniestro, para no recorrer la lista entera por cada ficha.
+            const porSiniestro = {};
+            claves.forEach(k => {
+                const sid = abonos[k].siniestroId;
+                if (sid) (porSiniestro[sid] = porSiniestro[sid] || []).push(k);
+            });
+
+            // Las claves nuevas salen de la mayor existente. En un objeto de Firebase no
+            // hay `.length` en el que confiar.
+            let proxima = claves.reduce((max, k) => {
+                const n = parseInt(k, 10);
+                return (!isNaN(n) && n > max) ? n : max;
+            }, -1) + 1;
+
+            const updates = {};
+            let corregidos = 0, creados = 0;
+
+            siniestrosData.forEach(s => {
+                if (!s || !s.id) return;
+                const honorarios = parseFloat(s.honorarios);
+                const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
+                const estadoDebido = MAP_ESTADO_ABONO[s.estado];
+                const mios = porSiniestro[s.id] || [];
+
+                if (!mios.length) {
+                    // Sin abono. Solo se crea si hay honorario: un siniestro recien abierto
+                    // sin importe todavia no es plata a cobrar, y crearlo llenaria la
+                    // planilla de cobros de filas en cero.
+                    if (tieneHonorarios) {
+                        updates['planilla_abonos/' + proxima] = construirAbonoDesdeSiniestro(s);
+                        proxima++;
+                        creados++;
+                    }
+                    return;
+                }
+
+                mios.forEach(k => {
+                    const a = abonos[k];
+                    let cambio = false;
+                    if (tieneHonorarios && parseFloat(a.monto) !== honorarios) {
+                        updates['planilla_abonos/' + k + '/monto'] = honorarios;
+                        updates['planilla_abonos/' + k + '/montoBase'] = honorarios;
+                        cambio = true;
+                    }
+                    if (estadoDebido && a.estado !== estadoDebido) {
+                        updates['planilla_abonos/' + k + '/estado'] = estadoDebido;
+                        cambio = true;
+                    }
+                    if (cambio) corregidos++;
+                });
+            });
+
+            // Si no hay nada que corregir no se escribe ni se avisa. Un cartel que aparece
+            // siempre se deja de leer, y el dia que diga algo tampoco se va a leer.
+            if (!corregidos && !creados) return;
+
+            db.ref().update(updates)
+                .then(() => {
+                    const partes = [];
+                    if (corregidos) partes.push(corregidos + ' corregido' + (corregidos > 1 ? 's' : ''));
+                    if (creados) partes.push(creados + ' creado' + (creados > 1 ? 's' : ''));
+                    updateDataStatus('✅ Abonos alineados con siniestros: ' + partes.join(' y ') + '.');
+                })
+                .catch(err => {
+                    updateDataStatus('⚠️ No se pudieron alinear los abonos. Avisá para revisarlo.');
+                    console.error('Reconciliación de abonos:', err);
+                });
+        });
+    } catch (e) {
+        console.error('Error en reconciliarAbonosConSiniestros:', e);
+    }
+}
+
 function actualizarAbonosDesdeSiniestro(s, opciones) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
     const silencioso = !!(opciones && opciones.silencioso);
@@ -3904,30 +4040,7 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
             // No existia: se crea. El mes de servicio es el ACTUAL y no el de creacion del
             // siniestro, porque la planilla de abonos filtra por mes: un honorario que se
             // devenga hoy, puesto en el mes en que se abrio la causa, quedaria invisible.
-            const hoy = new Date();
-            const nuevo = {
-                id: 'SIN_' + s.id,
-                siniestroId: s.id,
-                cliente: s.cliente || '',
-                expediente: 'SINIESTROS',
-                telefono: s.celular || '',
-                dniCliente: s.dni || '',
-                autorizaWhatsapp: false,
-                ultimoContactoAgente: '',
-                respuestaCliente: '',
-                escalarACamila: false,
-                tipo: 'Honorarios Siniestro',
-                monto: tieneHonorarios ? honorarios : 0,
-                montoBase: tieneHonorarios ? honorarios : 0,
-                deudaAcumulada: 0,
-                montoPagado: '',
-                fechaPago: '',
-                estado: MAP_ESTADO_ABONO[s.estado] || 'Pendiente',
-                observaciones: 'Generado desde Siniestros. Reclamo: ' + (s.numeroReclamo || 'S/N') + '. Aseguradora: ' + (s.contra || 'S/N') + '.',
-                observacionesAuto: '',
-                mesServicio: { month: hoy.getMonth(), year: hoy.getFullYear() },
-                origenSiniestro: true
-            };
+            const nuevo = construirAbonoDesdeSiniestro(s);
             // La clave nueva se calcula sobre las que ya existen. Antes usaba
             // `abonos.length`, que en un objeto es undefined: habria escrito en
             // 'planilla_abonos/undefined' y pisado cualquier cosa que hubiera ahi.
