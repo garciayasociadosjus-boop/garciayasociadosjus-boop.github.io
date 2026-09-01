@@ -3938,6 +3938,13 @@ function reconciliarAbonosConSiniestros() {
 
     try {
         const db = firebase.database();
+        // La foto de los cobros viejos sin fecha. Si el nodo no existe, es la primera vez
+        // que esto corre: se saca la foto y no se avisa por ninguno. Si existe, todo lo
+        // que no este en ella es nuevo y si se avisa.
+        db.ref('config_siniestros/cobrosSinFechaConocidos').once('value', snapFoto => {
+        const foto = snapFoto.val();
+        const primeraVez = !foto;
+        const conocidos = foto || {};
         db.ref('planilla_abonos').once('value', snapshot => {
             const abonos = snapshot.val();
             if (!abonos || typeof abonos !== 'object') return;
@@ -4095,14 +4102,25 @@ function reconciliarAbonosConSiniestros() {
                 });
             });
 
+            // Los cobros sin fecha de la epoca vieja ya estan decididos: no se cargan. Solo
+            // se avisa por los que aparecieron DESPUES de la foto, que son los que todavia
+            // se pueden arreglar y los que importan.
+            const nuevosSinFecha = primeraVez ? [] : listaSinFecha.filter(x => !conocidos[x.id]);
+            if (primeraVez && listaSinFecha.length) {
+                const retrato = {};
+                listaSinFecha.forEach(x => { retrato[x.id] = true; });
+                db.ref('config_siniestros/cobrosSinFechaConocidos').set(retrato)
+                    .catch(err => console.error('No se pudo guardar la foto de cobros sin fecha:', err));
+            }
+
             // Si no hay nada que corregir no se escribe ni se avisa. Un cartel que aparece
             // siempre se deja de leer, y el dia que diga algo tampoco se va a leer.
             if (!corregidos && !creados && !movidos && !borrados && !duplicados && !posteriores) {
                 // Nada que tocar. Igual conviene avisar si hay cobros sin fecha: son los
                 // que no pueden ubicarse en ningun mes hasta que alguien la cargue.
-                if (sinFecha) {
-                    updateDataStatus('ℹ️ ' + sinFecha + ' siniestro(s) cobrado(s) sin "Fecha de Cobro" cargada. Tocá acá para ver cuáles.');
-                    mostrarCobrosSinFecha(listaSinFecha);
+                if (nuevosSinFecha.length) {
+                    updateDataStatus('ℹ️ ' + nuevosSinFecha.length + ' cobro(s) nuevo(s) sin "Fecha de Cobro" cargada. Tocá acá para ver cuáles.');
+                    mostrarCobrosSinFecha(nuevosSinFecha);
                 }
                 return;
             }
@@ -4117,14 +4135,15 @@ function reconciliarAbonosConSiniestros() {
                     if (duplicados) partes.push(duplicados + ' duplicado' + (duplicados > 1 ? 's' : '') + ' borrado' + (duplicados > 1 ? 's' : ''));
                     if (posteriores) partes.push(posteriores + ' arrastre' + (posteriores > 1 ? 's' : '') + ' posterior' + (posteriores > 1 ? 'es' : '') + ' al cobro borrado' + (posteriores > 1 ? 's' : ''));
                     let msg = '✅ Abonos alineados con siniestros: ' + partes.join(', ') + '.';
-                    if (sinFecha) msg += ' Hay ' + sinFecha + ' cobro(s) sin fecha cargada, tocá acá para verlos.';
+                    if (nuevosSinFecha.length) msg += ' Hay ' + nuevosSinFecha.length + ' cobro(s) nuevo(s) sin fecha cargada, tocá acá para verlos.';
                     updateDataStatus(msg);
-                    mostrarCobrosSinFecha(listaSinFecha);
+                    mostrarCobrosSinFecha(nuevosSinFecha);
                 })
                 .catch(err => {
                     updateDataStatus('⚠️ No se pudieron alinear los abonos. Avisá para revisarlo.');
                     console.error('Reconciliación de abonos:', err);
                 });
+        });
         });
     } catch (e) {
         console.error('Error en reconciliarAbonosConSiniestros:', e);
