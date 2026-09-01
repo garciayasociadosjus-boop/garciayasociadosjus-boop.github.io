@@ -3848,10 +3848,24 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
         const db = firebase.database();
         db.ref('planilla_abonos').once('value', snapshot => {
             const abonos = snapshot.val();
-            if (!Array.isArray(abonos)) {
-                console.error('planilla_abonos no es un array; no se toca nada.');
+
+            // Firebase devuelve esto como ARRAY si las claves son 0..N seguidas, y como
+            // OBJETO si hay huecos o claves mezcladas -por ejemplo despues de borrar un
+            // abono del medio-. Antes aca habia un `if (!Array.isArray(abonos)) return`
+            // que se iba EN SILENCIO cuando venia objeto: el honorario quedaba cargado en
+            // siniestros y no llegaba nunca a abonos, sin un solo aviso. Eso explicaba el
+            // "a veces pone el importe y a veces no".
+            //
+            // control-abonos.html ya manejaba las dos formas; aca faltaba. Ahora se trabaja
+            // con las CLAVES REALES de Firebase en vez de posiciones de array, que es lo
+            // unico que funciona en los dos casos.
+            if (!abonos || typeof abonos !== 'object') {
+                updateDataStatus('⚠️ No se pudo leer la planilla de abonos. El importe no se sincronizó.');
+                console.error('planilla_abonos vino vacío o con forma inesperada:', abonos);
                 return;
             }
+            const claves = Object.keys(abonos).filter(k => abonos[k] && typeof abonos[k] === 'object');
+
             const honorarios = parseFloat(s.honorarios);
             const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
 
@@ -3859,27 +3873,31 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
             // mes mientras el honorario siga sin cobrarse: si solo se actualizara una, el mes
             // que uno esta mirando podria quedar en Pendiente para siempre y el "por cobrar"
             // de los meses viejos seguiria sumando una deuda que ya se cerro.
-            const indices = [];
-            abonos.forEach((a, i) => { if (a && a.siniestroId === s.id) indices.push(i); });
+            const mios = claves.filter(k => abonos[k].siniestroId === s.id);
 
-            if (indices.length) {
+            if (mios.length) {
                 const updates = {};
-                indices.forEach(i => {
-                    updates['planilla_abonos/' + i + '/estado'] = MAP_ESTADO_ABONO[s.estado] || abonos[i].estado;
+                mios.forEach(k => {
+                    updates['planilla_abonos/' + k + '/estado'] = MAP_ESTADO_ABONO[s.estado] || abonos[k].estado;
                     if (tieneHonorarios) {
-                        updates['planilla_abonos/' + i + '/monto'] = honorarios;
-                        updates['planilla_abonos/' + i + '/montoBase'] = honorarios;
+                        updates['planilla_abonos/' + k + '/monto'] = honorarios;
+                        updates['planilla_abonos/' + k + '/montoBase'] = honorarios;
                     }
-                    updates['planilla_abonos/' + i + '/expediente'] = 'SINIESTROS';
-                    if (s.dni) updates['planilla_abonos/' + i + '/dniCliente'] = s.dni;
-                    if (s.celular) updates['planilla_abonos/' + i + '/telefono'] = s.celular;
+                    updates['planilla_abonos/' + k + '/expediente'] = 'SINIESTROS';
+                    if (s.dni) updates['planilla_abonos/' + k + '/dniCliente'] = s.dni;
+                    if (s.celular) updates['planilla_abonos/' + k + '/telefono'] = s.celular;
                 });
                 db.ref().update(updates)
                     .then(() => { if (!silencioso) updateDataStatus(
-                        indices.length > 1
-                            ? '✅ Abono actualizado en ' + indices.length + ' meses.'
+                        mios.length > 1
+                            ? '✅ Abono actualizado en ' + mios.length + ' meses.'
                             : '✅ Abono actualizado automáticamente.'); })
-                    .catch(err => console.error('No se pudo actualizar el abono:', err));
+                    // El error tiene que verse: si el importe no llega a abonos, el estudio
+                    // factura de menos y nadie se entera hasta que alguien lo busca a mano.
+                    .catch(err => {
+                        updateDataStatus('⚠️ El importe NO se pudo pasar a abonos. Avisá para revisarlo.');
+                        console.error('No se pudo actualizar el abono:', err);
+                    });
                 return;
             }
 
@@ -3910,9 +3928,20 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
                 mesServicio: { month: hoy.getMonth(), year: hoy.getFullYear() },
                 origenSiniestro: true
             };
-            db.ref('planilla_abonos/' + abonos.length).set(nuevo)
+            // La clave nueva se calcula sobre las que ya existen. Antes usaba
+            // `abonos.length`, que en un objeto es undefined: habria escrito en
+            // 'planilla_abonos/undefined' y pisado cualquier cosa que hubiera ahi.
+            const siguiente = claves.reduce((max, k) => {
+                const n = parseInt(k, 10);
+                return (!isNaN(n) && n > max) ? n : max;
+            }, -1) + 1;
+
+            db.ref('planilla_abonos/' + siguiente).set(nuevo)
                 .then(() => { if (!silencioso) updateDataStatus('✅ Abono creado en la planilla de abonos.'); })
-                .catch(err => console.error('No se pudo crear el abono:', err));
+                .catch(err => {
+                    updateDataStatus('⚠️ No se pudo crear el abono. Avisá para revisarlo.');
+                    console.error('No se pudo crear el abono:', err);
+                });
         });
     } catch (e) {
         console.error('Error en actualizarAbonosDesdeSiniestro:', e);
@@ -5179,6 +5208,10 @@ function aplicarHonorarioSugerido(sid, porcentaje) {
     const indem = parseFloat(s.indemnizacion) || 0;
     if (indem > 0) s.honorarios = (indem * porcentaje / 100).toFixed(2);
     saveData();
+    // Faltaba: este boton guardaba el honorario pero no avisaba a abonos, asi que el
+    // importe se quedaba en siniestros. Editando el campo a mano si se sincronizaba,
+    // y por eso el mismo dato llegaba o no segun por donde se hubiera cargado.
+    actualizarAbonosDesdeSiniestro(s);
     renderAll();
     showSiniestroModal(sid);
 }
@@ -5199,8 +5232,18 @@ function borrarAbonosDeSiniestro(siniestroId) {
         const db = firebase.database();
         const abonosRef = db.ref('planilla_abonos');
         abonosRef.transaction(abonos => {
-            if (!Array.isArray(abonos)) return abonos;
-            return abonos.filter(a => a && a.siniestroId !== siniestroId);
+            // Mismo problema que arriba: si Firebase devuelve un objeto, `.filter` no
+            // existe y el borrado fallaba. El abono quedaba huerfano en la planilla de
+            // cobros, sumando plata de un siniestro que ya no esta.
+            if (!abonos || typeof abonos !== 'object') return abonos;
+            if (Array.isArray(abonos)) {
+                return abonos.filter(a => a && a.siniestroId !== siniestroId);
+            }
+            const quedan = {};
+            Object.keys(abonos).forEach(k => {
+                if (abonos[k] && abonos[k].siniestroId !== siniestroId) quedan[k] = abonos[k];
+            });
+            return quedan;
         }).then(() => {
             updateDataStatus('✅ Abono eliminado de Planilla de Abonos.');
         }).catch(err => {
