@@ -3909,6 +3909,26 @@ function construirAbonoDesdeSiniestro(s) {
 // edita un importe del lado de abonos, esto lo devuelve al valor del siniestro. Es lo
 // acordado con el estudio y por eso NO se toca ningun abono sin `siniestroId`: los que
 // se cargan a mano en la planilla de cobros quedan intactos.
+// El cartel de estado usa textContent, asi que no puede llevar un boton adentro. Cuando
+// hay cobros sin fecha se lo hace clickeable: un numero solo no sirve para nada si para
+// saber a quien corresponde hay que abrir las fichas de a una.
+function mostrarCobrosSinFecha(lista) {
+    const el = document.getElementById('dataStatus');
+    if (!el || !lista || !lista.length) return;
+    el.style.cursor = 'pointer';
+    el.style.textDecoration = 'underline';
+    el.onclick = () => {
+        const filas = lista.map((s, i) =>
+            (i + 1) + '. ' + (s.cliente || 'sin nombre') +
+            '   (reclamo ' + (s.numeroReclamo || 'S/N') + ')'
+        );
+        alert('Cobrados sin "Fecha de Cobro" cargada (' + lista.length + '):\n\n' +
+              filas.join('\n') +
+              '\n\nCargale la fecha a cada uno en la ficha y el abono se ubica solo ' +
+              'en el mes que cobraste.');
+    };
+}
+
 let yaReconcilieAbonos = false;
 function reconciliarAbonosConSiniestros() {
     if (yaReconcilieAbonos) return;
@@ -3941,6 +3961,7 @@ function reconciliarAbonosConSiniestros() {
             const updates = {};
             let corregidos = 0, creados = 0, movidos = 0, borrados = 0, sinFecha = 0;
             let duplicados = 0, posteriores = 0;
+            const listaSinFecha = [];   // para poder decir cuales, no solo cuantos
 
             siniestrosData.forEach(s => {
                 if (!s || !s.id) return;
@@ -3993,7 +4014,7 @@ function reconciliarAbonosConSiniestros() {
                     // Y si ya se cobro pero no hay fecha, tampoco: no sabriamos en que mes
                     // ponerlo. Queda contado aparte para que el estudio cargue la fecha.
                     if (tieneHonorarios) {
-                        if (yaCobrado && !mesCobro) { sinFecha++; return; }
+                        if (yaCobrado && !mesCobro) { sinFecha++; listaSinFecha.push(s); return; }
                         updates['planilla_abonos/' + proxima] = construirAbonoDesdeSiniestro(s);
                         proxima++;
                         creados++;
@@ -4014,6 +4035,7 @@ function reconciliarAbonosConSiniestros() {
                         }
                     });
                     sinFecha++;
+                    listaSinFecha.push(s);
                     return;
                 }
 
@@ -4078,7 +4100,10 @@ function reconciliarAbonosConSiniestros() {
             if (!corregidos && !creados && !movidos && !borrados && !duplicados && !posteriores) {
                 // Nada que tocar. Igual conviene avisar si hay cobros sin fecha: son los
                 // que no pueden ubicarse en ningun mes hasta que alguien la cargue.
-                if (sinFecha) updateDataStatus('ℹ️ ' + sinFecha + ' siniestro(s) cobrado(s) sin "Fecha de Cobro" cargada. Cargala y el abono se ubica solo.');
+                if (sinFecha) {
+                    updateDataStatus('ℹ️ ' + sinFecha + ' siniestro(s) cobrado(s) sin "Fecha de Cobro" cargada. Tocá acá para ver cuáles.');
+                    mostrarCobrosSinFecha(listaSinFecha);
+                }
                 return;
             }
 
@@ -4092,8 +4117,9 @@ function reconciliarAbonosConSiniestros() {
                     if (duplicados) partes.push(duplicados + ' duplicado' + (duplicados > 1 ? 's' : '') + ' borrado' + (duplicados > 1 ? 's' : ''));
                     if (posteriores) partes.push(posteriores + ' arrastre' + (posteriores > 1 ? 's' : '') + ' posterior' + (posteriores > 1 ? 'es' : '') + ' al cobro borrado' + (posteriores > 1 ? 's' : ''));
                     let msg = '✅ Abonos alineados con siniestros: ' + partes.join(', ') + '.';
-                    if (sinFecha) msg += ' Hay ' + sinFecha + ' cobro(s) sin fecha cargada.';
+                    if (sinFecha) msg += ' Hay ' + sinFecha + ' cobro(s) sin fecha cargada, tocá acá para verlos.';
                     updateDataStatus(msg);
+                    mostrarCobrosSinFecha(listaSinFecha);
                 })
                 .catch(err => {
                     updateDataStatus('⚠️ No se pudieron alinear los abonos. Avisá para revisarlo.');
