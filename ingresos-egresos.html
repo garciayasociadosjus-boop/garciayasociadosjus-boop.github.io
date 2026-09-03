@@ -150,6 +150,7 @@
         <button id="loadFromDriveBtn" class="btn btn-warning" style="display:none" type="button">📥 Cargar de Drive</button>
         <br><div id="firebaseStatus">🔥 Firebase: Conectando...</div>
         <div id="driveStatus" class="data-status"></div>
+        <div id="syncStatus" class="data-status" style="display:none"></div>
     </div>
 
     <div class="filter-bar">
@@ -278,7 +279,16 @@ function setFBStatus(msg, t) {
 function saveToFB() {
     if (!fbRef) return;
     skipNext = true;
-    fbRef.set(allData).catch(() => { skipNext = false; });
+    // Firebase BORRA las claves cuyo valor queda vacio. Un mes que se quedaba sin filas
+    // -porque la sincronizacion le saco la unica que tenia- no quedaba en cero: se
+    // evaporaba. Asi desaparecieron julio y agosto de 2026 el 03/09/2026.
+    // El marcador mantiene viva la clave para que el mes siga a la vista, en cero.
+    const payload = {};
+    Object.keys(allData).forEach(mk => {
+        const txs = (allData[mk] && allData[mk].transactions) || [];
+        payload[mk] = txs.length ? allData[mk] : { transactions: [], mesVacio: true };
+    });
+    fbRef.set(payload).catch(() => { skipNext = false; });
 }
 
 function saveData() { localStorage.setItem('ingresosEgresosData', JSON.stringify(allData)); saveToFB(); }
@@ -485,6 +495,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // - Sobreescribe siempre las filas "Honorarios Profesionales" y "Pago Bonos y Aportes" sincronizadas.
     // - Limpia las filas sincronizadas en meses donde ya no hay datos (caso típico: un Terminado se movió de un mes a otro).
     // - silent=true: sin alertas (modo auto). silent=false: con alertas (botón manual).
+    // Deja a la vista de donde salen los ingresos automaticos. Se listan TODOS los meses
+    // que la planilla tiene abiertos, no solo los que trajeron plata: un mes en cero hay
+    // que poder verlo, porque es la unica senal de que algo dejo de llegar.
+    function mostrarResumenSync(monthly) {
+        const el = document.getElementById('syncStatus');
+        if(!el) return;
+        const meses = new Set([...Object.keys(monthly || {}), ...Object.keys(allData)]);
+        const orden = Array.from(meses).filter(mk => /^\d{4}-\d{2}$/.test(mk)).sort().reverse().slice(0, 6);
+        if(!orden.length){ el.style.display='none'; return; }
+        const partes = orden.map(mk => {
+            const m = (monthly && monthly[mk]) || null;
+            const total = m ? (m.hon || 0) : 0;
+            return `${fmtMK(mk)}: ${total > 0 ? fmt(total) : 'sin cobros registrados'}`;
+        });
+        el.innerHTML = '🔄 Ingresos que la planilla de Abonos aporta a cada mes &mdash; ' +
+                       partes.join(' &nbsp;·&nbsp; ') +
+                       '<br><small>Estas filas se generan solas desde Abonos. ' +
+                       'Un mes en cero significa que ahí no hay cobros cargados, no que se hayan borrado.</small>';
+        el.style.display = 'block';
+    }
+
     function syncAbonos(silent) {
         if(silent === undefined) silent = false;
         try {
@@ -671,6 +702,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 cambios++;
             });
             // ====== FIN COMISIONES AUTOMÁTICAS ======
+
+            // Esto ya no corre en silencio. La sincronizacion AGREGA Y BORRA filas de
+            // ingresos, y hasta el 03/09/2026 lo hacia sin decir nada: el dia que borro dos
+            // meses enteros, nadie se entero hasta mirar la planilla de casualidad.
+            // Ahora deja escrito que ingreso encontro en cada mes, incluidos los que dan
+            // cero: un mes en cero es informacion, y es lo que permite darse cuenta de que
+            // algo dejo de llegar.
+            mostrarResumenSync(monthly);
 
             if(cambios > 0){
                 saveData();
