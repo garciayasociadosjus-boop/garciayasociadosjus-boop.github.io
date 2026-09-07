@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8">
+  <title>Consultas - Estudio García y Asociados</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root{--primary-color:#1e3a8a;--secondary-color:#1e293b;--success-color:#059669;--danger-color:#dc2626;--warning-color:#f59e0b;--info-color:#6366f1;--light-bg:#f8fafc;--text-dark:#1e293b;--text-light:#f1f5f9;--muted:#64748b}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;min-height:100vh;padding:20px;color:var(--text-dark)}
+    .container{max-width:1600px;margin:0 auto;background:#fff;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,.1);overflow:hidden}
+    .header{background:linear-gradient(135deg,var(--secondary-color),var(--primary-color));color:var(--text-light);padding:30px;text-align:center;border-bottom:5px solid var(--primary-color)}
+    .header h1{font-size:2.2em;margin-bottom:8px}
+    .header p{font-size:1.05em;opacity:.9}
+    .main-content{padding:30px}
+    .estado-datos{padding:12px 18px;border-radius:8px;margin-bottom:20px;font-size:.95em;background:#d4edda;color:#155724}
+    .estado-datos.warn{background:#fff3cd;color:#856404}
+    .estado-datos.error{background:#f8d7da;color:#721c24}
+
+    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:30px}
+    .card{background:var(--light-bg);border-radius:12px;padding:20px;box-shadow:0 5px 15px rgba(0,0,0,.07);border-left:5px solid var(--primary-color)}
+    .card h3{color:var(--secondary-color);margin-bottom:10px;font-size:.85em;text-transform:uppercase;letter-spacing:.5px}
+    .card .value{font-size:1.8em;font-weight:700;color:var(--primary-color)}
+    .card .sub{font-size:.8em;color:var(--muted);margin-top:6px}
+    .card.success-card{border-left-color:var(--success-color)}.card.success-card .value{color:var(--success-color)}
+    .card.warning-card{border-left-color:var(--warning-color)}.card.warning-card .value{color:var(--warning-color)}
+    .card.danger-card{border-left-color:var(--danger-color)}.card.danger-card .value{color:var(--danger-color)}
+
+    h2.seccion{font-size:1.25em;color:var(--secondary-color);margin:30px 0 15px;padding-bottom:8px;border-bottom:2px solid #e2e8f0}
+    .alertas{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+    .alerta{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .alerta header{padding:12px 16px;font-weight:600;font-size:.95em;color:#fff}
+    .alerta.roja header{background:var(--danger-color)}
+    .alerta.naranja header{background:var(--warning-color)}
+    .alerta.azul header{background:var(--info-color)}
+    .alerta ul{list-style:none;max-height:230px;overflow-y:auto}
+    .alerta li{padding:9px 16px;border-bottom:1px solid #f1f5f9;font-size:.9em;cursor:pointer}
+    .alerta li:hover{background:var(--light-bg)}
+    .alerta li b{color:var(--secondary-color)}
+    .alerta li span{color:var(--muted);font-size:.9em}
+    .alerta .vacia{padding:16px;color:var(--muted);font-size:.9em;font-style:italic}
+
+    .controls{background:var(--light-bg);padding:18px;border-radius:10px;margin-bottom:22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .controls input,.controls select{padding:9px 12px;border:1px solid #cbd5e1;border-radius:7px;font-size:.92em;font-family:inherit}
+    .controls input[type=text]{flex:1;min-width:220px}
+    .btn{padding:9px 16px;border:none;border-radius:7px;background:var(--primary-color);color:#fff;cursor:pointer;font-size:.9em;font-family:inherit}
+    .btn:hover{opacity:.9}
+    .btn.gris{background:var(--muted)}
+    .btn.verde{background:var(--success-color)}
+
+    .table-container{overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px}
+    table{width:100%;border-collapse:collapse;font-size:.9em;min-width:1000px}
+    thead{background:var(--secondary-color);color:#fff}
+    th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+    th{font-size:.82em;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+    tbody tr:hover{background:var(--light-bg)}
+    .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.78em;font-weight:600;white-space:nowrap}
+    .pill.cliente{background:#d1fae5;color:#065f46}
+    .pill.perdida{background:#fee2e2;color:#991b1b}
+    .pill.abierta{background:#dbeafe;color:#1e40af}
+    .pill.sin{background:#e2e8f0;color:#475569}
+    .atrasado{color:var(--danger-color);font-weight:600}
+
+    .barras{display:grid;gap:9px}
+    .barra{display:grid;grid-template-columns:170px 1fr 70px;gap:10px;align-items:center;font-size:.88em}
+    .barra .track{background:#e2e8f0;border-radius:5px;height:19px;overflow:hidden}
+    .barra .fill{height:100%;background:var(--primary-color);border-radius:5px}
+    .barra .fill.verde{background:var(--success-color)}
+    .barra .fill.rojo{background:var(--danger-color)}
+    .barra .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+    .dosCol{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:30px}
+    .nota{font-size:.85em;color:var(--muted);margin-top:10px;line-height:1.5}
+    .titular{background:#fff7ed;border-left:5px solid var(--warning-color);border-radius:10px;padding:20px}
+    .titular .grande{font-size:1.5em;font-weight:700;color:var(--secondary-color);line-height:1.35}
+    .titular .plata{color:var(--danger-color)}
+    .titular .chico{font-size:.9em;color:var(--muted);margin-top:8px;line-height:1.5}
+    .simul{background:var(--light-bg);border-radius:10px;padding:20px;margin-top:18px}
+    .simul .fila{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:14px}
+    .simul input[type=range]{flex:1;min-width:220px}
+    .simul .pct{font-size:1.6em;font-weight:700;color:var(--primary-color);min-width:90px;text-align:center}
+    .simul .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+    .simul .res div{background:#fff;border-radius:8px;padding:14px}
+    .simul .res .et{font-size:.78em;text-transform:uppercase;color:var(--muted);letter-spacing:.4px}
+    .simul .res .vl{font-size:1.35em;font-weight:700;margin-top:4px}
+    @media print{.controls,.btn{display:none}body{padding:0}.container{box-shadow:none}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Consultas</h1>
+    <p>Lo que entra por WhatsApp: en qué terminó, a quién hay que llamar y qué anuncio lo trajo</p>
+  </div>
+  <div class="main-content">
+    <div id="estadoDatos" class="estado-datos">Conectando…</div>
+
+    <div class="dashboard" id="tarjetas"></div>
+
+    <h2 class="seccion">Para hoy</h2>
+    <div class="alertas" id="alertas"></div>
+
+    <h2 class="seccion">Lo que cuesta tardar en contestar</h2>
+    <div id="titularVelocidad"></div>
+    <div class="table-container" style="margin-top:14px">
+      <table>
+        <thead><tr>
+          <th>Tardaste en contestar</th><th>Consultas</th><th>Clientes</th>
+          <th>Conversión</th><th></th>
+        </tr></thead>
+        <tbody id="tablaVelocidad"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="notaVelocidad"></div>
+
+    <h2 class="seccion">Rendimiento</h2>
+    <div class="dosCol">
+      <div>
+        <h3 style="font-size:.95em;color:var(--muted);margin-bottom:12px">Por anuncio</h3>
+        <div class="barras" id="porAnuncio"></div>
+        <div class="nota" id="notaAnuncio"></div>
+      </div>
+      <div>
+        <h3 style="font-size:.95em;color:var(--muted);margin-bottom:12px">Por tema</h3>
+        <div class="barras" id="porTema"></div>
+      </div>
+    </div>
+
+    <div class="dosCol" style="margin-top:30px">
+      <div>
+        <h3 style="font-size:.95em;color:var(--muted);margin-bottom:12px">Por qué se pierden</h3>
+        <div class="barras" id="porMotivo"></div>
+      </div>
+      <div>
+        <h3 style="font-size:.95em;color:var(--muted);margin-bottom:12px">Consultas por mes</h3>
+        <div class="barras" id="porMes"></div>
+      </div>
+    </div>
+
+    <h2 class="seccion">¿Estoy cobrando bien?</h2>
+    <div class="dashboard" id="tarjetasEcon"></div>
+    <div class="simul">
+      <div class="fila">
+        <b>Si ajusto lo que cobro:</b>
+        <input type="range" id="ajustePct" min="-20" max="50" step="1" value="10" oninput="renderEconomia()">
+        <span class="pct" id="ajusteTxt">+10%</span>
+      </div>
+      <div class="res" id="simulRes"></div>
+      <div class="nota" id="notaEcon"></div>
+    </div>
+
+    <h2 class="seccion">Rentabilidad por tipo de caso</h2>
+    <div class="table-container">
+      <table>
+        <thead><tr>
+          <th>Tema</th><th>Casos</th><th>Horas que consume</th><th>Te cuesta en horas</th>
+          <th>Cobrás</th><th>Margen</th><th>Por hora</th><th></th>
+        </tr></thead>
+        <tbody id="tablaTemas"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="notaTemas"></div>
+
+    <h2 class="seccion">Plata: qué devolvió cada anuncio</h2>
+    <div class="table-container">
+      <table>
+        <thead><tr>
+          <th>Anuncio</th><th>Consultas</th><th>Clientes</th><th>Conversión</th>
+          <th>Cobrado</th><th>Facturado</th><th>Gasto en pauta</th>
+          <th>Costo por cliente</th><th>Retorno</th>
+        </tr></thead>
+        <tbody id="tablaPlata"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="notaPlata"></div>
+
+    <h2 class="seccion">Todas las consultas</h2>
+    <div class="controls">
+      <input type="text" id="fBuscar" placeholder="Buscar por nombre, teléfono, tema o motivo…">
+      <select id="fEstado"><option value="">Todos los estados</option></select>
+      <select id="fAnuncio"><option value="">Todos los orígenes</option></select>
+      <select id="fTema"><option value="">Todos los temas</option></select>
+      <button class="btn gris" onclick="limpiarFiltros()">Limpiar</button>
+      <button class="btn verde" onclick="exportarExcel()">Excel</button>
+      <button class="btn" onclick="window.print()">PDF / Imprimir</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr>
+          <th>Cliente</th><th>Teléfono</th><th>Estado</th><th>Tema</th>
+          <th>Vino de</th><th>Primer contacto</th><th>Respuesta</th>
+          <th>Próximo contacto</th><th>En qué quedó</th>
+        </tr></thead>
+        <tbody id="tabla"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="pieTabla"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+//  Panel de consultas.
+//
+//  Lee la rama `consultas` de Firebase, que llena el lector de WhatsApp que vive
+//  en Desktop/PANEL-CONSULTAS. Esta pagina NO se conecta a WhatsApp: una pagina
+//  web no puede. Solo muestra.
+//
+//  Regla de toda la pagina: lo que no se sabe se dice, no se rellena. Una consulta
+//  sin analizar aparece como "sin analizar", no como "abierta"; un origen que no se
+//  pudo determinar dice "sin determinar", no "directo". Este panel se usa para
+//  decidir a quien llamar y cuanto invertir en cada anuncio: un numero inventado
+//  hace perder el dia o la plata.
+// ============================================================================
+
+const FB_CONFIG = {
+  apiKey:"AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+  authDomain:"garcia-asociados.firebaseapp.com",
+  databaseURL:"https://garcia-asociados-default-rtdb.firebaseio.com",
+  projectId:"garcia-asociados",
+  storageBucket:"garcia-asociados.firebasestorage.app",
+  messagingSenderId:"579231843924",
+  appId:"1:579231843924:web:73d02f5aacd7ecf27a4fc1"
+};
+
+let CONSULTAS = [], ABONOS = [], SINIESTROS = [], GASTOS = {}, EGRESOS = {}, ECON = {};
+
+// Firebase devuelve array u objeto segun como quedaron las claves. Ya nos rompio una vez.
+function aLista(d){
+  if(!d) return [];
+  if(Array.isArray(d)) return d.filter(x=>x&&typeof x==='object');
+  return Object.keys(d).map(k=>d[k]).filter(x=>x&&typeof x==='object');
+}
+
+const ETIQUETA_ESTADO = {
+  cliente:'Cliente',
+  en_conversacion:'En conversación',
+  esperando_respuesta_del_cliente:'Esperando al cliente',
+  esperando_respuesta_del_estudio:'Esperando al estudio',
+  perdida:'Perdida',
+  no_era_consulta:'No era consulta'
+};
+const CERRADOS = ['cliente','perdida','no_era_consulta'];
+
+function estadoDatos(msg, clase){
+  const el = document.getElementById('estadoDatos');
+  el.textContent = msg;
+  el.className = 'estado-datos' + (clase ? ' ' + clase : '');
+}
+function hoyYMD(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dias(iso){
+  if(!iso) return null;
+  const t = new Date(iso).getTime();
+  if(isNaN(t)) return null;
+  return Math.floor((Date.now()-t)/86400000);
+}
+function fecha(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function esc(t){
+  return String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function nombre(c){ return (c.nombre&&c.nombre.trim()) || c.telefono || 'sin nombre'; }
+
+// ---------- Firebase ----------
+function iniciar(){
+  if(typeof firebase==='undefined'){ setTimeout(iniciar,500); return; }
+  firebase.initializeApp(FB_CONFIG);
+  // Misma puerta que el resto del portal: sin sesion, afuera.
+  firebase.auth().onAuthStateChanged(u=>{ if(!u) window.location.replace('index.html'); });
+  // Se leen las tres ramas. El panel corre como el usuario del estudio, que tiene acceso a
+  // todo; el lector de WhatsApp NO -solo llega a `consultas`-, y esta bien que sea asi.
+  firebase.database().ref('planilla_abonos').on('value', s2=>{ ABONOS = aLista(s2.val()); render(); });
+  firebase.database().ref('planilla_siniestros').on('value', s3=>{ SINIESTROS = aLista(s3.val()); render(); });
+  firebase.database().ref('consultas_config/gastos').on('value', s4=>{ GASTOS = s4.val() || {}; render(); });
+  firebase.database().ref('planilla_egresos').on('value', s5=>{ EGRESOS = s5.val() || {}; render(); });
+  firebase.database().ref('consultas_config/economia').on('value', s6=>{ ECON = s6.val() || {}; render(); });
+
+  firebase.database().ref('consultas').on('value', snap=>{
+    const d = snap.val();
+    // Firebase devuelve objeto o array segun como esten las claves. Aca las claves son
+    // telefonos, asi que siempre deberia ser objeto, pero no se asume.
+    CONSULTAS = !d ? [] : Object.keys(d).filter(k=>d[k]&&typeof d[k]==='object').map(k=>d[k]);
+    llenarFiltros();
+    render();
+    const sinAnalizar = CONSULTAS.filter(c=>!c.analizadoEn).length;
+    if(!CONSULTAS.length){
+      estadoDatos('Todavía no hay consultas cargadas. Corré el lector de WhatsApp para traerlas.','warn');
+    } else if(sinAnalizar){
+      // Callarlo daria una sensacion de control que no existe: los numeros de abajo
+      // estan calculados sobre datos incompletos.
+      estadoDatos(CONSULTAS.length+' consultas · '+sinAnalizar+' todavía sin analizar, así que los números de abajo están incompletos.','warn');
+    } else {
+      estadoDatos(CONSULTAS.length+' consultas, todas analizadas.');
+    }
+  }, err=>{
+    estadoDatos('No se pudieron leer las consultas: '+err.message,'error');
+  });
+}
+
+// ---------- Tarjetas ----------
+function render(){
+  const t = CONSULTAS;
+  const analizadas = t.filter(c=>c.analizadoEn);
+  const clientes = t.filter(c=>c.estado==='cliente');
+  const cerradas = analizadas.filter(c=>c.estado==='cliente'||c.estado==='perdida');
+  const abiertas = t.filter(c=>!CERRADOS.includes(c.estado));
+
+  // La conversion se calcula sobre las CERRADAS, no sobre el total: las que siguen
+  // abiertas todavia pueden terminar en cualquiera de las dos y meterlas en el
+  // denominador da un porcentaje que baja solo por tener trabajo en curso.
+  const conv = cerradas.length ? Math.round(clientes.length*100/cerradas.length) : null;
+
+  const tiempos = t.map(c=>c.horasHastaPrimeraRespuesta).filter(h=>typeof h==='number');
+  const medianaHs = mediana(tiempos);
+
+  const sinResponder = t.filter(c=>c.mensajesDelCliente>0 && c.horasHastaPrimeraRespuesta===null && !CERRADOS.includes(c.estado));
+
+  document.getElementById('tarjetas').innerHTML = [
+    tarjeta('Consultas', t.length, t.filter(c=>dias(c.fechaPrimerContacto)<=30).length+' en los últimos 30 días',''),
+    tarjeta('Clientes', clientes.length, cerradas.length+' consultas ya cerradas','success-card'),
+    tarjeta('Conversión', conv===null?'—':conv+'%', conv===null?'faltan casos cerrados':'sobre las cerradas, no sobre el total','success-card'),
+    tarjeta('Abiertas', abiertas.length, 'todavía se pueden ganar',''),
+    tarjeta('Tardanza típica', medianaHs===null?'—':medianaHs+' h', medianaHs===null?'sin datos':'mediana hasta la primera respuesta','warning-card'),
+    tarjeta('Sin responder', sinResponder.length, sinResponder.length?'escribieron y nadie contestó':'ninguna quedó sin respuesta', sinResponder.length?'danger-card':'success-card')
+  ].join('');
+
+  renderAlertas();
+  renderVelocidad();
+  renderBarras();
+  renderEconomia();
+  renderTemas();
+  renderPlata();
+  renderTabla();
+}
+function tarjeta(titulo,valor,sub,clase){
+  return '<div class="card '+clase+'"><h3>'+esc(titulo)+'</h3><div class="value">'+esc(valor)+'</div><div class="sub">'+esc(sub)+'</div></div>';
+}
+function mediana(a){
+  if(!a.length) return null;
+  const s=a.slice().sort((x,y)=>x-y), m=Math.floor(s.length/2);
+  const v = s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+  return Math.round(v*10)/10;
+}
+
+// ---------- Alertas ----------
+function renderAlertas(){
+  const hoy = hoyYMD();
+  const vivas = CONSULTAS.filter(c=>!CERRADOS.includes(c.estado));
+
+  const vencidas = vivas.filter(c=>c.proximoContacto && c.proximoContacto<=hoy)
+                        .sort((a,b)=>a.proximoContacto<b.proximoContacto?-1:1);
+  const prometieron = vivas.filter(c=>c.prometioContactar && (dias(c.fechaUltimoMensaje)||0)>=3)
+                           .sort((a,b)=>(dias(b.fechaUltimoMensaje)||0)-(dias(a.fechaUltimoMensaje)||0));
+  const sinResponder = vivas.filter(c=>c.mensajesDelCliente>0 && c.horasHastaPrimeraRespuesta===null)
+                            .sort((a,b)=>(dias(b.fechaPrimerContacto)||0)-(dias(a.fechaPrimerContacto)||0));
+  const esperan = vivas.filter(c=>!c.ultimoMensajeFueDelEstudio && c.horasHastaPrimeraRespuesta!==null && (dias(c.fechaUltimoMensaje)||0)>=2);
+
+  document.getElementById('alertas').innerHTML =
+    bloque('roja','Escribieron y nadie contestó',sinResponder,c=>'hace '+dias(c.fechaPrimerContacto)+' días') +
+    bloque('roja','Tocaba llamarlos',vencidas,c=>'desde el '+fecha(c.proximoContacto+'T12:00:00')) +
+    bloque('naranja','Dijeron que escribían y no lo hicieron',prometieron,c=>'hace '+dias(c.fechaUltimoMensaje)+' días') +
+    bloque('azul','Esperan respuesta tuya',esperan,c=>'hace '+dias(c.fechaUltimoMensaje)+' días');
+}
+function bloque(color,titulo,items,detalle){
+  let h = '<div class="alerta '+color+'"><header>'+esc(titulo)+' ('+items.length+')</header>';
+  if(!items.length){ h += '<div class="vacia">Nada pendiente acá.</div></div>'; return h; }
+  h += '<ul>';
+  items.slice(0,40).forEach(c=>{
+    h += '<li onclick="buscarA(\''+esc(c.telefono)+'\')"><b>'+esc(nombre(c))+'</b>'+
+         (c.tema?' · '+esc(c.tema):'')+' <span>— '+esc(detalle(c))+'</span></li>';
+  });
+  return h+'</ul></div>';
+}
+function buscarA(tel){
+  document.getElementById('fBuscar').value = tel;
+  renderTabla();
+  document.querySelector('.table-container').scrollIntoView({behavior:'smooth'});
+}
+
+// ---------- Barras ----------
+function renderBarras(){
+  // Por anuncio: cuantas consultas trajo y cuantas terminaron en cliente. Es el numero
+  // que decide donde poner la plata, asi que se muestran las dos cosas.
+  const porAd = {};
+  CONSULTAS.forEach(c=>{
+    const k = etiquetaOrigen(c);
+    porAd[k] = porAd[k] || {total:0,clientes:0};
+    porAd[k].total++;
+    if(c.estado==='cliente') porAd[k].clientes++;
+  });
+  const filas = Object.keys(porAd).sort((a,b)=>porAd[b].total-porAd[a].total);
+  const max = Math.max(1,...filas.map(k=>porAd[k].total));
+  document.getElementById('porAnuncio').innerHTML = filas.map(k=>{
+    const d = porAd[k];
+    const pct = d.total ? Math.round(d.clientes*100/d.total) : 0;
+    return barra(k, d.total, max, d.total+' · '+d.clientes+' cliente'+(d.clientes===1?'':'s')+' ('+pct+'%)', k==='Sin determinar'?'':'verde');
+  }).join('') || '<div class="nota">Sin datos todavía.</div>';
+
+  const sinDet = (porAd['Sin determinar']||{}).total || 0;
+  document.getElementById('notaAnuncio').textContent = sinDet
+    ? sinDet+' consultas sin origen determinado. No vinieron necesariamente de un anuncio: pueden ser recomendados, la web o gente que ya tenía el número.'
+    : '';
+
+  barrasDe('porTema', contar(CONSULTAS.filter(c=>c.tema), c=>c.tema));
+  barrasDe('porMotivo', contar(CONSULTAS.filter(c=>c.estado==='perdida'&&c.motivo), c=>c.motivo), 'rojo');
+
+  const meses = contar(CONSULTAS.filter(c=>c.fechaPrimerContacto), c=>String(c.fechaPrimerContacto).slice(0,7));
+  const ordenados = Object.keys(meses).sort().slice(-8).reduce((o,k)=>(o[k]=meses[k],o),{});
+  barrasDe('porMes', ordenados, '', true);
+}
+function contar(lista, fn){
+  const o = {};
+  lista.forEach(c=>{ const k = fn(c); if(k) o[k] = (o[k]||0)+1; });
+  return o;
+}
+function barrasDe(id, obj, color, mantenerOrden){
+  const claves = mantenerOrden ? Object.keys(obj) : Object.keys(obj).sort((a,b)=>obj[b]-obj[a]);
+  const max = Math.max(1,...claves.map(k=>obj[k]));
+  const el = document.getElementById(id);
+  el.innerHTML = claves.length
+    ? claves.slice(0,10).map(k=>barra(k,obj[k],max,String(obj[k]),color)).join('')
+    : '<div class="nota">Sin datos todavía.</div>';
+}
+function barra(etiqueta, valor, max, texto, color){
+  const pct = Math.round(valor*100/max);
+  return '<div class="barra"><div title="'+esc(etiqueta)+'" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(etiqueta)+'</div>'+
+         '<div class="track"><div class="fill '+(color||'')+'" style="width:'+pct+'%"></div></div>'+
+         '<div class="num">'+esc(texto)+'</div></div>';
+}
+
+// ---------- Economia del estudio ----------
+// Responde "lo que cobro, ¿es caro o barato?". El gasto del estudio dividido por los
+// clientes da lo que cuesta atender a uno; contra eso se mide el precio.
+
+// Se promedian meses CERRADOS. El mes en curso esta a medio cargar y daria un gasto
+// bajisimo, o sea un margen fantastico que no existe.
+function mesesCerrados(cuantos){
+  const hoy = new Date();
+  const actual = hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
+  return Object.keys(EGRESOS||{}).filter(mk=>/^\d{4}-\d{2}$/.test(mk) && mk < actual).sort().slice(-cuantos);
+}
+
+function economia(){
+  const meses = mesesCerrados(3);
+  let egreso = 0, ingreso = 0;
+  meses.forEach(mk=>{
+    ((EGRESOS[mk]||{}).transactions||[]).forEach(t=>{
+      const m = parseFloat(t.monto)||0;
+      if(t.categoria==='egreso') egreso += m; else if(t.categoria==='ingreso') ingreso += m;
+    });
+  });
+  const n = meses.length || 1;
+  const gastoMes = meses.length ? egreso/n : null;
+  const ingresoMes = meses.length ? ingreso/n : null;
+
+  // Clientes activos: los que tienen alguna fila de abono en esos mismos meses. Se cuenta
+  // por telefono para que la misma persona con dos casos no cuente dos veces.
+  const activos = new Set();
+  ABONOS.forEach(a=>{
+    const ms = a.mesServicio;
+    if(!ms || typeof ms.year!=='number') return;
+    const mk = ms.year+'-'+String(ms.month+1).padStart(2,'0');
+    if(!meses.includes(mk)) return;
+    const t = telefonoCorto(a.telefono) || (a.cliente||'').trim().toLowerCase();
+    if(t) activos.add(t);
+  });
+  const clientes = activos.size;
+
+  const costoPorCliente   = (gastoMes!==null && clientes) ? gastoMes/clientes : null;
+  const ingresoPorCliente = (ingresoMes!==null && clientes) ? ingresoMes/clientes : null;
+  const margen = (costoPorCliente!==null && ingresoPorCliente!==null) ? ingresoPorCliente-costoPorCliente : null;
+  const margenPct = (margen!==null && ingresoPorCliente) ? Math.round(margen*100/ingresoPorCliente) : null;
+  // Cuantos clientes hacen falta para cubrir los gastos del mes.
+  const equilibrio = (gastoMes!==null && ingresoPorCliente) ? Math.ceil(gastoMes/ingresoPorCliente) : null;
+
+  const horas = parseFloat(ECON.horasPorMes)||0;
+  const costoHora   = (horas && gastoMes!==null) ? gastoMes/horas : null;
+  const ingresoHora = (horas && ingresoMes!==null) ? ingresoMes/horas : null;
+
+  return {meses, gastoMes, ingresoMes, clientes, costoPorCliente, ingresoPorCliente,
+          margen, margenPct, equilibrio, horas, costoHora, ingresoHora};
+}
+
+function renderEconomia(){
+  const e = economia();
+  const cont = document.getElementById('tarjetasEcon');
+
+  if(!e.meses.length || !e.clientes){
+    cont.innerHTML = '<div class="card"><h3>Sin datos suficientes</h3><div class="value">—</div>'+
+      '<div class="sub">Hacen falta meses cerrados en la planilla de ingresos y egresos, y clientes en abonos.</div></div>';
+    document.getElementById('simulRes').innerHTML = '';
+    document.getElementById('notaEcon').textContent = '';
+    return;
+  }
+
+  cont.innerHTML = [
+    tarjeta('Gasto del estudio', pesos(e.gastoMes), 'promedio de '+e.meses.length+' mes(es) cerrado(s)','danger-card'),
+    tarjeta('Clientes activos', e.clientes, 'con abono en esos meses',''),
+    tarjeta('Cuesta atender a uno', pesos(e.costoPorCliente), 'gasto ÷ clientes','warning-card'),
+    tarjeta('Cobrás por cliente', pesos(e.ingresoPorCliente), 'ingreso ÷ clientes','success-card'),
+    tarjeta('Te queda', pesos(e.margen) + (e.margenPct!==null ? ' ('+e.margenPct+'%)' : ''),
+            e.margen>0 ? 'por cliente, después de gastos' : 'estás perdiendo con cada cliente',
+            e.margen>0 ? 'success-card' : 'danger-card'),
+    tarjeta('Punto de equilibrio', e.equilibrio===null?'—':e.equilibrio+' clientes', 'para cubrir los gastos del mes',''),
+    e.costoHora!==null
+      ? tarjeta('Tu hora', pesos(e.ingresoHora), 'cobrás por hora · te cuesta '+pesos(e.costoHora),'')
+      : '<div class="card" style="cursor:pointer" onclick="cargarHoras()"><h3>Tu hora</h3><div class="value">—</div>'+
+        '<div class="sub">Tocá acá y cargá cuántas horas por mes le dedican al estudio. Sin eso no hay hora hombre que valga.</div></div>'
+  ].join('');
+
+  const pct = parseInt(document.getElementById('ajustePct').value,10);
+  document.getElementById('ajusteTxt').textContent = (pct>0?'+':'')+pct+'%';
+  const nuevoIngreso = e.ingresoPorCliente*(1+pct/100);
+  const nuevoMargen  = nuevoIngreso - e.costoPorCliente;
+  const extraMes     = (nuevoIngreso - e.ingresoPorCliente)*e.clientes;
+  const nuevoEquil   = nuevoIngreso>0 ? Math.ceil(e.gastoMes/nuevoIngreso) : null;
+
+  document.getElementById('simulRes').innerHTML =
+    caja('Pasarías a cobrar', pesos(nuevoIngreso), 'por cliente') +
+    caja('Te quedaría', pesos(nuevoMargen), nuevoMargen>e.margen?'por cliente':'por cliente') +
+    caja('Por mes, de más', (extraMes>=0?'+':'')+pesos(extraMes), 'con los mismos '+e.clientes+' clientes') +
+    caja('Punto de equilibrio', nuevoEquil+' clientes', 'antes eran '+e.equilibrio);
+
+  // El costo de la hora cambia con las horas cargadas, y de ahi salen los margenes por
+  // tema: si no se refrescan, la tabla de abajo queda mostrando numeros viejos.
+  if(typeof renderTemas === 'function' && !window.__enTemas){
+    window.__enTemas = true; try { renderTemas(); } finally { window.__enTemas = false; }
+  }
+
+  // Sin esto el simulador seria una promesa: el numero de arriba supone que no se va nadie.
+  document.getElementById('notaEcon').innerHTML =
+    'Estas cuentas suponen que <b>no se te va ningún cliente</b> al subir el precio. Nadie sabe cuántos se irían, ' +
+    'yo tampoco. Con este margen, perder ' + Math.max(1, Math.round(e.clientes*(pct/100)/(1+pct/100))) +
+    ' cliente(s) ya te comería el aumento: sirve para tener la referencia, no como pronóstico.' +
+    '<br>Los gastos salen de tu planilla de ingresos y egresos (' + e.meses.join(', ') + '). ' +
+    'El mes en curso se excluye a propósito: está a medio cargar y daría un margen que no existe.';
+}
+function caja(et, vl, sub){
+  return '<div><div class="et">'+esc(et)+'</div><div class="vl">'+esc(vl)+'</div><div class="et" style="text-transform:none;letter-spacing:0">'+esc(sub)+'</div></div>';
+}
+function cargarHoras(){
+  const v = prompt('¿Cuántas horas por mes le dedican al estudio, entre todos?\n\nEs un cálculo aproximado tuyo: no está en ninguna planilla.\nEjemplo: 2 personas × 6 horas × 22 días = 264', ECON.horasPorMes||'');
+  if(v===null) return;
+  const h = parseFloat(String(v).replace(/[^\d.]/g,''));
+  if(isNaN(h) || h<=0){ alert('No entendí ese número.'); return; }
+  firebase.database().ref('consultas_config/economia').update({horasPorMes:h, actualizado:new Date().toISOString()})
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
+// ---------- Velocidad de respuesta ----------
+// La palanca mas grande y la unica gratis. Para que alguien cambie como trabaja hace falta
+// verlo con los numeros propios, no con una recomendacion general.
+const TRAMOS = [
+  {et:'Menos de 1 hora',  min:0,    max:1},
+  {et:'Entre 1 y 4 horas',min:1,    max:4},
+  {et:'Entre 4 y 24 horas',min:4,   max:24},
+  {et:'Más de 1 día',     min:24,   max:Infinity},
+  {et:'Nunca contestaste',min:null,  max:null}
+];
+
+function velocidad(){
+  // Solo las que ya se definieron: una consulta abierta todavia puede terminar en cualquier
+  // cosa y meterla en el denominador ensucia la conversion de su tramo.
+  const cerradas = CONSULTAS.filter(c => c.estado==='cliente' || c.estado==='perdida');
+
+  const tramos = TRAMOS.map(t=>{
+    const dentro = cerradas.filter(c=>{
+      const h = c.horasHastaPrimeraRespuesta;
+      if(t.min===null) return (h===null||h===undefined) && c.mensajesDelCliente>0;
+      return typeof h==='number' && h>=t.min && h<t.max;
+    });
+    const clientes = dentro.filter(c=>c.estado==='cliente').length;
+    return {et:t.et, casos:dentro.length, clientes,
+            conv: dentro.length ? clientes/dentro.length : null, lista:dentro};
+  });
+
+  // El tramo mas rapido CON datos suficientes es la referencia.
+  const rapido = tramos.find(t=>t.casos>=5 && t.conv!==null) || tramos.find(t=>t.casos>0);
+  const lentos = tramos.filter(t=>t!==rapido && t.casos>0 && t.conv!==null && rapido && t.conv < rapido.conv);
+
+  // Cuantos clientes mas habria si las lentas convirtieran como las rapidas.
+  let clientesPerdidos = 0;
+  lentos.forEach(t=>{ clientesPerdidos += (rapido.conv - t.conv) * t.casos; });
+  clientesPerdidos = Math.round(clientesPerdidos);
+
+  // Cuanto vale cada cliente, para traducirlo a plata. Sale del cruce con abonos.
+  const indice = indexarPlata(ABONOS);
+  const conPlata = CONSULTAS.filter(c=>c.estado==='cliente')
+    .map(c=>(indice[telefonoCorto(c.telefono)]||{}).cobrado || 0).filter(v=>v>0);
+  const valorCliente = conPlata.length ? conPlata.reduce((a,b)=>a+b,0)/conPlata.length : null;
+
+  return {tramos, rapido, clientesPerdidos, valorCliente,
+          totalCerradas: cerradas.length, casosConValor: conPlata.length};
+}
+
+function renderVelocidad(){
+  const v = velocidad();
+  const cuerpo = document.getElementById('tablaVelocidad');
+  const titular = document.getElementById('titularVelocidad');
+  const nota = document.getElementById('notaVelocidad');
+
+  if(!v.totalCerradas){
+    cuerpo.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted)">Todavía no hay consultas cerradas para comparar.</td></tr>';
+    titular.innerHTML = ''; nota.textContent = '';
+    return;
+  }
+
+  const maxConv = Math.max(...v.tramos.map(t=>t.conv||0), 0.0001);
+  cuerpo.innerHTML = v.tramos.filter(t=>t.casos>0).map(t=>{
+    const pct = t.conv===null ? '—' : Math.round(t.conv*100)+'%';
+    const ancho = Math.round((t.conv||0)*100/maxConv);
+    const flojo = t.casos < 5 ? ' <span title="Pocos casos: el porcentaje todavía se mueve mucho" style="color:var(--warning-color)">⚠</span>' : '';
+    const esRapido = v.rapido && t.et===v.rapido.et;
+    return '<tr><td><b>'+esc(t.et)+'</b>'+(esRapido?' <span style="color:var(--success-color);font-size:.85em">← referencia</span>':'')+'</td>'+
+      '<td>'+t.casos+flojo+'</td><td>'+t.clientes+'</td>'+
+      '<td><b>'+pct+'</b></td>'+
+      '<td style="width:40%"><div class="track" style="background:#e2e8f0;border-radius:5px;height:16px"><div style="height:100%;border-radius:5px;background:'+
+      (esRapido?'var(--success-color)':'var(--primary-color)')+';width:'+ancho+'%"></div></div></td></tr>';
+  }).join('');
+
+  // El titular: la plata que se va por tardar. Es el numero que hace que alguien cambie
+  // como trabaja manana a la manana.
+  if(v.clientesPerdidos > 0 && v.rapido){
+    let txt = '<div class="grande">Contestando siempre en <b>'+esc(v.rapido.et.toLowerCase())+'</b>, ' +
+              'tendrías <b>'+v.clientesPerdidos+' cliente(s) más</b>';
+    if(v.valorCliente){
+      txt += ': <span class="plata">'+pesos(v.clientesPerdidos*v.valorCliente)+'</span>';
+    }
+    txt += '.</div><div class="chico">';
+    if(v.valorCliente){
+      txt += 'Calculado sobre un cliente promedio de '+pesos(v.valorCliente)+' ('+v.casosConValor+' casos con importe cargado). ';
+    }
+    // Sin esto seria vender una certeza que no tengo.
+    txt += 'Es una <b>correlación</b>, no una causa probada: puede que las consultas más urgentes ' +
+           'se contesten antes y además conviertan mejor por urgentes, no por rápidas. ' +
+           'Aun así, es lo único de todo el panel que se mejora sin gastar un peso.</div>';
+    titular.className = 'titular';
+    titular.innerHTML = txt;
+  } else {
+    titular.className = '';
+    titular.innerHTML = '';
+  }
+
+  nota.innerHTML = 'Se cuentan sólo las <b>cerradas</b> ('+v.totalCerradas+'): una consulta abierta todavía puede terminar ' +
+    'en cualquiera de las dos y ensuciaría el porcentaje de su tramo. El tiempo es hasta la respuesta de una ' +
+    '<b>persona</b>: el saludo automático no cuenta. El ⚠ marca los tramos con menos de 5 casos.' +
+    (v.totalCerradas < 20 ? '<br><b>Con '+v.totalCerradas+' casos cerrados esto todavía no alcanza para concluir nada.</b> Mirálo de nuevo cuando haya más.' : '');
+}
+
+// ---------- Rentabilidad por tipo de caso ----------
+// "Un divorcio no consume el mismo tiempo que una comunicacion." El promedio de arriba
+// esconde eso: un estudio puede ganar bien en conjunto y perder plata en cada caso de un
+// tipo. Aca se abre por tema.
+function rentabilidadPorTema(){
+  const e = economia();
+  const indice = indexarPlata(ABONOS);
+  const horasPorTema = ECON.horasPorTema || {};
+
+  const temas = {};
+  CONSULTAS.forEach(c=>{
+    if(!c.tema) return;                       // sin tema no se puede agrupar, y no se inventa
+    if(c.estado !== 'cliente') return;        // solo los que contrataron: los demas no dejaron plata
+    const t = temas[c.tema] = temas[c.tema] || {tema:c.tema, casos:0, cobrado:0};
+    t.casos++;
+    const p = indice[telefonoCorto(c.telefono)];
+    if(p) t.cobrado += p.cobrado;
+  });
+
+  const lista = Object.values(temas);
+  lista.forEach(t=>{
+    t.promedio = t.casos ? t.cobrado/t.casos : 0;
+    t.horas = parseFloat(horasPorTema[t.tema]) || null;
+    t.costo = (t.horas!==null && e.costoHora!==null) ? t.horas*e.costoHora : null;
+    t.margen = (t.costo!==null) ? t.promedio-t.costo : null;
+    t.porHora = (t.horas) ? t.promedio/t.horas : null;
+  });
+  // Primero lo que peor rinde: es lo que hay que mirar.
+  lista.sort((a,b)=>{
+    if(a.margen===null && b.margen===null) return b.casos-a.casos;
+    if(a.margen===null) return 1;
+    if(b.margen===null) return -1;
+    return a.margen-b.margen;
+  });
+  return {lista, costoHora: e.costoHora};
+}
+
+function renderTemas(){
+  const {lista, costoHora} = rentabilidadPorTema();
+  const cuerpo = document.getElementById('tablaTemas');
+  const nota = document.getElementById('notaTemas');
+
+  if(!lista.length){
+    cuerpo.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Todavía no hay clientes con tema identificado.</td></tr>';
+    nota.textContent = '';
+    return;
+  }
+
+  cuerpo.innerHTML = lista.map(t=>{
+    const horas = t.horas!==null ? t.horas+' h' : '<span style="color:var(--muted)">sin cargar</span>';
+    const costo = t.costo!==null ? pesos(t.costo) : '—';
+    const porHora = t.porHora!==null ? pesos(t.porHora) : '—';
+    let margen = '—', veredicto = '';
+    if(t.margen!==null){
+      const bien = t.margen > 0;
+      margen = '<b style="color:'+(bien?'var(--success-color)':'var(--danger-color)')+'">'+pesos(t.margen)+'</b>';
+      // El aviso solo aparece cuando hay algo que decir. Un semaforo en cada fila se
+      // vuelve decoracion.
+      if(!bien) veredicto = '<span style="color:var(--danger-color);font-weight:600">perdés plata</span>';
+      else if(costoHora!==null && t.porHora!==null && t.porHora < costoHora*1.5) veredicto = '<span style="color:var(--warning-color)">margen fino</span>';
+    }
+    const pocos = t.casos < 3 ? ' <span title="Pocos casos: el promedio todavía es frágil" style="color:var(--warning-color)">⚠</span>' : '';
+    return '<tr><td><b>'+esc(t.tema)+'</b></td><td>'+t.casos+pocos+'</td>'+
+      '<td style="cursor:pointer" title="Tocá para cargar las horas" onclick="cargarHorasTema(\''+esc(t.tema)+'\')">'+horas+'</td>'+
+      '<td>'+costo+'</td><td>'+pesos(t.promedio)+'</td><td>'+margen+'</td><td>'+porHora+'</td><td>'+veredicto+'</td></tr>';
+  }).join('');
+
+  const sinHoras = lista.filter(t=>t.horas===null).length;
+  let txt = '<b>Cargá las horas que consume cada tipo de caso</b> tocando la celda: eso no está en ninguna planilla y sin ese dato no hay margen que calcular. ';
+  if(costoHora===null) txt += 'Antes hace falta cargar las horas totales del estudio, arriba. ';
+  else if(sinHoras) txt += sinHoras + ' tema(s) todavía sin horas cargadas. ';
+  txt += '<br>Se cuentan sólo los que <b>contrataron</b> y entraron por WhatsApp: los clientes de antes no están acá, ' +
+         'así que esto sirve para comparar temas entre sí, no como la facturación total del estudio. ' +
+         'El ⚠ marca los temas con menos de 3 casos, donde el promedio todavía se mueve mucho.';
+  nota.innerHTML = txt;
+}
+
+function cargarHorasTema(tema){
+  const actual = (ECON.horasPorTema||{})[tema] || '';
+  const v = prompt('¿Cuántas horas consume, de punta a punta, un caso de "'+tema+'"?\n\nEs tu estimación: incluí reuniones, escritos, seguimiento y audiencias.', actual);
+  if(v===null) return;
+  const h = parseFloat(String(v).replace(/[^\d.]/g,''));
+  if(isNaN(h) || h<=0){ alert('No entendí ese número.'); return; }
+  firebase.database().ref('consultas_config/economia/horasPorTema/'+encodeURIComponent(tema)).set(h)
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
+// ---------- Plata ----------
+// Los telefonos no coinciden literalmente: en consultas vienen '5491168063444' y en abonos
+// los escribio una persona ('11 6806-3444', '+54 9 11...'). Se comparan los ultimos 10
+// digitos, que en Argentina son area + numero. Sin esto el cruce da cero y parece que
+// ningun cliente vino de la publicidad.
+// De donde vino la persona, en una sola linea y en un solo lugar.
+//
+// Hay cinco origenes y NO son lo mismo, aunque antes cayeran todos en "sin determinar":
+//   anuncio              -> se sabe de que video vino
+//   anuncio_desconocido  -> vino de un anuncio que no esta en la lista
+//   anuncio_sin_tarjeta  -> vino de un anuncio pero se perdio la tarjeta (32 casos)
+//   organico             -> escribio por su cuenta: la web, una recomendacion, el numero
+//                           de siempre
+//   sin_determinar       -> WhatsApp mando la charla CORTADA y falta el principio, donde
+//                           estaba la tarjeta. Se nota porque arranca con un mensaje del
+//                           estudio: a un desconocido no le escribis vos primero. Pasa
+//                           casi solo en junio y julio (2% y 16% de tarjetas, contra 74%
+//                           en agosto). NO es lo mismo que "llego sola": contarlo asi
+//                           inflaria lo que entra gratis con gente que trajo la pauta.
+// Sobre agosto y septiembre, que es donde el historial esta completo: 80% de un anuncio,
+// 11% llego sola, 9% no se sabe. Mirar el total de todos los meses da un numero peor y
+// mentiroso, porque junio y julio llegaron cortados.
+function etiquetaOrigen(c){
+  if(c.anuncio) return c.anuncio;
+  if(c.origen==="anuncio_desconocido") return c.tituloAnuncio || "Anuncio no identificado";
+  if(c.origen==="anuncio_sin_tarjeta") return "De un anuncio (sin identificar)";
+  if(c.origen==="organico") return "Llegó sola";
+  return "No se sabe (charla incompleta)";
+}
+// Si la trajo la pauta. Es lo que separa lo que cuesta plata de lo que no.
+function esDePauta(c){ return /^anuncio/.test(c && c.origen || ""); }
+function telefonoCorto(t){
+  const d = String(t==null?'':t).replace(/\D/g,'');
+  return d.length >= 10 ? d.slice(-10) : (d || null);
+}
+
+// Cuanta plata dejo cada cliente, por telefono.
+//
+// OJO CON LOS ARRASTRES: un honorario de siniestro aparece repetido en julio, agosto y
+// septiembre; son tres filas del MISMO honorario. Sumarlas triplica la facturacion y
+// muestra un retorno que no existe. Por eso los de siniestro se cuentan una sola vez por
+// `siniestroId`. Los abonos mensuales son al reves: cada mes es plata nueva.
+function indexarPlata(abonos){
+  const porTel = {};
+  const siniestrosVistos = {};
+
+  abonos.forEach(a=>{
+    const tel = telefonoCorto(a.telefono);
+    if(!tel) return;
+
+    const esSiniestro = (a.tipo||'') === 'Honorarios Siniestro';
+    if(esSiniestro){
+      const clave = a.siniestroId || ('SIN_' + tel);
+      const previo = siniestrosVistos[clave];
+      // Entre las copias del mismo honorario gana la que tiene un cobro registrado; si
+      // ninguna lo tiene, alcanza con quedarse con una.
+      const cobradoAca = parseFloat(a.montoPagado) || (a.estado==='Terminado'||a.estado==='Pagado' ? (parseFloat(a.monto)||0) : 0);
+      if(previo && previo.cobrado >= cobradoAca) return;
+      if(previo){
+        porTel[tel].facturado -= previo.facturado;
+        porTel[tel].cobrado  -= previo.cobrado;
+      }
+      const fila = { facturado: parseFloat(a.monto)||0, cobrado: cobradoAca };
+      siniestrosVistos[clave] = fila;
+      porTel[tel] = porTel[tel] || {facturado:0, cobrado:0, filas:0};
+      porTel[tel].facturado += fila.facturado;
+      porTel[tel].cobrado   += fila.cobrado;
+      porTel[tel].filas++;
+      return;
+    }
+
+    // Abono mensual, convenio, cuota: cada fila es un periodo distinto y suma.
+    const cobrado = parseFloat(a.montoPagado) || (a.estado==='Pagado'||a.estado==='Terminado' ? (parseFloat(a.monto)||0) : 0);
+    porTel[tel] = porTel[tel] || {facturado:0, cobrado:0, filas:0};
+    porTel[tel].facturado += parseFloat(a.monto)||0;
+    porTel[tel].cobrado   += cobrado;
+    porTel[tel].filas++;
+  });
+  return porTel;
+}
+
+function filasDePlata(){
+  const indice = indexarPlata(ABONOS);
+  const filas = {};
+  let cruzadas = 0;
+
+  CONSULTAS.forEach(c=>{
+    const k = etiquetaOrigen(c);
+    filas[k] = filas[k] || {clave:k, adId:c.adId||null, consultas:0, clientes:0, facturado:0, cobrado:0};
+    filas[k].consultas++;
+    if(c.estado==='cliente') filas[k].clientes++;
+    const p = indice[telefonoCorto(c.telefono)];
+    if(p){
+      cruzadas++;
+      filas[k].facturado += p.facturado;
+      filas[k].cobrado   += p.cobrado;
+    }
+  });
+
+  const lista = Object.values(filas).sort((a,b)=>b.cobrado-a.cobrado || b.consultas-a.consultas);
+  lista.forEach(f=>{
+    const g = GASTOS[f.adId||f.clave];
+    f.gasto = g && typeof g.monto==='number' ? g.monto : null;
+    // La gente que llego sola no costo pauta, y eso es un dato, no un gasto sin cargar: si
+    // dijera "sin cargar" invitaria a cargarle un numero a algo que vale cero.
+    f.gratis = (f.clave === 'Llegó sola');
+    if(f.gratis) f.gasto = 0;
+    f.costoPorCliente = (f.gasto!==null && f.clientes) ? Math.round(f.gasto/f.clientes) : null;
+    f.retorno = (f.gasto) ? Math.round(f.cobrado*10/f.gasto)/10 : null;
+  });
+  return {lista, cruzadas};
+}
+
+function renderPlata(){
+  const {lista, cruzadas} = filasDePlata();
+  const cuerpo = document.getElementById('tablaPlata');
+  if(!lista.length){ cuerpo.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Sin datos todavía.</td></tr>'; return; }
+
+  cuerpo.innerHTML = lista.map(f=>{
+    const conv = f.consultas ? Math.round(f.clientes*100/f.consultas)+'%' : '—';
+    const gasto = f.gratis ? '<span style="color:var(--success-color)">sin costo</span>'
+                : f.gasto!==null ? pesos(f.gasto) : '<span style="color:var(--muted)">sin cargar</span>';
+    const cpc = f.costoPorCliente!==null ? pesos(f.costoPorCliente) : '—';
+    let ret = '—';
+    if(f.retorno!==null){
+      const bien = f.retorno >= 1;
+      ret = '<b style="color:'+(bien?'var(--success-color)':'var(--danger-color)')+'">'+f.retorno+'x</b>';
+    }
+    const editable = f.adId||f.clave;
+    // La fila de los que llegaron solos no se puede editar: no hay gasto que cargar.
+    if(f.gratis) return '<tr><td><b>'+esc(f.clave)+'</b></td><td>'+f.consultas+'</td><td>'+f.clientes+'</td>'+
+      '<td>'+conv+'</td><td><b>'+pesos(f.cobrado)+'</b></td><td style="color:var(--muted)">'+pesos(f.facturado)+'</td>'+
+      '<td>'+gasto+'</td><td>—</td><td><b style="color:var(--success-color)">gratis</b></td></tr>';
+    return '<tr><td><b>'+esc(f.clave)+'</b></td><td>'+f.consultas+'</td><td>'+f.clientes+'</td>'+
+      '<td>'+conv+'</td><td><b>'+pesos(f.cobrado)+'</b></td><td style="color:var(--muted)">'+pesos(f.facturado)+'</td>'+
+      '<td style="cursor:pointer" title="Tocá para cargar el gasto" onclick="cargarGasto(\''+esc(editable)+'\',\''+esc(f.clave)+'\')">'+gasto+'</td>'+
+      '<td>'+cpc+'</td><td>'+ret+'</td></tr>';
+  }).join('');
+
+  const sinCruzar = CONSULTAS.length - cruzadas;
+  document.getElementById('notaPlata').innerHTML =
+    '<b>Cobrado</b> es la plata que entró; <b>facturado</b> es lo acordado. Para decidir dónde poner la plata manda lo cobrado. ' +
+    'El <b>retorno</b> es cuántos pesos cobrados por cada peso de pauta: menos de 1x pierde. ' +
+    'Tocá una celda de gasto para cargarlo.<br>' +
+    cruzadas + ' de ' + CONSULTAS.length + ' consultas engancharon con un cliente de la planilla de abonos' +
+    (sinCruzar ? '; las otras ' + sinCruzar + ' no tienen honorarios cargados a ese teléfono, que es lo normal en las que no contrataron.' : '.');
+}
+function pesos(n){
+  // El signo va antes del simbolo: "-$1.000" y no "$-1.000".
+  const v = Math.round(n||0);
+  return (v<0?'-':'') + '$' + Math.abs(v).toLocaleString('es-AR');
+}
+function cargarGasto(clave, etiqueta){
+  const actual = (GASTOS[clave] && GASTOS[clave].monto) || '';
+  const v = prompt('Gasto en pauta de "'+etiqueta+'" (en pesos, sólo números).\n\nEs el total gastado en ese anuncio, que ves en el Administrador de anuncios.', actual);
+  if(v===null) return;
+  const monto = parseFloat(String(v).replace(/[^\d.-]/g,''));
+  if(isNaN(monto)){ alert('No entendí ese número.'); return; }
+  firebase.database().ref('consultas_config/gastos/'+clave).set({monto, actualizado:new Date().toISOString()})
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
+// ---------- Tabla ----------
+function llenarFiltros(){
+  llenar('fEstado', Object.keys(ETIQUETA_ESTADO).filter(e=>CONSULTAS.some(c=>c.estado===e)).map(e=>[e,ETIQUETA_ESTADO[e]]));
+  const origenes = [...new Set(CONSULTAS.map(c=>c.anuncio).filter(Boolean))].map(a=>[a,a]);
+  // "Sin anuncio identificado" y no "Sin determinar": el filtro agarra las dos cosas, las
+  // que no vinieron de ningun anuncio y las que vinieron de uno que no esta en la lista.
+  llenar('fAnuncio', origenes.concat([['__sin','Sin anuncio identificado']]));
+  llenar('fTema', [...new Set(CONSULTAS.map(c=>c.tema).filter(Boolean))].sort().map(t=>[t,t]));
+}
+function llenar(id, pares){
+  const sel = document.getElementById(id), previo = sel.value;
+  sel.innerHTML = sel.options[0].outerHTML + pares.map(([v,t])=>'<option value="'+esc(v)+'">'+esc(t)+'</option>').join('');
+  sel.value = previo;
+}
+function filtradas(){
+  const q = (document.getElementById('fBuscar').value||'').toLowerCase().trim();
+  const e = document.getElementById('fEstado').value;
+  const a = document.getElementById('fAnuncio').value;
+  const t = document.getElementById('fTema').value;
+  return CONSULTAS.filter(c=>{
+    if(e && c.estado!==e) return false;
+    if(t && c.tema!==t) return false;
+    if(a === '__sin'){ if(c.anuncio) return false; }
+    else if(a && c.anuncio!==a) return false;
+    if(q){
+      const heno = [c.nombre,c.telefono,c.tema,c.motivo,c.resumen,c.anuncio,c.primerMensaje].join(' ').toLowerCase();
+      if(!heno.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderTabla(){
+  const lista = filtradas().sort((x,y)=>String(y.fechaUltimoMensaje||'').localeCompare(String(x.fechaUltimoMensaje||'')));
+  const hoy = hoyYMD();
+  document.getElementById('tabla').innerHTML = lista.map(c=>{
+    let pill;
+    if(!c.analizadoEn) pill = '<span class="pill sin">Sin analizar</span>';
+    else if(c.estado==='cliente') pill = '<span class="pill cliente">Cliente</span>';
+    else if(c.estado==='perdida') pill = '<span class="pill perdida">Perdida</span>';
+    else pill = '<span class="pill abierta">'+esc(ETIQUETA_ESTADO[c.estado]||'Abierta')+'</span>';
+
+    const rta = c.horasHastaPrimeraRespuesta===null || c.horasHastaPrimeraRespuesta===undefined
+      ? (c.mensajesDelCliente>0 ? '<span class="atrasado">sin respuesta</span>' : '—')
+      : c.horasHastaPrimeraRespuesta+' h';
+    const prox = c.proximoContacto
+      ? (c.proximoContacto<=hoy && !CERRADOS.includes(c.estado)
+          ? '<span class="atrasado">'+esc(c.proximoContacto)+'</span>' : esc(c.proximoContacto))
+      : '—';
+    const vino = esDePauta(c) ? esc(etiquetaOrigen(c))
+               : '<span style="color:var(--muted)">'+esc(etiquetaOrigen(c))+'</span>';
+
+    return '<tr><td><b>'+esc(nombre(c))+'</b></td><td>'+esc(c.telefono||'')+'</td><td>'+pill+'</td>'+
+      '<td>'+esc(c.tema||'—')+'</td><td>'+vino+'</td><td>'+fecha(c.fechaPrimerContacto)+'</td>'+
+      '<td>'+rta+'</td><td>'+prox+'</td><td>'+esc(c.resumen||c.motivo||'')+'</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--muted)">No hay consultas que coincidan.</td></tr>';
+  document.getElementById('pieTabla').textContent = lista.length+' de '+CONSULTAS.length+' consultas.';
+}
+function limpiarFiltros(){
+  ['fBuscar','fEstado','fAnuncio','fTema'].forEach(id=>document.getElementById(id).value='');
+  renderTabla();
+}
+function exportarExcel(){
+  const lista = filtradas();
+  if(!lista.length){ alert('No hay nada para exportar con esos filtros.'); return; }
+  const filas = lista.map(c=>({
+    Cliente:nombre(c), Teléfono:c.telefono||'',
+    Estado: c.analizadoEn ? (ETIQUETA_ESTADO[c.estado]||'') : 'Sin analizar',
+    Tema:c.tema||'', 'Vino de':etiquetaOrigen(c),
+    'Primer contacto':fecha(c.fechaPrimerContacto), 'Último mensaje':fecha(c.fechaUltimoMensaje),
+    'Horas hasta responder': c.horasHastaPrimeraRespuesta===null?'sin respuesta':c.horasHastaPrimeraRespuesta,
+    'Mensajes del cliente':c.mensajesDelCliente||0, 'Mensajes del estudio':c.mensajesDelEstudio||0,
+    'Próximo contacto':c.proximoContacto||'', 'Motivo de pérdida':c.motivo||'', 'En qué quedó':c.resumen||''
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Consultas');
+  XLSX.writeFile(wb, 'consultas_'+hoyYMD()+'.xlsx');
+}
+
+['fBuscar','fEstado','fAnuncio','fTema'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById(id).addEventListener('input',renderTabla);
+    document.getElementById(id).addEventListener('change',renderTabla);
+  });
+});
+document.addEventListener('DOMContentLoaded',iniciar);
+</script>
+</body>
+</html>
