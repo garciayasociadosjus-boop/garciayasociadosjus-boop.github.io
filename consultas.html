@@ -64,6 +64,20 @@
     .pill.abierta{background:#dbeafe;color:#1e40af}
     .pill.sin{background:#e2e8f0;color:#475569}
     .atrasado{color:var(--danger-color);font-weight:600}
+    /* La casilla para marcar quien cerro. Es la accion mas importante de la tabla, asi que
+       se ve como algo para tocar y no como texto. */
+    select.marcar{font:inherit;padding:4px 6px;border:1px solid var(--border-color,#d1d5db);
+                  border-radius:6px;background:var(--card-bg,#fff);color:inherit;cursor:pointer;max-width:190px}
+    select.marcar:disabled{opacity:.5;cursor:progress}
+    /* Las que se parecen a un cliente y todavia nadie miro. Un fondo suave alcanza: un color
+       fuerte diria "hay un problema", y no lo hay, es trabajo pendiente. */
+    tr.probable{background:rgba(245,158,11,.07)}
+    .aviso{font-size:.72em;font-weight:700;color:#92400e;background:#fef3c7;
+           border-radius:99px;padding:1px 7px;margin-left:6px;white-space:nowrap;cursor:help}
+    @media (prefers-color-scheme: dark){
+      tr.probable{background:rgba(245,158,11,.10)}
+      .aviso{color:#fde68a;background:rgba(245,158,11,.20)}
+    }
 
     .barras{display:grid;gap:9px}
     .barra{display:grid;grid-template-columns:170px 1fr 70px;gap:10px;align-items:center;font-size:.88em}
@@ -190,8 +204,8 @@
     <div class="table-container">
       <table>
         <thead><tr>
-          <th>Cliente</th><th>Teléfono</th><th>Estado</th><th>Tema</th>
-          <th>Vino de</th><th>Primer contacto</th><th>Respuesta</th>
+          <th>Cliente</th><th>Teléfono</th><th>Marcar</th><th>Estado</th><th>Tema</th>
+          <th>Vino de</th><th>Mensajes</th><th>Primer contacto</th><th>Respuesta</th>
           <th>Próximo contacto</th><th>En qué quedó</th>
         </tr></thead>
         <tbody id="tabla"></tbody>
@@ -236,14 +250,24 @@ function aLista(d){
 }
 
 const ETIQUETA_ESTADO = {
-  cliente:'Cliente',
+  cliente:'Cliente (ya pagó)',
+  // La mitad de los casos del estudio son alimentos y se cobran al terminar. Contarlos
+  // igual que a uno que no cerro seria mentir sobre la conversion; contarlos igual que a
+  // uno que pago seria mentir sobre la plata que entro. Van aparte.
+  cliente_al_final:'Cliente (paga al final)',
   en_conversacion:'En conversación',
   esperando_respuesta_del_cliente:'Esperando al cliente',
   esperando_respuesta_del_estudio:'Esperando al estudio',
   perdida:'Perdida',
   no_era_consulta:'No era consulta'
 };
-const CERRADOS = ['cliente','perdida','no_era_consulta'];
+const CERRADOS = ['cliente','cliente_al_final','perdida','no_era_consulta'];
+
+// Cliente es cliente, haya pagado ya o pague al final. En un solo lugar, porque antes esto
+// estaba escrito diez veces y agregar un estado nuevo obligaba a acertar las diez.
+function esCliente(c){ return c && (c.estado==='cliente' || c.estado==='cliente_al_final'); }
+// Marcado por una persona: eso vale mas que cualquier cosa que deduzca el sistema.
+function marcadoAMano(c){ return !!(c && c.marcadoEn); }
 
 function estadoDatos(msg, clase){
   const el = document.getElementById('estadoDatos');
@@ -311,8 +335,8 @@ function iniciar(){
 function render(){
   const t = CONSULTAS;
   const analizadas = t.filter(c=>c.analizadoEn);
-  const clientes = t.filter(c=>c.estado==='cliente');
-  const cerradas = analizadas.filter(c=>c.estado==='cliente'||c.estado==='perdida');
+  const clientes = t.filter(esCliente);
+  const cerradas = analizadas.filter(c=>esCliente(c)||c.estado==='perdida');
   const abiertas = t.filter(c=>!CERRADOS.includes(c.estado));
 
   // La conversion se calcula sobre las CERRADAS, no sobre el total: las que siguen
@@ -396,7 +420,7 @@ function renderBarras(){
     const k = etiquetaOrigen(c);
     porAd[k] = porAd[k] || {total:0,clientes:0};
     porAd[k].total++;
-    if(c.estado==='cliente') porAd[k].clientes++;
+    if(esCliente(c)) porAd[k].clientes++;
   });
   const filas = Object.keys(porAd).sort((a,b)=>porAd[b].total-porAd[a].total);
   const max = Math.max(1,...filas.map(k=>porAd[k].total));
@@ -571,7 +595,7 @@ const TRAMOS = [
 function velocidad(){
   // Solo las que ya se definieron: una consulta abierta todavia puede terminar en cualquier
   // cosa y meterla en el denominador ensucia la conversion de su tramo.
-  const cerradas = CONSULTAS.filter(c => c.estado==='cliente' || c.estado==='perdida');
+  const cerradas = CONSULTAS.filter(c => esCliente(c) || c.estado==='perdida');
 
   const tramos = TRAMOS.map(t=>{
     const dentro = cerradas.filter(c=>{
@@ -579,7 +603,7 @@ function velocidad(){
       if(t.min===null) return (h===null||h===undefined) && c.mensajesDelCliente>0;
       return typeof h==='number' && h>=t.min && h<t.max;
     });
-    const clientes = dentro.filter(c=>c.estado==='cliente').length;
+    const clientes = dentro.filter(esCliente).length;
     return {et:t.et, casos:dentro.length, clientes,
             conv: dentro.length ? clientes/dentro.length : null, lista:dentro};
   });
@@ -595,7 +619,7 @@ function velocidad(){
 
   // Cuanto vale cada cliente, para traducirlo a plata. Sale del cruce con abonos.
   const indice = indexarPlata(ABONOS);
-  const conPlata = CONSULTAS.filter(c=>c.estado==='cliente')
+  const conPlata = CONSULTAS.filter(esCliente)
     .map(c=>(indice[telefonoCorto(c.telefono)]||{}).cobrado || 0).filter(v=>v>0);
   const valorCliente = conPlata.length ? conPlata.reduce((a,b)=>a+b,0)/conPlata.length : null;
 
@@ -669,7 +693,7 @@ function rentabilidadPorTema(){
   const temas = {};
   CONSULTAS.forEach(c=>{
     if(!c.tema) return;                       // sin tema no se puede agrupar, y no se inventa
-    if(c.estado !== 'cliente') return;        // solo los que contrataron: los demas no dejaron plata
+    if(!esCliente(c)) return;                 // solo los que contrataron: los demas no dejaron plata
     const t = temas[c.tema] = temas[c.tema] || {tema:c.tema, casos:0, cobrado:0};
     t.casos++;
     const p = indice[telefonoCorto(c.telefono)];
@@ -834,7 +858,7 @@ function filasDePlata(){
     const k = etiquetaOrigen(c);
     filas[k] = filas[k] || {clave:k, adId:c.adId||null, consultas:0, clientes:0, facturado:0, cobrado:0};
     filas[k].consultas++;
-    if(c.estado==='cliente') filas[k].clientes++;
+    if(esCliente(c)) filas[k].clientes++;
     const p = indice[telefonoCorto(c.telefono)];
     if(p){
       cruzadas++;
@@ -937,15 +961,65 @@ function filtradas(){
     return true;
   });
 }
+// GUARDA LA MARCA. Va a `consultas/<telefono>/estado`, la misma rama que escribe el lector.
+// El lector NO la pisa: en firebase.js, `estado`, `tema`, `motivo` y las notas se respetan
+// si ya tienen valor. Asi lo que marca una persona sobrevive a todas las corridas.
+function marcar(sel, telefono){
+  if(!telefono){ alert('Esa consulta no tiene teléfono, no se puede marcar.'); return; }
+  const valor = sel.value;
+  const previo = (CONSULTAS.find(c=>c.telefono===telefono)||{}).estado || '';
+  sel.disabled = true;
+  // `null` borra el campo: volver a "sin marcar" tiene que poder deshacerse.
+  const datos = valor
+    ? { estado: valor, marcadoEn: new Date().toISOString() }
+    : { estado: null, marcadoEn: null };
+  firebase.database().ref('consultas/'+telefono).update(datos)
+    .then(()=>{ sel.disabled = false; })
+    .catch(e=>{
+      // Si no se pudo guardar, la casilla vuelve a lo que estaba: dejarla en el valor
+      // nuevo haria creer que quedo marcado cuando no lo esta.
+      sel.value = previo; sel.disabled = false;
+      alert('No se pudo guardar la marca: '+e.message);
+    });
+}
+
+// SE PARECE A LAS QUE TERMINARON EN CLIENTE. No lo afirma: lo sugiere, para que el estudio
+// no tenga que revisar 628 filas a mano.
+//
+// El umbral sale de medir los 14 casos que el estudio cerro de verdad (07/09/2026): tenian
+// mediana de 99 mensajes contra 7 del resto. Con 30 mensajes y 3 dias entran 13 de los 14 y
+// quedan 107 filas de 628. NO alcanza para decidir solo: entre esas 107 hay colegas y
+// conocidos con charlas larguisimas. Por eso marca, y decide una persona.
+function probableCliente(c){
+  if(!c || !c.fechaPrimerContacto || !c.fechaUltimoMensaje) return false;
+  const dias = (new Date(c.fechaUltimoMensaje) - new Date(c.fechaPrimerContacto)) / 86400000;
+  return (c.cantidadMensajes||0) >= 30 && dias >= 3;
+}
+
 function renderTabla(){
-  const lista = filtradas().sort((x,y)=>String(y.fechaUltimoMensaje||'').localeCompare(String(x.fechaUltimoMensaje||'')));
+  // Primero las que hay que marcar, y de esas las mas largas: es el orden en el que el
+  // trabajo rinde. Ordenar por fecha dejaba las importantes desparramadas entre 628 filas y
+  // marcarlas era inviable, que es lo que hacia que el panel no sirviera.
+  const lista = filtradas().sort((x,y)=>{
+    const px = probableCliente(x) && !x.estado, py = probableCliente(y) && !y.estado;
+    if(px !== py) return px ? -1 : 1;
+    // Entre las sugeridas manda la ULTIMA ACTIVIDAD, no el largo. Ordenar por largo ponia
+    // arriba a un conocido con 6.288 mensajes y a un colega con 421: las charlas eternas casi
+    // nunca son un caso nuevo, son una relacion. Los 14 clientes reales del estudio tenian
+    // entre 42 y 211 mensajes. Lo reciente es lo que todavia se puede cerrar.
+    if(px) return String(y.fechaUltimoMensaje||'').localeCompare(String(x.fechaUltimoMensaje||''));
+    return String(y.fechaUltimoMensaje||'').localeCompare(String(x.fechaUltimoMensaje||''));
+  });
   const hoy = hoyYMD();
   document.getElementById('tabla').innerHTML = lista.map(c=>{
     let pill;
-    if(!c.analizadoEn) pill = '<span class="pill sin">Sin analizar</span>';
-    else if(c.estado==='cliente') pill = '<span class="pill cliente">Cliente</span>';
+    // Un estado marcado a mano vale mas que 'sin analizar': si el estudio ya dijo que cerro,
+    // decir 'sin analizar' al lado seria contradecirlo en su propia pantalla.
+    if(!c.estado) pill = '<span class="pill sin">'+(c.analizadoEn?'Abierta':'Sin analizar')+'</span>';
+    else if(esCliente(c)) pill = '<span class="pill cliente">'+esc(ETIQUETA_ESTADO[c.estado])+'</span>';
     else if(c.estado==='perdida') pill = '<span class="pill perdida">Perdida</span>';
     else pill = '<span class="pill abierta">'+esc(ETIQUETA_ESTADO[c.estado]||'Abierta')+'</span>';
+    if(marcadoAMano(c)) pill += ' <span title="lo marcaste vos" style="cursor:help">✓</span>';
 
     const rta = c.horasHastaPrimeraRespuesta===null || c.horasHastaPrimeraRespuesta===undefined
       ? (c.mensajesDelCliente>0 ? '<span class="atrasado">sin respuesta</span>' : '—')
@@ -957,11 +1031,27 @@ function renderTabla(){
     const vino = esDePauta(c) ? esc(etiquetaOrigen(c))
                : '<span style="color:var(--muted)">'+esc(etiquetaOrigen(c))+'</span>';
 
-    return '<tr><td><b>'+esc(nombre(c))+'</b></td><td>'+esc(c.telefono||'')+'</td><td>'+pill+'</td>'+
-      '<td>'+esc(c.tema||'—')+'</td><td>'+vino+'</td><td>'+fecha(c.fechaPrimerContacto)+'</td>'+
+    // La casilla para marcar. Es lo unico del panel que sabe la verdad: ni la IA ni el
+    // cruce con abonos pueden decir quien cerro cuando el cliente paga al final.
+    const opciones = [['','— sin marcar —'],['cliente','Cliente (ya pagó)'],
+      ['cliente_al_final','Cliente (paga al final)'],['perdida','Perdida'],
+      ['no_era_consulta','No era consulta']];
+    const sel = '<select class="marcar" onchange="marcar(this,\''+esc(c.telefono||'')+'\')">'+
+      opciones.map(o=>'<option value="'+o[0]+'"'+(c.estado===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
+      '</select>';
+
+    return '<tr'+(probableCliente(c)&&!c.estado?' class="probable"':'')+'>'+
+      '<td><b>'+esc(nombre(c))+'</b>'+(probableCliente(c)&&!c.estado?' <span class="aviso" title="Conversación larga y sostenida: se parece a las que terminaron en cliente">¿cliente?</span>':'')+'</td>'+
+      '<td>'+esc(c.telefono||'')+'</td><td>'+sel+'</td><td>'+pill+'</td>'+
+      '<td>'+esc(c.tema||'—')+'</td><td>'+vino+'</td><td>'+(c.cantidadMensajes||0)+'</td>'+
+      '<td>'+fecha(c.fechaPrimerContacto)+'</td>'+
       '<td>'+rta+'</td><td>'+prox+'</td><td>'+esc(c.resumen||c.motivo||'')+'</td></tr>';
-  }).join('') || '<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--muted)">No hay consultas que coincidan.</td></tr>';
-  document.getElementById('pieTabla').textContent = lista.length+' de '+CONSULTAS.length+' consultas.';
+  }).join('') || '<tr><td colspan="11" style="padding:24px;text-align:center;color:var(--muted)">No hay consultas que coincidan.</td></tr>';
+  const marcadas = CONSULTAS.filter(c=>c.estado).length;
+  const faltan = CONSULTAS.filter(c=>probableCliente(c) && !c.estado).length;
+  document.getElementById('pieTabla').innerHTML = lista.length+' de '+CONSULTAS.length+' consultas · '+
+    '<b>'+marcadas+'</b> marcadas' +
+    (faltan ? ' · <b>'+faltan+'</b> se parecen a las que terminaron en cliente y están sin marcar (van primero)' : '');
 }
 function limpiarFiltros(){
   ['fBuscar','fEstado','fAnuncio','fTema'].forEach(id=>document.getElementById(id).value='');
