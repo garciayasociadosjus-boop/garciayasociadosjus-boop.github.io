@@ -64,6 +64,21 @@
     .pill.abierta{background:#dbeafe;color:#1e40af}
     .pill.sin{background:#e2e8f0;color:#475569}
     .atrasado{color:var(--danger-color);font-weight:600}
+    /* La lista de a quien contestar. Es lo primero que se mira: cada fila tiene que decir
+       quien, que dijo y hace cuanto, y dejar actuar sin salir de la pantalla. */
+    .deben-fila{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--border-color,#e5e7eb);
+                border-radius:10px;margin-bottom:8px;background:var(--card-bg,#fff)}
+    .deben-fila .quien{flex:1;min-width:0}
+    .deben-fila .quien b{display:block}
+    .deben-fila .dijo{color:var(--muted);font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .deben-fila .cuando{font-size:.85em;color:var(--muted);white-space:nowrap}
+    .deben-fila .cuando.tarde{color:var(--danger-color);font-weight:600}
+    .btn-wa{background:#25d366;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:600;
+            text-decoration:none;white-space:nowrap}
+    .deben-vacio{padding:18px;border-radius:10px;background:rgba(16,185,129,.08);color:var(--success-color,#059669);font-weight:600}
+    details.analisis{margin-top:36px;border-top:1px solid var(--border-color,#e5e7eb);padding-top:16px}
+    details.analisis > summary{cursor:pointer;color:var(--muted);font-weight:600;padding:6px 0}
+    @media (max-width:640px){ .deben-fila{flex-wrap:wrap} .deben-fila .dijo{white-space:normal} }
     /* La casilla para marcar quien cerro. Es la accion mas importante de la tabla, asi que
        se ve como algo para tocar y no como texto. */
     select.marcar{font:inherit;padding:4px 6px;border:1px solid var(--border-color,#d1d5db);
@@ -107,11 +122,42 @@
 <div class="container">
   <div class="header">
     <h1>Consultas</h1>
-    <p>Lo que entra por WhatsApp: en qué terminó, a quién hay que llamar y qué anuncio lo trajo</p>
+    <p>A quién le debés respuesta, y todas las consultas desde el 7 de septiembre</p>
   </div>
   <div class="main-content">
     <div id="estadoDatos" class="estado-datos">Conectando…</div>
 
+    <h2 class="seccion">Te deben respuesta</h2>
+    <div class="nota" style="margin-top:-6px;margin-bottom:14px">Te escribieron en los últimos 3 días y el último que habló fue la persona. Tocá el botón verde para abrirle el chat. Si no era una consulta —un proveedor, alguien que te vende algo— marcalo en la casilla y no vuelve a aparecer.</div>
+    <div id="deben"></div>
+
+    <h2 class="seccion">Todas las consultas</h2>
+    <div class="controls">
+      <input type="text" id="fBuscar" placeholder="Buscar por nombre, teléfono, tema o motivo…">
+      <select id="fEstado"><option value="">Todos los estados</option></select>
+      <select id="fAnuncio"><option value="">Todos los orígenes</option></select>
+      <select id="fTema"><option value="">Todos los temas</option></select>
+      <button class="btn gris" onclick="limpiarFiltros()">Limpiar</button>
+      <button class="btn verde" onclick="exportarExcel()">Excel</button>
+      <button class="btn" onclick="window.print()">PDF / Imprimir</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr>
+          <th>Cliente</th><th>Teléfono</th><th>Marcar</th><th>Estado</th><th>Tema</th>
+          <th>Vino de</th><th>Mensajes</th><th>Primer contacto</th><th>Respuesta</th>
+          <th>Próximo contacto</th><th>En qué quedó</th>
+        </tr></thead>
+        <tbody id="tabla"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="pieTabla"></div>
+
+    <!-- Todo esto sigue calculandose, pero no se muestra de entrada: el estudio pidio algo
+         sencillo, y estos numeros dependen de marcar clientes y del analisis con IA, que
+         todavia no estan. Queda a mano para cuando haga falta. -->
+    <details class="analisis">
+      <summary>Ver análisis — rendimiento, conversión, cuánto cobrás, qué anuncio devolvió plata</summary>
     <div class="dashboard" id="tarjetas"></div>
 
     <h2 class="seccion">Para hoy</h2>
@@ -190,28 +236,7 @@
       </table>
     </div>
     <div class="nota" id="notaPlata"></div>
-
-    <h2 class="seccion">Todas las consultas</h2>
-    <div class="controls">
-      <input type="text" id="fBuscar" placeholder="Buscar por nombre, teléfono, tema o motivo…">
-      <select id="fEstado"><option value="">Todos los estados</option></select>
-      <select id="fAnuncio"><option value="">Todos los orígenes</option></select>
-      <select id="fTema"><option value="">Todos los temas</option></select>
-      <button class="btn gris" onclick="limpiarFiltros()">Limpiar</button>
-      <button class="btn verde" onclick="exportarExcel()">Excel</button>
-      <button class="btn" onclick="window.print()">PDF / Imprimir</button>
-    </div>
-    <div class="table-container">
-      <table>
-        <thead><tr>
-          <th>Cliente</th><th>Teléfono</th><th>Marcar</th><th>Estado</th><th>Tema</th>
-          <th>Vino de</th><th>Mensajes</th><th>Primer contacto</th><th>Respuesta</th>
-          <th>Próximo contacto</th><th>En qué quedó</th>
-        </tr></thead>
-        <tbody id="tabla"></tbody>
-      </table>
-    </div>
-    <div class="nota" id="pieTabla"></div>
+    </details>
   </div>
 </div>
 
@@ -269,6 +294,21 @@ function esCliente(c){ return c && (c.estado==='cliente' || c.estado==='cliente_
 // Marcado por una persona: eso vale mas que cualquier cosa que deduzca el sistema.
 function marcadoAMano(c){ return !!(c && c.marcadoEn); }
 
+// Cuando leyo el lector por ultima vez. Es lo primero que hay que saber antes de creerle a
+// cualquier numero: el 10/09/2026 el panel decia '40 sin responder' con datos del 07.
+let ESTADO = null;
+function pintarFrescura(){
+  if(!CONSULTAS.length && !ESTADO){ estadoDatos('Todavía no hay consultas cargadas.','warn'); return; }
+  const cuando = ESTADO && ESTADO.cuando ? new Date(ESTADO.cuando) : null;
+  const n = CONSULTAS.length + ' consultas desde el 7/9';
+  if(!cuando || isNaN(cuando)){ estadoDatos(n + ' · no sé cuándo se leyó WhatsApp por última vez','warn'); return; }
+  const horas = (Date.now() - cuando.getTime())/3600000;
+  const txt = cuando.toLocaleString('es-AR',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(ESTADO.ok === false){ estadoDatos(n + ' · la última lectura FALLÓ ('+txt+'): ' + (ESTADO.error||''),'error'); return; }
+  // Mas de 36 h sin leer: lo que se ve no es de hoy, y hay que decirlo fuerte.
+  if(horas > 36){ estadoDatos(n + ' · OJO: WhatsApp se leyó por última vez el ' + txt + '. Lo que ves no es de hoy.','warn'); return; }
+  estadoDatos(n + ' · WhatsApp leído el ' + txt);
+}
 function estadoDatos(msg, clase){
   const el = document.getElementById('estadoDatos');
   el.textContent = msg;
@@ -306,6 +346,7 @@ function iniciar(){
   firebase.database().ref('planilla_abonos').on('value', s2=>{ ABONOS = aLista(s2.val()); render(); });
   firebase.database().ref('planilla_siniestros').on('value', s3=>{ SINIESTROS = aLista(s3.val()); render(); });
   firebase.database().ref('consultas_config/gastos').on('value', s4=>{ GASTOS = s4.val() || {}; render(); });
+  firebase.database().ref('consultas_config/estado').on('value', s5=>{ ESTADO = s5.val() || null; pintarFrescura(); });
   firebase.database().ref('planilla_egresos').on('value', s5=>{ EGRESOS = s5.val() || {}; render(); });
   firebase.database().ref('consultas_config/economia').on('value', s6=>{ ECON = s6.val() || {}; render(); });
 
@@ -316,16 +357,7 @@ function iniciar(){
     CONSULTAS = !d ? [] : Object.keys(d).filter(k=>d[k]&&typeof d[k]==='object').map(k=>d[k]);
     llenarFiltros();
     render();
-    const sinAnalizar = CONSULTAS.filter(c=>!c.analizadoEn).length;
-    if(!CONSULTAS.length){
-      estadoDatos('Todavía no hay consultas cargadas. Corré el lector de WhatsApp para traerlas.','warn');
-    } else if(sinAnalizar){
-      // Callarlo daria una sensacion de control que no existe: los numeros de abajo
-      // estan calculados sobre datos incompletos.
-      estadoDatos(CONSULTAS.length+' consultas · '+sinAnalizar+' todavía sin analizar, así que los números de abajo están incompletos.','warn');
-    } else {
-      estadoDatos(CONSULTAS.length+' consultas, todas analizadas.');
-    }
+    pintarFrescura();
   }, err=>{
     estadoDatos('No se pudieron leer las consultas: '+err.message,'error');
   });
@@ -333,6 +365,7 @@ function iniciar(){
 
 // ---------- Tarjetas ----------
 function render(){
+  renderDeben();
   const t = CONSULTAS;
   const analizadas = t.filter(c=>c.analizadoEn);
   const clientes = t.filter(esCliente);
@@ -994,6 +1027,52 @@ function probableCliente(c){
   if(!c || !c.fechaPrimerContacto || !c.fechaUltimoMensaje) return false;
   const dias = (new Date(c.fechaUltimoMensaje) - new Date(c.fechaPrimerContacto)) / 86400000;
   return (c.cantidadMensajes||0) >= 30 && dias >= 3;
+}
+
+// A QUIEN LE DEBE RESPUESTA EL ESTUDIO. La misma regla que usan el WhatsApp diario y el Vigia
+// (normalizar.js, debeRespuesta): el ultimo que hablo -sin contar el saludo automatico, los
+// avisos de sistema ni una despedida tipo "ok gracias"- fue el cliente, en los ultimos 3 dias.
+// El lector ya deja calculado `ultimoHumanoFueDelCliente`; aca solo se aplica la ventana.
+const DIAS_PARA_CONTESTAR = 3;
+function debeRespuesta(c){
+  if(!c || !c.ultimoHumanoFueDelCliente || !c.fechaUltimoHumano) return false;
+  if(c.estado === 'no_era_consulta') return false;
+  const t = new Date(c.fechaUltimoHumano).getTime();
+  return !isNaN(t) && (Date.now() - t) <= DIAS_PARA_CONTESTAR*24*3600*1000;
+}
+function haceCuanto(iso){
+  const h = Math.floor((Date.now() - new Date(iso).getTime())/3600000);
+  if(isNaN(h)) return '';
+  if(h < 1) return 'recién';
+  if(h < 24) return 'hace '+h+' h';
+  const d = Math.floor(h/24);
+  return d===1 ? 'ayer' : 'hace '+d+' días';
+}
+function renderDeben(){
+  const cont = document.getElementById('deben');
+  if(!cont) return;
+  // Primero el que espera hace mas: es el que esta mas cerca de irse con otro.
+  const lista = CONSULTAS.filter(debeRespuesta)
+    .sort((a,b)=>String(a.fechaUltimoHumano).localeCompare(String(b.fechaUltimoHumano)));
+  if(!lista.length){
+    cont.innerHTML = '<div class="deben-vacio">No le debés respuesta a nadie de los últimos '+DIAS_PARA_CONTESTAR+' días. ✅</div>';
+    return;
+  }
+  const opciones = [['','— sin marcar —'],['cliente','Cliente (ya pagó)'],['cliente_al_final','Cliente (paga al final)'],
+    ['perdida','Perdida'],['no_era_consulta','No era consulta']];
+  cont.innerHTML = lista.map(c=>{
+    const tel = String(c.telefono||'').replace(/[^0-9]/g,'');
+    const horas = (Date.now() - new Date(c.fechaUltimoHumano).getTime())/3600000;
+    const dijo = c.ultimoMensajeCliente || c.primerMensaje || '';
+    const sel = '<select class="marcar" onchange="marcar(this,\''+esc(c.telefono||'')+'\')">'+
+      opciones.map(o=>'<option value="'+o[0]+'"'+(c.estado===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+    return '<div class="deben-fila">'+
+      '<div class="quien"><b>'+esc(nombre(c))+'</b><div class="dijo">'+(dijo?'"'+esc(dijo)+'"':'')+'</div></div>'+
+      '<div class="cuando'+(horas>=24?' tarde':'')+'">'+esc(haceCuanto(c.fechaUltimoHumano))+'</div>'+
+      sel+
+      (tel?'<a class="btn-wa" href="https://wa.me/'+tel+'" target="_blank" rel="noopener">Abrir chat</a>':'')+
+      '</div>';
+  }).join('');
 }
 
 function renderTabla(){
