@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aseguradoras · García &amp; Asociados</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<style>[hidden]{display:none!important}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#f3f5f8; --surface:#ffffff; --ink:#16223a; --muted:#5b6678; --line:#dce1e9;
+    --navy:#14284b; --on-navy:#ffffff; --gold:#9c7b36; --gold-soft:#f4ecda;
+    --ok:#1b7443; --ok-soft:#e6f4ec; --li:#0a66c2; --li-soft:#e8f1fb; --no:#8a3b3b;
+    --serif:"Newsreader", Georgia, "Times New Roman", serif;
+    --sans:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0d1320; --surface:#151e31; --ink:#e6eaf1; --muted:#9aa5b7; --line:#27324a;
+      --navy:#27467c; --on-navy:#ffffff; --gold:#d3b06a; --gold-soft:#2c2616;
+      --ok:#63c98f; --ok-soft:#132b1e; --li:#72b3ff; --li-soft:#15263d; --no:#e39a9a;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0d1320; --surface:#151e31; --ink:#e6eaf1; --muted:#9aa5b7; --line:#27324a;
+    --navy:#27467c; --on-navy:#ffffff; --gold:#d3b06a; --gold-soft:#2c2616;
+    --ok:#63c98f; --ok-soft:#132b1e; --li:#72b3ff; --li-soft:#15263d; --no:#e39a9a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+  .wrap{max-width:860px;margin:0 auto;padding:22px 16px 64px}
+  header.top{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+  .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600}
+  h1{font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.15;margin:0;text-wrap:balance}
+  .lead{color:var(--muted);margin:0;max-width:62ch}
+  h2{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:26px 0 10px}
+
+  /* Resumen */
+  .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .dato{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .dato b{display:block;font-family:var(--serif);font-size:26px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+  .dato span{font-size:12.5px;color:var(--muted)}
+  .guardado{font-size:12.5px;color:var(--muted);margin-top:8px;min-height:1.2em}
+
+  /* Pasos */
+  .pasos{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--ink)}
+  .pasos li::marker{color:var(--gold);font-weight:600}
+  .pasos b{font-weight:600}
+
+  /* Mensajes */
+  details.msg{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  details.msg summary{cursor:pointer;padding:12px 14px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  details.msg summary::-webkit-details-marker{display:none}
+  details.msg summary::after{content:"+";color:var(--gold);font-size:18px;line-height:1}
+  details.msg[open] summary::after{content:"–"}
+  .msg .cuerpo{padding:0 14px 14px}
+  .msg pre{white-space:pre-wrap;font-family:var(--sans);font-size:14px;margin:0 0 10px;padding:12px;background:var(--ground);border-radius:8px;border:1px dashed var(--line)}
+  .msg .meta{font-size:12.5px;color:var(--muted)}
+
+  /* Filtros */
+  .filtros{position:sticky;top:0;z-index:5;background:var(--ground);padding:10px 0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+  .filtros button{flex:none;font:inherit;font-size:13.5px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+  .filtros button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:var(--on-navy)}
+
+  /* Compañías */
+  .lista{display:grid;gap:10px}
+  .cia{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
+  .cia.respondio{border-color:var(--ok);background:linear-gradient(0deg,var(--ok-soft),var(--ok-soft)) padding-box}
+  .cabeza{display:flex;gap:12px;align-items:flex-start}
+  .puesto{flex:none;width:44px;text-align:center;font-family:var(--serif);font-size:22px;line-height:1;color:var(--gold);padding-top:2px;font-variant-numeric:tabular-nums}
+  .puesto small{display:block;font-family:var(--sans);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+  .nombre{font-weight:600;font-size:16.5px}
+  .porque{color:var(--muted);font-size:13.5px;margin-top:2px}
+  .chip{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;margin-top:6px;border:1px solid var(--line);color:var(--muted)}
+  .chip.estado-invitado,.chip.estado-recordatorio{border-color:var(--li);color:var(--li)}
+  .chip.estado-acepto{border-color:var(--gold);color:var(--gold)}
+  .chip.estado-respondio,.chip.estado-reunion{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+  .chip.estado-no{border-color:var(--no);color:var(--no)}
+  .links{display:flex;flex-wrap:wrap;gap:6px}
+  .links a{font-size:13.5px;padding:7px 12px;border-radius:999px;background:var(--li-soft);color:var(--li);text-decoration:none;font-weight:500}
+  .links a:focus-visible,.filtros button:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .segui{display:grid;grid-template-columns:1.2fr 1.2fr .9fr;gap:6px}
+  .segui select,.segui input{font:inherit;font-size:14px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--ground);color:var(--ink);width:100%;min-width:0}
+  @media (max-width:560px){ .segui{grid-template-columns:1fr 1fr} .segui select{grid-column:1 / -1} }
+  .btn{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:0;background:var(--navy);color:var(--on-navy);cursor:pointer}
+  .volver{font-size:13.5px;color:var(--li);text-decoration:none;margin-bottom:6px}
+  .nota{color:var(--muted);font-size:13px;margin-top:18px;max-width:70ch}
+  .nota a{color:var(--li)}
+  .vacio{color:var(--muted);padding:18px;text-align:center}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="volver" href="index.html">← Volver al portal</a>
+    <div class="eyebrow">García &amp; Asociados · estudio externo de compañías</div>
+    <h1>A quién escribirle en cada aseguradora</h1>
+    <p class="lead">Cada botón azul abre LinkedIn con la búsqueda hecha. Elegí a la persona con el cargo más alto del área que siga en la compañía hoy, y anotá acá cómo va. Lo que marques queda guardado en la base del estudio y se ve igual en el celular y en la compu.</p>
+  </header>
+
+  <section class="resumen" aria-label="Resumen">
+    <div class="dato"><b id="nEscritas">0</b><span>escritas</span></div>
+    <div class="dato"><b id="nRespondieron">0</b><span>respondieron</span></div>
+    <div class="dato"><b id="nReuniones">0</b><span>reuniones</span></div>
+  </section>
+  <div class="guardado" id="guardado"></div>
+
+  <h2>Cómo hacerlo</h2>
+  <ol class="pasos">
+    <li><b>Elegí a quién:</b> gerente o jefe de siniestros automotores; si no hay, responsable de recupero; y si no, gerente de legales. Evitá a los analistas y al área comercial.</li>
+    <li><b>Pedí conexión</b> con la nota corta. Si LinkedIn no te deja agregar nota, invitá sin nota.</li>
+    <li><b>Cuando acepte</b>, le mandás el mensaje largo con el dossier adjunto.</li>
+    <li><b>A los 7 días</b>, si no respondió, un recordatorio y nada más. Largá 8 a 10 compañías por semana: contesta una o dos de cada diez.</li>
+  </ol>
+
+  <h2>Mensajes para copiar</h2>
+  <details class="msg"><summary>Nota de conexión</summary><div class="cuerpo"><pre id="m-nota">Hola [nombre], soy Sebastián García, de García & Asociados. Gestionamos reclamos de terceros y recuperos con sistema propio de trazabilidad. Me gustaría presentarte el estudio.</pre><button class="btn" data-copiar="m-nota">Copiar</button> <span class="meta" id="m-nota-len"></span></div></details>
+  <details class="msg"><summary>Mensaje cuando acepta (con el dossier)</summary><div class="cuerpo"><pre id="m-largo">Hola [nombre], gracias por aceptar.
+
+Soy Sebastián García, del Estudio Jurídico García & Asociados. En los últimos doce meses gestionamos 215 reclamos de siniestros de automotor: cerramos con acuerdo y cobro el 83 % de los concluidos, con una mediana de 81 días del siniestro al cobro.
+
+Hoy queremos poner esa experiencia al servicio de una compañía, en gestión de reclamos de terceros, recupero y mediaciones, con un sistema propio que deja trazado cada caso de punta a punta.
+
+Te adjunto una presentación de tres páginas. Propongo empezar con una cartera piloto de diez casos para que puedan medirnos. ¿Tendrías quince minutos para conversarlo?
+
+Sebastián García
+estudio@garciayasociados.com.ar · +54 9 11 6806-3444</pre><button class="btn" data-copiar="m-largo">Copiar</button></div></details>
+  <details class="msg"><summary>Recordatorio (una sola vez, a los 7 días)</summary><div class="cuerpo"><pre id="m-record">Hola [nombre], te escribo de nuevo por si se te pasó el mensaje anterior. Si no sos la persona indicada para esto, ¿me podrías decir quién lo ve en [compañía]? Muchas gracias.</pre><button class="btn" data-copiar="m-record">Copiar</button></div></details>
+
+  <h2>Las compañías</h2>
+  <nav class="filtros" id="filtros" aria-label="Filtrar compañías">
+    <button data-f="Prioridad" aria-pressed="true">Prioridad · 10</button>
+    <button data-f="Segunda tanda" aria-pressed="false">Segunda tanda · 15</button>
+    <button data-f="Tercera tanda" aria-pressed="false">Tercera tanda · 27</button>
+    <button data-f="pendientes" aria-pressed="false">Sin escribir</button>
+    <button data-f="activas" aria-pressed="false">En curso</button>
+    <button data-f="" aria-pressed="false">Todas · 52</button>
+  </nav>
+  <div class="lista" id="lista">
+    <article class="cia" data-id="federacion-patronal" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">1<small>puesto</small></div>
+        <div><div class="nombre">Federación Patronal</div><div class="porque">Le hiciste 48 reclamos. Casa matriz en La Plata, Av. 51 N.º 770: se puede ir en persona.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Federaci%C3%B3n%20Patronal">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Federaci%C3%B3n%20Patronal">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Federaci%C3%B3n%20Patronal">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Federaci%C3%B3n%20Patronal">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Federación Patronal" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Federación Patronal" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-caja-caja-de-seguros" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">2<small>puesto</small></div>
+        <div><div class="nombre">La Caja (Caja de Seguros)</div><div class="porque">Le hiciste 25 reclamos y cobraste 24.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Caja%20de%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Caja%20de%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Caja%20de%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Caja%20de%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Caja (Caja de Seguros)" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Caja (Caja de Seguros)" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="sancor-seguros" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">3<small>puesto</small></div>
+        <div><div class="nombre">Sancor Seguros</div><div class="porque">Le hiciste 9 reclamos. Del interior, con muchos asegurados en el conurbano.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Sancor%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Sancor%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Sancor%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Sancor%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Sancor Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Sancor Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="san-cristobal-seguros" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">4<small>puesto</small></div>
+        <div><div class="nombre">San Cristóbal Seguros</div><div class="porque">Le hiciste 5 reclamos. Compañía del interior.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20San%20Crist%C3%B3bal%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20San%20Crist%C3%B3bal%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20San%20Crist%C3%B3bal%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=San%20Crist%C3%B3bal%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con San Cristóbal Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en San Cristóbal Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="mercantil-andina" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">5<small>puesto</small></div>
+        <div><div class="nombre">Mercantil Andina</div><div class="porque">Le hiciste 8 reclamos y los cobraste todos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Mercantil%20Andina">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Mercantil%20Andina">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Mercantil%20Andina">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Mercantil%20Andina">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Mercantil Andina" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Mercantil Andina" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="rivadavia-seguros" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">6<small>puesto</small></div>
+        <div><div class="nombre">Rivadavia Seguros</div><div class="porque">Le hiciste 26 reclamos. Casa central en La Plata, Av. 7 N.º 755: se puede ir en persona.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Seguros%20Rivadavia">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Seguros%20Rivadavia">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Seguros%20Rivadavia">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Seguros%20Rivadavia">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Rivadavia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Rivadavia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-segunda" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">7<small>puesto</small></div>
+        <div><div class="nombre">La Segunda</div><div class="porque">Cooperativa del interior; casi sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Segunda%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Segunda%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Segunda%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Segunda%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Segunda" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Segunda" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="zurich" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">8<small>puesto</small></div>
+        <div><div class="nombre">Zurich</div><div class="porque">Le hiciste 8 reclamos. Multinacional con procesos formales de proveedores.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Zurich%20Argentina">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Zurich%20Argentina">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Zurich%20Argentina">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Zurich%20Argentina">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Zurich" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Zurich" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="provincia-seguros" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">9<small>puesto</small></div>
+        <div><div class="nombre">Provincia Seguros</div><div class="porque">Le hiciste 14 reclamos. Fuerte en la Provincia de Buenos Aires.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Provincia%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Provincia%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Provincia%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Provincia%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Provincia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Provincia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="allianz" data-tanda="Prioridad">
+      <div class="cabeza">
+        <div class="puesto">10<small>puesto</small></div>
+        <div><div class="nombre">Allianz</div><div class="porque">Le hiciste 5 reclamos, 4 cobrados. Multinacional.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Allianz%20Argentina">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Allianz%20Argentina">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Allianz%20Argentina">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Allianz%20Argentina">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Allianz" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Allianz" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="galicia-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">11<small>puesto</small></div>
+        <div><div class="nombre">Galicia Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Galicia%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Galicia%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Galicia%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Galicia%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Galicia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Galicia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="mapfre" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">12<small>puesto</small></div>
+        <div><div class="nombre">Mapfre</div><div class="porque">Nunca le reclamaste: cero conflicto.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Mapfre%20Argentina">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Mapfre%20Argentina">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Mapfre%20Argentina">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Mapfre%20Argentina">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Mapfre" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Mapfre" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="nacion-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">13<small>puesto</small></div>
+        <div><div class="nombre">Nación Seguros</div><div class="porque">Le hiciste 2 reclamos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Naci%C3%B3n%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Naci%C3%B3n%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Naci%C3%B3n%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Naci%C3%B3n%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Nación Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Nación Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="rio-uruguay-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">14<small>puesto</small></div>
+        <div><div class="nombre">Río Uruguay Seguros</div><div class="porque">Cooperativa del interior; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20R%C3%ADo%20Uruguay%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20R%C3%ADo%20Uruguay%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20R%C3%ADo%20Uruguay%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=R%C3%ADo%20Uruguay%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Río Uruguay Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Río Uruguay Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="meridional-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">15<small>puesto</small></div>
+        <div><div class="nombre">Meridional Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Meridional%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Meridional%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Meridional%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Meridional%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Meridional Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Meridional Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="triunfo-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">16<small>puesto</small></div>
+        <div><div class="nombre">Triunfo Seguros</div><div class="porque">Cooperativa; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Triunfo%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Triunfo%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Triunfo%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Triunfo%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Triunfo Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Triunfo Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="cooperacion-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">17<small>puesto</small></div>
+        <div><div class="nombre">Cooperación Seguros</div><div class="porque">Cooperativa del interior; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Cooperaci%C3%B3n%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Cooperaci%C3%B3n%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Cooperaci%C3%B3n%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Cooperaci%C3%B3n%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Cooperación Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Cooperación Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="el-norte-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">18<small>puesto</small></div>
+        <div><div class="nombre">El Norte Seguros</div><div class="porque">Compañía del interior; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20El%20Norte%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20El%20Norte%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20El%20Norte%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=El%20Norte%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con El Norte Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en El Norte Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="swiss-medical-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">19<small>puesto</small></div>
+        <div><div class="nombre">Swiss Medical Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Swiss%20Medical%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Swiss%20Medical%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Swiss%20Medical%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Swiss%20Medical%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Swiss Medical Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Swiss Medical Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-perseverancia-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">20<small>puesto</small></div>
+        <div><div class="nombre">La Perseverancia Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Perseverancia%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Perseverancia%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Perseverancia%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Perseverancia%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Perseverancia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Perseverancia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="atm-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">21<small>puesto</small></div>
+        <div><div class="nombre">ATM Seguros</div><div class="porque">Le hiciste 14 reclamos, 5 rechazados: la conocés bien. Fuerte en motos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20ATM%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20ATM%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20ATM%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=ATM%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con ATM Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en ATM Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-holando-sudamericana" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">22<small>puesto</small></div>
+        <div><div class="nombre">La Holando Sudamericana</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Holando%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Holando%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Holando%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Holando%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Holando Sudamericana" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Holando Sudamericana" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="parana-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">23<small>puesto</small></div>
+        <div><div class="nombre">Paraná Seguros</div><div class="porque">Compañía del interior; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Paran%C3%A1%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Paran%C3%A1%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Paran%C3%A1%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Paran%C3%A1%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Paraná Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Paraná Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="seguro-metal" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">24<small>puesto</small></div>
+        <div><div class="nombre">Seguro Metal</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Seguro%20Metal">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Seguro%20Metal">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Seguro%20Metal">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Seguro%20Metal">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Seguro Metal" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Seguro Metal" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="barbuss-risk-seguros" data-tanda="Segunda tanda">
+      <div class="cabeza">
+        <div class="puesto">25<small>puesto</small></div>
+        <div><div class="nombre">Barbuss Risk Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Barbuss%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Barbuss%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Barbuss%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Barbuss%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Barbuss Risk Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Barbuss Risk Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="segurcoop" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">26<small>puesto</small></div>
+        <div><div class="nombre">Segurcoop</div><div class="porque">Cooperativa; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Segurcoop">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Segurcoop">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Segurcoop">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Segurcoop">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Segurcoop" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Segurcoop" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="liderar-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">27<small>puesto</small></div>
+        <div><div class="nombre">Liderar Seguros</div><div class="porque">Le hiciste 2 reclamos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Liderar%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Liderar%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Liderar%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Liderar%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Liderar Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Liderar Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="providencia-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">28<small>puesto</small></div>
+        <div><div class="nombre">Providencia Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Providencia%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Providencia%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Providencia%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Providencia%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Providencia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Providencia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="experta-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">29<small>puesto</small></div>
+        <div><div class="nombre">Experta Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Experta%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Experta%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Experta%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Experta%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Experta Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Experta Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="berkley-argentina" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">30<small>puesto</small></div>
+        <div><div class="nombre">Berkley Argentina</div><div class="porque">Multinacional; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Berkley%20Argentina%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Berkley%20Argentina%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Berkley%20Argentina%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Berkley%20Argentina%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Berkley Argentina" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Berkley Argentina" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-equitativa" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">31<small>puesto</small></div>
+        <div><div class="nombre">La Equitativa</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Equitativa%20del%20Plata%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Equitativa%20del%20Plata%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Equitativa%20del%20Plata%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Equitativa%20del%20Plata%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Equitativa" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Equitativa" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="galeno-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">32<small>puesto</small></div>
+        <div><div class="nombre">Galeno Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Galeno%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Galeno%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Galeno%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Galeno%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Galeno Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Galeno Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="integrity-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">33<small>puesto</small></div>
+        <div><div class="nombre">Integrity Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Integrity%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Integrity%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Integrity%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Integrity%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Integrity Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Integrity Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="iapser-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">34<small>puesto</small></div>
+        <div><div class="nombre">Iapser Seguros</div><div class="porque">Aseguradora de Entre Ríos; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20IAPSER%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20IAPSER%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20IAPSER%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=IAPSER%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Iapser Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Iapser Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="victoria-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">35<small>puesto</small></div>
+        <div><div class="nombre">Victoria Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Victoria%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Victoria%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Victoria%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Victoria%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Victoria Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Victoria Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="antartida-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">36<small>puesto</small></div>
+        <div><div class="nombre">Antártida Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Ant%C3%A1rtida%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Ant%C3%A1rtida%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Ant%C3%A1rtida%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Ant%C3%A1rtida%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Antártida Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Antártida Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="digna-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">37<small>puesto</small></div>
+        <div><div class="nombre">Digna Seguros</div><div class="porque">Le hiciste 2 reclamos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Digna%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Digna%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Digna%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Digna%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Digna Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Digna Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="agrosalta-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">38<small>puesto</small></div>
+        <div><div class="nombre">Agrosalta Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Agrosalta%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Agrosalta%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Agrosalta%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Agrosalta%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Agrosalta Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Agrosalta Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="nativa-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">40<small>puesto</small></div>
+        <div><div class="nombre">Nativa Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Nativa%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Nativa%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Nativa%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Nativa%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Nativa Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Nativa Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="metropol-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">41<small>puesto</small></div>
+        <div><div class="nombre">Metrópol Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Metropol%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Metropol%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Metropol%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Metropol%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Metrópol Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Metrópol Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="nivel-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">42<small>puesto</small></div>
+        <div><div class="nombre">Nivel Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Nivel%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Nivel%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Nivel%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Nivel%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Nivel Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Nivel Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="prudencia-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">43<small>puesto</small></div>
+        <div><div class="nombre">Prudencia Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Prudencia%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Prudencia%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Prudencia%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Prudencia%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Prudencia Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Prudencia Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="chubb-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">44<small>puesto</small></div>
+        <div><div class="nombre">Chubb Seguros</div><div class="porque">Multinacional; sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Chubb%20Seguros%20Argentina">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Chubb%20Seguros%20Argentina">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Chubb%20Seguros%20Argentina">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Chubb%20Seguros%20Argentina">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Chubb Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Chubb Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="prof-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">45<small>puesto</small></div>
+        <div><div class="nombre">Prof Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Prof%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Prof%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Prof%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Prof%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Prof Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Prof Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="libra-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">46<small>puesto</small></div>
+        <div><div class="nombre">Libra Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Libra%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Libra%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Libra%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Libra%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Libra Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Libra Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="el-progreso-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">47<small>puesto</small></div>
+        <div><div class="nombre">El Progreso Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20El%20Progreso%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20El%20Progreso%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20El%20Progreso%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=El%20Progreso%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con El Progreso Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en El Progreso Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="horizonte-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">48<small>puesto</small></div>
+        <div><div class="nombre">Horizonte Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Horizonte%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Horizonte%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Horizonte%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Horizonte%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Horizonte Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Horizonte Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-equidad-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">49<small>puesto</small></div>
+        <div><div class="nombre">La Equidad Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Equidad%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Equidad%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Equidad%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Equidad%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Equidad Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Equidad Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="nre-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">50<small>puesto</small></div>
+        <div><div class="nombre">NRE Seguros</div><div class="porque">Sin reclamos tuyos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20NRE%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20NRE%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20NRE%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=NRE%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con NRE Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en NRE Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="finisterre-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">—<small>fuera</small></div>
+        <div><div class="nombre">Finisterre Seguros</div><div class="porque">Fuera del top 50. Le hiciste 4 reclamos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Finisterre%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Finisterre%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Finisterre%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Finisterre%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Finisterre Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Finisterre Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="orbis-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">—<small>fuera</small></div>
+        <div><div class="nombre">Orbis Seguros</div><div class="porque">Fuera del top 50. Le hiciste 2 reclamos, los dos rechazados.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20Orbis%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20Orbis%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20Orbis%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=Orbis%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con Orbis Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en Orbis Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+    <article class="cia" data-id="la-nueva-seguros" data-tanda="Tercera tanda">
+      <div class="cabeza">
+        <div class="puesto">—<small>fuera</small></div>
+        <div><div class="nombre">La Nueva Seguros</div><div class="porque">Fuera del top 50. Le hiciste 2 reclamos.</div><span class="chip" data-chip>Sin escribir</span></div>
+      </div>
+      <div class="links">
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=gerente%20siniestros%20La%20Nueva%20Seguros">Siniestros</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=recupero%20La%20Nueva%20Seguros">Recupero</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=legales%20La%20Nueva%20Seguros">Legales</a>
+        <a target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/companies/?keywords=La%20Nueva%20Seguros">Página de la compañía</a>
+      </div>
+      <div class="segui">
+        <select aria-label="En qué quedó con La Nueva Seguros" data-campo="estado"><option value="">Sin escribir</option><option value="invitado">Invitación mandada</option><option value="acepto">Aceptó · mandé el dossier</option><option value="recordatorio">Mandé recordatorio</option><option value="respondio">Respondió</option><option value="reunion">Reunión pactada</option><option value="no">No le interesa</option></select>
+        <input aria-label="A quién le escribiste en La Nueva Seguros" data-campo="quien" placeholder="A quién le escribí">
+        <input aria-label="Fecha" type="date" data-campo="fecha">
+      </div>
+    </article>
+  </div>
+
+  <p class="nota">Orden: ranking de automotores a junio de 2026, con datos de la Superintendencia de Seguros publicados por <a href="https://www.revistatodoriesgo.com.ar/automotores-las-50-aseguradoras-que-se-ubicaron-primeras-en-el-ranking-a-junio-de-2026/" target="_blank" rel="noopener">Revista Todo Riesgo</a>. Prioridad son las diez primeras, que se reparten tres cuartos del mercado; las medianas suelen tener menos estudios propios y decidir más rápido. Copan no está: esa relación era de la productora. Si una búsqueda trae poca gente, abrí la página de la compañía y entrá a la pestaña "Personas".</p>
+</div>
+
+<script>
+(function () {
+  var CLAVE = 'aseguradoras.seguimiento';
+  var ESTADOS = [["","Sin escribir"],["invitado","Invitación mandada"],["acepto","Aceptó · mandé el dossier"],["recordatorio","Mandé recordatorio"],["respondio","Respondió"],["reunion","Reunión pactada"],["no","No le interesa"]];
+  var estado = {};
+  try { estado = JSON.parse(localStorage.getItem(CLAVE) || '{}') || {}; } catch (e) { estado = {}; }
+  var ref = null;
+  var filtro = 'Prioridad';
+  var tarjetas = Array.prototype.slice.call(document.querySelectorAll('.cia'));
+  function aviso(t) { var el = document.getElementById('guardado'); if (el) el.textContent = t; }
+  function datos(id) { return estado[id] || {}; }
+  function textoEstado(v) { for (var i = 0; i < ESTADOS.length; i++) if (ESTADOS[i][0] === v) return ESTADOS[i][1]; return ESTADOS[0][1]; }
+
+  function pintar(el) {
+    var g = datos(el.getAttribute('data-id')), e = g.estado || '';
+    var chip = el.querySelector('[data-chip]');
+    chip.className = 'chip' + (e ? ' estado-' + e : '');
+    chip.textContent = textoEstado(e) + (g.quien ? ' · ' + g.quien : '');
+    if (e === 'respondio' || e === 'reunion') el.classList.add('respondio'); else el.classList.remove('respondio');
+    var campos = el.querySelectorAll('[data-campo]');
+    for (var i = 0; i < campos.length; i++) { if (document.activeElement !== campos[i]) campos[i].value = g[campos[i].getAttribute('data-campo')] || ''; }
+  }
+  function visible(el) {
+    var e = datos(el.getAttribute('data-id')).estado || '';
+    if (filtro === 'pendientes') return !e;
+    if (filtro === 'activas') return !!e && e !== 'no';
+    return !filtro || el.getAttribute('data-tanda') === filtro;
+  }
+  function filtrar() { for (var i = 0; i < tarjetas.length; i++) tarjetas[i].hidden = !visible(tarjetas[i]); }
+  function contar() {
+    var n = 0, r = 0, m = 0;
+    for (var k in estado) { var v = (estado[k] || {}).estado || ''; if (v) n++; if (v === 'respondio' || v === 'reunion') r++; if (v === 'reunion') m++; }
+    document.getElementById('nEscritas').textContent = n;
+    document.getElementById('nRespondieron').textContent = r;
+    document.getElementById('nReuniones').textContent = m;
+  }
+  function guardarLocal() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch (e) {} }
+  function hoy() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+  function guardarCampo(el, campo, valor) {
+    var id = el.getAttribute('data-id');
+    var g = {}; var viejo = datos(id); for (var k in viejo) g[k] = viejo[k];
+    g[campo] = valor;
+    if (campo === 'estado' && valor && !g.fecha) g.fecha = hoy();
+    estado[id] = g;
+    guardarLocal(); pintar(el); contar();
+    if (!ref) { aviso('Guardado en este dispositivo. Todavía no hay conexión con la base.'); return; }
+    ref.child(id).set(g).then(function () {
+      aviso('Guardado · se ve en el celular y en la compu.');
+    }, function (e) {
+      aviso('No se pudo guardar en la base (' + (e && e.message ? e.message : 'error') + '). Quedó en este dispositivo.');
+    });
+  }
+
+  tarjetas.forEach(function (el) {
+    var campos = el.querySelectorAll('[data-campo]');
+    for (var i = 0; i < campos.length; i++) (function (c) {
+      c.addEventListener('change', function () { guardarCampo(el, c.getAttribute('data-campo'), c.value); });
+    })(campos[i]);
+    pintar(el);
+  });
+
+  var botones = document.querySelectorAll('#filtros button');
+  for (var b = 0; b < botones.length; b++) (function (btn) {
+    btn.addEventListener('click', function () {
+      filtro = btn.getAttribute('data-f');
+      for (var j = 0; j < botones.length; j++) botones[j].setAttribute('aria-pressed', String(botones[j] === btn));
+      filtrar();
+    });
+  })(botones[b]);
+
+  var copiar = document.querySelectorAll('[data-copiar]');
+  for (var c = 0; c < copiar.length; c++) (function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = document.getElementById(btn.getAttribute('data-copiar'));
+      function seleccionar() {
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        btn.textContent = 'Seleccionado: mantené apretado y copiá';
+      }
+      try {
+        navigator.clipboard.writeText(pre.textContent).then(function () { btn.textContent = 'Copiado'; }, seleccionar);
+      } catch (e) { seleccionar(); }
+      setTimeout(function () { btn.textContent = 'Copiar'; }, 2500);
+    });
+  })(copiar[c]);
+  var largo = document.getElementById('m-nota-len');
+  if (largo) largo.textContent = document.getElementById('m-nota').textContent.length + ' caracteres';
+
+  filtrar(); contar();
+
+  // Base del estudio. Mismo login que el resto del portal: sin sesión, vuelve al portal.
+  var FB_CONFIG = {
+    apiKey: "AIzaSyBUdoBFw1R1_LKEB6VGitg1zuB78g-eo9k",
+    authDomain: "garcia-asociados.firebaseapp.com",
+    databaseURL: "https://garcia-asociados-default-rtdb.firebaseio.com",
+    projectId: "garcia-asociados",
+    storageBucket: "garcia-asociados.firebasestorage.app"
+  };
+  function iniciarFirebase() {
+    if (typeof firebase === 'undefined') { setTimeout(iniciarFirebase, 500); return; }
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    firebase.auth().onAuthStateChanged(function (u) {
+      if (!u) { window.location.replace('index.html'); return; }
+      var base = firebase.database().ref('aseguradoras_seguimiento');
+      base.on('value', function (snap) {
+        ref = base;
+        var v = snap.val() || {};
+        for (var k in v) { var o = {}, x = v[k] || {}; for (var c in x) o[c] = x[c]; estado[k] = o; }
+        guardarLocal(); tarjetas.forEach(pintar); contar(); filtrar();
+        aviso('Sincronizado · se ve igual en el celular y en la compu.');
+      }, function (err) {
+        aviso('No se pudo leer la base (' + (err && err.message ? err.message : 'error') + '). Lo que marques queda en este dispositivo.');
+      });
+    });
+  }
+  iniciarFirebase();
+})();
+</script>
+</body>
+</html>
