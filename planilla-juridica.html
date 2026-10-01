@@ -4049,14 +4049,50 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             return { fecha: fecha, hora: hora, cita: d.resumen || a.desc || '' };
         }
 
+        // Fechas de las audiencias que ya estan cargadas en la ficha (audiencias_list), sin
+        // importar si ya pasaron. Una audiencia detectada en un proveido cuya fecha esta
+        // aca YA ESTA AGENDADA, aunque nadie haya tocado "Ya está agendada".
+        //
+        // Sin esto habia que hacer dos pasos para lo mismo: agendarla en la ficha y despues
+        // volver a la tarjeta a darla por agendada. El segundo se olvidaba, y la tarjeta y
+        // el mail del vigia seguian reclamando una audiencia que estaba en la agenda. Les
+        // paso a SCIANCA (24/09), y a SANCHEZ NAYLA y VILDOZA (01/10/2026).
+        // El worker del MEV usa el mismo criterio: si cambia aca, cambia alla.
+        function fechasAudienciasEnFicha(client) {
+            const s = {};
+            const lista = client && client.audiencias_list;
+            const arr = Array.isArray(lista) ? lista : (lista && typeof lista === 'object' ? Object.values(lista) : []);
+            arr.forEach(a => {
+                const f = a && a.fecha ? String(a.fecha).slice(0, 10) : '';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(f)) s[f] = true;
+            });
+            return s;
+        }
+
         function audienciasDetectadas(dataFiltrada) {
             const out = [];
             (dataFiltrada || []).forEach(client => {
                 if (client.fuera_estudio) return;
-                (client.mev_movimientos || []).forEach((m, i) => {
-                    if (m && m.audiencia && !m.audiencia.agendada) {
-                        out.push({ client: client, mov: m, idx: i, a: m.audiencia, fuente: 'mev' });
+                const enFicha = fechasAudienciasEnFicha(client);
+                // En el MEV, igual que en el PJN, lo agendado se rastrea por FECHA DE
+                // AUDIENCIA y no por movimiento: la cedula, el link de Teams o un escrito
+                // posterior que nombran la misma audiencia entran como movimientos nuevos,
+                // sin la marca, y la alerta volvia a salir por una audiencia ya agendada.
+                const movsMev = Array.isArray(client.mev_movimientos) ? client.mev_movimientos : [];
+                const yaMev = {};
+                movsMev.forEach(m => {
+                    if (m && m.audiencia && m.audiencia.agendada && m.audiencia.fecha) yaMev[m.audiencia.fecha] = true;
+                });
+                const vistosMev = {};
+                movsMev.forEach((m, i) => {
+                    if (!m || !m.audiencia || m.audiencia.agendada) return;
+                    const f = m.audiencia.fecha || '';
+                    if (f) {
+                        if (enFicha[f] || yaMev[f]) return;   // ya está agendada
+                        if (vistosMev[f]) return;             // la misma audiencia, otro movimiento
+                        vistosMev[f] = true;
                     }
+                    out.push({ client: client, mov: m, idx: i, a: m.audiencia, fuente: 'mev' });
                 });
                 // Una misma audiencia aparece en varias actuaciones: la que la fija, la
                 // que la repite por otra oficina, y los escritos que la mencionan. Se
@@ -4083,7 +4119,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const fProv = pjnFechaISO(a.fecha);
                     if (!fProv || fProv < AUD_PJN_DESDE) return;
                     const leida = pjnLeerAudiencia(a);
-                    if (leida.fecha && yaAgendadas[leida.fecha]) return;   // esa audiencia ya está agendada
+                    if (leida.fecha && (yaAgendadas[leida.fecha] || enFicha[leida.fecha])) return;   // esa audiencia ya está agendada
                     const clave = leida.fecha ? 'F' + leida.fecha : 'D' + fProv + '|' + (a.desc || '');
                     const item = { client: client, mov: { fecha: a.fecha }, idx: i,
                                    a: leida, fuente: 'pjn' };
@@ -4143,6 +4179,16 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 if (!m || !m.audiencia) return;
                 m.audiencia.agendada = true;
                 m.audiencia.agendada_el = ahora;
+                // Igual que en el PJN: se apagan todos los movimientos que hablan de la
+                // misma audiencia, no solo el que se tocó.
+                const fAudMev = m.audiencia.fecha || '';
+                if (fAudMev) {
+                    (client.mev_movimientos || []).forEach(o => {
+                        if (o && o.audiencia && o.audiencia.fecha === fAudMev && !o.audiencia.agendada) {
+                            o.audiencia.agendada = true; o.audiencia.agendada_el = ahora;
+                        }
+                    });
+                }
             }
             saveData();
             renderAll();
