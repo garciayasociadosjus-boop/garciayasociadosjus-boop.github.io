@@ -2529,7 +2529,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 function partesDe(p){ var t=(p.tramites||[]); for(var i=0;i<t.length;i++){ var c=t[i].celdas||[]; for(var j=0;j<c.length;j++){ var v=deco(c[j]||''); if(/[A-Za-zÀ-ÿ]{3,}\s*,\s*[A-Za-zÀ-ÿ]{2,}/.test(v)) return v; } } return ''; }
                 function matchCliente(partes){
                   var lista=(typeof clientsData!=='undefined'&&clientsData)?clientsData:[]; var pu=norm(partes);
-                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c||!esPenal(c))continue; var ap=norm(c.nombre).split(/[ ,]/)[0]; if(ap.length>3 && pu.indexOf(ap)>=0) return c; }
+                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c||c.eliminado||!esPenal(c))continue; var ap=norm(c.nombre).split(/[ ,]/)[0]; if(ap.length>3 && pu.indexOf(ap)>=0) return c; }
                   return null;
                 }
                 window.__mpba={};
@@ -2628,7 +2628,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 function matchClienteDe(data){
                   var lista=(typeof clientsData!=='undefined'&&clientsData)?clientsData:[];
                   var col=data.proceso_columnas||[]; var numM=(col[2]||'').replace(/\D/g,''); var partes=norm(partesDe(data));
-                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c)continue;
+                  for(var i=0;i<lista.length;i++){ var c=lista[i]; if(!c||c.eliminado)continue;
                     var exp=(c.expediente||'').toString().replace(/\D/g,'');
                     if(numM.length>4 && exp.length>4 && (numM.indexOf(exp)>=0||exp.indexOf(numM)>=0)) return c;   // por número de expediente
                     if(esPenal(c)){ var ap=norm(c.nombre).split(/[ ,]/)[0]; if(ap.length>3 && partes.indexOf(ap)>=0) return c; }  // penal + apellido
@@ -3331,6 +3331,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     if (data && Array.isArray(data)) {
                         clientsData = sanitizeData(data);
                         try { localStorage.setItem('planilla_juridica_count', String(clientsData.filter(Boolean).length)); } catch(e){}
+                        try { localStorage.setItem('planilla_juridica_len', String(clientsData.length)); } catch(e){}
                         guardarCacheLocal();
                         scheduleRenderAll();
                         updateFirebaseStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sincronizado en tiempo real', 'ok');
@@ -3391,11 +3392,23 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 alert('⚠️ GUARDADO FRENADO POR SEGURIDAD\n\nEsta pestaña tiene ' + nActual + ' causas, pero la última vez había ' + nUltimo + '.\nParece una versión vieja/desincronizada.\n\nApretá F5 (refrescar) para bajar la versión buena ANTES de guardar. Así no pisás tus datos.');
                 return;
             }
+            // 🔒 CANDADO DE POSICIONES: la lista nunca se achica. Borrar deja una lápida en el
+            // mismo lugar (ver deleteClient), así que un guardado más corto que el último que se
+            // leyó o escribió es un error: correría todas las causas de abajo y sus textos de
+            // documentos quedarían en el casillero de otra. Solo restaurar una copia lo permite.
+            const lenUltimo = parseInt(localStorage.getItem('planilla_juridica_len') || '0', 10) || 0;
+            if (lenUltimo && clientsData.length < lenUltimo && !window._permitirAchicar) {
+                alert('⚠️ GUARDADO FRENADO\n\nEsta pestaña quiere guardar ' + clientsData.length + ' lugares y la planilla tiene ' + lenUltimo + '.\n'
+                    + 'Achicar la lista corre las causas de lugar y sus documentos quedan mezclados.\n\nRecargá la página (F5) y volvé a hacer el cambio.');
+                return;
+            }
+            window._permitirAchicar = false;
             try {
                 ignorarProximoCambioFirebase = true;
                 firebaseRef.set(clientsData)
                     .then(() => {
                         try { localStorage.setItem('planilla_juridica_count', String(nActual)); } catch(e){}
+                        try { localStorage.setItem('planilla_juridica_len', String(clientsData.length)); } catch(e){}
                         actualizarIndiceLiviano();
                     })
                     .catch(e => { console.error('Error guardando en Firebase:', e); ignorarProximoCambioFirebase = false; });
@@ -3437,7 +3450,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                 const idx = {};
                 clientsData.forEach((c, k) => {
                     if (!c || typeof c !== 'object') return;
-                    const antes = previo[k] || {};
+                    // Los campos de los workers se heredan solo si en ese lugar sigue la misma causa:
+                    // si alguna vez se corriera la lista, no se le pegan a la causa de al lado.
+                    const p = previo[k] || {};
+                    const antes = (!p.caratula || p.caratula === (c.caratula || '')) ? p : {};
                     // La fecha más nueva gana: si el worker sincronizó después de que esta
                     // pestaña cargó los datos, pisarla haría que el vigía crea que la causa
                     // se quedó parada.
@@ -3510,17 +3526,12 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         function loadData() {
             const savedData = localStorage.getItem('planilla_juridica_data');
             let data = savedData ? JSON.parse(savedData) : [];
-            const uniqueClients = new Map();
-            data.forEach(client => {
-                const key = (client.caratula && String(client.caratula).trim() !== '') ? String(client.caratula).trim().toUpperCase() : client.id;
-                if (!uniqueClients.has(key)) { uniqueClients.set(key, client); }
-            });
-            const deduplicatedData = Array.from(uniqueClients.values());
+            // No se descartan duplicados. Antes, dos causas con la misma carátula (pasa: incidentes
+            // del mismo expediente, y la planilla deja crearlas) se fundían en una al cargar, y
+            // la lista se achicaba: todo lo que ubica las causas por su posición —los textos de
+            // documentos, el índice de los workers— quedaba corrido. Ver deleteClient.
+            const deduplicatedData = Array.isArray(data) ? data : [];
             let statusMessage = savedData ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Datos cargados' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Planilla lista';
-            if (deduplicatedData.length < data.length) {
-                statusMessage = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Se repararon ${data.length - deduplicatedData.length} casos duplicados.`;
-                saveData();
-            }
             clientsData = sanitizeData(deduplicatedData);
             updateDataStatus(statusMessage, false);
         }
@@ -5118,6 +5129,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             const _sociosSesion = getSesionSocios();
 
             const filteredData = clientsData.filter(c => {
+                if (!c || c.eliminado) return false;   // lápida de una causa borrada (ver deleteClient)
                 const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
                 const pasaSesion = !_sociosSesion || _sociosSesion.includes(c.socio);
                 return pasaSesion
@@ -7077,7 +7089,33 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             showClientModal(clientId); 
         }
 
-        function deleteClient(id) { if (!puedeBorrar()) return alert('No tenés permisos para eliminar.'); if (confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) { clientsData = clientsData.filter(c => c.id !== id); saveData(); borrarAbonosDeJuridica(id); renderAll(); closeModal('clientInfoModal'); } }
+        // Borrar una causa NO la saca de la lista: deja una lápida en el mismo lugar.
+        //
+        // Todo lo que está afuera de la planilla ubica cada causa por su POSICIÓN: los textos
+        // de documentos (docs_juridica/{posición}), el índice liviano de los workers y las
+        // escrituras de los workers MEV y PJN (planilla_juridica/{posición}). Antes se hacía un
+        // filter(): la lista se achicaba, todas las causas de abajo subían un lugar y sus textos
+        // quedaban en el casillero viejo. Pasó entre agosto y septiembre de 2026 con una causa
+        // cerca de la posición 115: 22 causas perdieron 479 textos del dossier (Laudelino c/
+        // Gaitán salía con 2 de 19) hasta que se reacomodaron a mano el 06/10/2026.
+        //
+        // La lápida conserva el lugar. Va marcada fuera_estudio para que los workers y el vigía
+        // la salteen sin cambiarles nada, y eliminado para que la planilla no la muestre.
+        function deleteClient(id) {
+            if (!puedeBorrar()) return alert('No tenés permisos para eliminar.');
+            if (!confirm('¿Está seguro de que quiere eliminar este caso y todo su historial?')) return;
+            const i = clientsData.findIndex(c => c && c.id === id);
+            if (i < 0) return;
+            clientsData[i] = {
+                id: id,
+                eliminado: true,
+                eliminado_el: new Date().toISOString(),
+                fuera_estudio: true,
+                caratula: '', nombre: '', expediente: '', estado: '',
+                observaciones: [], audiencias_list: [], vencimientos_list: [], bonos_aportes_list: []
+            };
+            saveData(); borrarAbonosDeJuridica(id); renderAll(); closeModal('clientInfoModal');
+        }
 
         function borrarAbonosDeJuridica(clientId) {
             if (typeof firebase === 'undefined' || !firebase.apps.length) return;
@@ -7245,7 +7283,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             }
 
             const _sociosSesion = getSesionSocios();
-            const dataParaAgente = clientsData.filter(c => !_sociosSesion || _sociosSesion.includes(c.socio)).map(c => {
+            const dataParaAgente = clientsData.filter(c => c && !c.eliminado && (!_sociosSesion || _sociosSesion.includes(c.socio))).map(c => {
                 const { apellido, nombre } = separarNombre(c.nombre);
                 return {
                     id: c.id,
@@ -7357,7 +7395,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
             updateDataStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> JSON para Agente exportado correctamente.');
         }
         function importData(){document.getElementById('importInput').click()}
-        function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
+        function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(Array.isArray(imported)&&confirm(`¿Importar ${imported.length} casos?`)){window._permitirAchicar=true;clientsData=imported;saveData();loadData();renderAll()}}catch(err){alert('Error al importar el archivo.')}};reader.readAsText(file);event.target.value=''}
         function printClientSheet(clientId){const client=clientsData.find(c=>c.id===clientId);if(!client)return;
             const printContent=`<div class="print-area"><h2>Ficha del Caso</h2><h3>${getDisplayName(client)}</h3><div class="info-grid">${Object.entries({titulo:'Título',materia:'Materia',nombre:'Nombre',dni:'DNI',telefono:'Teléfono',caratula:'Carátula',expediente:'N° Expediente',juzgado:'Juzgado',direccionJuzgado:'Dirección Juzgado',telJuzgado:'Tel. Juzgado',estado:'Estado',notas:'Notas'}).map(([key,label])=>`<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${client[key]||'S/D'}</div></div>`).join('')}</div></div>`;
             const printWindow=window.open('','_blank');printWindow.document.write(`<html><head><title>Ficha del Cliente</title><style>${document.querySelector("style").innerHTML}</style></head><body>${printContent}</body></html>`);printWindow.document.close();setTimeout(()=>{printWindow.print();printWindow.close()},250)}
@@ -10662,7 +10700,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 // un duplicado de verdad.
                 if (caratulaValue) {
                     const NL = String.fromCharCode(10);
-                    const mismos = clientsData.filter(c => c && c.caratula &&
+                    const mismos = clientsData.filter(c => c && !c.eliminado && c.caratula &&
                         c.caratula.trim().toUpperCase() === caratulaValue.toUpperCase());
                     const mismoExp = mismos.find(c => (c.expediente || '').trim().toUpperCase() === expedienteValue.toUpperCase());
                     if (mismoExp) {
@@ -10934,7 +10972,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         unsavedChanges = false; // RESTABLECER BANDERA AL GUARDAR EN DRIVE
         marcarRespaldo('juridica', (clientsData||[]).filter(Boolean).length);
         updateDriveStatus('✓ Guardado en Drive con éxito.',false)}catch(e){console.error('Error en saveDataToDrive:',e);const errorMsg=e.result?.error?.message||e.message||"Error desconocido.";updateDriveStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Error al guardar: ${errorMsg}`,true)}}
-        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');clientsData=imported;saveData();loadData();renderAll();
+        async function loadDataFromDrive(){if(!gapi.client.getToken()?.access_token)return alert('No está conectado a Google.');if(!gdDataFileId){alert('No se ha encontrado un archivo de respaldo. Guarde una copia primero.');return}if(!confirm('¿Reemplazar los datos locales con la copia de seguridad?'))return;updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Cargando desde Drive...',false);try{const response=await gapi.client.drive.files.get({fileId:gdDataFileId,alt:'media'});const imported=JSON.parse(response.body);if(!Array.isArray(imported))throw new Error('Formato de archivo inválido.');window._permitirAchicar=true;clientsData=imported;saveData();loadData();renderAll();
         unsavedChanges = false; // AL CARGAR DE DRIVE, ESTAMOS SINCRONIZADOS
         updateDriveStatus('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Datos cargados desde Drive.',false)}catch(e){console.error("Error cargando datos:",e);updateDriveStatus(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Error al cargar: ${e.result?.error?.message||e.message}`,true)}}
         async function showDocumentModal(clientId){if(!gapi.client.getToken()?.access_token)return alert('Conecta con Google Drive primero.');currentClientIdForDocs=clientId;localFilesForUpload=[];const client=clientsData.find(c=>c.id===clientId);if(!client)return;document.getElementById('documentModalTitle').innerText=`Documentos de: ${getDisplayName(client)}`;document.getElementById('documentModal').classList.add('active');renderLocalFileList();await renderDriveFileList();setupDragAndDrop()}
