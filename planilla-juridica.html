@@ -6324,7 +6324,11 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
 
         function leerConsultaWeb(texto) {
             const lineas = String(texto || '').replace(/\r/g, '').split('\n');
-            const out = { cliente: {}, otraParte: {}, matrimonio: {}, hijos: [], meta: {} };
+            const out = { cliente: {}, otraParte: {}, matrimonio: {}, hijos: [], meta: {}, secciones: {} };
+            // Secciones que se guardan tal cual, renglón por renglón (las de alimentos y
+            // el empleador). Las arma el formulario; el Apps Script las escribe sin tocarlas.
+            const SECCIONES_LIBRES = ['RELACION', 'SU SITUACION', 'EL DEMANDADO', 'GASTOS MENSUALES', 'EMPLEADOR'];
+            const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             let seccion = 'meta';
             let hijoActual = null;
 
@@ -6335,7 +6339,9 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 // Encabezados: ── CLIENTE ──, ── HIJO/A 1 [CON DISCAPACIDAD ACREDITADA] ──
                 const enc = /^─+\s*(.+?)\s*─+$/.exec(l);
                 if (enc) {
-                    const t = enc[1].toUpperCase();
+                    const t = sinTildes(enc[1].toUpperCase());
+                    const libre = SECCIONES_LIBRES.find(x => t.startsWith(x));
+                    if (libre) { seccion = 'sec:' + libre; out.secciones[libre] = out.secciones[libre] || {}; continue; }
                     if (t.startsWith('CLIENTE')) seccion = 'cliente';
                     else if (t.startsWith('OTRA PARTE')) seccion = 'otraParte';
                     else if (t.startsWith('MATRIMONIO')) seccion = 'matrimonio';
@@ -6354,6 +6360,7 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 const valor = l.slice(i + 1).trim();
                 if (!valor) continue;
 
+                if (seccion.startsWith('sec:')) { out.secciones[seccion.slice(4)][clave] = valor; continue; }
                 if (seccion === 'meta') {
                     if (clave === 'CONSULTA') out.meta.materia = valor;
                     if (clave === 'CODIGO') out.meta.codigo = valor;
@@ -6377,6 +6384,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                     case 'LUGAR DE NACIMIENTO':  destino.lugarNac = valor; break;
                     case 'HOSPITAL':             destino.hospital = valor; break;
                     case 'VIVE CON':             destino.conviveCon = valor; break;
+                    case 'ESCUELA':              destino.escuela = valor; break;
+                    case 'GESTION':              destino.gestion = valor; break;
+                    case 'ACTIVIDADES':          destino.actividades = valor; break;
+                    case 'TRATAMIENTOS':         destino.tratamientos = valor; break;
                 }
             }
             return out;
@@ -6502,12 +6513,15 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         conviveCon: h.conviveCon || '',
                         lugarNac: h.lugarNac || '',
                         hospital: h.hospital || '',
-                        // El formulario marca la discapacidad acreditada; se traduce al
-                        // tratamiento especial, que es el campo que usa la solapa General.
-                        tratamiento: h.discapacidad ? 'Si' : 'No',
-                        tratamientoDetalle: h.discapacidad ? 'Discapacidad acreditada (CUD) — declarada en la consulta web' : ''
+                        // El formulario marca la discapacidad acreditada y, en alimentos, los
+                        // tratamientos; los dos van al tratamiento especial de la solapa General.
+                        tratamiento: (h.discapacidad || h.tratamientos) ? 'Si' : 'No',
+                        tratamientoDetalle: [h.discapacidad ? 'Discapacidad acreditada (CUD)' : '', h.tratamientos || '']
+                            .filter(Boolean).join('. ') + ((h.discapacidad || h.tratamientos) ? ' — declarado en la consulta web' : ''),
+                        escuela: h.escuela || '', escuelaGestion: h.gestion || '', actividades: h.actividades || ''
                     };
-                })
+                }),
+                secciones: d.secciones || {}
             };
 
             const aviso = document.getElementById('avisoConsultaWeb');
@@ -6543,7 +6557,98 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                 cliente.matrimonioLugar = m.lugar || '';
                 cliente.matrimonioRegistro = m.registro || '';
             }
+            aplicarDatosAlimentos(cliente, c.secciones || {});
             _consultaPendiente = null;
+        }
+
+        // Lo que la clienta contestó en la consulta web de alimentos, a los mismos campos
+        // que se cargan a mano en la ficha: solapa General, datos del demandado y
+        // Necesidades. Lo que no tiene casillero propio (la historia de la pareja, los
+        // aportes, la escuela de los chicos) va al relato del caso, que es de donde el
+        // escrito de demanda arma los hechos. El porcentaje de la cuota y el juzgado no
+        // vienen de acá: los decide el estudio.
+        function aplicarDatosAlimentos(cliente, sec) {
+            const R = sec['RELACION'] || {}, S = sec['SU SITUACION'] || {},
+                  D = sec['EL DEMANDADO'] || {}, G = sec['GASTOS MENSUALES'] || {}, E = sec['EMPLEADOR'] || {};
+            const hay = o => Object.keys(o).length > 0;
+            if (![R, S, D, G, E].some(hay) && !(cliente.hijos || []).some(h => h.escuela || h.actividades)) return;
+
+            const pesos = v => {
+                const t = String(v || '').replace(/,\d{1,2}\s*$/, '').replace(/[^\d]/g, '');
+                return t ? String(parseInt(t, 10)) : '';
+            };
+            const empieza = (v, txt) => String(v || '').toLowerCase().startsWith(txt);
+            const siNo = v => empieza(v, 'sí') || empieza(v, 'si') ? 'Si' : empieza(v, 'no') ? 'No' : '';
+
+            // Solapa General: de la clienta
+            const g = cliente.general || {};
+            const pon = (k, v) => { if (v && !g[k]) g[k] = v; };
+            pon('actorTrabaja', S['TAREA'] || (empieza(S['TRABAJO'], 'no') ? 'No trabaja' : ''));
+            pon('actorRazonSocial', S['EMPLEADOR']);
+            pon('actorIngreso', pesos(S['INGRESO MENSUAL']));
+            pon('actorAsignaciones', siNo(S['ASIGNACIONES']));
+            pon('actorAyudaFamiliares', siNo(S['AYUDA FAMILIAR']));
+            // "¿Usa la obra social del demandado?": Sí = la del otro progenitor; No = no tienen
+            // y hay que pedirla en la demanda. Si tienen la de ella, no se marca nada.
+            const os = String(S['OBRA SOCIAL DE LOS HIJOS'] || '').toLowerCase();
+            pon('actorObraSocial', os.includes('otro progenitor') ? 'Si' : os.startsWith('no') ? 'No' : '');
+            const viv = String(S['VIVIENDA'] || '').toLowerCase();
+            pon('actorAlquila', viv.startsWith('alquil') ? 'Si' : viv.startsWith('propia') ? 'No' : '');
+            // Cómo trabaja el demandado define la pauta del escrito (porcentaje o SMVM)
+            const modo = String(D['COMO TRABAJA'] || '').toLowerCase();
+            pon('modalidadTrabajo', modo.startsWith('en blanco') ? 'BLANCO' : (modo.startsWith('en negro') || modo.startsWith('no trabaja')) ? 'NEGRO' : '');
+            cliente.general = g;
+
+            // Demandado: empleador, sueldo y bienes
+            const dem = cliente.demandado || {};
+            const ponD = (k, v) => { if (v && !dem[k]) dem[k] = v; };
+            ponD('empresa', E['RAZON SOCIAL']);
+            ponD('direccionLaboral', E['DOMICILIO']);
+            ponD('monto', pesos(D['INGRESO MENSUAL']));
+            ponD('bienes', D['BIENES']);
+            if (Object.keys(dem).length) cliente.demandado = dem;
+
+            // Necesidades: los seis rubros fijos, el resto como extras y lo que no se cubre aparte
+            if (hay(G)) {
+                const FIJOS = ['Alimentación', 'Transporte', 'Vestimenta', 'Farmacia', 'Impuestos y servicios', 'Higiene personal'];
+                const clave = t => t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const nec = cliente.necesidades || { items: FIJOS.map(n => ({ nombre: n, importe: '' })), extras: [], noCubiertas: [] };
+                nec.items = nec.items && nec.items.length ? nec.items : FIJOS.map(n => ({ nombre: n, importe: '' }));
+                nec.extras = nec.extras || []; nec.noCubiertas = nec.noCubiertas || [];
+                nec.items.forEach(it => { const v = pesos(G[clave(it.nombre)]); if (v && !it.importe) it.importe = v; });
+                ['Gastos escolares', 'Salud', 'Esparcimiento'].forEach(n => {
+                    const v = pesos(G[clave(n)]);
+                    if (v && !nec.extras.some(x => x.nombre === n)) nec.extras.push({ nombre: n, importe: v });
+                });
+                if (G['OTROS']) nec.extras.push({ nombre: 'Otros (según la clienta): ' + G['OTROS'], importe: '' });
+                if (G['NO CUBIERTAS']) nec.noCubiertas.push({ nombre: G['NO CUBIERTAS'], importe: '' });
+                cliente.necesidades = nec;
+            }
+
+            // Lo que no tiene casillero: al relato del caso
+            const L = [];
+            const linea = (k, v) => { if (v) L.push('- ' + k + ': ' + v); };
+            linea('Relación', [R['TIPO'], R['DESDE'] ? 'desde ' + R['DESDE'] : '', R['HASTA'] ? 'separados desde ' + R['HASTA'] : ''].filter(Boolean).join(', '));
+            linea('Cómo fue la separación', R['COMO FUE LA SEPARACION']);
+            linea('Acuerdo previo sobre la cuota', R['ACUERDO PREVIO']);
+            linea('Con quién viven los hijos', R['CUIDADO DE LOS HIJOS']);
+            linea('Trabajo de la clienta', [S['TRABAJO'], S['TAREA'], S['EMPLEADOR'], S['INGRESO MENSUAL'] ? 'gana aprox. $' + pesos(S['INGRESO MENSUAL']) : ''].filter(Boolean).join(', '));
+            linea('Asignaciones / AUH', S['ASIGNACIONES']);
+            linea('Obra social de los hijos', S['OBRA SOCIAL DE LOS HIJOS']);
+            linea('Vivienda', S['VIVIENDA']);
+            linea('Ayuda de la familia', S['AYUDA FAMILIAR']);
+            linea('Trabajo del demandado', [D['COMO TRABAJA'], D['TAREA'], D['INGRESO MENSUAL'] ? 'gana aprox. $' + pesos(D['INGRESO MENSUAL']) : ''].filter(Boolean).join(', '));
+            linea('Bienes del demandado', D['BIENES']);
+            linea('Aportes del demandado', [D['APORTA'], D['DETALLE DEL APORTE']].filter(Boolean).join('. '));
+            (cliente.hijos || []).forEach((h, i) => {
+                const t = [h.escuela, h.escuelaGestion ? 'escuela ' + h.escuelaGestion : '', h.actividades ? 'actividades: ' + h.actividades : ''].filter(Boolean).join(', ');
+                if (t) L.push('- Hijo/a ' + (i + 1) + ': ' + t);
+            });
+            if (L.length) {
+                const bloque = 'Datos que informó la clienta en la consulta web' + (cliente.consulta_web ? ' (' + cliente.consulta_web + ')' : '') + ':\n' + L.join('\n');
+                if (!cliente.relatoCaso) cliente.relatoCaso = bloque;
+                else cliente.notas = (cliente.notas ? cliente.notas + '\n\n' : '') + bloque;
+            }
         }
 
         function showNewClientModal() { document.getElementById('newClientModal').classList.add('active'); }
