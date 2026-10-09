@@ -4513,6 +4513,25 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
         const MEV_WORKER = 'https://mev-scraper.garciayasociadosjus.workers.dev';
         const PJN_WORKER = 'https://pjn-scraper.garciayasociadosjus.workers.dev';
 
+        // Los workers de MEV y PJN atienden sólo al estudio: cada pedido lleva la prueba de
+        // que hay una sesión iniciada (el token de Firebase). Se agrega acá, en un solo
+        // lugar, para que ninguna llamada —ni las de hoy ni las que se sumen— se olvide de
+        // mandarlo. Antes del 08/10/2026 los workers contestaban a cualquiera.
+        (function () {
+            const fetchOriginal = window.fetch.bind(window);
+            const WORKERS = [MEV_WORKER, PJN_WORKER];
+            window.fetch = async function (recurso, opciones) {
+                const url = typeof recurso === 'string' ? recurso : (recurso && recurso.url) || '';
+                const usuario = window.firebase && firebase.auth && firebase.auth().currentUser;
+                if (usuario && WORKERS.some(w => url.startsWith(w))) {
+                    const h = new Headers((opciones && opciones.headers) || (typeof recurso !== 'string' && recurso.headers) || {});
+                    h.set('Authorization', 'Bearer ' + await usuario.getIdToken());
+                    opciones = Object.assign({}, opciones, { headers: h });
+                }
+                return fetchOriginal(recurso, opciones);
+            };
+        })();
+
         // Marca/desmarca una causa como "fuera del estudio" (deja de analizarse)
         async function toggleFueraEstudio(clientId, btn) {
             const client = clientsData.find(c => c.id === clientId);
