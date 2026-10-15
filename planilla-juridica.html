@@ -2803,6 +2803,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             <section class="card">
                 <h3><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Todos los Casos (Ordenados por fecha de revisión)</h3>
+                <div id="oficiosResumen" class="of-resumen" style="display:none"></div>
                 <div class="reviews-list" id="allClients" style="max-height: 600px;"></div>
             </section>
         </main>
@@ -5768,6 +5769,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                             ${tieneSolapa('convenio') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-convenio')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> Convenio</button>` : ''}
                             ${tieneSolapa('pagos') ? `<button class="tab-btn" onclick="switchTab(event, 'tab-pagos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagos</button>` : ''}
                             <button class="tab-btn" onclick="switchTab(event, 'tab-expediente')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Expediente Digital</button>
+                            <button class="tab-btn" data-tab="tab-oficios" onclick="switchTab(event, 'tab-oficios')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;pointer-events:none"><path d="M4 4h16v16H4z"/><polyline points="4 4 12 13 20 4"/></svg> Oficios <span class="of-cuenta" style="pointer-events:none">${ofPendientes(client) || ''}</span></button>
                         </div>
                         ${tieneSolapa('general') ? `<div id="tab-general" class="tab-content">${renderTabGeneral(client)}</div>` : ''}
                         ${tieneSolapa('hijos') ? `<div id="tab-hijos" class="tab-content">${renderTabHijos(client)}</div>` : ''}
@@ -5778,6 +5780,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         ${tieneSolapa('convenio') ? `<div id="tab-convenio" class="tab-content">${renderTabConvenio(client)}</div>` : ''}
                         ${tieneSolapa('pagos') ? `<div id="tab-pagos" class="tab-content">${renderTabPagos(client)}</div>` : ''}
                         <div id="tab-expediente" class="tab-content">${renderTabExpediente(client)}</div>
+                        <div id="tab-oficios" class="tab-content">${renderTabOficios(client)}</div>
                     </div>`;
 
                 const content = `
@@ -11112,6 +11115,496 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
         async function uploadDocumentContent(content,fileName,mimeType,parentId){const boundary='-------314159265358979323846';const metadata={name:fileName,mimeType:mimeType,...(parentId&&{parents:[parentId]})};const base64Data=content.split(',')[1];const requestBody=[`--${boundary}`,'Content-Type: application/json; charset=UTF-8','',JSON.stringify(metadata),`--${boundary}`,`Content-Type: ${mimeType}`,'Content-Transfer-Encoding: base64','',base64Data,`--${boundary}--`].join('\r\n');const request=await gapi.client.request({path:'/upload/drive/v3/files',method:'POST',params:{uploadType:'multipart'},headers:{'Content-Type':`multipart/related; boundary="${boundary}"`},body:requestBody});return request.result.id}
     </script>
     
+    <style>
+        /* ── Solapa Oficios ── */
+        .tab-btn .of-cuenta:not(:empty) { display:inline-block; min-width:18px; padding:0 6px; margin-left:4px; border-radius:999px; background:var(--gold-dark,#8a6a10); color:#fff; font-size:.75em; line-height:18px; text-align:center; }
+        .of-wrap { display:flex; flex-direction:column; gap:12px; }
+        .of-cab { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:.88em; color:var(--text-muted); }
+        .of-card { border:1px solid var(--border-item,#e0d8c8); border-radius:10px; background:var(--bg-item,#fff); }
+        .of-card > summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:12px 14px; }
+        .of-card > summary::-webkit-details-marker { display:none; }
+        .of-tit { color:var(--text-primary); font-size:.95em; }
+        .of-via { font-size:.72em; padding:2px 8px; border-radius:999px; border:1px solid var(--border-item,#e0d8c8); color:var(--text-muted); margin-left:4px; }
+        .of-estado { font-size:.78em; font-weight:600; padding:3px 10px; border-radius:999px; }
+        .of-ok { color:#1f9e72; background:rgba(31,158,114,.1); } .of-mal { color:#d94f4f; background:rgba(217,79,79,.1); }
+        .of-hoy { color:#b8670a; background:rgba(212,144,26,.14); } .of-espera { color:#3f6fa8; background:rgba(52,152,219,.1); } .of-gris { color:var(--text-muted); background:rgba(0,0,0,.05); }
+        .of-cuerpo { padding:0 14px 14px; display:flex; flex-direction:column; gap:10px; }
+        .of-aviso { padding:9px 12px; border-radius:8px; font-size:.86em; line-height:1.5; }
+        .of-pasos { display:flex; flex-direction:column; border:1px solid var(--border-item,#e0d8c8); border-radius:8px; overflow:hidden; }
+        .of-paso { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:7px 10px; border-top:1px solid var(--border-item,#e0d8c8); font-size:.88em; }
+        .of-paso:first-child { border-top:0; }
+        .of-paso.hecho { background:rgba(31,158,114,.05); }
+        .of-check { width:18px; height:18px; flex:none; border-radius:50%; border:1.5px solid var(--border-item,#cdbfa3); display:grid; place-items:center; font-size:.75em; color:#fff; }
+        .of-paso.hecho .of-check { background:#1f9e72; border-color:#1f9e72; }
+        .of-ptxt { flex:1 1 190px; color:var(--text-primary); }
+        .of-paso input[type=date], .of-num, .of-plazo input, .of-plazo select, .of-nuevo input:not([type=radio]), .of-mail input, .of-mail textarea { border:1px solid var(--border-item,#d9cdb5); border-radius:6px; padding:5px 8px; font:inherit; font-size:.92em; background:var(--bg-input,#fff); color:var(--text-primary); }
+        .of-num { width:110px; } .of-plazo input[type=number] { width:62px; }
+        .of-mini { font:600 .78em 'DM Sans',sans-serif; padding:4px 10px; border-radius:6px; border:1px solid var(--gold-border,#c9a96e); background:transparent; color:var(--gold-dark,#8a6a10); cursor:pointer; }
+        .of-borrar { border-color:#d94f4f; color:#d94f4f; }
+        .of-cuerpo > .of-mini { align-self:flex-start; }
+        .of-btn { font:600 .84em 'DM Sans',sans-serif; padding:9px 14px; border-radius:8px; border:1px solid var(--gold-border,#c9a96e); background:var(--gold-dim,rgba(201,169,110,.12)); color:var(--gold-dark,#8a6a10); cursor:pointer; align-self:flex-start; }
+        .of-pri { background:linear-gradient(135deg,#c9a96e,#a88a52); color:#fff; border-color:#a88a52; }
+        .of-arch { font-size:.8em; font-weight:600; color:#3f6fa8; }
+        .of-sub { font-family:'Cormorant Garamond',serif; font-size:1.05em; color:var(--gold-dark,#8a6a10); margin-top:4px; }
+        .of-reits { margin:0; padding-left:18px; font-size:.85em; line-height:1.6; }
+        .of-resp { margin:0; font-size:.9em; }
+        .of-plazos summary { cursor:pointer; font-size:.84em; color:var(--text-muted); }
+        .of-plazo { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:.85em; color:var(--text-primary); margin:6px 0; }
+        .of-fila-btn { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .of-pie { border-top:1px solid var(--border-item,#e0d8c8); padding-top:10px; justify-content:flex-end; }
+        .of-pie .of-plazo { margin:0 auto 0 0; }
+        .of-nota { font-size:.8em; color:var(--text-muted); }
+        .of-nuevo { display:flex; flex-direction:column; gap:8px; border:1px dashed var(--gold-border,#c9a96e); border-radius:10px; padding:12px 14px; }
+        .of-mail { display:flex; flex-direction:column; gap:6px; padding:12px; border:1px solid var(--border-item,#e0d8c8); border-radius:8px; }
+        .of-mail label { font-size:.78em; font-weight:600; color:var(--text-muted); }
+        .of-mail textarea { resize:vertical; }
+        .of-resumen { margin:0 0 12px; padding:10px 14px; border-radius:10px; border:1px solid var(--border-item,#e0d8c8); background:var(--bg-item,#fff); font-size:.88em; }
+        .of-resumen ul { margin:6px 0 0; padding-left:18px; line-height:1.6; }
+        .of-resumen .of-mal { padding:1px 8px; border-radius:999px; font-weight:600; }
+    </style>
+    <script>
+// ── SOLAPA OFICIOS ───────────────────────────────────────────────────────────
+// Cada causa tiene su lista de oficios (client.oficios). Un oficio recorre pasos con fecha:
+//   con gestoría:  redacté → al juzgado → confrontado → a la gestoría → recibido por la
+//                  gestoría → n° de boleta → diligenciado → subido al expediente
+//   personal:      redacté → al juzgado → confrontado → lo presenté → n° de boleta/recibo →
+//                  diligenciado → subido al expediente
+// y termina con la respuesta del organismo. En cada momento hay a lo sumo UN aviso pendiente
+// (el próximo paso que se puede atrasar). Ese aviso se guarda como un vencimiento más de la
+// causa (sale en los paneles de vencimientos) y como evento en Google Calendar con aviso por
+// mail. Cuando el paso se cumple, el vencimiento queda hecho y el evento se borra.
+// Los PDF (oficio, confrontado, diligenciado) van a Google Drive, a la carpeta de la causa,
+// con el permiso "sólo lo que sube la planilla" (drive.file): no a Firebase.
+
+const OF_DIAS_DEF = { confronte: 10, recepcion: 5, diligenciado: 15, reiterar: 7, juzgado: 30 };
+const OF_DIAS_TXT = {
+    confronte: 'Si no llega el confrontado, avisar a los',
+    recepcion: 'Si la gestoría no confirma la recepción, reiterar a los',
+    diligenciado: 'Pedir el diligenciado a los … de la boleta',
+    reiterar: 'Si no está, reiterar cada',
+    juzgado: 'Sin respuesta del organismo, pedir reiteración al juzgado a los … de subido'
+};
+const OF_PASOS = {
+    gestoria: [['redactado', 'Redacté el oficio'], ['enviadoJuzgado', 'Lo envié al juzgado'], ['confrontado', 'Llegó confrontado'],
+        ['enviadoGestoria', 'Lo mandé a la gestoría'], ['recibidoGestoria', 'La gestoría lo recibió'], ['boleta', 'N° de boleta'],
+        ['diligenciado', 'Llegó diligenciado'], ['subido', 'Subí el diligenciado al expediente']],
+    personal: [['redactado', 'Redacté el oficio'], ['enviadoJuzgado', 'Lo envié al juzgado'], ['confrontado', 'Llegó confrontado'],
+        ['presentado', 'Lo presenté en el organismo'], ['boleta', 'N° de boleta / recibo'],
+        ['diligenciado', 'Llegó diligenciado'], ['subido', 'Subí el diligenciado al expediente']]
+};
+// Los pasos que llevan PDF.
+const OF_ARCHIVO = { redactado: 'oficio', confrontado: 'confrontado', diligenciado: 'diligenciado' };
+const OF_GESTORIA_DEF = { nombre: 'Gestoría', mail: 'bypgestoriaquilmes@gmail.com' };
+let ofGestoria = Object.assign({}, OF_GESTORIA_DEF);
+
+const ofEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ofHoy = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function ofSumarDias(ymd, n) {
+    const [a, m, d] = String(ymd).split('-').map(Number);
+    const f = new Date(a, m - 1, d + (+n || 0));
+    return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0');
+}
+const ofFecha = ymd => { if (!ymd) return ''; const [a, m, d] = String(ymd).split('-'); return d + '/' + m + '/' + a; };
+const ofDias = o => Object.assign({}, OF_DIAS_DEF, o.dias || {});
+const ofPaso = (o, k) => (o.pasos || {})[k] || '';
+const ofReits = (o, tipo) => (o.reiteraciones || []).filter(r => r && r.tipo === tipo);
+const ofUltima = (o, tipo) => ofReits(o, tipo).map(r => r.fecha).sort().pop() || '';
+const ofMax = (a, b) => (a > b ? a : b);
+const ofNombre = o => o.destinatario || 'sin destinatario';
+
+// El próximo aviso de un oficio, o null si no hay nada que se pueda atrasar.
+function ofProximoAviso(o) {
+    if (!o || o.cerrado || o.respuesta) return null;
+    const d = ofDias(o), p = k => ofPaso(o, k);
+    if (!p('enviadoJuzgado')) return null;
+    if (!p('confrontado')) {
+        const base = ofMax(p('enviadoJuzgado'), ofUltima(o, 'confronte'));
+        const n = ofReits(o, 'confronte').length;
+        return { clave: 'confronte', fecha: ofSumarDias(base, n ? d.reiterar : d.confronte), texto: n ? 'Volver a reclamar el confrontado al juzgado (' + (n + 1) + '.ª vez)' : 'No llegó el confrontado: reclamarlo al juzgado' };
+    }
+    if (o.via === 'personal') {
+        if (!p('presentado')) return null;
+        if (!p('diligenciado')) {
+            const n = ofReits(o, 'diligenciado').length;
+            const base = n ? ofUltima(o, 'diligenciado') : (p('boleta') || p('presentado'));
+            return { clave: 'diligenciado', fecha: ofSumarDias(base, n ? d.reiterar : d.diligenciado), texto: n ? 'Volver a consultar la respuesta en el organismo (' + (n + 1) + '.ª vez)' : 'Retirar o consultar la respuesta en el organismo' };
+        }
+    } else {
+        if (!p('enviadoGestoria')) return null;
+        if (!p('recibidoGestoria')) {
+            const n = ofReits(o, 'recepcion').length;
+            const base = ofMax(p('enviadoGestoria'), ofUltima(o, 'recepcion'));
+            return { clave: 'recepcion', fecha: ofSumarDias(base, d.recepcion), texto: n ? 'La gestoría sigue sin confirmar la recepción: reiterar (' + (n + 1) + '.ª vez)' : 'La gestoría no confirmó la recepción: reiterar' };
+        }
+        if (!p('boleta')) return null;
+        if (!p('diligenciado')) {
+            const n = ofReits(o, 'diligenciado').length;
+            const base = n ? ofUltima(o, 'diligenciado') : p('boleta');
+            return { clave: 'diligenciado', fecha: ofSumarDias(base, n ? d.reiterar : d.diligenciado), texto: n ? 'Reiterar a la gestoría el pedido del diligenciado (' + (n + 1) + '.ª vez)' : 'Pedir a la gestoría el oficio diligenciado' };
+        }
+    }
+    if (!p('subido')) return null;
+    const n = ofReits(o, 'juzgado').length;
+    const base = ofMax(p('subido'), ofUltima(o, 'juzgado'));
+    return { clave: 'juzgado', fecha: ofSumarDias(base, d.juzgado), texto: 'Sin respuesta del organismo: pedir reiteración al juzgado' + (n ? ' (' + (n + 1) + '.ª vez)' : '') + (n >= 2 ? '. Ya van ' + n + ': evaluar pedir intimación bajo apercibimiento de astreintes' : '') };
+}
+
+// En qué anda el oficio (para la cabecera y el resumen).
+function ofEstado(o) {
+    if (o.cerrado) return { txt: 'Archivado', tono: 'gris' };
+    if (o.respuesta) return { txt: 'Respondido', tono: 'ok' };
+    const a = ofProximoAviso(o);
+    if (a) return { txt: a.texto + ' · ' + ofFecha(a.fecha), tono: a.fecha < ofHoy() ? 'mal' : a.fecha === ofHoy() ? 'hoy' : 'espera' };
+    const pasos = OF_PASOS[o.via === 'personal' ? 'personal' : 'gestoria'];
+    const falta = pasos.find(([k]) => !ofPaso(o, k));
+    return { txt: falta ? 'Falta: ' + falta[1].toLowerCase() : 'Esperando la respuesta del organismo', tono: 'espera' };
+}
+
+// ── Google Calendar (usa el permiso del calendario de la planilla) ──
+async function ofCalendarFetch(metodo, ruta, cuerpo) {
+    const enviar = t => fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events' + ruta, {
+        method: metodo, headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    let r = await enviar(tokenCalendarioEnMano() || await pedirTokenCalendario());
+    if (r.status === 401 || r.status === 403) { calToken = ''; calTokenVence = 0; r = await enviar(await pedirTokenCalendario()); }
+    return r;
+}
+async function ofCalendarCrear(client, o, aviso) {
+    const ini = new Date(aviso.fecha + 'T09:00:00'), fin = new Date(ini.getTime() + 30 * 60000);
+    const r = await ofCalendarFetch('POST', '', {
+        summary: 'Oficio ' + ofNombre(o) + ': ' + aviso.texto + ' | ' + (client.nombre || ''),
+        description: 'Causa: ' + getDisplayName(client) + (client.expediente ? '\nExpte.: ' + client.expediente : '') + '\nOficio a: ' + ofNombre(o) + (o.objeto ? ' (' + o.objeto + ')' : '') + '\n\nCargado desde la solapa Oficios de la planilla jurídica.',
+        start: { dateTime: ini.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
+        end: { dateTime: fin.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
+        // Mail el día anterior y la misma mañana, y aviso en pantalla.
+        reminders: { useDefault: false, overrides: [{ method: 'email', minutes: 24 * 60 }, { method: 'email', minutes: 60 }, { method: 'popup', minutes: 30 }] }
+    });
+    if (!r.ok) throw new Error(await errorDeCalendario(r));
+    return (await r.json()).id;
+}
+async function ofCalendarBorrar(eventId) {
+    if (!eventId) return;
+    const r = await ofCalendarFetch('DELETE', '/' + encodeURIComponent(eventId));
+    if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(await errorDeCalendario(r));
+}
+
+// Deja el aviso del oficio al día: si cambió, el anterior queda hecho (y se borra del
+// calendario) y el nuevo se agenda. Devuelve un texto si algo del calendario falló.
+async function ofSincronizarAviso(client, o) {
+    const nuevo = ofProximoAviso(o), viejo = o.aviso || null;
+    if (viejo && nuevo && viejo.clave === nuevo.clave && viejo.fecha === nuevo.fecha && viejo.texto === nuevo.texto && viejo.eventId) return '';
+    if (!client.vencimientos_list) client.vencimientos_list = [];
+    let problema = '';
+    if (viejo) {
+        const v = client.vencimientos_list.find(x => x && x.id === viejo.vencId);
+        if (v) v.completed = true;
+        try { await ofCalendarBorrar(viejo.eventId); } catch (e) { problema = 'No se pudo borrar el aviso anterior del calendario (' + e.message + ').'; }
+        o.aviso = null;
+    }
+    if (nuevo) {
+        const venc = { id: generateId({}), fecha: nuevo.fecha, hora: '09:00', texto: 'OFICIO ' + ofNombre(o) + ': ' + nuevo.texto, avisoPrevio: '1', completed: false, oficioId: o.id };
+        client.vencimientos_list.push(venc);
+        o.aviso = Object.assign({}, nuevo, { vencId: venc.id, eventId: '' });
+        try { o.aviso.eventId = await ofCalendarCrear(client, o, nuevo); }
+        catch (e) { problema = 'El aviso quedó en la planilla, pero no se pudo agendar en Google Calendar (' + e.message + '). Tocá "Agendar en Calendar" para reintentar.'; }
+    }
+    return problema;
+}
+
+// ── Google Drive (permiso propio, sólo los archivos que sube la planilla) ──
+let ofDriveToken = '', ofDriveVence = 0, ofDriveCliente = null;
+function ofPedirTokenDrive() {
+    if (ofDriveToken && Date.now() < ofDriveVence - 60000) return Promise.resolve(ofDriveToken);
+    return new Promise((resolve, reject) => {
+        if (!(window.google && google.accounts && google.accounts.oauth2)) return reject(new Error('Google todavía no terminó de cargar. Probá en unos segundos.'));
+        if (!ofDriveCliente) ofDriveCliente = google.accounts.oauth2.initTokenClient({ client_id: GD_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: function () {} });
+        ofDriveCliente.callback = resp => {
+            if (resp.error) return reject(new Error(resp.error_description || resp.error));
+            ofDriveToken = resp.access_token; ofDriveVence = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000); resolve(ofDriveToken);
+        };
+        ofDriveCliente.requestAccessToken({ prompt: '' });
+    });
+}
+async function ofDriveCarpeta(t, nombre, padre) {
+    const q = "mimeType='application/vnd.google-apps.folder' and name='" + nombre.replace(/'/g, "\\'") + "' and trashed=false" + (padre ? " and '" + padre + "' in parents" : '');
+    const r = await fetch('https://www.googleapis.com/drive/v3/files?fields=files(id)&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + t } });
+    const j = await r.json();
+    if (j.files && j.files.length) return j.files[0].id;
+    const c = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nombre, mimeType: 'application/vnd.google-apps.folder', parents: padre ? [padre] : undefined }) });
+    if (!c.ok) throw new Error('Drive no dejó crear la carpeta (HTTP ' + c.status + ')');
+    return (await c.json()).id;
+}
+async function ofDriveSubir(client, archivo, nombre) {
+    const t = await ofPedirTokenDrive();
+    const raiz = await ofDriveCarpeta(t, GD_DOCS_ROOT);
+    const causa = await ofDriveCarpeta(t, (client.nombre || 'Causa').replace(/[\/\\?%*:|"<>]/g, '-') + ' - Exp ' + (client.expediente || String(client.id).slice(-4)), raiz);
+    const carpeta = await ofDriveCarpeta(t, 'Oficios', causa);
+    const fd = new FormData();
+    fd.append('metadata', new Blob([JSON.stringify({ name: nombre, parents: [carpeta] })], { type: 'application/json' }));
+    fd.append('file', archivo);
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', { method: 'POST', headers: { Authorization: 'Bearer ' + t }, body: fd });
+    if (!r.ok) throw new Error('Drive no dejó subir el archivo (HTTP ' + r.status + ')');
+    return r.json();
+}
+
+// ── Guardar y volver a dibujar la solapa (sin cerrar la ficha) ──
+function ofRefrescar(clientId, aviso) {
+    const client = clientsData.find(c => c.id === clientId);
+    const tab = document.getElementById('tab-oficios');
+    if (client && tab) {
+        const abiertos = [...tab.querySelectorAll('details.of-card[open]')].map(d => d.dataset.oid);
+        tab.innerHTML = renderTabOficios(client);
+        abiertos.forEach(id => { const d = tab.querySelector('details.of-card[data-oid="' + id + '"]'); if (d) d.open = true; });
+        const btn = document.querySelector('.tab-btn[data-tab="tab-oficios"] .of-cuenta');
+        if (btn) btn.textContent = ofPendientes(client) || '';
+    }
+    if (aviso) alert(aviso);
+}
+async function ofGuardar(clientId, oid, cambio) {
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+    cambio(o, client);
+    const problema = await ofSincronizarAviso(client, o);
+    saveData();
+    ofRefrescar(clientId, problema);
+    try { if (typeof scheduleRenderAll === 'function') scheduleRenderAll(); } catch (e) {}
+}
+const ofPendientes = client => (client.oficios || []).filter(o => o && !o.cerrado && !o.respuesta).length;
+
+// ── Acciones de la pantalla ──
+async function ofNuevo(event, clientId) {
+    event.preventDefault();
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const f = event.target;
+    const dest = f.querySelector('[name=of_dest]').value.trim();
+    if (!dest) return alert('¿A quién va el oficio?');
+    const o = { id: generateId({}), destinatario: dest, objeto: f.querySelector('[name=of_obj]').value.trim(),
+        via: (f.querySelector('[name=of_via]:checked') || {}).value === 'personal' ? 'personal' : 'gestoria',
+        pasos: { redactado: f.querySelector('[name=of_red]').value || ofHoy() }, reiteraciones: [], archivos: {}, dias: Object.assign({}, OF_DIAS_DEF), creado: new Date().toISOString() };
+    if (!client.oficios) client.oficios = [];
+    client.oficios.push(o);
+    saveData();
+    ofRefrescar(clientId);
+    const d = document.querySelector('#tab-oficios details.of-card[data-oid="' + o.id + '"]'); if (d) d.open = true;
+}
+function ofCambiarPaso(clientId, oid, paso, valor) {
+    return ofGuardar(clientId, oid, o => { o.pasos = o.pasos || {}; if (valor) o.pasos[paso] = valor; else delete o.pasos[paso]; });
+}
+function ofCambiarDato(clientId, oid, campo, valor) {
+    return ofGuardar(clientId, oid, o => { o[campo] = valor; });
+}
+function ofCambiarDias(clientId, oid, clave, valor) {
+    const n = Math.max(1, Math.min(365, parseInt(valor, 10) || OF_DIAS_DEF[clave]));
+    return ofGuardar(clientId, oid, o => { o.dias = Object.assign({}, OF_DIAS_DEF, o.dias || {}); o.dias[clave] = n; });
+}
+function ofReiterar(clientId, oid) {
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+    const a = ofProximoAviso(o); if (!a) return;
+    const nota = prompt('Registrar que hoy se hizo: "' + a.texto + '".\nNota (opcional: a quién, por qué medio):', '');
+    if (nota === null) return;
+    return ofGuardar(clientId, oid, x => { x.reiteraciones = (x.reiteraciones || []).concat({ fecha: ofHoy(), tipo: a.clave, texto: a.texto, nota: nota.trim() }); });
+}
+function ofResponder(clientId, oid) {
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+    const txt = prompt('¿Qué contestó ' + ofNombre(o) + '? (por ejemplo: "sin fondos", "embargo trabado por $…")', (o.respuesta && o.respuesta.texto) || '');
+    if (txt === null) return;
+    return ofGuardar(clientId, oid, x => { x.respuesta = txt.trim() ? { fecha: ofHoy(), texto: txt.trim() } : null; });
+}
+function ofArchivar(clientId, oid, archivar) {
+    if (archivar && !confirm('¿Archivar este oficio? Deja de avisar (queda en la lista, se puede reactivar).')) return;
+    return ofGuardar(clientId, oid, x => { x.cerrado = !!archivar; });
+}
+async function ofBorrar(clientId, oid) {
+    if (!confirm('¿Borrar este oficio con todos sus pasos? Los PDF quedan en Drive.')) return;
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+    o.cerrado = true;
+    const problema = await ofSincronizarAviso(client, o);
+    client.oficios = client.oficios.filter(x => x.id !== oid);
+    saveData();
+    ofRefrescar(clientId, problema);
+}
+async function ofReagendar(clientId, oid) {
+    // Fuerza a volver a crear el evento (si el calendario falló antes).
+    return ofGuardar(clientId, oid, o => { if (o.aviso) o.aviso.eventId = ''; });
+}
+function ofElegirArchivo(clientId, oid, tipo) {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+    inp.onchange = async () => {
+        const f = inp.files && inp.files[0]; if (!f) return;
+        const client = clientsData.find(c => c.id === clientId); if (!client) return;
+        const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+        const btn = document.querySelector('[data-of-subir="' + oid + '-' + tipo + '"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Subiendo…'; }
+        try {
+            const ext = (f.name.match(/\.[a-z0-9]+$/i) || ['.pdf'])[0];
+            const nombre = 'Oficio ' + ofNombre(o).replace(/[\/\\?%*:|"<>]/g, '-') + ' - ' + tipo + ' - ' + ofHoy() + ext;
+            const j = await ofDriveSubir(client, f, nombre);
+            await ofGuardar(clientId, oid, x => { x.archivos = x.archivos || {}; x.archivos[tipo] = { id: j.id, nombre: j.name, link: j.webViewLink, el: ofHoy() }; });
+        } catch (e) { alert('No se pudo subir el archivo: ' + e.message); ofRefrescar(clientId); }
+    };
+    inp.click();
+}
+async function ofBajarArchivo(oid, tipo, clientId) {
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); const a = o && o.archivos && o.archivos[tipo]; if (!a) return;
+    try {
+        const t = await ofPedirTokenDrive();
+        const r = await fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(a.id) + '?alt=media', { headers: { Authorization: 'Bearer ' + t } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const url = URL.createObjectURL(await r.blob());
+        const el = document.createElement('a'); el.href = url; el.download = a.nombre || 'oficio.pdf'; document.body.appendChild(el); el.click(); el.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) { alert('No se pudo bajar el archivo: ' + e.message); }
+}
+
+// ── Mail a la gestoría: se arma en Gmail y lo manda la persona ──
+function ofTextoMail(client, o) {
+    const exp = [client.caratula ? '"' + client.caratula + '"' : getDisplayName(client), client.expediente ? 'Expte. ' + client.expediente : '', client.juzgado || ''].filter(Boolean).join(', ');
+    return {
+        asunto: 'Oficio a ' + ofNombre(o) + ' - ' + (client.caratula || client.nombre || ''),
+        cuerpo: 'Buenos días,\n\nLes envío adjunto el oficio dirigido a ' + ofNombre(o) + (o.objeto ? ' (' + o.objeto + ')' : '') + ', en autos ' + exp + ', para su diligenciamiento.\n\n' +
+            'Les pido que me confirmen la recepción y, cuando lo tengan, el número de boleta.\n\nMuchas gracias.\n\n' +
+            'Estudio García & Asociados\nestudio@garciayasociados.com.ar\n+54 9 11 6806-3444'
+    };
+}
+function ofMailGestoria(clientId, oid) {
+    const client = clientsData.find(c => c.id === clientId); if (!client) return;
+    const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
+    const m = ofTextoMail(client, o);
+    const box = document.getElementById('ofMail-' + oid);
+    if (!box) return;
+    if (box.style.display === 'block') { box.style.display = 'none'; return; }
+    box.innerHTML = '<div class="of-mail">' +
+        '<label>Para</label><input id="ofMailPara-' + oid + '" value="' + ofEsc(ofGestoria.mail) + '">' +
+        '<label>Asunto</label><input id="ofMailAsunto-' + oid + '" value="' + ofEsc(m.asunto) + '">' +
+        '<label>Texto</label><textarea id="ofMailCuerpo-' + oid + '" rows="9">' + ofEsc(m.cuerpo) + '</textarea>' +
+        '<div class="of-fila-btn">' +
+        (o.archivos && o.archivos.confrontado ? '<button type="button" class="of-btn" onclick="ofBajarArchivo(\'' + oid + '\',\'confrontado\',\'' + clientId + '\')">1. Bajar el confrontado para adjuntarlo</button>'
+            : o.archivos && o.archivos.oficio ? '<button type="button" class="of-btn" onclick="ofBajarArchivo(\'' + oid + '\',\'oficio\',\'' + clientId + '\')">1. Bajar el oficio para adjuntarlo</button>'
+            : '<span class="of-nota">Todavía no subiste el PDF del oficio: adjuntalo a mano en Gmail.</span>') +
+        '<button type="button" class="of-btn of-pri" onclick="ofAbrirGmail(\'' + oid + '\')">2. Abrir en Gmail (lo revisás y lo mandás)</button>' +
+        '<button type="button" class="of-btn" onclick="ofMandado(\'' + clientId + '\',\'' + oid + '\')">3. Ya lo mandé: anotar hoy</button>' +
+        '</div><p class="of-nota">Gmail se abre con la cuenta que tengas abierta en el navegador. El adjunto lo agregás vos: Gmail no deja adjuntarlo desde un enlace.</p></div>';
+    box.style.display = 'block';
+}
+function ofMandado(clientId, oid) {
+    return ofGuardar(clientId, oid, o => { o.pasos = o.pasos || {}; o.pasos.enviadoGestoria = ofHoy(); o.medioGestoria = 'mail'; });
+}
+function ofAbrirGmail(oid) {
+    const v = id => (document.getElementById(id + '-' + oid) || {}).value || '';
+    const url = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(v('ofMailPara')) + '&su=' + encodeURIComponent(v('ofMailAsunto')) + '&body=' + encodeURIComponent(v('ofMailCuerpo'));
+    window.open(url, '_blank');
+}
+function ofCambiarGestoria() {
+    const mail = prompt('Mail de la gestoría (queda para todos los oficios):', ofGestoria.mail);
+    if (mail === null || !mail.trim()) return;
+    ofGestoria = { nombre: ofGestoria.nombre, mail: mail.trim() };
+    try { firebase.database().ref('config_oficios/gestoria').set(ofGestoria); } catch (e) {}
+    document.querySelectorAll('.of-gestoria-mail').forEach(el => { el.textContent = ofGestoria.mail; });
+}
+function ofCargarGestoria() {
+    // Después del login (la base no deja leer sin sesión).
+    const leer = () => { try { firebase.database().ref('config_oficios/gestoria').once('value').then(s => { const v = s.val(); if (v && v.mail) ofGestoria = v; }, () => {}); } catch (e) {} };
+    try { firebase.auth().onAuthStateChanged(u => { if (u) leer(); }); } catch (e) { setTimeout(ofCargarGestoria, 1000); }
+}
+
+// ── La solapa ──
+function renderTabOficios(client) {
+    const lista = (client.oficios || []).slice().sort((a, b) => (a.cerrado || a.respuesta ? 1 : 0) - (b.cerrado || b.respuesta ? 1 : 0) || String(a.creado).localeCompare(String(b.creado)));
+    const cid = ofEsc(client.id);
+    const tarjetas = lista.map(o => {
+        const oid = ofEsc(o.id), est = ofEstado(o), d = ofDias(o), via = o.via === 'personal' ? 'personal' : 'gestoria';
+        const a = ofProximoAviso(o);
+        const pasos = OF_PASOS[via].map(([k, txt]) => {
+            const v = ofPaso(o, k), arch = OF_ARCHIVO[k], ar = arch && o.archivos && o.archivos[arch];
+            const extra = k === 'boleta'
+                ? '<input type="text" class="of-num" placeholder="N°" value="' + ofEsc(o.boletaNumero || '') + '" onchange="ofCambiarDato(\'' + cid + '\',\'' + oid + '\',\'boletaNumero\',this.value.trim())">'
+                : k === 'enviadoGestoria'
+                    ? '<select class="of-num" onchange="ofCambiarDato(\'' + cid + '\',\'' + oid + '\',\'medioGestoria\',this.value)"><option value="mail"' + (o.medioGestoria !== 'personal' ? ' selected' : '') + '>por mail</option><option value="personal"' + (o.medioGestoria === 'personal' ? ' selected' : '') + '>en persona</option></select>'
+                    : '';
+            const archivo = arch ? (ar ? '<a class="of-arch" href="' + ofEsc(ar.link) + '" target="_blank" rel="noopener" title="' + ofEsc(ar.nombre) + '">PDF ' + arch + '</a> <button type="button" class="of-mini" data-of-subir="' + oid + '-' + arch + '" onclick="ofElegirArchivo(\'' + cid + '\',\'' + oid + '\',\'' + arch + '\')">cambiar</button>'
+                : '<button type="button" class="of-mini" data-of-subir="' + oid + '-' + arch + '" onclick="ofElegirArchivo(\'' + cid + '\',\'' + oid + '\',\'' + arch + '\')">+ subir PDF</button>') : '';
+            return '<div class="of-paso' + (v ? ' hecho' : '') + '"><span class="of-check">' + (v ? '✓' : '') + '</span><span class="of-ptxt">' + txt + '</span>' +
+                '<input type="date" value="' + ofEsc(v) + '" onchange="ofCambiarPaso(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)">' +
+                (v ? '' : '<button type="button" class="of-mini" onclick="ofCambiarPaso(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',ofHoy())">hoy</button>') + extra + archivo + '</div>';
+        }).join('');
+        const reits = (o.reiteraciones || []).map(r => '<li>' + ofFecha(r.fecha) + ' — ' + ofEsc(r.texto || r.tipo) + (r.nota ? ' <i>(' + ofEsc(r.nota) + ')</i>' : '') + '</li>').join('');
+        const plazos = Object.keys(OF_DIAS_DEF).filter(k => via === 'gestoria' || k !== 'recepcion').map(k =>
+            '<label class="of-plazo">' + OF_DIAS_TXT[k].replace('…', '<input type="number" min="1" max="365" value="' + d[k] + '" onchange="ofCambiarDias(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)"> días') +
+            (OF_DIAS_TXT[k].includes('…') ? '' : ' <input type="number" min="1" max="365" value="' + d[k] + '" onchange="ofCambiarDias(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)"> días') + '</label>').join('');
+        return '<details class="of-card" data-oid="' + oid + '"' + (!o.cerrado && !o.respuesta && lista.length <= 2 ? ' open' : '') + '>' +
+            '<summary><span class="of-tit"><b>' + ofEsc(ofNombre(o)) + '</b>' + (o.objeto ? ' · ' + ofEsc(o.objeto) : '') + ' <span class="of-via">' + (via === 'personal' ? 'personal' : 'con gestoría') + '</span></span>' +
+            '<span class="of-estado of-' + est.tono + '">' + ofEsc(est.txt) + '</span></summary>' +
+            '<div class="of-cuerpo">' +
+            (a ? '<div class="of-aviso of-' + est.tono + '"><b>Próximo aviso:</b> ' + ofEsc(a.texto) + ' — ' + ofFecha(a.fecha) +
+                (o.aviso && !o.aviso.eventId ? ' <button type="button" class="of-mini" onclick="ofReagendar(\'' + cid + '\',\'' + oid + '\')">Agendar en Calendar</button>' : ' <span class="of-nota">(en tu calendario, con mail)</span>') +
+                ' <button type="button" class="of-mini" onclick="ofReiterar(\'' + cid + '\',\'' + oid + '\')">Ya lo hice hoy (reiteré / reclamé)</button></div>' : '') +
+            '<div class="of-pasos">' + pasos + '</div>' +
+            (via === 'gestoria' && ofPaso(o, 'confrontado') && !ofPaso(o, 'enviadoGestoria') ? '<button type="button" class="of-btn of-pri" onclick="ofMailGestoria(\'' + cid + '\',\'' + oid + '\')">Preparar el mail a la gestoría</button>' : '') +
+            (via === 'gestoria' ? '<div id="ofMail-' + oid + '" style="display:none"></div>' : '') +
+            (reits ? '<div class="of-sub">Reiteraciones y reclamos</div><ul class="of-reits">' + reits + '</ul>' : '') +
+            '<div class="of-sub">Respuesta del organismo</div>' +
+            (o.respuesta ? '<p class="of-resp">' + ofFecha(o.respuesta.fecha) + ': ' + ofEsc(o.respuesta.texto) + ' <button type="button" class="of-mini" onclick="ofResponder(\'' + cid + '\',\'' + oid + '\')">cambiar</button></p>'
+                : '<button type="button" class="of-mini" onclick="ofResponder(\'' + cid + '\',\'' + oid + '\')">+ Cargar la respuesta (cierra los avisos)</button>') +
+            '<details class="of-plazos"><summary>Plazos de los avisos (días)</summary>' + plazos + '</details>' +
+            '<div class="of-fila-btn of-pie">' +
+            '<label class="of-plazo">Cómo se diligencia: <select onchange="ofCambiarDato(\'' + cid + '\',\'' + oid + '\',\'via\',this.value)"><option value="gestoria"' + (via === 'gestoria' ? ' selected' : '') + '>con gestoría</option><option value="personal"' + (via === 'personal' ? ' selected' : '') + '>personalmente</option></select></label>' +
+            '<button type="button" class="of-mini" onclick="ofArchivar(\'' + cid + '\',\'' + oid + '\',' + (o.cerrado ? 'false' : 'true') + ')">' + (o.cerrado ? 'Reactivar' : 'Archivar') + '</button>' +
+            '<button type="button" class="of-mini of-borrar" onclick="ofBorrar(\'' + cid + '\',\'' + oid + '\')">Borrar</button></div>' +
+            '</div></details>';
+    }).join('');
+    return '<div class="of-wrap">' +
+        '<div class="of-cab"><span>' + (lista.length ? lista.length + ' oficio' + (lista.length === 1 ? '' : 's') : 'Todavía no hay oficios en esta causa.') + '</span>' +
+        '<span class="of-nota">Gestoría: <span class="of-gestoria-mail">' + ofEsc(ofGestoria.mail) + '</span> <a href="#" onclick="event.preventDefault();ofCambiarGestoria()">cambiar</a></span></div>' +
+        tarjetas +
+        '<form class="of-nuevo" onsubmit="ofNuevo(event,\'' + cid + '\')">' +
+        '<div class="of-sub">Nuevo oficio</div>' +
+        '<input name="of_dest" placeholder="A quién va (por ejemplo: Banco Nación)" required>' +
+        '<input name="of_obj" placeholder="Qué pide (embargo, informe…)">' +
+        '<label class="of-plazo">Redactado el <input type="date" name="of_red" value="' + ofHoy() + '"></label>' +
+        '<label class="of-plazo"><input type="radio" name="of_via" value="gestoria" checked> con gestoría</label>' +
+        '<label class="of-plazo"><input type="radio" name="of_via" value="personal"> lo llevamos personalmente</label>' +
+        '<button type="submit" class="of-btn of-pri">Agregar el oficio</button></form></div>';
+}
+
+// El resumen arriba de la lista de causas: lo que está para hacer hoy o atrasado.
+function renderOficiosResumen() {
+    const box = document.getElementById('oficiosResumen'); if (!box) return;
+    const hoy = ofHoy(), items = [];
+    let esperando = 0;
+    (clientsData || []).forEach(c => {
+        if (!c || c.eliminado) return;
+        (c.oficios || []).forEach(o => {
+            if (!o || o.cerrado || o.respuesta) return;
+            esperando++;
+            const a = ofProximoAviso(o);
+            if (a && a.fecha <= hoy) items.push({ c, o, a });
+        });
+    });
+    if (!esperando) { box.style.display = 'none'; return; }
+    items.sort((x, y) => x.a.fecha.localeCompare(y.a.fecha));
+    box.style.display = '';
+    box.innerHTML = '<b>Oficios:</b> ' + esperando + ' en trámite' + (items.length ? ' · <span class="of-mal">' + items.length + ' para hacer hoy o atrasado' + (items.length === 1 ? '' : 's') + '</span>' : ' · nada atrasado') +
+        (items.length ? '<ul>' + items.slice(0, 8).map(x => '<li><a href="#" onclick="event.preventDefault();ofAbrirEnFicha(\'' + ofEsc(x.c.id) + '\')">' + ofEsc(x.c.nombre || '') + '</a> — ' + ofEsc(ofNombre(x.o)) + ': ' + ofEsc(x.a.texto) + ' (' + ofFecha(x.a.fecha) + ')</li>').join('') + '</ul>' : '');
+}
+function ofAbrirEnFicha(clientId) {
+    showClientModal(clientId);
+    setTimeout(() => { const b = document.querySelector('.tab-btn[data-tab="tab-oficios"]'); if (b && !document.getElementById('tab-oficios').classList.contains('active')) b.click(); }, 50);
+}
+// Se suma al dibujo general de la planilla.
+(function engancharOficios() {
+    if (typeof renderAll !== 'function') return setTimeout(engancharOficios, 300);
+    const original = renderAll;
+    renderAll = function () { const r = original.apply(this, arguments); try { renderOficiosResumen(); } catch (e) { console.warn('Oficios:', e); } return r; };
+    ofCargarGestoria();
+})();
+
+    </script>
+
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
