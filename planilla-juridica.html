@@ -11184,13 +11184,21 @@ const OF_DIAS_TXT = {
     reiterar: 'Si no está, reiterar cada',
     juzgado: 'Sin respuesta del organismo, pedir reiteración al juzgado a los … de subido'
 };
+// El electrónico lo manda el juzgado directo al organismo: usa dos de los plazos, con otro texto.
+const OF_DIAS_TXT_ELECTRONICO = {
+    confronte: 'Si el juzgado no lo libra, reclamarlo a los … de pedido',
+    juzgado: 'Sin respuesta del organismo, pedir reiteración a los … de librado'
+};
+const OF_VIAS = { gestoria: 'con gestoría', personal: 'personal', electronico: 'electrónico' };
+const ofVia = o => (o && OF_VIAS[o.via] ? o.via : 'gestoria');
 const OF_PASOS = {
     gestoria: [['redactado', 'Redacté el oficio'], ['enviadoJuzgado', 'Lo envié al juzgado'], ['confrontado', 'Llegó confrontado'],
         ['enviadoGestoria', 'Lo mandé a la gestoría'], ['recibidoGestoria', 'La gestoría lo recibió'], ['boleta', 'N° de boleta'],
         ['diligenciado', 'Llegó diligenciado'], ['subido', 'Subí el diligenciado al expediente']],
     personal: [['redactado', 'Redacté el oficio'], ['enviadoJuzgado', 'Lo envié al juzgado'], ['confrontado', 'Llegó confrontado'],
         ['presentado', 'Lo presenté en el organismo'], ['boleta', 'N° de boleta / recibo'],
-        ['diligenciado', 'Llegó diligenciado'], ['subido', 'Subí el diligenciado al expediente']]
+        ['diligenciado', 'Llegó diligenciado'], ['subido', 'Subí el diligenciado al expediente']],
+    electronico: [['solicitado', 'Pedí que se libre'], ['librado', 'El juzgado lo libró (electrónico)']]
 };
 // Los pasos que llevan PDF.
 const OF_ARCHIVO = { redactado: 'oficio', confrontado: 'confrontado', diligenciado: 'diligenciado' };
@@ -11214,8 +11222,20 @@ const ofNombre = o => o.destinatario || 'sin destinatario';
 
 // El próximo aviso de un oficio, o null si no hay nada que se pueda atrasar.
 function ofProximoAviso(o) {
-    if (!o || o.cerrado || o.respuesta) return null;
+    // Los importados de la MEV no avisan hasta que alguien los revisa.
+    if (!o || o.cerrado || o.respuesta || o.importado) return null;
     const d = ofDias(o), p = k => ofPaso(o, k);
+    if (ofVia(o) === 'electronico') {
+        if (!p('librado')) {
+            if (!p('solicitado')) return null;
+            const n = ofReits(o, 'libra').length;
+            const base = ofMax(p('solicitado'), ofUltima(o, 'libra'));
+            return { clave: 'libra', fecha: ofSumarDias(base, n ? d.reiterar : d.confronte), texto: 'El juzgado no libró el oficio: reclamarlo' + (n ? ' (' + (n + 1) + '.ª vez)' : '') };
+        }
+        const n = ofReits(o, 'juzgado').length;
+        const base = ofMax(p('librado'), ofUltima(o, 'juzgado'));
+        return { clave: 'juzgado', fecha: ofSumarDias(base, d.juzgado), texto: 'Sin respuesta del organismo: pedir reiteración' + (n ? ' (' + (n + 1) + '.ª vez)' : '') + (n >= 2 ? '. Ya van ' + n + ': evaluar pedir intimación bajo apercibimiento de astreintes' : '') };
+    }
     if (!p('enviadoJuzgado')) return null;
     if (!p('confrontado')) {
         const base = ofMax(p('enviadoJuzgado'), ofUltima(o, 'confronte'));
@@ -11253,9 +11273,10 @@ function ofProximoAviso(o) {
 function ofEstado(o) {
     if (o.cerrado) return { txt: 'Archivado', tono: 'gris' };
     if (o.respuesta) return { txt: 'Respondido', tono: 'ok' };
+    if (o.importado) return { txt: 'Traído de la MEV: revisalo', tono: 'hoy' };
     const a = ofProximoAviso(o);
     if (a) return { txt: a.texto + ' · ' + ofFecha(a.fecha), tono: a.fecha < ofHoy() ? 'mal' : a.fecha === ofHoy() ? 'hoy' : 'espera' };
-    const pasos = OF_PASOS[o.via === 'personal' ? 'personal' : 'gestoria'];
+    const pasos = OF_PASOS[ofVia(o)];
     const falta = pasos.find(([k]) => !ofPaso(o, k));
     return { txt: falta ? 'Falta: ' + falta[1].toLowerCase() : 'Esperando la respuesta del organismo', tono: 'espera' };
 }
@@ -11379,8 +11400,9 @@ async function ofNuevo(event, clientId) {
     const dest = f.querySelector('[name=of_dest]').value.trim();
     if (!dest) return alert('¿A quién va el oficio?');
     const o = { id: generateId({}), destinatario: dest, objeto: f.querySelector('[name=of_obj]').value.trim(),
-        via: (f.querySelector('[name=of_via]:checked') || {}).value === 'personal' ? 'personal' : 'gestoria',
-        pasos: { redactado: f.querySelector('[name=of_red]').value || ofHoy() }, reiteraciones: [], archivos: {}, dias: Object.assign({}, OF_DIAS_DEF), creado: new Date().toISOString() };
+        via: ofVia({ via: (f.querySelector('[name=of_via]:checked') || {}).value }),
+        pasos: (f.querySelector('[name=of_via]:checked') || {}).value === 'electronico'
+            ? { solicitado: f.querySelector('[name=of_red]').value || ofHoy() } : { redactado: f.querySelector('[name=of_red]').value || ofHoy() }, reiteraciones: [], archivos: {}, dias: Object.assign({}, OF_DIAS_DEF), creado: new Date().toISOString() };
     if (!client.oficios) client.oficios = [];
     client.oficios.push(o);
     saveData();
@@ -11429,6 +11451,38 @@ async function ofBorrar(clientId, oid) {
 async function ofReagendar(clientId, oid) {
     // Fuerza a volver a crear el evento (si el calendario falló antes).
     return ofGuardar(clientId, oid, o => { if (o.aviso) o.aviso.eventId = ''; });
+}
+function ofRevisado(clientId, oid) {
+    return ofGuardar(clientId, oid, o => { o.importado = false; delete o.pistas; });
+}
+// Los avisos que todavía no están en el calendario (los recién traídos, o los que fallaron):
+// se agendan todos con un solo permiso de Google.
+function ofAvisosSinAgendar() {
+    const out = [];
+    (clientsData || []).forEach(c => {
+        if (!c || c.eliminado) return;
+        (c.oficios || []).forEach(o => {
+            const a = ofProximoAviso(o);
+            const viejoColgado = !a && o && o.aviso;
+            if (viejoColgado || (a && (!o.aviso || !o.aviso.eventId || o.aviso.fecha !== a.fecha || o.aviso.texto !== a.texto))) out.push({ c, o });
+        });
+    });
+    return out;
+}
+async function ofAgendarTodos(btn) {
+    const lista = ofAvisosSinAgendar();
+    if (!lista.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Agendando…'; }
+    let fallas = 0;
+    for (const { c, o } of lista) {
+        if (o.aviso && !o.aviso.eventId) o.aviso.eventId = '';
+        const p = await ofSincronizarAviso(c, o);
+        if (p) fallas++;
+    }
+    saveData();
+    try { if (typeof scheduleRenderAll === 'function') scheduleRenderAll(); else renderOficiosResumen(); } catch (e) {}
+    renderOficiosResumen();
+    alert(fallas ? 'Se agendaron ' + (lista.length - fallas) + ' de ' + lista.length + ' avisos. Los que fallaron quedaron en la planilla: probá de nuevo en un rato.' : 'Listo: ' + lista.length + ' aviso' + (lista.length === 1 ? '' : 's') + ' en tu Google Calendar, con mail.');
 }
 function ofElegirArchivo(clientId, oid, tipo) {
     const inp = document.createElement('input');
@@ -11517,7 +11571,7 @@ function renderTabOficios(client) {
     const lista = (client.oficios || []).slice().sort((a, b) => (a.cerrado || a.respuesta ? 1 : 0) - (b.cerrado || b.respuesta ? 1 : 0) || String(a.creado).localeCompare(String(b.creado)));
     const cid = ofEsc(client.id);
     const tarjetas = lista.map(o => {
-        const oid = ofEsc(o.id), est = ofEstado(o), d = ofDias(o), via = o.via === 'personal' ? 'personal' : 'gestoria';
+        const oid = ofEsc(o.id), est = ofEstado(o), d = ofDias(o), via = ofVia(o);
         const a = ofProximoAviso(o);
         const pasos = OF_PASOS[via].map(([k, txt]) => {
             const v = ofPaso(o, k), arch = OF_ARCHIVO[k], ar = arch && o.archivos && o.archivos[arch];
@@ -11533,15 +11587,22 @@ function renderTabOficios(client) {
                 (v ? '' : '<button type="button" class="of-mini" onclick="ofCambiarPaso(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',ofHoy())">hoy</button>') + extra + archivo + '</div>';
         }).join('');
         const reits = (o.reiteraciones || []).map(r => '<li>' + ofFecha(r.fecha) + ' — ' + ofEsc(r.texto || r.tipo) + (r.nota ? ' <i>(' + ofEsc(r.nota) + ')</i>' : '') + '</li>').join('');
-        const plazos = Object.keys(OF_DIAS_DEF).filter(k => via === 'gestoria' || k !== 'recepcion').map(k =>
-            '<label class="of-plazo">' + OF_DIAS_TXT[k].replace('…', '<input type="number" min="1" max="365" value="' + d[k] + '" onchange="ofCambiarDias(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)"> días') +
-            (OF_DIAS_TXT[k].includes('…') ? '' : ' <input type="number" min="1" max="365" value="' + d[k] + '" onchange="ofCambiarDias(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)"> días') + '</label>').join('');
+        const textos = via === 'electronico' ? Object.assign({ reiterar: 'Si el juzgado sigue sin librarlo, reclamar cada' }, OF_DIAS_TXT_ELECTRONICO) : OF_DIAS_TXT;
+        const plazos = Object.keys(OF_DIAS_DEF).filter(k => textos[k] && (via === 'gestoria' || k !== 'recepcion') && !(via === 'electronico' && k === 'diligenciado')).map(k => {
+            const campo = '<input type="number" min="1" max="365" value="' + d[k] + '" onchange="ofCambiarDias(\'' + cid + '\',\'' + oid + '\',\'' + k + '\',this.value)"> días';
+            return '<label class="of-plazo">' + (textos[k].includes('…') ? textos[k].replace('…', campo) : textos[k] + ' ' + campo) + '</label>';
+        }).join('');
+        const pistas = (o.pistas || []).map(x => '<li>' + ofEsc(x) + '</li>').join('');
+        const importado = o.importado ? '<div class="of-aviso of-hoy"><b>Traído de la MEV</b>' + (o.origen ? ': "' + ofEsc(o.origen) + '"' : '') + '. Revisá si ya tuvo respuesta (cargala abajo) y tocá "Listo, revisado": recién ahí empieza a avisar.' +
+            (pistas ? '<div class="of-nota" style="margin-top:6px">Movimientos posteriores de la causa que pueden ser la respuesta:</div><ul class="of-reits">' + pistas + '</ul>' : '') +
+            ' <button type="button" class="of-mini" onclick="ofRevisado(\'' + cid + '\',\'' + oid + '\')">Listo, revisado</button></div>' : '';
+        const sinAgendar = a && (!o.aviso || !o.aviso.eventId || o.aviso.fecha !== a.fecha || o.aviso.texto !== a.texto);
         return '<details class="of-card" data-oid="' + oid + '"' + (!o.cerrado && !o.respuesta && lista.length <= 2 ? ' open' : '') + '>' +
-            '<summary><span class="of-tit"><b>' + ofEsc(ofNombre(o)) + '</b>' + (o.objeto ? ' · ' + ofEsc(o.objeto) : '') + ' <span class="of-via">' + (via === 'personal' ? 'personal' : 'con gestoría') + '</span></span>' +
+            '<summary><span class="of-tit"><b>' + ofEsc(ofNombre(o)) + '</b>' + (o.objeto ? ' · ' + ofEsc(o.objeto) : '') + ' <span class="of-via">' + OF_VIAS[via] + '</span></span>' +
             '<span class="of-estado of-' + est.tono + '">' + ofEsc(est.txt) + '</span></summary>' +
-            '<div class="of-cuerpo">' +
+            '<div class="of-cuerpo">' + importado +
             (a ? '<div class="of-aviso of-' + est.tono + '"><b>Próximo aviso:</b> ' + ofEsc(a.texto) + ' — ' + ofFecha(a.fecha) +
-                (o.aviso && !o.aviso.eventId ? ' <button type="button" class="of-mini" onclick="ofReagendar(\'' + cid + '\',\'' + oid + '\')">Agendar en Calendar</button>' : ' <span class="of-nota">(en tu calendario, con mail)</span>') +
+                (sinAgendar ? ' <button type="button" class="of-mini" onclick="ofReagendar(\'' + cid + '\',\'' + oid + '\')">Agendar en Calendar</button>' : ' <span class="of-nota">(en tu calendario, con mail)</span>') +
                 ' <button type="button" class="of-mini" onclick="ofReiterar(\'' + cid + '\',\'' + oid + '\')">Ya lo hice hoy (reiteré / reclamé)</button></div>' : '') +
             '<div class="of-pasos">' + pasos + '</div>' +
             (via === 'gestoria' && ofPaso(o, 'confrontado') && !ofPaso(o, 'enviadoGestoria') ? '<button type="button" class="of-btn of-pri" onclick="ofMailGestoria(\'' + cid + '\',\'' + oid + '\')">Preparar el mail a la gestoría</button>' : '') +
@@ -11552,7 +11613,7 @@ function renderTabOficios(client) {
                 : '<button type="button" class="of-mini" onclick="ofResponder(\'' + cid + '\',\'' + oid + '\')">+ Cargar la respuesta (cierra los avisos)</button>') +
             '<details class="of-plazos"><summary>Plazos de los avisos (días)</summary>' + plazos + '</details>' +
             '<div class="of-fila-btn of-pie">' +
-            '<label class="of-plazo">Cómo se diligencia: <select onchange="ofCambiarDato(\'' + cid + '\',\'' + oid + '\',\'via\',this.value)"><option value="gestoria"' + (via === 'gestoria' ? ' selected' : '') + '>con gestoría</option><option value="personal"' + (via === 'personal' ? ' selected' : '') + '>personalmente</option></select></label>' +
+            '<label class="of-plazo">Cómo se diligencia: <select onchange="ofCambiarDato(\'' + cid + '\',\'' + oid + '\',\'via\',this.value)"><option value="gestoria"' + (via === 'gestoria' ? ' selected' : '') + '>con gestoría</option><option value="personal"' + (via === 'personal' ? ' selected' : '') + '>personalmente</option><option value="electronico"' + (via === 'electronico' ? ' selected' : '') + '>electrónico (lo libra el juzgado)</option></select></label>' +
             '<button type="button" class="of-mini" onclick="ofArchivar(\'' + cid + '\',\'' + oid + '\',' + (o.cerrado ? 'false' : 'true') + ')">' + (o.cerrado ? 'Reactivar' : 'Archivar') + '</button>' +
             '<button type="button" class="of-mini of-borrar" onclick="ofBorrar(\'' + cid + '\',\'' + oid + '\')">Borrar</button></div>' +
             '</div></details>';
@@ -11565,9 +11626,10 @@ function renderTabOficios(client) {
         '<div class="of-sub">Nuevo oficio</div>' +
         '<input name="of_dest" placeholder="A quién va (por ejemplo: Banco Nación)" required>' +
         '<input name="of_obj" placeholder="Qué pide (embargo, informe…)">' +
-        '<label class="of-plazo">Redactado el <input type="date" name="of_red" value="' + ofHoy() + '"></label>' +
+        '<label class="of-plazo">Redactado (o pedido, si es electrónico) el <input type="date" name="of_red" value="' + ofHoy() + '"></label>' +
         '<label class="of-plazo"><input type="radio" name="of_via" value="gestoria" checked> con gestoría</label>' +
         '<label class="of-plazo"><input type="radio" name="of_via" value="personal"> lo llevamos personalmente</label>' +
+        '<label class="of-plazo"><input type="radio" name="of_via" value="electronico"> electrónico (lo libra el juzgado)</label>' +
         '<button type="submit" class="of-btn of-pri">Agregar el oficio</button></form></div>';
 }
 
@@ -11575,20 +11637,24 @@ function renderTabOficios(client) {
 function renderOficiosResumen() {
     const box = document.getElementById('oficiosResumen'); if (!box) return;
     const hoy = ofHoy(), items = [];
-    let esperando = 0;
+    let esperando = 0, revisar = 0, primeraRevisar = '';
     (clientsData || []).forEach(c => {
         if (!c || c.eliminado) return;
         (c.oficios || []).forEach(o => {
             if (!o || o.cerrado || o.respuesta) return;
             esperando++;
+            if (o.importado) { revisar++; if (!primeraRevisar) primeraRevisar = c.id; }
             const a = ofProximoAviso(o);
             if (a && a.fecha <= hoy) items.push({ c, o, a });
         });
     });
     if (!esperando) { box.style.display = 'none'; return; }
     items.sort((x, y) => x.a.fecha.localeCompare(y.a.fecha));
+    const sinAgendar = ofAvisosSinAgendar().length;
     box.style.display = '';
     box.innerHTML = '<b>Oficios:</b> ' + esperando + ' en trámite' + (items.length ? ' · <span class="of-mal">' + items.length + ' para hacer hoy o atrasado' + (items.length === 1 ? '' : 's') + '</span>' : ' · nada atrasado') +
+        (revisar ? ' · <a href="#" onclick="event.preventDefault();ofAbrirEnFicha(\'' + ofEsc(primeraRevisar) + '\')">' + revisar + ' traído' + (revisar === 1 ? '' : 's') + ' de la MEV para revisar</a>' : '') +
+        (sinAgendar ? ' <button type="button" class="of-mini" onclick="ofAgendarTodos(this)">Agendar ' + sinAgendar + ' aviso' + (sinAgendar === 1 ? '' : 's') + ' en tu Calendar</button>' : '') +
         (items.length ? '<ul>' + items.slice(0, 8).map(x => '<li><a href="#" onclick="event.preventDefault();ofAbrirEnFicha(\'' + ofEsc(x.c.id) + '\')">' + ofEsc(x.c.nombre || '') + '</a> — ' + ofEsc(ofNombre(x.o)) + ': ' + ofEsc(x.a.texto) + ' (' + ofFecha(x.a.fecha) + ')</li>').join('') + '</ul>' : '');
 }
 function ofAbrirEnFicha(clientId) {
