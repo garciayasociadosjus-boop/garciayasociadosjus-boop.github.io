@@ -717,6 +717,26 @@
             '<select id="hcCuota' + i + 'estado" style="padding:6px;border:2px solid #e2e8f0;border-radius:6px;font-size:.82em;"><option value="Pendiente">⏳ Pendiente</option><option value="Pagado">✅ Pagado</option><option value="Falta de Pago">❌ Falta de Pago</option></select>';
           container.appendChild(row);
         }
+        // Al cargar el importe de una cuota, las siguientes que están vacías (o que se
+        // completaron solas) toman el mismo importe hasta el final del plan. La que se
+        // escribe a mano se respeta. Antes, un plan de 6 cuotas con importe solo en las
+        // dos primeras dejaba de arrastrarse sin aviso (Vega Kock, septiembre 2026).
+        for (var k = 1; k <= cant; k++) {
+          (function (n) {
+            var inp = document.getElementById('hcCuota' + n + 'monto');
+            if (!inp) return;
+            inp.addEventListener('input', function () {
+              inp.dataset.auto = '0';
+              for (var j = n + 1; j <= cant; j++) {
+                var sig = document.getElementById('hcCuota' + j + 'monto');
+                if (!sig) continue;
+                if (sig.dataset.auto === '0' && sig.value) break;   // una cargada a mano: de ahí en adelante manda ella
+                var vacia = !sig.value || parseFloat(sig.value) === 0;
+                if (vacia || sig.dataset.auto === '1') { sig.value = inp.value; sig.dataset.auto = '1'; }
+              }
+            });
+          })(k);
+        }
     }
 
     // ====== INIT ======
@@ -1343,14 +1363,28 @@
       if(nm>11){ nm=0; ny++; }
       
       var next = getAbonosForMonth(nm, ny);
-      var existingSet = new Set(next.map(function(a){ return a.cliente + '||' + a.tipo + '||' + (a.expediente||''); }));
+      // Los honorarios de siniestro se agrupan por SINIESTRO, no solo por cliente: un
+      // cliente puede tener dos siniestros y que uno termine no frena al otro (Campero,
+      // septiembre 2026). Un registro viejo sin siniestroId se suma al primer siniestro
+      // del cliente, como antes, para no revivir duplicados.
+      function claveDe(a, lista) {
+        var base = a.cliente + '||' + a.tipo + '||' + (a.expediente||'');
+        if (a.tipo !== 'Honorarios Siniestro') return base;
+        var sid = a.siniestroId || '';
+        if (!sid) {
+          var conId = lista.find(function(x){ return x !== a && x.tipo === a.tipo && x.cliente === a.cliente && (x.expediente||'') === (a.expediente||'') && x.siniestroId; });
+          sid = conId ? conId.siniestroId : '';
+        }
+        return sid ? base + '||' + sid : base;
+      }
+      var existingSet = new Set(next.map(function(a){ return claveDe(a, next); }));
       var added=0;
       var skipExistente=0, skipTerminado=0, skipPagoUnico=0;
       var mesServicioNuevo = { month: nm, year: ny };
 
       var registrosPorClave = {};
       curr.forEach(function(a) {
-        var clave = a.cliente + '||' + a.tipo + '||' + (a.expediente||'');
+        var clave = claveDe(a, curr);
         if (!registrosPorClave[clave]) registrosPorClave[clave] = [];
         registrosPorClave[clave].push(a);
       });
