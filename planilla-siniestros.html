@@ -3910,9 +3910,9 @@ function construirAbonoDesdeSiniestro(s) {
 // acordado con el estudio y por eso NO se toca ningun abono sin `siniestroId`: los que
 // se cargan a mano en la planilla de cobros quedan intactos.
 // El cartel de estado usa textContent, asi que no puede llevar un boton adentro. Cuando
-// hay cobros sin fecha se lo hace clickeable: un numero solo no sirve para nada si para
-// saber a quien corresponde hay que abrir las fichas de a una.
-function mostrarCobrosSinFecha(lista) {
+// hay finalizados sin importe se lo hace clickeable: un numero solo no sirve para nada si
+// para saber a quien corresponde hay que abrir las fichas de a una.
+function mostrarFinalizadosSinImporte(lista) {
     const el = document.getElementById('dataStatus');
     if (!el || !lista || !lista.length) return;
     el.style.cursor = 'pointer';
@@ -3922,10 +3922,9 @@ function mostrarCobrosSinFecha(lista) {
             (i + 1) + '. ' + (s.cliente || 'sin nombre') +
             '   (reclamo ' + (s.numeroReclamo || 'S/N') + ')'
         );
-        alert('Cobrados sin "Fecha de Cobro" cargada (' + lista.length + '):\n\n' +
+        alert('Finalizados sin importe (' + lista.length + '):\n\n' +
               filas.join('\n') +
-              '\n\nCargale la fecha a cada uno en la ficha y el abono se ubica solo ' +
-              'en el mes que cobraste.');
+              '\n\nEn la ficha, cargale el importe de honorarios o poné 0 si no se va a cobrar.');
     };
 }
 
@@ -3941,7 +3940,7 @@ function reconciliarAbonosConSiniestros() {
         // La foto de los cobros viejos sin fecha. Si el nodo no existe, es la primera vez
         // que esto corre: se saca la foto y no se avisa por ninguno. Si existe, todo lo
         // que no este en ella es nuevo y si se avisa.
-        db.ref('config_siniestros/cobrosSinFechaConocidos').once('value', snapFoto => {
+        db.ref('config_siniestros/finalizadosSinImporteConocidos').once('value', snapFoto => {
         const foto = snapFoto.val();
         const primeraVez = !foto;
         const conocidos = foto || {};
@@ -3966,9 +3965,9 @@ function reconciliarAbonosConSiniestros() {
             }, -1) + 1;
 
             const updates = {};
-            let corregidos = 0, creados = 0, movidos = 0, borrados = 0, sinFecha = 0;
+            let corregidos = 0, creados = 0, movidos = 0, borrados = 0;
             let duplicados = 0, posteriores = 0;
-            const listaSinFecha = [];   // para poder decir cuales, no solo cuantos
+            const listaSinImporte = [];   // para poder decir cuales, no solo cuantos
 
             siniestrosData.forEach(s => {
                 if (!s || !s.id) return;
@@ -4014,14 +4013,20 @@ function reconciliarAbonosConSiniestros() {
                     mios = mios.filter(k => !muertos[k]);
                 }
 
+                // FINALIZADA se toma con el importe que tenga y listo (pedido del estudio,
+                // 21/10/2026). Lo unico que se avisa es si el importe esta vacio, para que
+                // el estudio decida: cargarlo o poner 0 si no se cobra. RECHAZADO no se
+                // avisa: ahi no hay nada que cobrar.
+                if (yaCobrado && s.estado === 'FINALIZADA' && !tieneHonorarios) listaSinImporte.push(s);
+
                 if (!mios.length) {
                     // Sin abono. Solo se crea si hay honorario: un siniestro recien abierto
                     // sin importe todavia no es plata a cobrar, y crearlo llenaria la
                     // planilla de cobros de filas en cero.
-                    // Y si ya se cobro pero no hay fecha, tampoco: no sabriamos en que mes
-                    // ponerlo. Queda contado aparte para que el estudio cargue la fecha.
-                    if (tieneHonorarios) {
-                        if (yaCobrado && !mesCobro) { sinFecha++; listaSinFecha.push(s); return; }
+                    // Cobrado sin fecha y sin abono tampoco: son casos viejos y no sabriamos
+                    // en que mes ponerlo. Los nuevos ya tienen su abono, que lo crea la ficha
+                    // al guardarse.
+                    if (tieneHonorarios && !(yaCobrado && !mesCobro)) {
                         updates['planilla_abonos/' + proxima] = construirAbonoDesdeSiniestro(s);
                         proxima++;
                         creados++;
@@ -4029,26 +4034,19 @@ function reconciliarAbonosConSiniestros() {
                     return;
                 }
 
-                // Cobrado y sin fecha: los abonos que yo cree hoy en el mes equivocado se
-                // borran. No se pierde nada -cuando se cargue la fecha del cobro, esta
-                // misma reconciliacion los vuelve a crear en el mes correcto-. Solo se
-                // borran los que nacieron de un siniestro y no tienen pago registrado.
-                if (yaCobrado && !mesCobro) {
-                    mios.forEach(k => {
-                        const a = abonos[k];
-                        if (a.origenSiniestro && a.estado === 'Terminado' && !a.montoPagado) {
-                            updates['planilla_abonos/' + k] = null;
-                            borrados++;
-                        }
-                    });
-                    sinFecha++;
-                    listaSinFecha.push(s);
-                    return;
-                }
-
-                // Cobrado y con fecha: Terminado va en la copia de ese mes, y en una sola.
                 let claveDelCobro = null;
-                if (yaCobrado) {
+                if (yaCobrado && !mesCobro) {
+                    // Cobrado sin fecha: se toma como esta. La copia mas nueva queda
+                    // Terminado en el mes donde ya esta, sin moverla ni borrarla. Antes se
+                    // borraba y la ficha la volvia a crear: cada vez que se abria la planilla
+                    // aparecia el cartel de "cobrados sin fecha".
+                    claveDelCobro = mios.slice().sort((a, b) => {
+                        const ma = abonos[a].mesServicio || { year: 0, month: 0 };
+                        const mb = abonos[b].mesServicio || { year: 0, month: 0 };
+                        return (ma.year - mb.year) || (ma.month - mb.month);
+                    }).pop();
+                } else if (yaCobrado) {
+                    // Cobrado y con fecha: Terminado va en la copia de ese mes, y en una sola.
                     claveDelCobro = mios.find(k => mismoMes(abonos[k].mesServicio, mesCobro));
                     if (!claveDelCobro) {
                         claveDelCobro = mios.slice().sort((a, b) => {
@@ -4102,25 +4100,22 @@ function reconciliarAbonosConSiniestros() {
                 });
             });
 
-            // Los cobros sin fecha de la epoca vieja ya estan decididos: no se cargan. Solo
-            // se avisa por los que aparecieron DESPUES de la foto, que son los que todavia
-            // se pueden arreglar y los que importan.
-            const nuevosSinFecha = primeraVez ? [] : listaSinFecha.filter(x => !conocidos[x.id]);
-            if (primeraVez && listaSinFecha.length) {
+            // Los finalizados sin importe de la epoca vieja ya estan decididos. Solo se avisa
+            // por los que aparecieron DESPUES de la foto, que son los que importan.
+            const nuevosSinImporte = primeraVez ? [] : listaSinImporte.filter(x => !conocidos[x.id]);
+            if (primeraVez && listaSinImporte.length) {
                 const retrato = {};
-                listaSinFecha.forEach(x => { retrato[x.id] = true; });
-                db.ref('config_siniestros/cobrosSinFechaConocidos').set(retrato)
-                    .catch(err => console.error('No se pudo guardar la foto de cobros sin fecha:', err));
+                listaSinImporte.forEach(x => { retrato[x.id] = true; });
+                db.ref('config_siniestros/finalizadosSinImporteConocidos').set(retrato)
+                    .catch(err => console.error('No se pudo guardar la foto de finalizados sin importe:', err));
             }
 
             // Si no hay nada que corregir no se escribe ni se avisa. Un cartel que aparece
             // siempre se deja de leer, y el dia que diga algo tampoco se va a leer.
             if (!corregidos && !creados && !movidos && !borrados && !duplicados && !posteriores) {
-                // Nada que tocar. Igual conviene avisar si hay cobros sin fecha: son los
-                // que no pueden ubicarse en ningun mes hasta que alguien la cargue.
-                if (nuevosSinFecha.length) {
-                    updateDataStatus('ℹ️ ' + nuevosSinFecha.length + ' cobro(s) nuevo(s) sin "Fecha de Cobro" cargada. Tocá acá para ver cuáles.');
-                    mostrarCobrosSinFecha(nuevosSinFecha);
+                if (nuevosSinImporte.length) {
+                    updateDataStatus('ℹ️ ' + nuevosSinImporte.length + ' finalizado(s) sin importe. Tocá acá para ver cuáles.');
+                    mostrarFinalizadosSinImporte(nuevosSinImporte);
                 }
                 return;
             }
@@ -4135,9 +4130,9 @@ function reconciliarAbonosConSiniestros() {
                     if (duplicados) partes.push(duplicados + ' duplicado' + (duplicados > 1 ? 's' : '') + ' borrado' + (duplicados > 1 ? 's' : ''));
                     if (posteriores) partes.push(posteriores + ' arrastre' + (posteriores > 1 ? 's' : '') + ' posterior' + (posteriores > 1 ? 'es' : '') + ' al cobro borrado' + (posteriores > 1 ? 's' : ''));
                     let msg = '✅ Abonos alineados con siniestros: ' + partes.join(', ') + '.';
-                    if (nuevosSinFecha.length) msg += ' Hay ' + nuevosSinFecha.length + ' cobro(s) nuevo(s) sin fecha cargada, tocá acá para verlos.';
+                    if (nuevosSinImporte.length) msg += ' Hay ' + nuevosSinImporte.length + ' finalizado(s) sin importe, tocá acá para verlos.';
                     updateDataStatus(msg);
-                    mostrarCobrosSinFecha(nuevosSinFecha);
+                    mostrarFinalizadosSinImporte(nuevosSinImporte);
                 })
                 .catch(err => {
                     updateDataStatus('⚠️ No se pudieron alinear los abonos. Avisá para revisarlo.');
@@ -4177,6 +4172,10 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
 
             const honorarios = parseFloat(s.honorarios);
             const tieneHonorarios = s.honorarios !== undefined && s.honorarios !== '' && !isNaN(honorarios);
+            // Finalizado con el importe vacio: se avisa en el momento, para que el estudio
+            // decida si lo carga o pone 0 (no se cobra).
+            const avisoSinImporte = (s.estado === 'FINALIZADA' && !tieneHonorarios)
+                ? ' ⚠️ Está FINALIZADA sin importe: cargá los honorarios o poné 0 si no se cobra.' : '';
 
             // TODAS las copias, no solo la primera. El arrastre mensual crea una copia por
             // mes mientras el honorario siga sin cobrarse: si solo se actualizara una, el mes
@@ -4227,9 +4226,9 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
                 });
                 db.ref().update(updates)
                     .then(() => { if (!silencioso) updateDataStatus(
-                        mios.length > 1
+                        (mios.length > 1
                             ? '✅ Abono actualizado en ' + mios.length + ' meses.'
-                            : '✅ Abono actualizado automáticamente.'); })
+                            : '✅ Abono actualizado automáticamente.') + avisoSinImporte); })
                     // El error tiene que verse: si el importe no llega a abonos, el estudio
                     // factura de menos y nadie se entera hasta que alguien lo busca a mano.
                     .catch(err => {
@@ -4252,7 +4251,7 @@ function actualizarAbonosDesdeSiniestro(s, opciones) {
             }, -1) + 1;
 
             db.ref('planilla_abonos/' + siguiente).set(nuevo)
-                .then(() => { if (!silencioso) updateDataStatus('✅ Abono creado en la planilla de abonos.'); })
+                .then(() => { if (!silencioso) updateDataStatus('✅ Abono creado en la planilla de abonos.' + avisoSinImporte); })
                 .catch(err => {
                     updateDataStatus('⚠️ No se pudo crear el abono. Avisá para revisarlo.');
                     console.error('No se pudo crear el abono:', err);
