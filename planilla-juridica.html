@@ -5141,7 +5141,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
         var _openCaseGroups = {};
         function renderAllClientsList() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            // Sin distinguir comas, puntos, tildes ni orden: "perez juan" encuentra "PEREZ, JUAN".
+            const normalizar = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/(\d)[.\-\/](?=\d)/g, '$1').replace(/[^a-z0-9]+/g, ' ').trim();
+            const palabras = normalizar(document.getElementById('searchInput').value).split(' ').filter(Boolean);
             const estadoFilter = document.getElementById('estadoFilter').value;
             const materiaFilter = document.getElementById('materiaFilter').value;
             const socioFilter = document.getElementById('socioFilter') ? document.getElementById('socioFilter').value : '';
@@ -5150,10 +5153,10 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
 
             const filteredData = clientsData.filter(c => {
                 if (!c || c.eliminado) return false;   // lápida de una causa borrada (ver deleteClient)
-                const searchString = `${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`.toLowerCase();
+                const searchString = normalizar(`${c.nombre} ${c.caratula} ${c.expediente} ${c.juzgado} ${c.estado} ${c.materia}`);
                 const pasaSesion = !_sociosSesion || _sociosSesion.includes(c.socio);
                 return pasaSesion
-                    && (!searchTerm || searchString.includes(searchTerm))
+                    && (!palabras.length || palabras.every(p => searchString.includes(p)))
                     && (!estadoFilter || c.estado === estadoFilter)
                     && (!materiaFilter || c.materia === materiaFilter)
                     && (!socioFilter || c.socio === socioFilter);
@@ -5179,7 +5182,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             });
             window.__caseGroups = groups;
 
-            const forceOpen = !!(searchTerm || estadoFilter || materiaFilter || socioFilter);
+            const forceOpen = !!(palabras.length || estadoFilter || materiaFilter || socioFilter);
             const defs = [
                 { k:'vencidas', label:'Vencidas', color:'var(--danger-color)', open:true },
                 { k:'hoy', label:'Hoy', color:'#e67e22', open:true },
