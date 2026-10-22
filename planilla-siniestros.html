@@ -4858,6 +4858,11 @@ function showSiniestroModal(id){
         <span>Creación: <strong class="editable-field" onclick="editField('${s.id}','fechaCreacion',this)" style="cursor:pointer;">${fechaCreacionStr}</strong></span>
         <span>Próxima tarea: <strong class="fecha-alerta">${formatDate(s.fechaRevision)}</strong></span>
     </div>
+    ${(s.estado === 'FINALIZADA' && (s.honorarios === undefined || s.honorarios === '' || isNaN(parseFloat(s.honorarios))))
+        ? `<div style="margin:10px 0;padding:10px 14px;border:1px solid #e0a800;border-left:5px solid #e0a800;border-radius:8px;background:rgba(224,168,0,.12);font-size:.9em;">
+            <strong>Está FINALIZADA sin importe de honorarios.</strong> Cargalo en "Honorarios" (Gestión y Económico) o poné 0 si no se va a cobrar.
+            <button type="button" onclick="var e=document.getElementById('sec-gestion');if(e){if(!e.classList.contains('ficha-open'))toggleFichaSection('sec-gestion');e.scrollIntoView({behavior:'smooth',block:'start'})}" style="margin-left:8px;padding:3px 10px;border:1px solid #e0a800;border-radius:6px;background:transparent;cursor:pointer;font-size:.9em;">Ir a honorarios</button>
+          </div>` : ''}
     ${tipoGestionPanel}
 
     <div class="ficha-resumen">
@@ -4904,11 +4909,6 @@ function showSiniestroModal(id){
         <div class="ficha-body"><div class="info-grid">${renderSection(siniestroFields)}</div></div>
     </div>
 
-    ${(s.estado === 'FINALIZADA' && (s.honorarios === undefined || s.honorarios === '' || isNaN(parseFloat(s.honorarios))))
-        ? `<div style="margin:10px 0;padding:10px 14px;border:1px solid #e0a800;border-left:5px solid #e0a800;border-radius:8px;background:rgba(224,168,0,.12);font-size:.9em;">
-            <strong>Está FINALIZADA sin importe de honorarios.</strong> Cargalo en "Honorarios" (Gestión y Económico) o poné 0 si no se va a cobrar.
-            <button type="button" onclick="var e=document.getElementById('sec-gestion');if(e){if(!e.classList.contains('ficha-open'))toggleFichaSection('sec-gestion');e.scrollIntoView({behavior:'smooth',block:'start'})}" style="margin-left:8px;padding:3px 10px;border:1px solid #e0a800;border-radius:6px;background:transparent;cursor:pointer;font-size:.9em;">Ir a honorarios</button>
-          </div>` : ''}
     <div class="ficha-section ficha-gestion${getFichaOpenClass('sec-gestion', false)}" id="sec-gestion">
         <h4 onclick="toggleFichaSection('sec-gestion')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Gestión y Económico <span class="ficha-count" id="gestion-count">${s.presupuesto ? formatCurrency(s.presupuesto) : 'sin monto'} · ${/^s[íi]$/i.test(String(s.franquicia || '').trim()) ? 'con franquicia' : 'sin franquicia'}</span></h4>
         <div class="ficha-body"><div class="info-grid">${renderSection(gestionFields)}
