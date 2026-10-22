@@ -3582,17 +3582,26 @@ function showTasksForDate(dateString){ const formattedDate=formatDate(dateString
 function renderDashboardLists(){ const tasks=siniestrosData.flatMap(s=>(s.observaciones||[]).filter(o=>!o.completed&&o.proximaRevision).map(o=>({...o,siniestro:s,type:'task'}))); const mediaciones=siniestrosData.flatMap(s=>(s.mediaciones_list||[]).filter(m=>!m.completed&&m.fecha).map(m=>({...m,siniestro:s,type:'mediacion',proximaRevision:m.fecha}))); const vencimientos=siniestrosData.flatMap(s=>(s.vencimientos_list||[]).filter(v=>!v.completed&&v.fecha).map(v=>({...v,siniestro:s,type:'vencimiento',proximaRevision:v.fecha}))); const allItems=[...tasks,...mediaciones,...vencimientos]; const today=allItems.filter(t=>isToday(t.proximaRevision)); const overdue=allItems.filter(t=>isPastDue(t.proximaRevision)).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); const upcoming=allItems.filter(t=>getDaysDifference(t.proximaRevision)>0).sort((a,b)=>a.proximaRevision.localeCompare(b.proximaRevision)); renderReviewList('todayReviews',today,'No hay eventos para hoy','today'); renderReviewList('overdueReviews',overdue,'No hay eventos vencidos','overdue'); renderReviewList('upcomingReviews',upcoming,'No hay próximos eventos','upcoming'); }
 function renderReviewList(id,items,empty,type){ const c=document.getElementById(id); if(!c)return; const listColor='var(--text-secondary)'; if(!items.length){c.innerHTML=`<p style="color:var(--text-secondary);text-align:center;">${empty}</p>`;return;} c.innerHTML=items.map(item=>{ let dateInfo=formatDate(item.proximaRevision); if(type==='today')dateInfo='HOY'; else if(type==='overdue')dateInfo=`VENCIDA - ${dateInfo}`; else dateInfo=`En ${getDaysDifference(item.proximaRevision)} días - ${dateInfo}`; let label='',timeLabel=''; if(item.type==='mediacion'){label='MEDIACIÓN:';timeLabel=formatTime(item.hora);} if(item.type==='vencimiento'){label='VENCIMIENTO:';} const toggleFunc=`toggleCompleted(event,'${item.siniestro.id}','${item.id}','${item.type}')`; const privateNoteHtml=item.type==='task'&&item.textoPrivado?`<div class="review-obs-private"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> ${item.textoPrivado}</div>`:''; return`<div class="review-item"><button class="complete-btn" onclick="${toggleFunc}">✔</button><div class="review-item-content" onclick="showSiniestroModal('${item.siniestro.id}')"><div class="review-date">${dateInfo} ${timeLabel}</div><div class="review-client">${item.siniestro.cliente}</div><div class="review-obs"><b>${label}</b> ${item.texto}</div>${privateNoteHtml}</div></div>`; }).join(''); }
 
-function renderAllSiniestrosList(){ 
-    const sterm=document.getElementById('searchInput').value.toLowerCase(); 
-    const estado=document.getElementById('estadoFilter').value; 
-    
-    const filtrados=siniestrosData.filter(s=>{ 
-        const searchString=Object.values(s).flat().join(' ').toLowerCase(); 
-        const matchS=!sterm||searchString.includes(sterm); 
-        
+function normalizarBusqueda(t){
+    return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+        .replace(/(\d)[.\-\/](?=\d)/g,'$1')   // 32.965.791 -> 32965791, 20-1234-5 -> 2012345
+        .replace(/[^a-z0-9ñ]+/g,' ').trim();
+}
+function renderAllSiniestrosList(){
+    // La busqueda no distingue comas, puntos, tildes ni el orden de las palabras:
+    // "gravina leonardo" encuentra "GRAVINA, LEONARDO" y "32965791" encuentra "32.965.791".
+    const palabras=normalizarBusqueda(document.getElementById('searchInput').value).split(' ').filter(Boolean);
+    const estado=document.getElementById('estadoFilter').value;
+
+    const filtrados=siniestrosData.filter(s=>{
+        const searchString=normalizarBusqueda(Object.values(s).flat().join(' '));
+        const matchS=!palabras.length||palabras.every(p=>searchString.includes(p));
+
         let matchE;
-        if (estado === "") { 
-            matchE = s.estado !== 'FINALIZADA' && s.estado !== 'FINALIZADA P';
+        if (estado === "") {
+            // Sin estado elegido se esconden las finalizadas, salvo que se este buscando:
+            // al buscar a alguien por nombre tiene que aparecer aunque este cerrado.
+            matchE = palabras.length > 0 || (s.estado !== 'FINALIZADA' && s.estado !== 'FINALIZADA P');
         } else {
             matchE = s.estado === estado;
         }
