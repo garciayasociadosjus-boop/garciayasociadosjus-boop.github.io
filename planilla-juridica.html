@@ -3331,6 +3331,7 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     const data = snapshot.val();
                     if (data && Array.isArray(data)) {
                         clientsData = sanitizeData(data);
+                        recordarSincronizado();
                         try { localStorage.setItem('planilla_juridica_count', String(clientsData.filter(Boolean).length)); } catch(e){}
                         try { localStorage.setItem('planilla_juridica_len', String(clientsData.length)); } catch(e){}
                         guardarCacheLocal();
@@ -3380,6 +3381,33 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
             }
         }
 
+        // Cómo estaba cada ficha la última vez que esta pestaña leyó o guardó Firebase. Es la
+        // base para saber qué cambió acá y mandar sólo eso.
+        let _sincronizado = [];
+        function recordarSincronizado() {
+            _sincronizado = clientsData.map(c => (c === undefined ? 'null' : JSON.stringify(c)));
+        }
+        // { "pos/campo": valor } de lo que cambió; una ficha nueva va entera ("pos").
+        function cambiosDesdeUltimaSync() {
+            const out = {};
+            clientsData.forEach((c, i) => {
+                const ahora = c === undefined ? 'null' : JSON.stringify(c);
+                if (ahora === _sincronizado[i]) return;
+                const antes = _sincronizado[i] === undefined ? null : JSON.parse(_sincronizado[i]);
+                if (!antes || !c || typeof c !== 'object' || typeof antes !== 'object') {
+                    out[String(i)] = c === undefined ? null : c;
+                    return;
+                }
+                const claves = new Set(Object.keys(c).concat(Object.keys(antes)));
+                claves.forEach(k => {
+                    if (JSON.stringify(c[k]) !== JSON.stringify(antes[k])) {
+                        out[i + '/' + k] = c[k] === undefined ? null : c[k];
+                    }
+                });
+            });
+            return out;
+        }
+
         function saveToFirebase() {
             if (!firebaseRef) return;
             // 🔒 CANDADO ANTI-BORRADO: nunca sobrescribir Firebase con datos vacíos o sospechosamente chicos.
@@ -3403,11 +3431,27 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                     + 'Achicar la lista corre las causas de lugar y sus documentos quedan mezclados.\n\nRecargá la página (F5) y volvé a hacer el cambio.');
                 return;
             }
+            const restaurar = !!window._permitirAchicar;
             window._permitirAchicar = false;
+            // Se escribe SOLO lo que cambió en esta pestaña, campo por campo. Antes era un
+            // .set() de la lista entera: si mientras la planilla estaba abierta el robot de
+            // ingresos agregaba una ficha (o el MEV escribía movimientos en otra), el primer
+            // guardado de esta pestaña la borraba, porque mandaba su copia vieja de todo.
+            // La lista entera sólo se reemplaza al restaurar una copia (importar / Drive).
+            // Sin una primera lectura de Firebase no hay contra qué comparar: lo que habría en
+            // memoria es la caché del navegador, y mandarla pisaría datos buenos con viejos.
+            if (!restaurar && !_sincronizado.length) {
+                console.warn('Guardado en espera: todavía no se leyó Firebase en esta pestaña.');
+                updateDataStatus('Esperando conexión con la base para guardar…', true);
+                return;
+            }
+            const cambios = restaurar ? null : cambiosDesdeUltimaSync();
+            if (cambios && !Object.keys(cambios).length) return;
             try {
                 ignorarProximoCambioFirebase = true;
-                firebaseRef.set(clientsData)
+                (restaurar ? firebaseRef.set(clientsData) : firebaseRef.update(cambios))
                     .then(() => {
+                        recordarSincronizado();
                         try { localStorage.setItem('planilla_juridica_count', String(nActual)); } catch(e){}
                         try { localStorage.setItem('planilla_juridica_len', String(clientsData.length)); } catch(e){}
                         actualizarIndiceLiviano();
@@ -3488,7 +3532,9 @@ body.tema-4 #nombreEstudio { color: #e8c8a0!important; }
                         ...(antes.dossier     !== undefined ? { dossier:     antes.dossier }     : {})
                     };
                 });
-                await firebaseDB.ref('juridica_index').set(idx);
+                // update y no set: las posiciones que esta pestaña todavía no conoce (una ficha
+                // que acaba de agregar el robot de ingresos) quedan como están.
+                await firebaseDB.ref('juridica_index').update(idx);
             } catch(e) { console.error('No se pudo actualizar juridica_index:', e); }
         }
 
