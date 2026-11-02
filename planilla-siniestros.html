@@ -2361,6 +2361,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
                     safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
                     renderAll();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    // Un poco después, para no guardar en medio de la carga ni del eco.
+                    setTimeout(() => { try { aplicarDenunciasDelRobot(); } catch (e) { console.warn(e); } }, 2500);
                     // Al abrir la planilla, alinear lo que haya quedado desfasado. La
                     // funcion se protege sola para correr una unica vez, aunque este
                     // listener se dispare muchas veces en la sesion.
@@ -2605,6 +2607,8 @@ function initFirebase() {
                     safeLocalSet('planilla_siniestros_data', JSON.stringify(siniestrosData));
                     renderAll();
                     updateFirebaseStatus('✅ Sincronizado en tiempo real', 'ok');
+                    // Un poco después, para no guardar en medio de la carga ni del eco.
+                    setTimeout(() => { try { aplicarDenunciasDelRobot(); } catch (e) { console.warn(e); } }, 2500);
                 } else if (data === null) {
                     // Base de datos vacía, intentar cargar desde localStorage
                     const local = localStorage.getItem('planilla_siniestros_data');
@@ -3837,6 +3841,52 @@ function addNewSiniestro(e){
 // distintas: de hecho ya diferian en el mes de servicio que asignaban.
 function enviarSiniestroAAbonos(s) {
     actualizarAbonosDesdeSiniestro(s);
+}
+
+// ── Siniestros que dio de alta el robot (02/11/2026) ──
+// El robot de Apps Script lee el mail, arma la carpeta y crea la ficha con lo básico, y deja
+// la denuncia leída en `denunciaRobot.campos`. La conversión a las listas de la planilla
+// (compañías, marcas, partidos, localidades) vive acá y no se duplica allá: al abrirse la
+// planilla se aplica sola, igual que "Leer denuncia" → "Aplicar", pero SÓLO en lo vacío.
+function aplicarDenunciasDelRobot() {
+    let aplicadas = 0;
+    (siniestrosData || []).forEach(s => {
+        if (!s || !s.denunciaRobot || s.denunciaRobot.aplicada || !s.denunciaRobot.campos) return;
+        const c = normalizarCamposDenuncia(s.denunciaRobot.campos, s);
+        const vacio = k => !String(s[k] == null ? '' : s[k]).trim();
+        const pon = (k, v) => { v = String(v == null ? '' : v).trim(); if (v && vacio(k)) s[k] = v; };
+        Object.keys(CAMPOS_DENUNCIA_CLIENTE).forEach(k => pon(k, c[k]));
+        Object.keys(CAMPOS_DENUNCIA_SINIESTRO).forEach(k => pon(k, c[k]));
+        const terceros = (c.terceros || []).filter(t => t && (t.nombreTercero || t.dominioTercero));
+        let i = terceros.findIndex(t => t.esUltimoDeLaCadena);
+        if (i < 0) i = 0;
+        if (terceros[i]) Object.keys(CAMPOS_DENUNCIA_TERCERO).forEach(k => pon(k, terceros[i][k]));
+        terceros.forEach((t, j) => {
+            if (j === i) return;
+            s.tercerosAdicionales = s.tercerosAdicionales || [];
+            if (s.tercerosAdicionales.some(x => x && x.dominioTercero && x.dominioTercero === t.dominioTercero)) return;
+            s.tercerosAdicionales.push({
+                nombreTercero: t.nombreTercero || '', dniTercero: t.dniTercero || '',
+                conductorTerceroNombre: t.conductorTerceroNombre || '', conductorTerceroDni: t.conductorTerceroDni || '',
+                telefonoTercero: t.telefonoTercero || '', mailTercero: '', contra: t.contra || '',
+                polizaTercero: t.polizaTercero || '', tipoVehiculoTercero: t.tipoVehiculoTercero || '',
+                marcaTercero: t.marcaTercero || '', modeloTercero: t.modeloTercero || '', versionTercero: t.versionTercero || '',
+                dominioTercero: t.dominioTercero || '', anoTercero: t.anoTercero || '', detalleDanos: t.detalleDanos || '',
+                esUltimoDeLaCadena: !!t.esUltimoDeLaCadena
+            });
+        });
+        pon('relatoHechos', c.relato);
+        pon('partesDanadas', c.danosCliente);
+        s.denunciaRobot.aplicada = new Date().toISOString();
+        try { enviarSiniestroAAbonos(s); } catch (e) { console.warn('Abono del siniestro del robot:', e); }
+        aplicadas++;
+    });
+    if (aplicadas) {
+        saveData();
+        renderAll();
+        updateDataStatus('🤖 ' + aplicadas + ' siniestro(s) nuevo(s) del robot: datos de la denuncia cargados');
+    }
+    return aplicadas;
 }
 
 // Mantiene el abono del siniestro al dia. Crea el que falte y actualiza el que exista.
