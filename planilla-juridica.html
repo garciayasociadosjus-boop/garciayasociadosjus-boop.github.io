@@ -11090,6 +11090,10 @@ En prueba de conformidad, previa lectura y ratificación de las cláusulas que a
                         client_id: GD_CLIENT_ID, scope: CAL_SCOPE, callback: function () {}
                     });
                 }
+                // Ventanita bloqueada o cerrada: sin esto la promesa quedaba colgada para siempre.
+                calTokenClient.error_callback = function (err) {
+                    reject(new Error(err && err.type === 'popup_failed_to_open' ? 'el navegador bloqueó la ventanita de permiso de Google' : 'se cerró la ventanita de permiso de Google'));
+                };
                 calTokenClient.callback = function (resp) {
                     if (resp.error) { reject(new Error(resp.error_description || resp.error)); return; }
                     calToken = resp.access_token;
@@ -11428,10 +11432,19 @@ function ofPedirTokenDrive() {
     if (ofDriveToken && Date.now() < ofDriveVence - 60000) return Promise.resolve(ofDriveToken);
     return new Promise((resolve, reject) => {
         if (!(window.google && google.accounts && google.accounts.oauth2)) return reject(new Error('Google todavía no terminó de cargar. Probá en unos segundos.'));
+        // Si la ventanita de Google no abre (el navegador la bloquea) o se cierra, GIS no llama a
+        // callback sino a error_callback: sin él la promesa quedaba colgada y el botón en "Subiendo…".
+        let listo = false;
+        const corte = setTimeout(() => { if (!listo) { listo = true; reject(new Error('Google no contestó. Si se abrió una ventanita de permiso, aceptala y probá de nuevo.')); } }, 120000);
         if (!ofDriveCliente) ofDriveCliente = google.accounts.oauth2.initTokenClient({ client_id: GD_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: function () {} });
         ofDriveCliente.callback = resp => {
+            if (listo) return; listo = true; clearTimeout(corte);
             if (resp.error) return reject(new Error(resp.error_description || resp.error));
             ofDriveToken = resp.access_token; ofDriveVence = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000); resolve(ofDriveToken);
+        };
+        ofDriveCliente.error_callback = err => {
+            if (listo) return; listo = true; clearTimeout(corte);
+            reject(new Error(err && err.type === 'popup_failed_to_open' ? 'el navegador bloqueó la ventanita de permiso de Google' : 'se cerró la ventanita de permiso de Google'));
         };
         ofDriveCliente.requestAccessToken({ prompt: '' });
     });
@@ -11546,7 +11559,7 @@ function renderTabOficios(client) {
             if (k === 'boleta') extra = '<input type="text" class="of-num" placeholder="N° de boleta" value="' + ofEsc(o.boletaNumero || '') + '" onchange="ofCambiarDato(' + q(cid) + ',' + q(oid) + ',\'boletaNumero\',this.value.trim())">';
             if (k === 'gestoria' && !hecho) extra = '<button type="button" class="of-mini" onclick="ofMailGestoria(' + q(cid) + ',' + q(oid) + ')">Preparar el mail a la gestoría</button>';
             const archivo = arch ? (ar ? '<a class="of-arch" href="' + ofEsc(ar.link) + '" target="_blank" rel="noopener" title="' + ofEsc(ar.nombre) + '">PDF</a> <button type="button" class="of-mini" data-of-subir="' + oid + '-' + arch + '" onclick="ofElegirArchivo(' + q(cid) + ',' + q(oid) + ',\'' + arch + '\')">cambiar</button>'
-                : '<button type="button" class="of-mini" data-of-subir="' + oid + '-' + arch + '" onclick="ofElegirArchivo(' + q(cid) + ',' + q(oid) + ',\'' + arch + '\')">+ PDF</button>') : '';
+                : '<button type="button" class="of-mini" data-of-subir="' + oid + '-' + arch + '" onclick="ofElegirArchivo(' + q(cid) + ',' + q(oid) + ',\'' + arch + '\')" title="Un PDF, o una o varias fotos: se juntan en un solo PDF">+ PDF o fotos</button>') : '';
             const sugerido = sug && sug.paso === k ? '<div class="of-sug">La MEV muestra «' + ofEsc(sug.texto) + '» del ' + ofFecha(sug.fecha) + '. <button type="button" class="of-mini" onclick="ofAplicarSugerencia(' + q(cid) + ',' + q(oid) + ',\'' + k + '\',\'' + sug.fecha + '\')">Tildar con esa fecha</button></div>' : '';
             return '<div class="of-paso' + (hecho ? ' hecho' : '') + (k === primeraPendiente ? ' actual' : '') + '">' +
                 '<label class="of-tilde"><input type="checkbox"' + (hecho ? ' checked' : '') + ' onchange="ofTildar(' + q(cid) + ',' + q(oid) + ',\'' + k + '\',this.checked)"><span class="of-check">' + (hecho ? '✓' : '') + '</span><span class="of-ptxt">' + etiqueta + '</span></label>' +
@@ -11659,18 +11672,58 @@ async function ofAgendarTodos(btn) {
     renderOficiosResumen();
     alert(fallas ? 'Se agendaron ' + (lista.length - fallas) + ' de ' + lista.length + ' avisos. Los que fallaron quedaron en la planilla: probá de nuevo en un rato.' : 'Listo: ' + lista.length + ' aviso' + (lista.length === 1 ? '' : 's') + ' en tu Google Calendar, con mail.');
 }
+// Fotos (una o varias) y PDFs se juntan en un solo PDF, que es lo que se acompaña al expediente.
+// Cada foto pasa por un canvas: así entran también HEIC/WEBP y se achica a 1800 px para que no pese.
+async function ofArmarPdf(archivos) {
+    if (typeof PDFLib === 'undefined') throw new Error('la librería de PDF todavía se está cargando, probá en unos segundos');
+    const doc = await PDFLib.PDFDocument.create();
+    for (const f of archivos) {
+        if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+            const otro = await PDFLib.PDFDocument.load(await f.arrayBuffer(), { ignoreEncryption: true });
+            (await doc.copyPages(otro, otro.getPageIndices())).forEach(p => doc.addPage(p));
+            continue;
+        }
+        const url = URL.createObjectURL(f);
+        try {
+            const img = await new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => mal(new Error('no se pudo leer la foto ' + f.name)); i.src = url; });
+            const esc = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+            const cv = document.createElement('canvas');
+            cv.width = Math.round(img.naturalWidth * esc); cv.height = Math.round(img.naturalHeight * esc);
+            const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+            const jpg = await doc.embedJpg(await (await fetch(cv.toDataURL('image/jpeg', 0.85))).arrayBuffer());
+            // Hoja A4 (vertical u horizontal según la foto), con la foto centrada y un margen.
+            const ancho = cv.width > cv.height ? 842 : 595, alto = cv.width > cv.height ? 595 : 842, m = 20;
+            const k = Math.min((ancho - 2 * m) / cv.width, (alto - 2 * m) / cv.height);
+            const pag = doc.addPage([ancho, alto]);
+            pag.drawImage(jpg, { x: (ancho - cv.width * k) / 2, y: (alto - cv.height * k) / 2, width: cv.width * k, height: cv.height * k });
+        } finally { URL.revokeObjectURL(url); }
+    }
+    return new Blob([await doc.save()], { type: 'application/pdf' });
+}
 function ofElegirArchivo(clientId, oid, tipo) {
+    const btn0 = document.querySelector('[data-of-subir="' + oid + '-' + tipo + '"]');
+    // El permiso de Google se pide ANTES de abrir el selector: después de elegir el archivo el
+    // navegador ya no deja abrir la ventanita y la subida quedaba en "Subiendo…" para siempre.
+    if (!(ofDriveToken && Date.now() < ofDriveVence - 300000)) {
+        if (btn0) { btn0.disabled = true; btn0.textContent = 'Pidiendo permiso a Google…'; }
+        ofPedirTokenDrive().then(() => {
+            if (btn0) { btn0.disabled = false; btn0.textContent = 'Listo: tocá acá para elegir el archivo'; btn0.classList.add('of-pri'); }
+        }, e => { alert('No se pudo conectar con Google Drive: ' + e.message); ofRefrescar(clientId); });
+        return;
+    }
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+    inp.type = 'file'; inp.accept = 'application/pdf,image/*'; inp.multiple = true;
     inp.onchange = async () => {
-        const f = inp.files && inp.files[0]; if (!f) return;
+        const fs = [...(inp.files || [])]; if (!fs.length) return;
         const client = clientsData.find(c => c.id === clientId); if (!client) return;
         const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
         const btn = document.querySelector('[data-of-subir="' + oid + '-' + tipo + '"]');
-        if (btn) { btn.disabled = true; btn.textContent = 'Subiendo…'; }
+        if (btn) { btn.disabled = true; btn.textContent = fs.length > 1 || !/pdf/i.test(fs[0].type) ? 'Armando el PDF…' : 'Subiendo…'; }
         try {
-            const ext = (f.name.match(/\.[a-z0-9]+$/i) || ['.pdf'])[0];
-            const nombre = 'Oficio ' + ofNombre(o).replace(/[\/\\?%*:|"<>]/g, '-') + ' - ' + tipo + ' - ' + ofHoy() + ext;
+            const unPdf = fs.length === 1 && (fs[0].type === 'application/pdf' || /\.pdf$/i.test(fs[0].name));
+            const f = unPdf ? fs[0] : await ofArmarPdf(fs);
+            if (btn) btn.textContent = 'Subiendo…';
+            const nombre = 'Oficio ' + ofNombre(o).replace(/[\/\\?%*:|"<>]/g, '-') + ' - ' + tipo + ' - ' + ofHoy() + '.pdf';
             const j = await ofDriveSubir(client, f, nombre);
             await ofGuardar(clientId, oid, x => { x.archivos = x.archivos || {}; x.archivos[tipo] = { id: j.id, nombre: j.name, link: j.webViewLink, el: ofHoy() }; });
         } catch (e) { alert('No se pudo subir el archivo: ' + e.message); ofRefrescar(clientId); }
