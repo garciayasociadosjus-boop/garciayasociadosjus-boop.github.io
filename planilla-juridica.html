@@ -11572,8 +11572,9 @@ function renderTabOficios(client) {
         // El último tramo: esperar la respuesta y pedir el reiteratorio si no llega.
         const reits = ofReits(o, 'reiteratorio');
         const final = '<div class="of-paso' + (o.respuesta ? ' hecho' : '') + '"><label class="of-tilde"><input type="checkbox"' + (o.respuesta ? ' checked' : '') + ' onchange="ofResponder(' + q(cid) + ',' + q(oid) + ') || ofRefrescar(' + q(cid) + ')"><span class="of-check">' + (o.respuesta ? '✓' : '') + '</span><span class="of-ptxt">' +
-            (o.respuesta ? 'Contestaron (' + ofFecha(o.respuesta.fecha) + '): ' + ofEsc(o.respuesta.texto) : 'Contestaron el oficio (por mail, en el expediente…)') + '</span></label>' +
-            (sug && sug.paso === 'respuesta' ? '<div class="of-sug">La MEV muestra «' + ofEsc(sug.texto) + '» del ' + ofFecha(sug.fecha) + '. <button type="button" class="of-mini" onclick="ofResponder(' + q(cid) + ',' + q(oid) + ')">Cargar la respuesta</button></div>' : '') + '</div>' +
+            (o.respuesta ? 'Contestaron: ' + ofEsc(o.respuesta.texto) : 'Contestaron el oficio (por mail, en el expediente…)') + '</span></label>' +
+            (o.respuesta ? '<input type="date" title="Cuándo contestaron" value="' + ofEsc(o.respuesta.fecha || '') + '" onchange="ofFechaRespuesta(' + q(cid) + ',' + q(oid) + ',this.value)">' : '') +
+            (sug && sug.paso === 'respuesta' ? '<div class="of-sug">La MEV muestra «' + ofEsc(sug.texto) + '» del ' + ofFecha(sug.fecha) + '. <button type="button" class="of-mini" onclick="ofResponder(' + q(cid) + ',' + q(oid) + ',\'' + sug.fecha + '\')">Cargar la respuesta</button></div>' : '') + '</div>' +
             (!o.respuesta ? '<div class="of-paso' + (reits.length ? ' hecho' : '') + '"><label class="of-tilde"><input type="checkbox"' + (a && a.clave === 'respuesta' && a.fecha <= ofHoy() ? '' : ' disabled') + ' onchange="this.checked=false;ofReiterar(' + q(cid) + ',' + q(oid) + ') || ofRefrescar(' + q(cid) + ')"><span class="of-check">' + (reits.length ? reits.length : '') + '</span><span class="of-ptxt">Pasaron ' + d.respuesta + ' días sin novedades: pedí el reiteratorio' +
                 (reits.length ? ' <span class="of-nota">(' + reits.map(r => ofFecha(r.fecha)).join(', ') + ')</span>' : '') + '</span></label></div>' : '');
         const otrosReclamos = (o.reiteraciones || []).filter(r => r.tipo !== 'reiteratorio').map(r => '<li>' + ofFecha(r.fecha) + ' — ' + ofEsc(r.texto || r.tipo) + (r.nota ? ' <i>(' + ofEsc(r.nota) + ')</i>' : '') + '</li>').join('');
@@ -11621,12 +11622,17 @@ function renderTabOficios(client) {
         '<button type="submit" class="of-btn of-pri">Agregar el oficio</button></form></div>';
 }
 
-function ofResponder(clientId, oid) {
+function ofResponder(clientId, oid, fecha) {
     const client = clientsData.find(c => c.id === clientId); if (!client) return;
     const o = (client.oficios || []).find(x => x.id === oid); if (!o) return;
     const txt = prompt('¿Qué contestó ' + ofNombre(o) + '? (por ejemplo: "sin fondos", "embargo trabado por $…")', (o.respuesta && o.respuesta.texto) || '');
     if (txt === null) return;
-    return ofGuardar(clientId, oid, x => { x.respuesta = txt.trim() ? { fecha: ofHoy(), texto: txt.trim() } : null; });
+    // La fecha: la que ya tenía, la que trae la MEV o hoy; se corrige en el casillero de al lado.
+    return ofGuardar(clientId, oid, x => { x.respuesta = txt.trim() ? { fecha: (x.respuesta && x.respuesta.fecha) || fecha || ofHoy(), texto: txt.trim() } : null; });
+}
+function ofFechaRespuesta(clientId, oid, valor) {
+    if (!valor) return;
+    return ofGuardar(clientId, oid, x => { if (x.respuesta) x.respuesta.fecha = valor; });
 }
 function ofArchivar(clientId, oid, archivar) {
     if (archivar && !confirm('¿Archivar este oficio? Deja de avisar (queda en la lista, se puede reactivar).')) return;
