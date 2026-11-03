@@ -11521,7 +11521,11 @@ function ofTildar(clientId, oid, paso, tildado, fecha) {
 }
 function ofCambiarPaso(clientId, oid, paso, valor) { return ofTildar(clientId, oid, paso, !!valor, valor); }
 function ofCambiarDato(clientId, oid, campo, valor) {
-    return ofGuardar(clientId, oid, o => { o[campo] = valor; });
+    return ofGuardar(clientId, oid, o => {
+        o[campo] = valor;
+        // El aviso lleva el nombre del destinatario: se rehace para que el vencimiento y el Calendar digan el nuevo.
+        if (campo === 'destinatario' && o.aviso) o.aviso.texto = '';
+    });
 }
 function ofCambiarDias(clientId, oid, clave, valor) {
     const n = Math.max(1, Math.min(365, parseInt(valor, 10) || OF_DIAS_DEF[clave]));
@@ -11593,6 +11597,8 @@ function renderTabOficios(client) {
             (otrosReclamos ? '<div class="of-sub">Reclamos</div><ul class="of-reits">' + otrosReclamos + '</ul>' : '') +
             '<details class="of-plazos"><summary>Plazos de los avisos (días)</summary>' + plazos + '</details>' +
             '<div class="of-fila-btn of-pie">' +
+            '<label class="of-plazo">A quién va: <input type="text" class="of-num" style="width:16em" placeholder="Destinatario" value="' + ofEsc(o.destinatario || '') + '" onchange="ofCambiarDato(' + q(cid) + ',' + q(oid) + ',\'destinatario\',this.value.trim())"></label>' +
+            '<label class="of-plazo">Para qué: <input type="text" class="of-num" style="width:16em" placeholder="Objeto (informe, retención…)" value="' + ofEsc(o.objeto || '') + '" onchange="ofCambiarDato(' + q(cid) + ',' + q(oid) + ',\'objeto\',this.value.trim())"></label>' +
             '<label class="of-plazo">Quién lo pidió: <select onchange="ofCambiarDato(' + q(cid) + ',' + q(oid) + ',\'origen\',this.value)"><option value="pedido"' + (origen === 'pedido' ? ' selected' : '') + '>lo pedí yo</option><option value="juzgado"' + (origen === 'juzgado' ? ' selected' : '') + '>lo ordenó el juzgado</option></select></label>' +
             '<label class="of-plazo">Cómo se diligencia: <select onchange="ofCambiarDato(' + q(cid) + ',' + q(oid) + ',\'via\',this.value)"><option value="gestoria"' + (via === 'gestoria' ? ' selected' : '') + '>con gestoría</option><option value="electronico"' + (via === 'electronico' ? ' selected' : '') + '>electrónico (va directo al organismo)</option></select></label>' +
             '<button type="button" class="of-mini" onclick="ofArchivar(' + q(cid) + ',' + q(oid) + ',' + (o.cerrado ? 'false' : 'true') + ')">' + (o.cerrado ? 'Reactivar' : 'Archivar') + '</button>' +
